@@ -1,0 +1,25 @@
+# 后端
+backend/config.yaml
+backend/autoops-server
+backend/autoops-server.exe
+backend/uploads/
+*.log
+
+# 前端
+frontend/node_modules/
+frontend/dist/
+
+# 测试
+.smoke/remote_fs/
+.smoke/__pycache__/
+.smoke/test_key
+.smoke/test_key.pub
+.smoke/fakessh.log
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 会话/编辑器产物
+.zcode/
+*.exe~

@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: autoops-pg
+    environment:
+      POSTGRES_USER: autoops
+      POSTGRES_PASSWORD: autoops123
+      POSTGRES_DB: autoops
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autoops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  autoops:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: autoops-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AUTOOPS_DSN: "host=postgres port=5432 user=autoops password=autoops123 dbname=autoops sslmode=disable"
+      AUTOOPS_JWT_SECRET: "change-me-to-a-long-random-string"
+      AUTOOPS_AES_KEY: "y0urBase64Encoded32BytesKeyGoesHere="
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  uploads:

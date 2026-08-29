@@ -1,0 +1,22 @@
+body {
+  margin: 0;
+  font-family: "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #f5f7fa;
+}
+#app { height: 100vh; }
+.mono {
+  font-family: Consolas, Monaco, "Courier New", monospace;
+}
+.log-box {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 480px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

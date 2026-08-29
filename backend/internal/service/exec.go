@@ -1,0 +1,269 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"strings"
+	"sync"
+	"time"
+
+	"autoops/internal/model"
+	"autoops/internal/sshpool"
+	"autoops/internal/ws"
+)
+
+const maxOutputSize = 512 * 1024 // 单主机输出上限 512KB
+
+// ExecRequest 批量执行请求
+type ExecRequest struct {
+	HostIDs     []uint `json:"host_ids"`
+	GroupID     *uint  `json:"group_id"`
+	Command     string `json:"command"`
+	ScriptID    *uint  `json:"script_id"`
+	ScriptArgs  string `json:"script_args"`
+	TimeoutSec  int    `json:"timeout_sec"`
+	Concurrency int    `json:"concurrency"`
+}
+
+// StartBatchExec 创建任务并并发执行命令/脚本；返回 task id（或拦截原因）
+func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, error) {
+	command := req.Command
+	if req.ScriptID != nil {
+		var sc model.Script
+		if err := model.DB.First(&sc, *req.ScriptID).Error; err != nil {
+			return 0, nil, fmt.Errorf("脚本不存在")
+		}
+		command = sc.Content
+		if strings.TrimSpace(req.ScriptArgs) != "" {
+			command += "\n" + req.ScriptArgs
+		}
+	}
+	if strings.TrimSpace(command) == "" {
+		return 0, nil, fmt.Errorf("命令不能为空")
+	}
+
+	// 危险命令拦截
+	if hits := CheckDanger(command); len(hits) > 0 {
+		return 0, hits, fmt.Errorf("危险命令已被拦截: %s", strings.Join(hits, "、"))
+	}
+
+	hosts, err := resolveHosts(operator, req.HostIDs, req.GroupID)
+	if err != nil {
+		return 0, nil, err
+	}
+	if len(hosts) == 0 {
+		return 0, nil, fmt.Errorf("未选择任何有权限的目标主机")
+	}
+
+	conc := req.Concurrency
+	if conc <= 0 {
+		conc = 10
+	}
+	timeout := req.TimeoutSec
+	if timeout <= 0 {
+		timeout = 300
+	}
+
+	params, _ := json.Marshal(map[string]any{
+		"command": command, "timeout_sec": timeout, "concurrency": conc,
+	})
+	task := model.Task{
+		Type:     model.TaskCommand,
+		Operator: operator.Username,
+		Params:   string(params),
+		Status:   "running",
+	}
+	if req.ScriptID != nil {
+		task.Type = model.TaskScript
+	}
+	if err := model.DB.Create(&task).Error; err != nil {
+		return 0, nil, err
+	}
+
+	// 初始化结果行
+	results := make([]model.TaskHostResult, 0, len(hosts))
+	for _, h := range hosts {
+		results = append(results, model.TaskHostResult{
+			TaskID: task.ID, HostID: h.ID, HostIP: h.IP, HostName: h.Name, Status: "pending",
+		})
+	}
+	if err := model.DB.Create(&results).Error; err != nil {
+		return 0, nil, err
+	}
+
+	go runTask(task.ID, command, results, conc, time.Duration(timeout)*time.Second)
+	return task.ID, nil, nil
+}
+
+// resolveHosts 根据主机 ID / 分组解析目标主机并做权限过滤
+func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint) ([]model.Host, error) {
+	var hosts []model.Host
+	if len(hostIDs) > 0 {
+		if err := model.DB.Preload("Group").Where("id IN ?", hostIDs).Find(&hosts).Error; err != nil {
+			return nil, err
+		}
+	} else if groupID != nil {
+		if err := model.DB.Preload("Group").Where("group_id = ?", *groupID).Find(&hosts).Error; err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("请选择目标主机或分组")
+	}
+	// 数据级权限过滤
+	allowed := hosts[:0]
+	for _, h := range hosts {
+		if userCanExecHost(operator, h.GroupID) {
+			allowed = append(allowed, h)
+		}
+	}
+	return allowed, nil
+}
+
+func userCanExecHost(user *model.User, groupID *uint) bool {
+	if user.IsAdmin() {
+		return true
+	}
+	if user.Role != model.RoleOps && user.Role != model.RolePublisher {
+		return false
+	}
+	if groupID == nil {
+		return false
+	}
+	var cnt int64
+	model.DB.Model(&model.UserHostGroup{}).
+		Where("user_id = ? AND group_id = ? AND can_exec = ?", user.ID, *groupID, true).
+		Count(&cnt)
+	return cnt > 0
+}
+
+// runTask 并发执行任务，实时推送输出
+func runTask(taskID uint, command string, results []model.TaskHostResult, concurrency int, timeout time.Duration) {
+	sem := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	remain := len(results)
+
+	pushTaskStatus := func() {
+		mu.Lock()
+		remain--
+		left := remain
+		mu.Unlock()
+		if left == 0 {
+			finished := time.Now()
+			status := "done"
+			var failCnt int64
+			model.DB.Model(&model.TaskHostResult{}).Where("task_id = ? AND status = ?", taskID, "failed").Count(&failCnt)
+			if failCnt > 0 {
+				status = "failed"
+			}
+			model.DB.Model(&model.Task{}).Where("id = ?", taskID).
+				Updates(map[string]any{"status": status, "finished_at": finished})
+			ws.H.Broadcast(taskTopic(taskID), map[string]any{"type": "task_done", "status": status})
+		}
+	}
+
+	for i := range results {
+		wg.Add(1)
+		go func(res model.TaskHostResult) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			host := model.Host{ID: res.HostID, IP: res.HostIP, Name: res.HostName}
+			model.DB.First(&host, res.HostID)
+
+			model.DB.Model(&res).Update("status", "running")
+			ws.H.Broadcast(taskTopic(taskID), map[string]any{
+				"type": "status", "result_id": res.ID, "host_id": res.HostID, "status": "running",
+			})
+
+			cli, err := sshpool.ClientFor(&host)
+			if err != nil {
+				finishResult(res.ID, -1, "连接失败: "+err.Error(), "failed")
+				pushTaskStatus()
+				return
+			}
+			defer cli.Close()
+
+			var buf strings.Builder
+			var wmu sync.Mutex
+			onOut := func(chunk string) {
+				wmu.Lock()
+				if buf.Len() < maxOutputSize {
+					buf.WriteString(chunk)
+				}
+				wmu.Unlock()
+				ws.H.Broadcast(taskTopic(taskID), map[string]any{
+					"type": "output", "result_id": res.ID, "host_id": res.HostID, "text": chunk,
+				})
+			}
+
+			code, err := sshpool.RunCommand(context.Background(), cli, command, timeout, onOut)
+			status := "success"
+			out := buf.String()
+			if err != nil {
+				out += "\n[错误] " + err.Error()
+				status = "failed"
+				if code == 0 {
+					code = -1
+				}
+			} else if code != 0 {
+				status = "failed"
+			}
+			finishResult(res.ID, code, out, status)
+			pushTaskStatus()
+		}(results[i])
+	}
+	wg.Wait()
+}
+
+func finishResult(id uint, code int, out, status string) {
+	model.DB.Model(&model.TaskHostResult{}).Where("id = ?", id).
+		Updates(map[string]any{
+			"exit_code": code, "output": out, "status": status, "finished_at": time.Now(),
+		})
+	ws.H.Broadcast("results", map[string]any{"result_id": id, "status": status})
+}
+
+func taskTopic(taskID uint) string { return fmt.Sprintf("task-%d", taskID) }
+
+// ProbeHosts 并发探测主机连通性并更新状态
+func ProbeHosts(hostIDs []uint) int {
+	var hosts []model.Host
+	q := model.DB
+	if len(hostIDs) > 0 {
+		q = q.Where("id IN ?", hostIDs)
+	}
+	if err := q.Find(&hosts).Error; err != nil {
+		return 0
+	}
+	sem := make(chan struct{}, 50)
+	var wg sync.WaitGroup
+	online := 0
+	var mu sync.Mutex
+	for _, h := range hosts {
+		wg.Add(1)
+		go func(h model.Host) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			status := "offline"
+			if err := sshpool.Probe(h.IP, h.Port, 5*time.Second); err == nil {
+				status = "online"
+				mu.Lock()
+				online++
+				mu.Unlock()
+			}
+			model.DB.Model(&model.Host{}).Where("id = ?", h.ID).
+				Updates(map[string]any{"status": status, "last_seen": time.Now()})
+		}(h)
+	}
+	wg.Wait()
+	return online
+}
+
+func init() {
+	log.SetFlags(log.LstdFlags)
+}

@@ -1,0 +1,339 @@
+package handler
+
+import (
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+
+	"autoops/internal/model"
+	"autoops/internal/pkg"
+	"autoops/internal/service"
+)
+
+// ---- 主机分组 ----
+
+func ListGroups(c *gin.Context) {
+	var groups []model.HostGroup
+	model.DB.Find(&groups)
+	// 附带每组主机数量
+	type groupCnt struct {
+		GroupID *uint `json:"group_id"`
+		Cnt     int64 `json:"cnt"`
+	}
+	var cnts []groupCnt
+	model.DB.Model(&model.Host{}).Select("group_id, count(*) as cnt").
+		Where("group_id IS NOT NULL").Group("group_id").Scan(&cnts)
+	m := map[uint]int64{}
+	for _, x := range cnts {
+		if x.GroupID != nil {
+			m[*x.GroupID] = x.Cnt
+		}
+	}
+	out := make([]gin.H, 0, len(groups))
+	for _, g := range groups {
+		out = append(out, gin.H{
+			"id": g.ID, "name": g.Name, "description": g.Description,
+			"host_count": m[g.ID], "created_at": g.CreatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+func CreateGroup(c *gin.Context) {
+	var g model.HostGroup
+	if err := c.ShouldBindJSON(&g); err != nil || g.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "分组名不能为空"})
+		return
+	}
+	if err := model.DB.Create(&g).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "分组名已存在"})
+		return
+	}
+	c.JSON(http.StatusOK, g)
+}
+
+func UpdateGroup(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var g model.HostGroup
+	if err := model.DB.First(&g, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "分组不存在"})
+		return
+	}
+	var req model.HostGroup
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	model.DB.Model(&g).Updates(map[string]any{"name": req.Name, "description": req.Description})
+	c.JSON(http.StatusOK, g)
+}
+
+func DeleteGroup(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var cnt int64
+	model.DB.Model(&model.Host{}).Where("group_id = ?", id).Count(&cnt)
+	if cnt > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("分组下还有 %d 台主机，请先移出", cnt)})
+		return
+	}
+	model.DB.Delete(&model.HostGroup{}, id)
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// ---- 主机 ----
+
+func ListHosts(c *gin.Context) {
+	var hosts []model.Host
+	q := model.DB.Preload("Group").Preload("SSHKey")
+	if gid := c.Query("group_id"); gid != "" {
+		q = q.Where("group_id = ?", gid)
+	}
+	if kw := c.Query("keyword"); kw != "" {
+		like := "%" + kw + "%"
+		q = q.Where("name ILIKE ? OR ip ILIKE ?", like, like)
+	}
+	q.Order("id").Find(&hosts)
+	c.JSON(http.StatusOK, hosts)
+}
+
+type hostReq struct {
+	Name     string `json:"name"`
+	IP       string `json:"ip" binding:"required"`
+	Port     int    `json:"port"`
+	Username string `json:"username" binding:"required"`
+	AuthType string `json:"auth_type"`
+	SSHKeyID *uint  `json:"ssh_key_id"`
+	Password string `json:"password"`
+	GroupID  *uint  `json:"group_id"`
+}
+
+func (r *hostReq) toHost(h *model.Host) error {
+	h.Name = r.Name
+	if h.Name == "" {
+		h.Name = r.IP
+	}
+	h.IP = r.IP
+	if r.Port == 0 {
+		r.Port = 22
+	}
+	h.Port = r.Port
+	h.Username = r.Username
+	h.AuthType = r.AuthType
+	if h.AuthType == "" {
+		h.AuthType = "key"
+	}
+	h.SSHKeyID = r.SSHKeyID
+	h.GroupID = r.GroupID
+	if r.Password != "" {
+		enc, err := pkg.Encrypt(r.Password)
+		if err != nil {
+			return err
+		}
+		h.Password = enc
+	}
+	return nil
+}
+
+func CreateHost(c *gin.Context) {
+	var req hostReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（IP、用户名必填）"})
+		return
+	}
+	var h model.Host
+	if err := req.toHost(&h); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if err := model.DB.Create(&h).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "创建失败"})
+		return
+	}
+	c.JSON(http.StatusOK, h)
+}
+
+func UpdateHost(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var h model.Host
+	if err := model.DB.First(&h, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "主机不存在"})
+		return
+	}
+	var req hostReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if err := req.toHost(&h); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Save(&h)
+	c.JSON(http.StatusOK, h)
+}
+
+func DeleteHost(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	model.DB.Delete(&model.Host{}, id)
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// ImportHosts 批量导入：每行 ip,port,username,分组名（分组不存在自动创建）
+func ImportHosts(c *gin.Context) {
+	var req struct {
+		Content   string `json:"content" binding:"required"`
+		SSHKeyID  *uint  `json:"ssh_key_id"`
+		AuthType  string `json:"auth_type"`
+		Username  string `json:"username"` // 可作为默认用户名
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if req.AuthType == "" {
+		req.AuthType = "key"
+	}
+	if req.Username == "" {
+		req.Username = "root"
+	}
+
+	var created, skipped int
+	var errors []string
+	for _, line := range strings.Split(req.Content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.Split(line, ",")
+		ip := strings.TrimSpace(parts[0])
+		if ip == "" {
+			continue
+		}
+		port := 22
+		username := req.Username
+		groupName := ""
+		for i, p := range parts[1:] {
+			p = strings.TrimSpace(p)
+			switch i {
+			case 0:
+				if v, err := strconv.Atoi(p); err == nil {
+					port = v
+				} else if p != "" {
+					groupName = p
+				}
+			case 1:
+				if p != "" {
+					username = p
+				}
+			case 2:
+				groupName = p
+			}
+		}
+		var cnt int64
+		model.DB.Model(&model.Host{}).Where("ip = ? AND port = ?", ip, port).Count(&cnt)
+		if cnt > 0 {
+			skipped++
+			continue
+		}
+		var groupID *uint
+		if groupName != "" {
+			var g model.HostGroup
+			if err := model.DB.Where("name = ?", groupName).First(&g).Error; err != nil {
+				g = model.HostGroup{Name: groupName}
+				if err := model.DB.Create(&g).Error; err != nil {
+					errors = append(errors, fmt.Sprintf("%s: 创建分组失败", ip))
+					continue
+				}
+			}
+			groupID = &g.ID
+		}
+		h := model.Host{Name: ip, IP: ip, Port: port, Username: username,
+			AuthType: req.AuthType, SSHKeyID: req.SSHKeyID, GroupID: groupID, Status: "unknown"}
+		if err := model.DB.Create(&h).Error; err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", ip, err))
+			continue
+		}
+		created++
+	}
+	c.JSON(http.StatusOK, gin.H{"created": created, "skipped": skipped, "errors": errors})
+}
+
+// ProbeHostsHandler 并发探测
+func ProbeHostsHandler(c *gin.Context) {
+	var req struct {
+		HostIDs []uint `json:"host_ids"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	online := service.ProbeHosts(req.HostIDs)
+	c.JSON(http.StatusOK, gin.H{"online": online})
+}
+
+// ---- SSH 密钥 ----
+
+func ListKeys(c *gin.Context) {
+	var keys []model.SSHKey
+	model.DB.Select("id, name, public_key, created_at").Find(&keys)
+	c.JSON(http.StatusOK, keys)
+}
+
+func CreateKey(c *gin.Context) {
+	var req struct {
+		Name       string `json:"name" binding:"required"`
+		PublicKey  string `json:"public_key"`
+		PrivateKey string `json:"private_key" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "私钥内容必填"})
+		return
+	}
+	enc, err := pkg.Encrypt(req.PrivateKey)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "加密失败: " + err.Error()})
+		return
+	}
+	k := model.SSHKey{Name: req.Name, PublicKey: strings.TrimSpace(req.PublicKey), PrivateKey: enc}
+	if err := model.DB.Create(&k).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "密钥名已存在"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": k.ID, "name": k.Name})
+}
+
+func DeleteKey(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var cnt int64
+	model.DB.Model(&model.Host{}).Where("ssh_key_id = ?", id).Count(&cnt)
+	if cnt > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("有 %d 台主机正在使用该密钥", cnt)})
+		return
+	}
+	model.DB.Delete(&model.SSHKey{}, id)
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// ---- 任务查询 ----
+
+func ListTasks(c *gin.Context) {
+	var tasks []model.Task
+	q := model.DB
+	if t := c.Query("type"); t != "" {
+		q = q.Where("type = ?", t)
+	}
+	q.Order("id DESC").Limit(100).Find(&tasks)
+	c.JSON(http.StatusOK, tasks)
+}
+
+func GetTask(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var task model.Task
+	if err := model.DB.First(&task, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "任务不存在"})
+		return
+	}
+	var results []model.TaskHostResult
+	model.DB.Where("task_id = ?", id).Order("id").Find(&results)
+	c.JSON(http.StatusOK, gin.H{"task": task, "results": results})
+}
