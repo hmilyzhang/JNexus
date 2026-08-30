@@ -5,6 +5,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -209,10 +210,11 @@ func createDefaultCred(hostID uint, username, authType string, sshKeyID *uint, e
 	})
 }
 
-// ImportHosts 批量导入：每行 ip,port,username,分组名
-// 兼容旧格式：4 段时第 4 段为分组；5 段时第 3 段为该行独立密码、第 4 段为分组
+// ImportHosts 批量导入：每行 名称,IP,端口,用户名,分组名（推荐，名称必填）
+// 兼容旧格式：首列为 IP 时按 旧格式 解析（ip,port,username[,password],group），名称默认取 IP
 // 页面级统一密码放在请求字段中（不写入 CSV，JSON 传输不经 shell 转义），
 // 提供 password（统一或行内）且开启 auto_pair 时：自动生成密钥对并推送公钥，成功后切换密钥认证
+var ipv4Re = regexp.MustCompile(`^\d{1,3}(\.\d{1,3}){3}$`)
 func ImportHosts(c *gin.Context) {
 	var req struct {
 		Content   string `json:"content" binding:"required"`
@@ -258,9 +260,22 @@ func ImportHosts(c *gin.Context) {
 			continue
 		}
 		parts := strings.Split(line, ",")
+		// 首列不是 IPv4 → 新格式：名称,IP,...
+		hostName := ""
+		if len(parts) >= 2 && !ipv4Re.MatchString(strings.TrimSpace(parts[0])) {
+			hostName = strings.TrimSpace(parts[0])
+			parts = parts[1:]
+			if hostName == "" {
+				errors = append(errors, "存在空名称行，请填写主机名称")
+				continue
+			}
+		}
 		ip := strings.TrimSpace(parts[0])
 		if ip == "" {
 			continue
+		}
+		if hostName == "" {
+			hostName = ip // 旧格式回退
 		}
 		port := 22
 		username := req.Username
@@ -320,7 +335,7 @@ func ImportHosts(c *gin.Context) {
 			effectivePassword = req.Password
 		}
 
-		h := model.Host{Name: ip, IP: ip, Port: port, Username: username,
+		h := model.Host{Name: hostName, IP: ip, Port: port, Username: username,
 			AuthType: req.AuthType, SSHKeyID: req.SSHKeyID, GroupID: groupID, Status: "unknown"}
 
 		// 密码 + 自动配对：先按密码建主机，推送公钥成功后切换为密钥认证

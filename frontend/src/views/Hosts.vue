@@ -356,7 +356,7 @@ const setDefaultCred = async row => {
 }
 
 const saveHost = async () => {
-  if (!hostForm.value.ip || !hostForm.value.username) { ElMessage.warning(t('hosts.needIpUser')); return }
+  if (!hostForm.value.name || !hostForm.value.ip || !hostForm.value.username) { ElMessage.warning(t('hosts.needNameIpUser')); return }
   if (hostForm.value.auth_type === 'key' && !hostForm.value.ssh_key_id) { ElMessage.warning(t('hosts.needKey')); return }
   if (hostForm.value.id) {
     await api.put(`/hosts/${hostForm.value.id}`, hostForm.value)
