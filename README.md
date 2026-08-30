@@ -19,7 +19,7 @@ Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 | File Distribution | Upload → concurrent SFTP to many hosts (tree/IP selection), live progress |
 | Scripts | CRUD + one-click batch execution |
 | Release Center | App → host bindings (with release OS account); pipeline: stop → timestamped backup → upload → start → health check; one-click rollback to latest backup |
-| Users | Two tabs: Users + Group Management. Roles: admin / ops / publisher / viewer / **auditor**; user groups link members, hosts, host groups, **OS accounts** and **account rules** (`host scope × username`, auto-covers future hosts) |
+| Users | Two tabs: Users + Group Management. Roles: admin / ops / publisher / viewer / **auditor**; user groups link members, hosts, host groups, **OS accounts** and **account rules** (`host scope × username`, auto-covers future hosts). User rows carry audit fields: creator, last modified by/at, disabled at/by |
 | Web Shell | Full-screen terminal workspace: host asset tree expanded by usable OS account, multiple concurrent sessions, per-account connections |
 | Audit Log | All write operations recorded (who / action / resource / source IP / status), full output retention in tasks; visible to admin & auditor only |
 | Dangerous Commands | Regex rule library (rm -rf, mkfs, dd, shutdown, drop database… 11 built-in), blocks at exec/script/release entry points and writes audit; editable & testable by admin |
