@@ -17,6 +17,7 @@ var editableConfigKeys = []string{
 	"ldap_enabled", "ldap_host", "ldap_port", "ldap_tls",
 	"ldap_bind_dn", "ldap_bind_password", "ldap_base_dn",
 	"ldap_user_filter", "ldap_attr_username", "ldap_default_role",
+	"ldap_group_check", "ldap_group_base_dn", "ldap_group_filter", "ldap_required_groups",
 }
 
 // GetSystemConfig 读取系统配置（admin），密码字段打码

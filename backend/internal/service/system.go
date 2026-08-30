@@ -48,6 +48,10 @@ type LDAPSettings struct {
 	UserFilter    string
 	AttrUsername  string
 	DefaultRole   string
+	GroupCheck    bool     // 启用用户组校验
+	GroupBaseDN   string   // 用户组搜索 Base DN
+	GroupFilter   string   // 组过滤器，%s 替换为用户 DN
+	RequiredGroups []string // 允许登录的用户组 DN/CN 列表
 }
 
 func LoadLDAPSettings() LDAPSettings {
@@ -75,6 +79,17 @@ func LoadLDAPSettings() LDAPSettings {
 	fmt.Sscanf(m["ldap_port"], "%d", &s.Port)
 	if s.Port == 0 {
 		s.Port = 389
+	}
+	s.GroupCheck = m["ldap_group_check"] == "true"
+	s.GroupBaseDN = m["ldap_group_base_dn"]
+	s.GroupFilter = m["ldap_group_filter"]
+	if s.GroupFilter == "" {
+		s.GroupFilter = "(member=%s)"
+	}
+	for _, g := range strings.FieldsFunc(m["ldap_required_groups"], func(r rune) bool { return r == 10 || r == 13 || r == 59 }) {
+		if g = strings.TrimSpace(g); g != "" {
+			s.RequiredGroups = append(s.RequiredGroups, g)
+		}
 	}
 	return s
 }
@@ -118,8 +133,44 @@ func LDAPLogin(s LDAPSettings, username, password string) (dn, email string, err
 	if err := conn.Bind(entry.DN, password); err != nil {
 		return "", "", fmt.Errorf("LDAP 密码验证失败")
 	}
+	// 用户组校验：必须属于允许登录的用户组之一
+	if s.GroupCheck {
+		if err := checkLDAPGroup(s, conn, entry.DN); err != nil {
+			return "", "", err
+		}
+	}
 	email = entry.GetAttributeValue("mail")
 	return entry.DN, email, nil
+}
+
+// ErrLDAPGroupDenied 用户不在允许登录的 LDAP 用户组中
+var ErrLDAPGroupDenied = fmt.Errorf("该账号不属于允许登录的 LDAP 用户组")
+
+// checkLDAPGroup 在组 Base DN 下用过滤器搜索用户的组，命中 RequiredGroups 之一（按 DN 或 CN 比对）才放行
+func checkLDAPGroup(s LDAPSettings, conn *goldap.Conn, userDN string) error {
+	if len(s.RequiredGroups) == 0 {
+		return nil // 未配置允许组则不限制
+	}
+	filter := strings.ReplaceAll(s.GroupFilter, "%s", goldap.EscapeFilter(userDN))
+	search := goldap.NewSearchRequest(
+		s.GroupBaseDN, goldap.ScopeWholeSubtree, goldap.NeverDerefAliases, 0, 0, false,
+		filter, []string{"cn", "dn"}, nil,
+	)
+	res, err := conn.Search(search)
+	if err != nil {
+		return fmt.Errorf("LDAP 用户组搜索失败: %w", err)
+	}
+	for _, e := range res.Entries {
+		dn := strings.ToLower(e.DN)
+		cn := strings.ToLower(e.GetAttributeValue("cn"))
+		for _, req := range s.RequiredGroups {
+			r := strings.ToLower(strings.TrimSpace(req))
+			if dn == r || cn == r || strings.HasSuffix(dn, ","+r) {
+				return nil // 命中允许组
+			}
+		}
+	}
+	return ErrLDAPGroupDenied
 }
 
 // TestLDAP 管理员测试 LDAP 连通性

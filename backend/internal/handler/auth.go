@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -43,6 +44,10 @@ func Login(c *gin.Context) {
 		// LDAP 认证（用户不存在或为 LDAP 账号时）
 		ldapUser, ldapErr := tryLDAPLogin(req.Username, req.Password, err != nil)
 		if ldapErr != nil {
+			if errors.Is(ldapErr, service.ErrLDAPGroupDenied) {
+				c.JSON(http.StatusForbidden, gin.H{"error": ldapErr.Error()})
+				return
+			}
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
 			return
 		}

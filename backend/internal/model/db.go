@@ -49,6 +49,10 @@ func SeedConfig() error {
 		"ldap_user_filter":  "(uid=%s)",
 		"ldap_attr_username": "uid",
 		"ldap_default_role":  string(RoleViewer),
+		"ldap_group_check":   "false",
+		"ldap_group_base_dn": "",
+		"ldap_group_filter":  "(member=%s)",
+		"ldap_required_groups": "",
 	}
 	for k, v := range defaults {
 		var cnt int64

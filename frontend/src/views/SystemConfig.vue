@@ -45,6 +45,25 @@
               <el-option :label="$t('layout.rolePublisher')" value="publisher" />
             </el-select>
           </el-form-item>
+          <el-divider style="margin:8px 0 16px" />
+          <el-form-item :label="$t('system.ldapGroupCheck')">
+            <el-switch v-model="form.ldap_group_check" active-value="true" inactive-value="false" />
+            <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('system.ldapGroupCheckTip') }}</div>
+          </el-form-item>
+          <template v-if="form.ldap_group_check === 'true'">
+            <el-form-item :label="$t('system.ldapGroupBaseDn')">
+              <el-input v-model="form.ldap_group_base_dn" placeholder="ou=groups,dc=example,dc=com" style="width:420px" class="mono" />
+            </el-form-item>
+            <el-form-item :label="$t('system.ldapGroupFilter')">
+              <el-input v-model="form.ldap_group_filter" placeholder="(member=%s)" style="width:320px" class="mono" />
+              <div style="color:#909399; font-size:12px">{{ $t('system.ldapGroupFilterTip') }}</div>
+            </el-form-item>
+            <el-form-item :label="$t('system.ldapRequiredGroups')">
+              <el-input v-model="form.ldap_required_groups" type="textarea" :rows="3" class="mono"
+                        placeholder="cn=ops,ou=groups,dc=example,dc=com&#10;ops-admin" />
+              <div style="color:#909399; font-size:12px">{{ $t('system.ldapRequiredGroupsTip') }}</div>
+            </el-form-item>
+          </template>
           <el-form-item>
             <el-button @click="testLdap" :loading="testing">{{ $t('system.testConn') }}</el-button>
           </el-form-item>
@@ -80,7 +99,8 @@ const testing = ref(false)
 const form = reactive({
   system_name: '', ldap_enabled: 'false', ldap_host: '', ldap_port: '389', ldap_tls: 'false',
   ldap_bind_dn: '', ldap_bind_password: '', ldap_base_dn: '', ldap_user_filter: '(uid=%s)',
-  ldap_attr_username: 'uid', ldap_default_role: 'viewer'
+  ldap_attr_username: 'uid', ldap_default_role: 'viewer',
+  ldap_group_check: 'false', ldap_group_base_dn: '', ldap_group_filter: '(member=%s)', ldap_required_groups: ''
 })
 const ldapPort = ref(389)
 
