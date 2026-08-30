@@ -55,6 +55,7 @@ export default {
     roleOps: 'Ops',
     rolePublisher: 'Publisher',
     roleAuditor: 'Auditor',
+    roleAuditor: 'View tasks and audit logs',
     roleViewer: 'Viewer',
     byline: 'By JJ Zhang Version 1.0'
   },
@@ -316,7 +317,7 @@ export default {
     linkedHosts: 'Linked hosts',
     linkedGroups: 'Linked host groups',
     grant: 'Grants',
-    roleDesc: 'Roles: Admin = everything; Ops = hosts/exec/files/scripts/releases; Publisher = exec/release (grants required); Viewer = read-only.\n"Grants" control which host groups a user can execute on and which apps they can release.',
+    roleDesc: 'Roles: Admin = everything; Ops = hosts/exec/files/scripts/releases; Publisher = exec/release (grants required); Viewer = read-only; Auditor = view tasks & audit logs.\n"Grants" control which host groups a user can execute on and which apps they can release.',
     execGroups: 'Executable host groups',
     canExec: 'Can exec',
     canDeploy: 'Can deploy',
@@ -391,6 +392,7 @@ export default {
     roleAdmin: 'Full access incl. users & system',
     roleOps: 'Hosts, exec, files, scripts, releases',
     rolePublisher: 'Exec & release (grants required)',
+    roleAuditor: 'View tasks and audit logs',
     roleViewer: 'Read-only'
   }
 }

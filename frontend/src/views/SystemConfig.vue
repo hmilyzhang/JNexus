@@ -1,7 +1,9 @@
 <!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <div v-loading="loading" style="max-width:860px">
-    <el-card :header="$t('system.general')">
+    <el-tabs v-model="activeTab">
+    <el-tab-pane :label="$t('system.general')" name="general">
+    <el-card>
       <el-form label-width="140px">
         <el-form-item :label="$t('system.systemName')">
           <el-input v-model="form.system_name" style="width:320px" />
@@ -11,9 +13,12 @@
           <el-tag type="info" style="margin-left:8px">By JJ Zhang</el-tag>
         </el-form-item>
       </el-form>
+      <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
     </el-card>
+    </el-tab-pane>
 
-    <el-card :header="$t('system.ldap')" style="margin-top:16px">
+    <el-tab-pane :label="$t('system.ldap')" name="ldap">
+    <el-card>
       <el-form label-width="140px">
         <el-form-item :label="$t('system.ldapEnabled')"><el-switch v-model="form.ldap_enabled" active-value="true" inactive-value="false" /></el-form-item>
         <template v-if="form.ldap_enabled === 'true'">
@@ -70,8 +75,13 @@
         </template>
       </el-form>
     </el-card>
+    <div style="margin-top:12px">
+      <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+    </div>
+    </el-tab-pane>
 
-    <el-card :header="$t('system.roles')" style="margin-top:16px">
+    <el-tab-pane :label="$t('system.roles')" name="roles">
+    <el-card>
       <el-table :data="roleRows" size="small" border>
         <el-table-column :label="$t('users.role')" width="140">
           <template #default="{ row }"><el-tag size="small">{{ row.label }}</el-tag></template>
@@ -79,10 +89,8 @@
         <el-table-column prop="desc" />
       </el-table>
     </el-card>
-
-    <div style="margin-top:16px">
-      <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
-    </div>
+    </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
@@ -93,6 +101,7 @@ import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
 
 const { t } = i18n.global
+const activeTab = ref('general')
 const loading = ref(true)
 const saving = ref(false)
 const testing = ref(false)
@@ -108,7 +117,8 @@ const roleRows = computed(() => [
   { label: 'Admin', desc: t('system.roleAdmin') },
   { label: 'Ops', desc: t('system.roleOps') },
   { label: 'Publisher', desc: t('system.rolePublisher') },
-  { label: 'Viewer', desc: t('system.roleViewer') }
+  { label: 'Viewer', desc: t('system.roleViewer') },
+  { label: 'Auditor', desc: t('system.roleAuditor') }
 ])
 
 onMounted(async () => {

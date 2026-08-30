@@ -55,6 +55,7 @@ export default {
     roleOps: '运维',
     rolePublisher: '发布员',
     roleAuditor: '审计员',
+    roleAuditor: '执行记录与审计日志查看',
     roleViewer: '只读',
     byline: 'By JJ Zhang Version 1.0'
   },
@@ -316,7 +317,7 @@ export default {
     linkedHosts: '关联主机',
     linkedGroups: '关联主机分组',
     grant: '授权',
-    roleDesc: '角色说明：管理员=全部权限；运维=主机/执行/文件/脚本/发布；发布员=执行/发布（需授权）；只读=仅查看。\n「授权」控制用户可执行的主机分组与可发布的应用。',
+    roleDesc: '角色说明：管理员=全部权限；运维=主机/执行/文件/脚本/发布；发布员=执行/发布（需授权）；只读=仅查看；审计员=执行记录与审计日志查看。\n「授权」控制用户可执行的主机分组与可发布的应用。',
     execGroups: '可执行的主机分组',
     canExec: '可执行',
     canDeploy: '可部署',
@@ -391,6 +392,7 @@ export default {
     roleAdmin: '全部权限，含用户/系统管理',
     roleOps: '主机、执行、文件、脚本、发布',
     rolePublisher: '执行与发布（需数据授权）',
+    roleAuditor: '执行记录与审计日志查看',
     roleViewer: '只读查看'
   }
 }
