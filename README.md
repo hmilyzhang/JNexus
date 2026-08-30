@@ -23,6 +23,7 @@ Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 | Web Shell | Full-screen terminal workspace: host asset tree expanded by usable OS account, multiple concurrent sessions, per-account connections |
 | Audit Log | All write operations recorded (who / action / resource / source IP / status), full output retention in tasks; visible to admin & auditor only |
 | Dangerous Commands | Regex rule library (rm -rf, mkfs, dd, shutdown, drop database… 11 built-in), blocks at exec/script/release entry points and writes audit; editable & testable by admin |
+| Email (SMTP) | SMTP settings (SSL / STARTTLS, auth, masked password), test send; task-completion notification emails with success/fail counts and per-host result table (failed tasks include output snippets) |
 | System Settings | Tabs: General (system name), LDAP auth (server, group-membership check, connection test), Role Settings (editable description / menu visibility / host permissions view-create-edit-delete per role) |
 | i18n | Chinese / English switcher (top right) |
 
@@ -95,6 +96,7 @@ Env precedence: `AUTOOPS_DSN` > `AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME` > `con
 5. **Release**: configure an app (hosts + deploy dir + jar name + optional commands/health URL/release account) in Applications, then upload the jar in Release Center. Failed releases roll back to the latest backup with one click.
 6. **Roles**: System Settings → Role Settings controls each role's description, visible menus, and host permissions (view/create/edit/delete). Admin is always full.
 7. **LDAP**: enable in System Settings, optionally require group membership (`Group Base DN` + filter + allowed groups). LDAP users are auto-created on first login with the configured default role.
+8. **Email notifications**: configure SMTP in System Settings (with a one-click test send). When enabled, exec / distribute / release / batch-account tasks send a result summary email to the recipients on completion — failed hosts with output snippets are highlighted.
 
 ## Security Design
 
@@ -110,7 +112,7 @@ Env precedence: `AUTOOPS_DSN` > `AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME` > `con
 backend/     Go backend (cmd/server entry, internal/ layered)
 frontend/    Vue3 SPA (src/views per module, src/i18n zh-CN/en-US)
 deploy/      docker-compose.yml (bundled DB) + docker-compose.external.yml + Dockerfile
-.smoke/      Local test stubs: fake SSH/SFTP server, fake LDAP server
+.smoke/      Local test stubs: fake SSH/SFTP server, fake LDAP server, fake SMTP server
 ```
 
 ## Known Limitations (MVP)

@@ -25,6 +25,7 @@
 | Web 终端 | 全屏终端工作台：资产树按可用 OS 账号展开叶子、多终端会话并存、按账号连接 |
 | 审计日志 | 所有写操作留痕（人 / 动作 / 资源 / 来源 IP / 状态码），任务完整输出可回溯；仅管理员与审计员可见 |
 | 危险命令拦截 | 正则规则库（rm -rf、mkfs、dd、shutdown、drop database 等 11 条内置），在执行/脚本/发布入口阻断并写审计；管理员可维护、可测试 |
+| 邮件 SMTP | SMTP 配置（SSL / STARTTLS、认证、密码打码）、测试发送；任务完成后自动发送结果摘要邮件（成功/失败计数 + 逐主机结果表，失败附输出片段） |
 | 系统配置 | 标签页：基础设置（系统名称）、LDAP 认证（服务器、用户组校验、连接测试）、角色设置（每个角色的描述 / 可见菜单 / 主机权限 查看-新建-编辑-删除） |
 | 多语言 | 中文 / English 一键切换（右上角） |
 
@@ -106,6 +107,8 @@ docker compose -f docker-compose.external.yml up -d --build
    Admin 角色恒为全部权限。
 7. **LDAP**：系统配置中启用，可选强制用户组校验（组 Base DN + 过滤器 + 允许组）；
    LDAP 用户首次登录自动建号，角色取系统配置的默认角色。
+8. **邮件通知**：系统配置中填 SMTP 信息（可一键测试发送）。开启后，批量执行/文件分发/发布/
+   批量账号任务结束自动向收件人发送结果摘要邮件，失败主机附输出片段高亮提示。
 
 ## 安全设计
 
@@ -121,7 +124,7 @@ docker compose -f docker-compose.external.yml up -d --build
 backend/     Go 后端（cmd/server 入口，internal/ 分层）
 frontend/    Vue3 前端（src/views 按模块分页面，src/i18n 中英文案）
 deploy/      docker-compose.yml（捆绑库）+ docker-compose.external.yml（外部库）+ Dockerfile
-.smoke/      本地联调测试桩：假 SSH/SFTP 服务端、假 LDAP 服务端
+.smoke/      本地联调测试桩：假 SSH/SFTP 服务端、假 LDAP 服务端、假 SMTP 服务端
 ```
 
 ## 已知边界（MVP）
