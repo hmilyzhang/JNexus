@@ -50,6 +50,9 @@
           <el-tag size="small" style="margin-left:8px" :type="taskDone ? (taskFailed ? 'danger' : 'success') : 'warning'">
             {{ taskDone ? (taskFailed ? $t('exec.taskDoneFailed') : $t('exec.taskDone')) : $t('exec.taskRunning') }}
           </el-tag>
+          <el-tag size="small" type="success" style="margin-left:4px">{{ $t('common.success') }} {{ liveDone.success }}</el-tag>
+          <el-tag v-if="liveDone.failed" size="small" type="danger" style="margin-left:4px">{{ $t('common.failed') }} {{ liveDone.failed }}</el-tag>
+          <el-progress v-if="!taskDone && liveTotal" :percentage="Math.round(liveDone.total / liveTotal * 100)" style="width:120px; margin-left:8px" />
           <el-button size="small" link style="float:right" @click="$router.push(`/tasks?detail=${taskId}`)">{{ $t('exec.viewDetail') }}</el-button>
         </span>
       </template>
@@ -149,6 +152,15 @@ const ensureWS = () => new Promise(resolve => {
     }
   }
   ws.onopen = resolve
+})
+
+const liveTotal = computed(() => {
+  const ids = resolveSelected().length
+  return ids || liveResults.value.length
+})
+const liveDone = computed(() => {
+  const done = liveResults.value.filter(r => r.status === 'success' || r.status === 'failed')
+  return { total: done.length, success: done.filter(r => r.status === 'success').length, failed: done.filter(r => r.status === 'failed').length }
 })
 
 const fetchExitCode = async r => {

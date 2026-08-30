@@ -209,6 +209,12 @@ export default {
   },
   tasks: {
     mine: '仅显示本人发起的任务',
+    onlyFailed: '只看失败',
+    searchOutput: '搜索输出关键字',
+    exportLog: '下载汇总日志',
+    exportCsv: '导出 CSV',
+    duration: '耗时',
+    clickRow: '点击上方主机行查看该台输出',
     allTypes: '全部类型',
     typeCommand: '命令',
     typeScript: '脚本',

@@ -209,6 +209,12 @@ export default {
   },
   tasks: {
     mine: 'Showing only tasks you started',
+    onlyFailed: 'Failed only',
+    searchOutput: 'Search output keyword',
+    exportLog: 'Download .log',
+    exportCsv: 'Export CSV',
+    duration: 'Duration',
+    clickRow: 'Click a host row above to view its output',
     allTypes: 'All types',
     typeCommand: 'Command',
     typeScript: 'Script',

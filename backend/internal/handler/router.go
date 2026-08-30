@@ -102,6 +102,7 @@ func SetupRouter() *gin.Engine {
 		{
 			tasks.GET("", ListTasks)
 			tasks.GET("/:id", GetTask)
+			tasks.GET("/:id/export", ExportTask)
 		}
 
 		// 文件分发
