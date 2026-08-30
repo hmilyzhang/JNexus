@@ -1,3 +1,5 @@
+// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+
 package service
 
 import (
@@ -19,11 +21,12 @@ import (
 
 // DistributeRequest 批量分发请求
 type DistributeRequest struct {
-	HostIDs    []uint `json:"host_ids"`
-	GroupID    *uint  `json:"group_id"`
-	RemoteDir  string `json:"remote_dir"`
-	RemoteName string `json:"remote_name"` // 可选，重命名
-	LocalFile  string `json:"local_file"`  // 已上传到服务端的文件名
+	HostIDs    []uint   `json:"host_ids"`
+	GroupID    *uint    `json:"group_id"`
+	IPs        []string `json:"ips"` // 多 IP 逗号分隔输入
+	RemoteDir  string   `json:"remote_dir"`
+	RemoteName string   `json:"remote_name"` // 可选，重命名
+	LocalFile  string   `json:"local_file"`  // 已上传到服务端的文件名
 }
 
 // DistributeFile 把已上传的本地文件并发 SFTP 分发到目标主机
@@ -31,7 +34,7 @@ func DistributeFile(operator *model.User, localPath, localName string, req Distr
 	if req.RemoteDir == "" {
 		return 0, nil, fmt.Errorf("目标目录不能为空")
 	}
-	hosts, err := resolveHosts(operator, req.HostIDs, req.GroupID)
+	hosts, err := resolveHosts(operator, req.HostIDs, req.GroupID, req.IPs)
 	if err != nil {
 		return 0, nil, err
 	}

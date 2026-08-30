@@ -1,3 +1,5 @@
+// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+
 package handler
 
 import (
@@ -5,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -177,17 +180,31 @@ func UpdateHost(c *gin.Context) {
 
 func DeleteHost(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	model.DB.Delete(&model.Host{}, id)
+	var cnt int64
+	model.DB.Model(&model.AppHost{}).Where("host_id = ?", id).Count(&cnt)
+	if cnt > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "该主机被应用部署配置引用，请先在应用管理中移除"})
+		return
+	}
+	if err := model.DB.Delete(&model.Host{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除失败: " + err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ImportHosts 批量导入：每行 ip,port,username,分组名（分组不存在自动创建）
+// ImportHosts 批量导入：每行 ip,port,username,分组名
+// 兼容旧格式：4 段时第 4 段为分组；5 段时第 3 段为该行独立密码、第 4 段为分组
+// 页面级统一密码放在请求字段中（不写入 CSV，JSON 传输不经 shell 转义），
+// 提供 password（统一或行内）且开启 auto_pair 时：自动生成密钥对并推送公钥，成功后切换密钥认证
 func ImportHosts(c *gin.Context) {
 	var req struct {
 		Content   string `json:"content" binding:"required"`
 		SSHKeyID  *uint  `json:"ssh_key_id"`
 		AuthType  string `json:"auth_type"`
-		Username  string `json:"username"` // 可作为默认用户名
+		Username  string `json:"username"`  // 可作为默认用户名
+		Password  string `json:"password"`  // 页面统一密码（原样使用，不做 trim/转义）
+		AutoPair  bool   `json:"auto_pair"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
@@ -200,7 +217,19 @@ func ImportHosts(c *gin.Context) {
 		req.Username = "root"
 	}
 
-	var created, skipped int
+	// 自动配对模式：整批共用一对密钥
+	var batchKey *model.SSHKey
+	if req.AutoPair {
+		k, err := service.GenerateAndStoreKeyPair(
+			fmt.Sprintf("import-%s", time.Now().Format("20060102150405")), "autoops-import")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "生成密钥对失败: " + err.Error()})
+			return
+		}
+		batchKey = k
+	}
+
+	var created, skipped, paired, pairFailed int
 	var errors []string
 	for _, line := range strings.Split(req.Content, "\n") {
 		line = strings.TrimSpace(line)
@@ -214,24 +243,37 @@ func ImportHosts(c *gin.Context) {
 		}
 		port := 22
 		username := req.Username
+		password := ""
 		groupName := ""
-		for i, p := range parts[1:] {
-			p = strings.TrimSpace(p)
-			switch i {
-			case 0:
-				if v, err := strconv.Atoi(p); err == nil {
-					port = v
-				} else if p != "" {
-					groupName = p
-				}
-			case 1:
-				if p != "" {
-					username = p
-				}
-			case 2:
-				groupName = p
+		// 按字段数解析，避免歧义：
+		// 2段: ip,port  3段: ip,port,user  4段: ip,port,user,group  5段: ip,port,user,password,group
+		switch len(parts) {
+		case 2:
+			if v, err := strconv.Atoi(strings.TrimSpace(parts[1])); err == nil {
+				port = v
+			} else {
+				groupName = strings.TrimSpace(parts[1])
 			}
+		case 3:
+			port, _ = strconv.Atoi(strings.TrimSpace(parts[1]))
+			if strings.TrimSpace(parts[2]) != "" {
+				username = strings.TrimSpace(parts[2])
+			}
+		case 4:
+			port, _ = strconv.Atoi(strings.TrimSpace(parts[1]))
+			if strings.TrimSpace(parts[2]) != "" {
+				username = strings.TrimSpace(parts[2])
+			}
+			groupName = strings.TrimSpace(parts[3])
+		default: // 5 段及以上
+			port, _ = strconv.Atoi(strings.TrimSpace(parts[1]))
+			if strings.TrimSpace(parts[2]) != "" {
+				username = strings.TrimSpace(parts[2])
+			}
+			password = strings.TrimSpace(parts[3])
+			groupName = strings.TrimSpace(parts[4])
 		}
+
 		var cnt int64
 		model.DB.Model(&model.Host{}).Where("ip = ? AND port = ?", ip, port).Count(&cnt)
 		if cnt > 0 {
@@ -250,15 +292,65 @@ func ImportHosts(c *gin.Context) {
 			}
 			groupID = &g.ID
 		}
+
+		// 密码优先级：行内密码 > 页面统一密码
+		effectivePassword := password
+		if effectivePassword == "" {
+			effectivePassword = req.Password
+		}
+
 		h := model.Host{Name: ip, IP: ip, Port: port, Username: username,
 			AuthType: req.AuthType, SSHKeyID: req.SSHKeyID, GroupID: groupID, Status: "unknown"}
+
+		// 密码 + 自动配对：先按密码建主机，推送公钥成功后切换为密钥认证
+		if effectivePassword != "" && req.AutoPair && batchKey != nil {
+			h.AuthType = "password"
+			enc, err := pkg.Encrypt(effectivePassword)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", ip, err))
+				continue
+			}
+			h.Password = enc
+			if err := model.DB.Create(&h).Error; err != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", ip, err))
+				continue
+			}
+			pubLine := service.KeyPairPublicLine(batchKey)
+			if err := service.InstallPubKeyWithPassword(ip, port, username, effectivePassword, pubLine); err != nil {
+				pairFailed++
+				errors = append(errors, fmt.Sprintf("%s: 密钥配对失败(%v)，已保留密码认证", ip, err))
+				created++
+				continue
+			}
+			model.DB.Model(&h).Updates(map[string]any{"auth_type": "key", "ssh_key_id": batchKey.ID})
+			paired++
+			created++
+			continue
+		}
+
+		// 密码认证（不配对）
+		if effectivePassword != "" && req.AuthType == "password" {
+			enc, err := pkg.Encrypt(effectivePassword)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", ip, err))
+				continue
+			}
+			h.Password = enc
+		}
 		if err := model.DB.Create(&h).Error; err != nil {
 			errors = append(errors, fmt.Sprintf("%s: %v", ip, err))
 			continue
 		}
 		created++
 	}
-	c.JSON(http.StatusOK, gin.H{"created": created, "skipped": skipped, "errors": errors})
+	resp := gin.H{"created": created, "skipped": skipped, "errors": errors}
+	if batchKey != nil {
+		resp["key_id"] = batchKey.ID
+		resp["key_name"] = batchKey.Name
+		resp["paired"] = paired
+		resp["pair_failed"] = pairFailed
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // ProbeHostsHandler 并发探测

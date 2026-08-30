@@ -1,3 +1,5 @@
+// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+
 package model
 
 import (
@@ -25,8 +27,36 @@ func Connect(dsn string) error {
 		&Task{}, &TaskHostResult{},
 		&Application{}, &AppHost{}, &Release{}, &ReleaseItem{},
 		&DangerRule{}, &AuditLog{}, &UserHostGroup{}, &UserApp{},
+		&SystemConfig{},
 	); err != nil {
 		return fmt.Errorf("数据库迁移失败: %w", err)
+	}
+	return nil
+}
+
+// SeedConfig 初始化系统配置默认值
+func SeedConfig() error {
+	defaults := map[string]string{
+		"system_name":       "AutoOps 运维平台",
+		"ldap_enabled":      "false",
+		"ldap_host":         "",
+		"ldap_port":         "389",
+		"ldap_tls":          "false",
+		"ldap_bind_dn":      "",
+		"ldap_bind_password": "",
+		"ldap_base_dn":      "",
+		"ldap_user_filter":  "(uid=%s)",
+		"ldap_attr_username": "uid",
+		"ldap_default_role":  string(RoleViewer),
+	}
+	for k, v := range defaults {
+		var cnt int64
+		DB.Model(&SystemConfig{}).Where("key = ?", k).Count(&cnt)
+		if cnt == 0 {
+			if err := DB.Create(&SystemConfig{Key: k, Value: v}).Error; err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

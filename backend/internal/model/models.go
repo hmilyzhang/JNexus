@@ -1,3 +1,5 @@
+// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+
 package model
 
 import (
@@ -18,9 +20,17 @@ type User struct {
 	Username    string    `gorm:"uniqueIndex;size:64" json:"username"`
 	Password    string    `json:"-"`
 	Role        string    `gorm:"size:32;index" json:"role"`
+	AuthSource  string    `gorm:"size:16;default:local" json:"auth_source"` // local / ldap
+	Email       string    `gorm:"size:128" json:"email"`
 	Status      int       `gorm:"default:1" json:"status"` // 1 启用 0 禁用
 	LastLoginAt *time.Time `json:"last_login_at"`
 	CreatedAt   time.Time `json:"created_at"`
+}
+
+// SystemConfig 系统配置（key-value，值可为 JSON 文本）
+type SystemConfig struct {
+	Key   string `gorm:"primaryKey;size:64" json:"key"`
+	Value string `gorm:"type:text" json:"value"`
 }
 
 type HostGroup struct {

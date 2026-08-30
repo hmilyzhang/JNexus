@@ -1,178 +1,240 @@
+<!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
-  <div>
-    <el-card>
-      <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap">
-        <el-input v-model="keyword" placeholder="搜索主机名/IP" style="width:200px" clearable @change="load" />
-        <el-select v-model="groupFilter" placeholder="全部分组" style="width:160px" clearable @change="load">
-          <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
-        </el-select>
-        <el-button type="success" @click="probeAll" :loading="probing">探测连通性</el-button>
-        <el-button type="primary" @click="dlgHost()">新增主机</el-button>
-        <el-button @click="dlgImport">批量导入</el-button>
-        <el-button @click="dlgGroup">分组管理</el-button>
-        <el-button type="warning" plain @click="showKeys = true">SSH 密钥管理</el-button>
-      </div>
-
-      <el-table :data="hosts" v-loading="loading" size="small" border>
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="name" label="名称" min-width="120" />
-        <el-table-column prop="ip" label="IP" width="140" />
-        <el-table-column prop="port" label="端口" width="70" />
-        <el-table-column prop="username" label="用户" width="100" />
-        <el-table-column label="认证" width="80">
-          <template #default="{ row }">{{ row.auth_type === 'key' ? '密钥' : '密码' }}</template>
-        </el-table-column>
-        <el-table-column label="分组" width="120">
-          <template #default="{ row }">{{ row.group?.name || '-' }}</template>
-        </el-table-column>
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'online' ? 'success' : row.status === 'offline' ? 'danger' : 'info'" size="small">
-              {{ row.status === 'online' ? '在线' : row.status === 'offline' ? '离线' : '未知' }}
-            </el-tag>
+  <el-row :gutter="16">
+    <el-col :span="6">
+      <el-card :header="$t('hosts.treeView')" v-loading="loading">
+        <el-tree ref="treeRef" :data="treeData" node-key="key" highlight-current default-expand-all
+                 @node-click="onTreeNode">
+          <template #default="{ data }">
+            <span class="tree-node">
+              <el-icon v-if="data.type === 'group'"><Folder /></el-icon>
+              <el-icon v-else :color="data.host.status === 'online' ? '#67c23a' : '#c0c4cc'"><Monitor /></el-icon>
+              <span>{{ data.label }}</span>
+              <el-tag v-if="data.type === 'group'" size="small" type="info">{{ data.children.length }}</el-tag>
+            </span>
           </template>
-        </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" type="primary" link @click="$router.push(`/terminal/${row.id}`)">终端</el-button>
-            <el-button size="small" link @click="dlgHost(row)">编辑</el-button>
-            <el-popconfirm title="确认删除该主机?" @confirm="delHost(row)">
-              <template #reference><el-button size="small" type="danger" link>删除</el-button></template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+        </el-tree>
+      </el-card>
+    </el-col>
 
-    <!-- 新增/编辑主机 -->
-    <el-dialog v-model="hostVisible" :title="hostForm.id ? '编辑主机' : '新增主机'" width="460px">
-      <el-form label-width="90px">
-        <el-form-item label="名称"><el-input v-model="hostForm.name" placeholder="默认取 IP" /></el-form-item>
-        <el-form-item label="IP"><el-input v-model="hostForm.ip" /></el-form-item>
-        <el-form-item label="端口"><el-input-number v-model="hostForm.port" :min="1" :max="65535" /></el-form-item>
-        <el-form-item label="用户名"><el-input v-model="hostForm.username" /></el-form-item>
-        <el-form-item label="认证方式">
-          <el-radio-group v-model="hostForm.auth_type">
-            <el-radio value="key">SSH 密钥</el-radio>
-            <el-radio value="password">密码</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="密钥" v-if="hostForm.auth_type === 'key'">
-          <el-select v-model="hostForm.ssh_key_id" placeholder="选择密钥" style="width:100%">
-            <el-option v-for="k in keys" :key="k.id" :label="k.name" :value="k.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="密码" v-else>
-          <el-input v-model="hostForm.password" type="password" show-password :placeholder="hostForm.id ? '留空则不修改' : ''" />
-        </el-form-item>
-        <el-form-item label="分组">
-          <el-select v-model="hostForm.group_id" placeholder="未分组" style="width:100%" clearable>
+    <el-col :span="18">
+      <el-card>
+        <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap">
+          <el-input v-model="keyword" :placeholder="$t('hosts.searchPlaceholder')" style="width:200px" clearable @change="load" />
+          <el-select v-model="groupFilter" :placeholder="$t('hosts.allGroups')" style="width:160px" clearable @change="load">
             <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
           </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="hostVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveHost">保存</el-button>
-      </template>
-    </el-dialog>
+          <el-button type="success" @click="probeAll" :loading="probing">{{ $t('hosts.probe') }}</el-button>
+          <el-button type="primary" @click="dlgHost()">{{ $t('hosts.addHost') }}</el-button>
+          <el-button @click="dlgImport">{{ $t('hosts.import') }}</el-button>
+          <el-button type="info" plain @click="$router.push('/shell')">{{ $t('hosts.terminal') }}</el-button>
+          <el-button @click="dlgGroup">{{ $t('hosts.groupMgmt') }}</el-button>
+          <el-button type="warning" plain @click="showKeys = true">{{ $t('hosts.keyMgmt') }}</el-button>
+        </div>
 
-    <!-- 批量导入 -->
-    <el-dialog v-model="importVisible" title="批量导入主机" width="520px">
-      <el-form label-width="110px">
-        <el-form-item label="默认用户名"><el-input v-model="importForm.username" placeholder="root" /></el-form-item>
-        <el-form-item label="认证密钥">
-          <el-select v-model="importForm.ssh_key_id" style="width:100%">
-            <el-option v-for="k in keys" :key="k.id" :label="k.name" :value="k.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="主机列表">
-          <el-input v-model="importForm.content" type="textarea" :rows="8"
-            placeholder="每行一台主机，格式（逗号分隔）：&#10;IP,端口,用户名,分组名&#10;端口/用户名/分组可省略，分组不存在会自动创建&#10;10.0.0.1&#10;10.0.0.2,22,root,生产环境" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="importVisible = false">取消</el-button>
-        <el-button type="primary" @click="doImport">导入</el-button>
-      </template>
-    </el-dialog>
+        <el-table :data="hosts" v-loading="loading" size="small" border>
+          <el-table-column prop="id" label="ID" width="60" />
+          <el-table-column prop="name" :label="$t('hosts.name')" min-width="120" />
+          <el-table-column prop="ip" :label="$t('hosts.ip')" width="140" />
+          <el-table-column prop="port" :label="$t('hosts.port')" width="70" />
+          <el-table-column prop="username" :label="$t('hosts.user')" width="100" />
+          <el-table-column :label="$t('hosts.auth')" width="80">
+            <template #default="{ row }">{{ row.auth_type === 'key' ? $t('hosts.authKey') : $t('hosts.authPassword') }}</template>
+          </el-table-column>
+          <el-table-column :label="$t('hosts.group')" width="120">
+            <template #default="{ row }">{{ row.group?.name || '-' }}</template>
+          </el-table-column>
+          <el-table-column :label="$t('common.status')" width="90">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'online' ? 'success' : row.status === 'offline' ? 'danger' : 'info'" size="small">
+                {{ row.status === 'online' ? $t('common.online') : row.status === 'offline' ? $t('common.offline') : $t('common.unknown') }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('common.operation')" width="220" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" type="primary" link @click="openTerminal(row)">{{ $t('hosts.terminal') }}</el-button>
+              <el-button size="small" link @click="dlgHost(row)">{{ $t('common.edit') }}</el-button>
+              <el-popconfirm :title="$t('hosts.delHostConfirm')" @confirm="delHost(row)">
+                <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+              </el-popconfirm>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+    </el-col>
+  </el-row>
 
-    <!-- 分组管理 -->
-    <el-dialog v-model="groupVisible" title="分组管理" width="520px">
-      <div style="display:flex; gap:8px; margin-bottom:12px">
-        <el-input v-model="newGroup" placeholder="新分组名称" style="width:200px" />
-        <el-button type="primary" @click="addGroup">添加分组</el-button>
-      </div>
-      <el-table :data="groups" size="small" border>
-        <el-table-column prop="name" label="分组名" />
-        <el-table-column prop="host_count" label="主机数" width="80" />
-        <el-table-column label="操作" width="140">
-          <template #default="{ row }">
-            <el-popconfirm title="确认删除分组?" @confirm="delGroup(row)">
-              <template #reference><el-button size="small" type="danger" link>删除</el-button></template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-dialog>
+  <!-- 新增/编辑主机 -->
+  <el-dialog v-model="hostVisible" :title="hostForm.id ? $t('hosts.editHost') : $t('hosts.addHostTitle')" width="460px">
+    <el-form label-width="100px">
+      <el-form-item :label="$t('hosts.name')"><el-input v-model="hostForm.name" :placeholder="$t('hosts.namePlaceholder')" /></el-form-item>
+      <el-form-item :label="$t('hosts.ip')"><el-input v-model="hostForm.ip" /></el-form-item>
+      <el-form-item :label="$t('hosts.port')"><el-input-number v-model="hostForm.port" :min="1" :max="65535" /></el-form-item>
+      <el-form-item :label="$t('hosts.user')"><el-input v-model="hostForm.username" /></el-form-item>
+      <el-form-item :label="$t('hosts.authType')">
+        <el-radio-group v-model="hostForm.auth_type">
+          <el-radio value="key">{{ $t('hosts.key') }}</el-radio>
+          <el-radio value="password">{{ $t('hosts.password') }}</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item :label="$t('hosts.key')" v-if="hostForm.auth_type === 'key'">
+        <el-select v-model="hostForm.ssh_key_id" :placeholder="$t('hosts.keyPlaceholder')" style="width:100%">
+          <el-option v-for="k in keys" :key="k.id" :label="k.name" :value="k.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item :label="$t('hosts.password')" v-else>
+        <el-input v-model="hostForm.password" type="password" show-password :placeholder="hostForm.id ? $t('hosts.passwordKeep') : ''" />
+      </el-form-item>
+      <el-form-item :label="$t('hosts.group')">
+        <el-select v-model="hostForm.group_id" :placeholder="$t('hosts.groupPlaceholder')" style="width:100%" clearable>
+          <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="hostVisible = false">{{ $t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="saveHost">{{ $t('common.save') }}</el-button>
+    </template>
+  </el-dialog>
 
-    <!-- SSH 密钥管理 -->
-    <el-drawer v-model="showKeys" title="SSH 密钥管理" size="480px">
-      <div style="margin-bottom:12px">
-        <el-button type="primary" size="small" @click="keyDlgVisible = true">导入密钥</el-button>
-      </div>
-      <el-table :data="keys" size="small" border>
-        <el-table-column prop="name" label="名称" />
-        <el-table-column prop="public_key" label="公钥" show-overflow-tooltip />
-        <el-table-column label="操作" width="80">
-          <template #default="{ row }">
-            <el-popconfirm title="确认删除密钥?" @confirm="delKey(row)">
-              <template #reference><el-button size="small" type="danger" link>删除</el-button></template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div style="margin-top:12px; color:#909399; font-size:12px">
-        提示：将平台公钥（导入私钥后可由对应公钥）写入目标机 ~/.ssh/authorized_keys 即可免密登录。
-      </div>
-    </el-drawer>
+  <!-- 批量导入 -->
+  <el-dialog v-model="importVisible" :title="$t('hosts.importTitle')" width="560px">
+    <el-form label-width="130px">
+      <el-form-item :label="$t('hosts.importFile')">
+        <div>
+          <input type="file" accept=".csv,.txt" @change="onImportFile" />
+          <div style="color:#909399; font-size:12px; margin-top:2px">{{ $t('hosts.importFileTip') }}</div>
+        </div>
+      </el-form-item>
+      <el-form-item :label="$t('hosts.commonPassword')">
+        <el-input v-model="importForm.password" type="password" show-password autocomplete="new-password"
+                  :placeholder="$t('hosts.commonPasswordPlaceholder')" />
+      </el-form-item>
+      <el-form-item :label="$t('hosts.defaultUser')"><el-input v-model="importForm.username" placeholder="root" /></el-form-item>
+      <el-form-item :label="$t('hosts.importKey')" v-if="!importForm.auto_pair">
+        <el-select v-model="importForm.ssh_key_id" style="width:100%">
+          <el-option v-for="k in keys" :key="k.id" :label="k.name" :value="k.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item :label="$t('hosts.autoPair')">
+        <el-switch v-model="importForm.auto_pair" />
+        <div style="color:#909399; font-size:12px; line-height:1.5; margin-top:4px">{{ $t('hosts.autoPairTip') }}</div>
+      </el-form-item>
+      <el-form-item :label="$t('hosts.hostList')">
+        <el-input v-model="importForm.content" type="textarea" :rows="8" class="mono"
+                  :placeholder="$t('hosts.hostListPlaceholder')" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="importVisible = false">{{ $t('common.cancel') }}</el-button>
+      <el-button type="primary" :disabled="!importForm.content.trim()" :loading="importing" @click="doImport">{{ $t('hosts.import') }}</el-button>
+    </template>
+  </el-dialog>
 
-    <el-dialog v-model="keyDlgVisible" title="导入 SSH 密钥" width="520px">
-      <el-form label-width="80px">
-        <el-form-item label="名称"><el-input v-model="keyForm.name" /></el-form-item>
-        <el-form-item label="公钥"><el-input v-model="keyForm.public_key" type="textarea" :rows="2" placeholder="ssh-rsa AAAA...（可选，用于展示）" /></el-form-item>
-        <el-form-item label="私钥"><el-input v-model="keyForm.private_key" type="textarea" :rows="6" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" /></el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="keyDlgVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveKey">保存</el-button>
-      </template>
-    </el-dialog>
-  </div>
+  <!-- 分组管理 -->
+  <el-dialog v-model="groupVisible" :title="$t('hosts.groupMgmt')" width="520px">
+    <div style="display:flex; gap:8px; margin-bottom:12px">
+      <el-input v-model="newGroup" :placeholder="$t('hosts.groupName')" style="width:200px" />
+      <el-button type="primary" @click="addGroup">{{ $t('hosts.addGroup') }}</el-button>
+    </div>
+    <el-table :data="groups" size="small" border>
+      <el-table-column prop="name" :label="$t('hosts.groupName')" />
+      <el-table-column prop="host_count" :label="$t('hosts.hostCountCol')" width="80" />
+      <el-table-column :label="$t('common.operation')" width="140">
+        <template #default="{ row }">
+          <el-popconfirm :title="$t('hosts.delGroupConfirm')" @confirm="delGroup(row)">
+            <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+          </el-popconfirm>
+        </template>
+      </el-table-column>
+    </el-table>
+  </el-dialog>
+
+  <!-- SSH 密钥管理 -->
+  <el-drawer v-model="showKeys" :title="$t('hosts.keyMgmt')" size="480px">
+    <div style="margin-bottom:12px">
+      <el-button type="primary" size="small" @click="keyDlgVisible = true">{{ $t('hosts.importKeyTitle') }}</el-button>
+    </div>
+    <el-table :data="keys" size="small" border>
+      <el-table-column prop="name" :label="$t('hosts.name')" />
+      <el-table-column prop="public_key" :label="$t('hosts.publicKey')" show-overflow-tooltip />
+      <el-table-column :label="$t('common.operation')" width="80">
+        <template #default="{ row }">
+          <el-popconfirm :title="$t('hosts.delKeyConfirm')" @confirm="delKey(row)">
+            <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+          </el-popconfirm>
+        </template>
+      </el-table-column>
+    </el-table>
+    <div style="margin-top:12px; color:#909399; font-size:12px">{{ $t('hosts.keyTip') }}</div>
+  </el-drawer>
+
+  <el-dialog v-model="keyDlgVisible" :title="$t('hosts.importKeyTitle')" width="520px">
+    <el-form label-width="90px">
+      <el-form-item :label="$t('hosts.name')"><el-input v-model="keyForm.name" /></el-form-item>
+      <el-form-item :label="$t('hosts.publicKey')"><el-input v-model="keyForm.public_key" type="textarea" :rows="2" :placeholder="$t('hosts.publicKeyPlaceholder')" /></el-form-item>
+      <el-form-item :label="$t('hosts.privateKey')"><el-input v-model="keyForm.private_key" type="textarea" :rows="6" :placeholder="$t('hosts.privateKeyPlaceholder')" /></el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="keyDlgVisible = false">{{ $t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="saveKey">{{ $t('common.save') }}</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../api'
+import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
 
+const { t } = i18n.global
+const router = useRouter()
 const hosts = ref([])
+const allHosts = ref([])
 const groups = ref([])
 const keys = ref([])
 const keyword = ref('')
 const groupFilter = ref('')
 const loading = ref(false)
 const probing = ref(false)
+const importing = ref(false)
 
 const hostVisible = ref(false)
 const hostForm = ref({})
 const importVisible = ref(false)
-const importForm = ref({ content: '', ssh_key_id: null, username: 'root' })
+const importForm = ref({ content: '', ssh_key_id: null, username: 'root', password: '', auto_pair: true })
 const groupVisible = ref(false)
 const newGroup = ref('')
 const showKeys = ref(false)
 const keyDlgVisible = ref(false)
 const keyForm = ref({ name: '', public_key: '', private_key: '' })
+
+// 树状数据：分组 → 主机，未分组单独一层
+const treeData = computed(() => {
+  const nodes = groups.value.map(g => ({
+    key: 'g-' + g.id, type: 'group', groupId: g.id, label: g.name,
+    children: allHosts.value.filter(h => h.group_id === g.id)
+      .map(h => ({ key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] }))
+  }))
+  const orphan = allHosts.value.filter(h => !h.group_id)
+    .map(h => ({ key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] }))
+  if (orphan.length) {
+    nodes.push({ key: 'g-none', type: 'group', groupId: null, label: t('hosts.uncategorized'), children: orphan })
+  }
+  return nodes
+})
+
+const onTreeNode = node => {
+  if (node.type === 'group') {
+    groupFilter.value = node.groupId || undefined
+  } else {
+    keyword.value = node.host.ip
+  }
+  load()
+}
 
 const load = async () => {
   loading.value = true
@@ -181,6 +243,7 @@ const load = async () => {
     if (keyword.value) params.keyword = keyword.value
     if (groupFilter.value) params.group_id = groupFilter.value
     hosts.value = await api.get('/hosts', { params })
+    allHosts.value = await api.get('/hosts')
   } finally { loading.value = false }
   groups.value = await api.get('/host_groups')
 }
@@ -188,39 +251,63 @@ const loadKeys = async () => { keys.value = await api.get('/ssh_keys') }
 
 onMounted(() => { load(); loadKeys() })
 
+// 终端：跳转到 Web Shell 终端工作台，可带主机直接连接
+const openTerminal = row => {
+  router.push(`/shell?host=${row.id}`)
+}
+
 const dlgHost = row => {
   hostForm.value = row ? { ...row, password: '' } : { name: '', ip: '', port: 22, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null }
   hostVisible.value = true
 }
 const saveHost = async () => {
-  if (!hostForm.value.ip || !hostForm.value.username) { ElMessage.warning('IP 与用户名必填'); return }
-  if (hostForm.value.auth_type === 'key' && !hostForm.value.ssh_key_id) { ElMessage.warning('请选择密钥'); return }
-  if (hostForm.value.id) {
-    await api.put(`/hosts/${hostForm.value.id}`, hostForm.value)
-  } else {
-    await api.post('/hosts', hostForm.value)
-  }
-  ElMessage.success('已保存')
+  if (!hostForm.value.ip || !hostForm.value.username) { ElMessage.warning(t('hosts.needIpUser')); return }
+  if (hostForm.value.auth_type === 'key' && !hostForm.value.ssh_key_id) { ElMessage.warning(t('hosts.needKey')); return }
+  if (hostForm.value.id) await api.put(`/hosts/${hostForm.value.id}`, hostForm.value)
+  else await api.post('/hosts', hostForm.value)
+  ElMessage.success(t('hosts.saved'))
   hostVisible.value = false
   load()
 }
-const delHost = async row => { await api.delete(`/hosts/${row.id}`); ElMessage.success('已删除'); load() }
+const delHost = async row => { await api.delete(`/hosts/${row.id}`); ElMessage.success(t('hosts.deleted')); load() }
 
 const probeAll = async () => {
   probing.value = true
   try {
     await api.post('/probe', { host_ids: hosts.value.map(h => h.id) })
     await load()
-    ElMessage.success('探测完成')
+    ElMessage.success(t('hosts.probeDone'))
   } finally { probing.value = false }
 }
 
 const dlgImport = () => { importVisible.value = true }
+
+// 读取 CSV/TXT 文件内容填入文本框（每行一台主机）
+const onImportFile = ev => {
+  const file = ev.target.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    importForm.value.content = String(reader.result || '').replace(/^\uFEFF/, '')
+    ElMessage.success(t('files.uploadOk'))
+  }
+  reader.readAsText(file, 'utf-8')
+}
 const doImport = async () => {
-  const res = await api.post('/hosts/import', importForm.value)
-  ElMessage.success(`新增 ${res.created} 台，跳过 ${res.skipped} 台${res.errors?.length ? '，' + res.errors.length + ' 台失败' : ''}`)
-  importVisible.value = false
-  load()
+  importing.value = true
+  try {
+    const res = await api.post('/hosts/import', importForm.value)
+    let msg = t('hosts.importResult', {
+      created: res.created, skipped: res.skipped,
+      errors: res.errors?.length ? `, ${res.errors.length} failed` : ''
+    })
+    if (res.auto_pair !== undefined || res.paired !== undefined) {
+      msg += t('hosts.importPairResult', { paired: res.paired || 0, failed: res.pair_failed || 0 })
+    }
+    ElMessage({ message: msg, type: res.errors?.length ? 'warning' : 'success', duration: 6000 })
+    importVisible.value = false
+    load()
+  } finally { importing.value = false }
 }
 
 const dlgGroup = () => { groupVisible.value = true; load() }
@@ -232,21 +319,25 @@ const addGroup = async () => {
 }
 const delGroup = async row => {
   await api.delete(`/host_groups/${row.id}`)
-  ElMessage.success('已删除')
+  ElMessage.success(t('hosts.deleted'))
   load()
 }
 
 const saveKey = async () => {
-  if (!keyForm.value.name || !keyForm.value.private_key) { ElMessage.warning('名称与私钥必填'); return }
+  if (!keyForm.value.name || !keyForm.value.private_key) { ElMessage.warning(t('hosts.needKey')); return }
   await api.post('/ssh_keys', keyForm.value)
-  ElMessage.success('密钥已保存')
+  ElMessage.success(t('hosts.keySaved'))
   keyDlgVisible.value = false
   keyForm.value = { name: '', public_key: '', private_key: '' }
   loadKeys()
 }
 const delKey = async row => {
   await api.delete(`/ssh_keys/${row.id}`)
-  ElMessage.success('已删除')
+  ElMessage.success(t('hosts.deleted'))
   loadKeys()
 }
 </script>
+
+<style scoped>
+.tree-node { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+</style>

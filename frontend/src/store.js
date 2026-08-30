@@ -1,3 +1,4 @@
+// AutoOps 运维平台 — By JJ Zhang, Version 1.0
 import { defineStore } from 'pinia'
 
 export const useUserStore = defineStore('user', {

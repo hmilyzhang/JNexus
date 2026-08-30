@@ -1,66 +1,74 @@
+<!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
-    <el-card header="文件批量分发">
+    <el-card :header="$t('files.title')">
       <el-steps :active="step" simple style="margin-bottom:16px">
-        <el-step title="1. 选择文件" />
-        <el-step title="2. 选择目标" />
-        <el-step title="3. 开始分发" />
+        <el-step :title="$t('files.step1')" />
+        <el-step :title="$t('files.step2')" />
+        <el-step :title="$t('files.step3')" />
       </el-steps>
 
-      <el-form label-width="110px" style="max-width:640px">
-        <el-form-item label="本地文件">
+      <el-form label-width="120px" style="max-width:700px">
+        <el-form-item :label="$t('files.localFile')">
           <input type="file" @change="onFileChange" />
-          <span v-if="uploadedName" style="color:#67c23a; margin-left:8px">✓ 已上传：{{ uploadedName }}</span>
+          <span v-if="uploadedName" style="color:#67c23a; margin-left:8px">✓ {{ $t('files.uploaded') }}：{{ uploadedName }}</span>
         </el-form-item>
-        <el-form-item label="目标主机">
-          <el-select v-model="selectedIds" multiple filterable placeholder="选择主机" style="width:100%">
-            <el-option v-for="h in hosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
-          </el-select>
+        <el-form-item :label="$t('files.targetHosts')">
+          <div style="width:100%">
+            <el-tree-select v-model="selectedNodes" :data="treeData" multiple :render-after-expand="false"
+                            default-expand-all :placeholder="$t('files.targetHosts')" style="width:100%"
+                            node-key="value" :max-collapse-tags="3" collapse-tags />
+            <el-input v-model="ipInput" :placeholder="$t('files.ipInputPlaceholder')" style="margin-top:8px" clearable>
+              <template #prepend>{{ $t('files.ipInput') }}</template>
+            </el-input>
+          </div>
         </el-form-item>
-        <el-form-item label="目标目录">
+        <el-form-item :label="$t('files.remoteDir')">
           <el-input v-model="remoteDir" placeholder="/tmp" class="mono" />
         </el-form-item>
-        <el-form-item label="重命名(可选)">
-          <el-input v-model="remoteName" placeholder="留空保持原文件名" />
+        <el-form-item :label="$t('files.remoteName')">
+          <el-input v-model="remoteName" :placeholder="$t('files.remoteNamePlaceholder')" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :disabled="!uploadedName || !selectedIds.length || !remoteDir"
-                     :loading="distributing" @click="distribute">开始分发</el-button>
+          <el-button type="primary" :disabled="!uploadedName || (!selectedNodes.length && !ipInput.trim()) || !remoteDir"
+                     :loading="distributing" @click="distribute">{{ $t('files.start') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
-    <el-card header="分发进度" style="margin-top:16px" v-if="taskId">
-      <div>任务 #{{ taskId }} ·
+    <el-card :header="$t('files.progress')" style="margin-top:16px" v-if="taskId">
+      <div>{{ $t('files.progressTitle') }} #{{ taskId }} ·
         <el-tag size="small" :type="done ? (failed ? 'danger' : 'success') : 'warning'">
-          {{ done ? (failed ? '完成(有失败)' : '完成') : '分发中' }}
+          {{ done ? (failed ? $t('files.doneFailed') : $t('files.done')) : $t('files.distributing') }}
         </el-tag>
       </div>
       <el-table :data="progress" size="small" border style="margin-top:12px">
-        <el-table-column prop="result_id" label="结果ID" width="80" />
-        <el-table-column label="进度" min-width="200">
+        <el-table-column prop="result_id" label="ID" width="80" />
+        <el-table-column :label="$t('common.status')" min-width="200">
           <template #default="{ row }">
             <el-progress v-if="row.percent !== undefined" :percentage="row.percent" />
-            <span v-else style="color:#909399">{{ row.status || '等待中' }}</span>
+            <span v-else style="color:#909399">{{ row.status || $t('files.waiting') }}</span>
           </template>
         </el-table-column>
       </el-table>
-      <el-button style="margin-top:12px" @click="$router.push(`/tasks?detail=${taskId}`)">查看任务详情</el-button>
+      <el-button style="margin-top:12px" @click="$router.push(`/tasks?detail=${taskId}`)">{{ $t('files.viewDetail') }}</el-button>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import api from '../api'
+import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
 
+const { t } = i18n.global
 const hosts = ref([])
-const selectedIds = ref([])
+const selectedNodes = ref([])
+const ipInput = ref('')
 const remoteDir = ref('/tmp')
 const remoteName = ref('')
 const uploadedName = ref('')
-const uploadedSize = ref(0)
 const step = ref(0)
 const distributing = ref(false)
 const taskId = ref(null)
@@ -69,6 +77,28 @@ const failed = ref(false)
 const progress = ref([])
 let ws = null
 
+const treeData = computed(() => {
+  const byGroup = new Map()
+  for (const h of hosts.value) {
+    const key = h.group_id ? `g-${h.group_id}` : 'g-none'
+    if (!byGroup.has(key)) byGroup.set(key, { value: key, label: h.group?.name || t('hosts.uncategorized'), children: [] })
+    byGroup.get(key).children.push({ value: h.id, label: `${h.name} · ${h.ip}` })
+  }
+  return [...byGroup.values()]
+})
+
+const resolveSelected = () => {
+  const ids = new Set()
+  for (const v of selectedNodes.value) {
+    if (typeof v === 'number') { ids.add(v); continue }
+    const gid = v === 'g-none' ? null : Number(String(v).slice(2))
+    for (const h of hosts.value) {
+      if ((gid === null && !h.group_id) || h.group_id === gid) ids.add(h.id)
+    }
+  }
+  return [...ids]
+}
+
 const onFileChange = async ev => {
   const file = ev.target.files[0]
   if (!file) return
@@ -76,20 +106,23 @@ const onFileChange = async ev => {
   fd.append('file', file)
   const res = await api.post('/files/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
   uploadedName.value = res.file
-  uploadedSize.value = res.size
   step.value = 1
-  ElMessage.success('文件已上传到服务端')
+  ElMessage.success(t('files.uploadOk'))
 }
 
 const distribute = async () => {
   distributing.value = true
   try {
-    const res = await api.post('/files/distribute', {
+    const payload = {
       local_file: uploadedName.value,
-      host_ids: selectedIds.value,
       remote_dir: remoteDir.value,
       remote_name: remoteName.value || ''
-    })
+    }
+    const ids = resolveSelected()
+    if (ids.length) payload.host_ids = ids
+    const ips = ipInput.value.split(',').map(s => s.trim()).filter(Boolean)
+    if (ips.length) payload.ips = ips
+    const res = await api.post('/files/distribute', payload)
     taskId.value = res.task_id
     progress.value = []
     done.value = false
@@ -101,7 +134,7 @@ const distribute = async () => {
       const msg = JSON.parse(ev.data)
       if (msg.type === 'task_done') { done.value = true; failed.value = msg.status === 'failed'; ws.close(); return }
       let p = progress.value.find(x => x.result_id === msg.result_id)
-      if (!p) { p = { result_id: msg.result_id, status: '传输中' }; progress.value.push(p) }
+      if (!p) { p = { result_id: msg.result_id, status: t('files.transferred') }; progress.value.push(p) }
       if (msg.type === 'progress') p.percent = msg.percent
       if (msg.type === 'status') p.status = msg.status
     }

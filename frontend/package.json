@@ -9,12 +9,13 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
-    "@xterm/xterm": "^5.5.0",
     "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
     "axios": "^1.7.2",
     "element-plus": "^2.7.6",
     "pinia": "^2.1.7",
     "vue": "^3.4.31",
+    "vue-i18n": "^9.14.5",
     "vue-router": "^4.4.0"
   },
   "devDependencies": {

@@ -1,0 +1,123 @@
+// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+
+package service
+
+import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
+	"fmt"
+	"time"
+
+	gossh "golang.org/x/crypto/ssh"
+
+	"autoops/internal/model"
+	"autoops/internal/pkg"
+)
+
+// GenerateAndStoreKeyPair 生成 ed25519 密钥对并加密落库，返回 SSHKey 记录
+func GenerateAndStoreKeyPair(name, comment string) (*model.SSHKey, error) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	sshPub, err := gossh.NewPublicKey(pub)
+	if err != nil {
+		return nil, err
+	}
+	pubLine := string(gossh.MarshalAuthorizedKey(sshPub))
+	block, err := gossh.MarshalPrivateKey(priv, comment)
+	if err != nil {
+		return nil, err
+	}
+	privPEM := string(pem.EncodeToMemory(block))
+	enc, err := pkg.Encrypt(privPEM)
+	if err != nil {
+		return nil, err
+	}
+	key := &model.SSHKey{Name: name, PublicKey: fmt.Sprintf("%s %s", comment, pubLine), PrivateKey: enc}
+	if err := model.DB.Create(key).Error; err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+// KeyPairPublicLine 返回密钥记录的可安装公钥行（不含注释）
+func KeyPairPublicLine(key *model.SSHKey) string {
+	// PublicKey 存的是 "comment ssh-xxx base64..."，取最后一段类型+数据
+	pub := key.PublicKey
+	fields := splitFields(pub)
+	if len(fields) >= 2 {
+		return fields[len(fields)-2] + " " + fields[len(fields)-1]
+	}
+	return pub
+}
+
+func splitFields(s string) []string {
+	out := []string{}
+	cur := ""
+	for _, r := range s {
+		if r == ' ' || r == '\n' || r == '\t' {
+			if cur != "" {
+				out = append(out, cur)
+				cur = ""
+			}
+			continue
+		}
+		cur += string(r)
+	}
+	if cur != "" {
+		out = append(out, cur)
+	}
+	return out
+}
+
+// InstallPubKeyWithPassword 用账号密码登录目标机，把平台公钥写入 authorized_keys，
+// 之后目标机即可用该密钥免密登录。目标机为 Linux。
+func InstallPubKeyWithPassword(ip string, port int, username, password, pubLine string) error {
+	if port == 0 {
+		port = 22
+	}
+	cfg := &gossh.ClientConfig{
+		User:            username,
+		Auth:            []gossh.AuthMethod{gossh.Password(password)},
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		Timeout:         10 * time.Second,
+	}
+	cli, err := gossh.Dial("tcp", fmt.Sprintf("%s:%d", ip, port), cfg)
+	if err != nil {
+		return fmt.Errorf("密码登录失败: %w", err)
+	}
+	defer cli.Close()
+
+	cmd := fmt.Sprintf(
+		"mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && "+
+			"grep -qxF '%s' ~/.ssh/authorized_keys || echo '%s' >> ~/.ssh/authorized_keys; "+
+			"chmod 600 ~/.ssh/authorized_keys", pubLine, pubLine)
+	code, err := RunCommandBackground(cli, cmd)
+	if err != nil {
+		return err
+	}
+	if code != 0 {
+		return fmt.Errorf("写入 authorized_keys 失败，退出码 %d", code)
+	}
+	return nil
+}
+
+// RunCommandBackground 静默执行命令（不采集输出），返回退出码
+func RunCommandBackground(cli *gossh.Client, cmd string) (int, error) {
+	sess, err := cli.NewSession()
+	if err != nil {
+		return -1, err
+	}
+	defer sess.Close()
+	code := 0
+	if err := sess.Run(cmd); err != nil {
+		if ee, ok := err.(*gossh.ExitError); ok {
+			code = ee.ExitStatus()
+		} else {
+			return -1, err
+		}
+	}
+	return code, nil
+}

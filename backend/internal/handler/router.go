@@ -1,3 +1,5 @@
+// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+
 package handler
 
 import (
@@ -25,6 +27,7 @@ func SetupRouter() *gin.Engine {
 	api := r.Group("/api")
 	{
 		api.POST("/login", Login)
+		api.GET("/system/info", SystemInfo)
 		// Web 终端（自带 token 鉴权，不走 hub）
 		api.GET("/ws/term/:hostId", WebTerminal)
 		api.GET("/ws/task/:id", ws.Handler(func(c *gin.Context) string {
@@ -137,6 +140,17 @@ func SetupRouter() *gin.Engine {
 
 		// 权限分配数据源
 		auth.GET("/grants/options", GrantsOptions)
+
+		// Dashboard
+		auth.GET("/dashboard", Dashboard)
+
+		// 系统配置（admin）
+		sysCfg := auth.Group("/system", middleware.RequireRole())
+		{
+			sysCfg.GET("/config", GetSystemConfig)
+			sysCfg.PUT("/config", UpdateSystemConfig)
+			sysCfg.POST("/ldap/test", TestLDAPConfig)
+		}
 	}
 
 	// 托管前端 SPA（frontend/dist）
@@ -147,8 +161,12 @@ func SetupRouter() *gin.Engine {
 			r.NoRoute(func(c *gin.Context) {
 				p := c.Request.URL.Path
 				if p != "/" && !strings.HasPrefix(p, "/assets") {
+					c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 					c.File(filepath.Join(abs, "index.html"))
 					return
+				}
+				if strings.HasPrefix(p, "/assets") {
+					c.Header("Cache-Control", "public, max-age=31536000, immutable")
 				}
 				c.File(filepath.Join(abs, strings.TrimPrefix(p, "/")))
 			})

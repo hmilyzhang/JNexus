@@ -1,3 +1,5 @@
+// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+
 package service
 
 import (
@@ -18,13 +20,14 @@ const maxOutputSize = 512 * 1024 // 单主机输出上限 512KB
 
 // ExecRequest 批量执行请求
 type ExecRequest struct {
-	HostIDs     []uint `json:"host_ids"`
-	GroupID     *uint  `json:"group_id"`
-	Command     string `json:"command"`
-	ScriptID    *uint  `json:"script_id"`
-	ScriptArgs  string `json:"script_args"`
-	TimeoutSec  int    `json:"timeout_sec"`
-	Concurrency int    `json:"concurrency"`
+	HostIDs     []uint   `json:"host_ids"`
+	GroupID     *uint    `json:"group_id"`
+	IPs         []string `json:"ips"` // 多 IP 逗号分隔输入
+	Command     string   `json:"command"`
+	ScriptID    *uint    `json:"script_id"`
+	ScriptArgs  string   `json:"script_args"`
+	TimeoutSec  int      `json:"timeout_sec"`
+	Concurrency int      `json:"concurrency"`
 }
 
 // StartBatchExec 创建任务并并发执行命令/脚本；返回 task id（或拦截原因）
@@ -49,7 +52,7 @@ func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, erro
 		return 0, hits, fmt.Errorf("危险命令已被拦截: %s", strings.Join(hits, "、"))
 	}
 
-	hosts, err := resolveHosts(operator, req.HostIDs, req.GroupID)
+	hosts, err := resolveHosts(operator, req.HostIDs, req.GroupID, req.IPs)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -97,8 +100,8 @@ func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, erro
 	return task.ID, nil, nil
 }
 
-// resolveHosts 根据主机 ID / 分组解析目标主机并做权限过滤
-func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint) ([]model.Host, error) {
+// resolveHosts 根据主机 ID / 分组 / IP 列表解析目标主机并做权限过滤
+func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint, ips []string) ([]model.Host, error) {
 	var hosts []model.Host
 	if len(hostIDs) > 0 {
 		if err := model.DB.Preload("Group").Where("id IN ?", hostIDs).Find(&hosts).Error; err != nil {
@@ -106,6 +109,23 @@ func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint) ([]model.
 		}
 	} else if groupID != nil {
 		if err := model.DB.Preload("Group").Where("group_id = ?", *groupID).Find(&hosts).Error; err != nil {
+			return nil, err
+		}
+	} else if len(ips) > 0 {
+		// 前端已按逗号拆分；此处再做一次容错拆分
+		var flat []string
+		for _, s := range ips {
+			for _, p := range strings.Split(s, ",") {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					flat = append(flat, p)
+				}
+			}
+		}
+		if len(flat) == 0 {
+			return nil, fmt.Errorf("IP 列表为空")
+		}
+		if err := model.DB.Preload("Group").Where("ip IN ?", flat).Find(&hosts).Error; err != nil {
 			return nil, err
 		}
 	} else {

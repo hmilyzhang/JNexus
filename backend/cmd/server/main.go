@@ -1,3 +1,5 @@
+// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+
 package main
 
 import (
@@ -36,6 +38,9 @@ func main() {
 	}
 	if err := model.Seed(); err != nil {
 		log.Fatalf("初始化种子数据失败: %v", err)
+	}
+	if err := model.SeedConfig(); err != nil {
+		log.Fatalf("初始化系统配置失败: %v", err)
 	}
 	if err := service.LoadDangerRules(); err != nil {
 		log.Fatalf("加载危险命令规则失败: %v", err)
