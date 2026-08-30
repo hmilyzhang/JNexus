@@ -80,6 +80,44 @@
     </div>
     </el-tab-pane>
 
+    <el-tab-pane :label="$t('system.smtp')" name="smtp">
+    <el-card>
+      <el-form label-width="150px">
+        <el-form-item :label="$t('system.smtpEnabled')"><el-switch v-model="form.smtp_enabled" active-value="true" inactive-value="false" /></el-form-item>
+        <template v-if="form.smtp_enabled === 'true'">
+          <el-form-item :label="$t('system.smtpHost')">
+            <el-input v-model="form.smtp_host" placeholder="smtp.example.com" style="width:320px" class="mono" />
+          </el-form-item>
+          <el-form-item :label="$t('system.smtpPort')"><el-input-number v-model="smtpPort" :min="1" :max="65535" /></el-form-item>
+          <el-form-item :label="$t('system.smtpMode')">
+            <el-checkbox v-model="smtpSsl">{{ $t('system.smtpSsl') }} (465)</el-checkbox>
+            <el-checkbox v-model="form.smtp_tls" style="margin-left:12px">{{ $t('system.smtpTls') }} (587)</el-checkbox>
+          </el-form-item>
+          <el-form-item :label="$t('system.smtpUsername')"><el-input v-model="form.smtp_username" style="width:320px" class="mono" /></el-form-item>
+          <el-form-item :label="$t('system.smtpPassword')">
+            <el-input v-model="form.smtp_password" type="password" show-password :placeholder="$t('system.ldapBindPwdPlaceholder')" style="width:320px" />
+          </el-form-item>
+          <el-form-item :label="$t('system.smtpFrom')"><el-input v-model="form.smtp_from" placeholder="autoops@example.com" style="width:320px" class="mono" /></el-form-item>
+          <el-form-item :label="$t('system.smtpRecipients')">
+            <el-input v-model="form.smtp_recipients" type="textarea" :rows="2" class="mono"
+                      placeholder="ops@example.com,boss@example.com" style="width:420px" />
+            <div style="color:#909399; font-size:12px">{{ $t('system.smtpRecipientsTip') }}</div>
+          </el-form-item>
+          <el-form-item :label="$t('system.smtpNotify')"><el-switch v-model="form.smtp_notify" active-value="true" inactive-value="false" />
+            <div style="color:#909399; font-size:12px">{{ $t('system.smtpNotifyTip') }}</div>
+          </el-form-item>
+          <el-form-item :label="$t('system.smtpTest')">
+            <div style="display:flex; gap:8px; align-items:center">
+              <el-input v-model="smtpTestTo" :placeholder="$t('system.smtpTestTo')" style="width:240px" class="mono" />
+              <el-button :loading="smtpTesting" @click="testSmtp">{{ $t('system.smtpSendTest') }}</el-button>
+            </div>
+          </el-form-item>
+        </template>
+      </el-form>
+      <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+    </el-card>
+    </el-tab-pane>
+
     <el-tab-pane :label="$t('system.roles')" name="roles">
     <el-card>
       <el-table :data="roleRows" size="small" border>
@@ -145,8 +183,14 @@ const form = reactive({
   system_name: '', ldap_enabled: 'false', ldap_host: '', ldap_port: '389', ldap_tls: 'false',
   ldap_bind_dn: '', ldap_bind_password: '', ldap_base_dn: '', ldap_user_filter: '(uid=%s)',
   ldap_attr_username: 'uid', ldap_default_role: 'viewer',
-  ldap_group_check: 'false', ldap_group_base_dn: '', ldap_group_filter: '(member=%s)', ldap_required_groups: ''
+  ldap_group_check: 'false', ldap_group_base_dn: '', ldap_group_filter: '(member=%s)', ldap_required_groups: '',
+  smtp_enabled: 'false', smtp_host: '', smtp_port: '25', smtp_ssl: 'false', smtp_tls: 'true',
+  smtp_username: '', smtp_password: '', smtp_from: '', smtp_recipients: '', smtp_notify: 'true'
 })
+const smtpPort = ref(25)
+const smtpSsl = ref(false)
+const smtpTestTo = ref('')
+const smtpTesting = ref(false)
 const ldapPort = ref(389)
 
 const roleRows = ref([])
@@ -208,6 +252,8 @@ onMounted(async () => {
     for (const k of Object.keys(form)) {
       if (cfg[k] !== undefined && cfg[k] !== null) form[k] = cfg[k]
     }
+    smtpPort.value = Number(form.smtp_port) || 25
+    smtpSsl.value = form.smtp_ssl === 'true'
     ldapPort.value = Number(form.ldap_port) || 389
     if (cfg.ldap_bind_password === '******') form.ldap_bind_password = '******'
     await loadRoles()
@@ -217,11 +263,20 @@ onMounted(async () => {
 const save = async () => {
   saving.value = true
   try {
-    const payload = { ...form, ldap_port: String(ldapPort.value) }
+    const payload = { ...form, ldap_port: String(ldapPort.value), smtp_port: String(smtpPort.value), smtp_ssl: smtpSsl.value ? 'true' : 'false' }
     await api.put('/system/config', payload)
     localStorage.setItem('system_name', form.system_name)
     ElMessage.success(t('system.saved'))
   } finally { saving.value = false }
+}
+
+const testSmtp = async () => {
+  smtpTesting.value = true
+  try {
+    await api.put('/system/config', { ...form, ldap_port: String(ldapPort.value), smtp_port: String(smtpPort.value), smtp_ssl: smtpSsl.value ? 'true' : 'false' })
+    await api.post('/system/smtp/test', { to: smtpTestTo.value })
+    ElMessage.success(t('system.smtpTestOk'))
+  } finally { smtpTesting.value = false }
 }
 
 const testLdap = async () => {

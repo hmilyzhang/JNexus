@@ -4,6 +4,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -18,13 +19,17 @@ var editableConfigKeys = []string{
 	"ldap_bind_dn", "ldap_bind_password", "ldap_base_dn",
 	"ldap_user_filter", "ldap_attr_username", "ldap_default_role",
 	"ldap_group_check", "ldap_group_base_dn", "ldap_group_filter", "ldap_required_groups",
+	"smtp_enabled", "smtp_host", "smtp_port", "smtp_ssl", "smtp_tls",
+	"smtp_username", "smtp_password", "smtp_from", "smtp_recipients", "smtp_notify",
 }
 
 // GetSystemConfig 读取系统配置（admin），密码字段打码
 func GetSystemConfig(c *gin.Context) {
 	m := service.SystemConfigMap()
-	if m["ldap_bind_password"] != "" {
-		m["ldap_bind_password"] = "******"
+	for _, k := range []string{"ldap_bind_password", "smtp_password"} {
+		if m[k] != "" {
+			m[k] = "******"
+		}
 	}
 	c.JSON(http.StatusOK, m)
 }
@@ -43,7 +48,7 @@ func UpdateSystemConfig(c *gin.Context) {
 		if !ok {
 			continue
 		}
-		if k == "ldap_bind_password" && (v == "" || v == "******") {
+		if (k == "ldap_bind_password" || k == "smtp_password") && (v == "" || v == "******") {
 			continue // 保持原值
 		}
 		filtered[k] = v
@@ -83,6 +88,30 @@ func UpdateSystemRoles(c *gin.Context) {
 	req[model.RoleAdmin] = admin
 	if err := service.SetRoleSettings(req); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// TestSMTPConfig 发送测试邮件
+func TestSMTPConfig(c *gin.Context) {
+	var req struct {
+		To string `json:"to"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	smtpCfg := service.LoadSMTPSettings()
+	to := strings.FieldsFunc(req.To, func(r rune) bool { return r == ',' || r == 10 || r == 13 || r == 59 })
+	if len(to) == 0 {
+		to = smtpCfg.Recipients
+	}
+	if len(to) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请填写收件邮箱"})
+		return
+	}
+	subject := "[AutoOps] SMTP 配置测试邮件"
+	body := "<p>这是一封 AutoOps 测试邮件，收到即表示 SMTP 配置正确。</p><p style='color:#909399;font-size:12px'>By JJ Zhang Version 1.0</p>"
+	if err := service.SendMail(smtpCfg, to, subject, body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})

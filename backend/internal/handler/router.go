@@ -177,6 +177,7 @@ func SetupRouter() *gin.Engine {
 			sysCfg.GET("/config", GetSystemConfig)
 			sysCfg.PUT("/config", UpdateSystemConfig)
 			sysCfg.POST("/ldap/test", TestLDAPConfig)
+			sysCfg.POST("/smtp/test", TestSMTPConfig)
 			sysCfg.GET("/roles", GetSystemRoles)
 			sysCfg.PUT("/roles", UpdateSystemRoles)
 		}

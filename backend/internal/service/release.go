@@ -103,6 +103,7 @@ func runRelease(releaseID uint) {
 	}
 	model.DB.Model(&model.Release{}).Where("id = ?", releaseID).Update("status", status)
 	ws.H.Broadcast(fmt.Sprintf("release-%d", releaseID), map[string]any{"type": "release_done", "status": status})
+	NotifyTaskFinished(100000 + releaseID)
 }
 
 // runHostPipeline 单台主机上的 步骤流水线

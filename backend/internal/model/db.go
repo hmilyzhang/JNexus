@@ -76,6 +76,16 @@ func SeedConfig() error {
 		"ldap_group_base_dn": "",
 		"ldap_group_filter":  "(member=%s)",
 		"ldap_required_groups": "",
+		"smtp_enabled":   "false",
+		"smtp_host":      "",
+		"smtp_port":      "25",
+		"smtp_ssl":       "false",
+		"smtp_tls":       "true",
+		"smtp_username":  "",
+		"smtp_password":  "",
+		"smtp_from":      "",
+		"smtp_recipients": "",
+		"smtp_notify":    "true",
 	}
 	for k, v := range defaults {
 		var cnt int64

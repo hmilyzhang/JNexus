@@ -99,6 +99,7 @@ func runDistribute(operator *model.User, credID *uint, taskID uint, localPath, l
 			model.DB.Model(&model.Task{}).Where("id = ?", taskID).
 				Updates(map[string]any{"status": st, "finished_at": now})
 			ws.H.Broadcast(taskTopic(taskID), map[string]any{"type": "task_done", "status": st})
+			NotifyTaskFinished(taskID)
 		}
 	}
 

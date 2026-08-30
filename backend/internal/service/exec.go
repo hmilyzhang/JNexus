@@ -222,6 +222,7 @@ func runTask(operator *model.User, reqCredID *uint, taskID uint, command string,
 			model.DB.Model(&model.Task{}).Where("id = ?", taskID).
 				Updates(map[string]any{"status": status, "finished_at": finished})
 			ws.H.Broadcast(taskTopic(taskID), map[string]any{"type": "task_done", "status": status})
+			NotifyTaskFinished(taskID)
 		}
 	}
 
