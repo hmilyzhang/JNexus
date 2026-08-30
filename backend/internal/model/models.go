@@ -84,6 +84,7 @@ const (
 	TaskScript  = "script"
 	TaskFile    = "file"
 	TaskRelease = "release"
+	TaskCred    = "cred"   // 批量添加 OS 账号
 )
 
 type Task struct {

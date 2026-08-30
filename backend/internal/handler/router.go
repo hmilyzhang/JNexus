@@ -86,6 +86,7 @@ func SetupRouter() *gin.Engine {
 		}
 		creds := auth.Group("/credentials", middleware.RequireRole(model.RoleOps, model.RolePublisher))
 		{
+			creds.POST("/batch", middleware.RequireRole(model.RoleOps), middleware.RequireHostPerm("edit"), BatchAddCredentialsHandler)
 			creds.GET("/usable", UsableCredentialsHandler)
 			creds.PUT("/:id", middleware.RequireRole(model.RoleOps), UpdateCredential)
 			creds.DELETE("/:id", middleware.RequireRole(model.RoleOps), DeleteCredential)

@@ -121,6 +121,8 @@ func taskTypeText(t string) string {
 		return "文件分发"
 	case "release":
 		return "发布"
+	case "cred":
+		return "批量账号"
 	}
 	return t
 }

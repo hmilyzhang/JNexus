@@ -16,7 +16,7 @@
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column :label="$t('tasks.detail')" width="90">
           <template #default="{ row }">
-            <el-tag size="small">{{ { command: $t('tasks.typeCommand'), script: $t('tasks.typeScript'), file: $t('tasks.typeFile'), release: $t('tasks.typeRelease') }[row.type] }}</el-tag>
+            <el-tag size="small">{{ { command: $t('tasks.typeCommand'), script: $t('tasks.typeScript'), file: $t('tasks.typeFile'), release: $t('tasks.typeRelease'), cred: $t('tasks.typeCred') }[row.type] }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="operator" :label="$t('tasks.operator')" width="120" />
@@ -142,7 +142,7 @@ const filteredResults = computed(() => {
   return list
 })
 
-const typeText = ty => ({ command: t('tasks.typeCommand'), script: t('tasks.typeScript'), file: t('tasks.typeFile'), release: t('tasks.typeRelease') }[ty] || ty)
+const typeText = ty => ({ command: t('tasks.typeCommand'), script: t('tasks.typeScript'), file: t('tasks.typeFile'), release: t('tasks.typeRelease'), cred: t('tasks.typeCred') }[ty] || ty)
 const statusText = st => ({ success: t('common.success'), failed: t('common.failed'), running: t('common.running'), pending: t('common.unknown') }[st] || st)
 const fmtTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 const duration = r => (r.finished_at ? (new Date(r.finished_at) - new Date(r.created_at)) / 1000 + 's' : '-')

@@ -12,6 +12,21 @@ import (
 	"autoops/internal/service"
 )
 
+// BatchAddCredentials 批量为存量主机添加 OS 账号（异步任务）
+func BatchAddCredentialsHandler(c *gin.Context) {
+	var req service.BatchCredRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（账号名必填）"})
+		return
+	}
+	taskID, err := service.BatchAddCredentials(currentUser(c), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+}
+
 // ListHostCredentials 主机的 OS 账号列表
 func ListHostCredentials(c *gin.Context) {
 	hostID, _ := strconv.Atoi(c.Param("id"))
