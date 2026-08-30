@@ -80,22 +80,29 @@ const roleLabel = computed(() => ({
   auditor: t('layout.roleAuditor')
 })[store.role] || store.role)
 
+// 菜单由「角色设置」配置驱动（管理员恒为全部）
+const menuItems = [
+  { key: 'dashboard', path: '/dashboard', title: 'menu.dashboard', icon: 'Odometer' },
+  { key: 'hosts', path: '/hosts', title: 'menu.hosts', icon: 'Monitor' },
+  { key: 'exec', path: '/exec', title: 'menu.exec', icon: 'Promotion' },
+  { key: 'tasks', path: '/tasks', title: 'menu.tasks', icon: 'List' },
+  { key: 'files', path: '/files', title: 'menu.files', icon: 'FolderOpened' },
+  { key: 'scripts', path: '/scripts', title: 'menu.scripts', icon: 'Document' },
+  { key: 'apps', path: '/apps', title: 'menu.apps', icon: 'Box' },
+  { key: 'releases', path: '/releases', title: 'menu.releases', icon: 'UploadFilled' },
+  { key: 'users', path: '/users', title: 'menu.users', icon: 'User' },
+  { key: 'danger', path: '/danger', title: 'menu.danger', icon: 'Warning' },
+  { key: 'audit', path: '/audit', title: 'menu.audit', icon: 'Notebook' },
+  { key: 'system', path: '/system', title: 'menu.system', icon: 'Setting' }
+]
+const roleSettings = ref({})
+api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
+
 const menus = computed(() => {
-  const items = [
-    { path: '/dashboard', title: 'menu.dashboard', icon: 'Odometer' },
-    { path: '/hosts', title: 'menu.hosts', icon: 'Monitor' },
-    { path: '/exec', title: 'menu.exec', icon: 'Promotion' },
-    { path: '/tasks', title: 'menu.tasks', icon: 'List', hideViewer: true },
-    { path: '/files', title: 'menu.files', icon: 'FolderOpened' },
-    { path: '/scripts', title: 'menu.scripts', icon: 'Document' },
-    { path: '/apps', title: 'menu.apps', icon: 'Box' },
-    { path: '/releases', title: 'menu.releases', icon: 'UploadFilled' },
-    { path: '/users', title: 'menu.users', icon: 'User', admin: true },
-    { path: '/danger', title: 'menu.danger', icon: 'Warning', admin: true },
-    { path: '/audit', title: 'menu.audit', icon: 'Notebook', audit: true },
-    { path: '/system', title: 'menu.system', icon: 'Setting', admin: true }
-  ]
-  return items.filter(m => (!m.admin || store.isAdmin) && (!m.audit || store.isAdmin || store.isAuditor) && (!m.hideViewer || store.role !== 'viewer'))
+  if (store.isAdmin) return menuItems
+  const conf = roleSettings.value[store.role]
+  const allowed = new Set(conf?.menus || [])
+  return menuItems.filter(m => allowed.has(m.key))
 })
 
 const localeLabel = computed(() => (locales.find(l => l.value === i18n.global.locale.value) || {}).label || '中文')

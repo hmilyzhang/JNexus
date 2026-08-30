@@ -75,9 +75,9 @@ func SetupRouter() *gin.Engine {
 		hosts := auth.Group("/hosts", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer))
 		{
 			hosts.GET("", ListHosts)
-			hosts.POST("", CreateHost)
-			hosts.PUT("/:id", UpdateHost)
-			hosts.DELETE("/:id", DeleteHost)
+			hosts.POST("", middleware.RequireHostPerm("create"), CreateHost)
+			hosts.PUT("/:id", middleware.RequireHostPerm("edit"), UpdateHost)
+			hosts.DELETE("/:id", middleware.RequireHostPerm("delete"), DeleteHost)
 			hosts.POST("/import", ImportHosts)
 			hosts.POST("/probe", ProbeHostsHandler)
 			// OS 账号（凭据）管理
@@ -175,6 +175,8 @@ func SetupRouter() *gin.Engine {
 			sysCfg.GET("/config", GetSystemConfig)
 			sysCfg.PUT("/config", UpdateSystemConfig)
 			sysCfg.POST("/ldap/test", TestLDAPConfig)
+			sysCfg.GET("/roles", GetSystemRoles)
+			sysCfg.PUT("/roles", UpdateSystemRoles)
 		}
 	}
 

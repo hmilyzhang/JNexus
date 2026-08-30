@@ -83,14 +83,50 @@
     <el-tab-pane :label="$t('system.roles')" name="roles">
     <el-card>
       <el-table :data="roleRows" size="small" border>
-        <el-table-column :label="$t('users.role')" width="140">
+        <el-table-column :label="$t('users.role')" width="110">
           <template #default="{ row }"><el-tag size="small">{{ row.label }}</el-tag></template>
         </el-table-column>
-        <el-table-column prop="desc" />
+        <el-table-column :label="$t('scripts.desc')" min-width="200">
+          <template #default="{ row }">
+            <el-input v-model="row.desc" size="small" :disabled="row.role === 'admin'" />
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('system.hostPerms')" width="300">
+          <template #default="{ row }">
+            <el-checkbox v-model="row.host.view" size="small">{{ $t('system.permView') }}</el-checkbox>
+            <el-checkbox v-model="row.host.create" size="small" :disabled="row.role === 'admin'">{{ $t('system.permCreate') }}</el-checkbox>
+            <el-checkbox v-model="row.host.edit" size="small" :disabled="row.role === 'admin'">{{ $t('system.permEdit') }}</el-checkbox>
+            <el-checkbox v-model="row.host.delete" size="small" :disabled="row.role === 'admin'">{{ $t('system.permDelete') }}</el-checkbox>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('system.menuPerms')" min-width="160">
+          <template #default="{ row }">
+            <el-button size="small" :disabled="row.role === 'admin'" @click="openMenuDlg(row)">
+              {{ row.menus.length }}/{{ menuKeys.length }} · {{ $t('system.editMenus') }}
+            </el-button>
+          </template>
+        </el-table-column>
       </el-table>
+      <div style="margin-top:12px">
+        <el-button type="primary" :loading="savingRoles" @click="saveRoles">{{ $t('common.save') }}</el-button>
+        <span style="color:#909399; font-size:12px; margin-left:10px">{{ $t('system.rolesTip') }}</span>
+      </div>
     </el-card>
     </el-tab-pane>
     </el-tabs>
+
+    <!-- 菜单权限编辑 -->
+    <el-dialog v-model="menuDlgVisible" :title="`${$t('system.menuPerms')}：${menuDlgRole?.label}`" width="420px">
+      <el-checkbox-group v-model="menuDlgSelection">
+        <el-checkbox v-for="m in menuKeys" :key="m.key" :value="m.key" style="display:block; margin-left:0">
+          {{ $t(m.label) }}<span style="color:#c0c4cc; font-size:12px">（{{ m.key }}）</span>
+        </el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="menuDlgVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="confirmMenuDlg">{{ $t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -113,13 +149,58 @@ const form = reactive({
 })
 const ldapPort = ref(389)
 
-const roleRows = computed(() => [
-  { label: 'Admin', desc: t('system.roleAdmin') },
-  { label: 'Ops', desc: t('system.roleOps') },
-  { label: 'Publisher', desc: t('system.rolePublisher') },
-  { label: 'Viewer', desc: t('system.roleViewer') },
-  { label: 'Auditor', desc: t('system.roleAuditor') }
-])
+const roleRows = ref([])
+const roleLabels = {
+  admin: 'Admin', ops: 'Ops', publisher: 'Publisher', viewer: 'Viewer', auditor: 'Auditor'
+}
+const menuKeys = [
+  { key: 'dashboard', label: 'menu.dashboard' },
+  { key: 'shell', label: 'shell.title' },
+  { key: 'hosts', label: 'menu.hosts' },
+  { key: 'exec', label: 'menu.exec' },
+  { key: 'tasks', label: 'menu.tasks' },
+  { key: 'files', label: 'menu.files' },
+  { key: 'scripts', label: 'menu.scripts' },
+  { key: 'apps', label: 'menu.apps' },
+  { key: 'releases', label: 'menu.releases' },
+  { key: 'users', label: 'menu.users' },
+  { key: 'danger', label: 'menu.danger' },
+  { key: 'audit', label: 'menu.audit' },
+  { key: 'system', label: 'menu.system' }
+]
+const menuDlgVisible = ref(false)
+const menuDlgRole = ref(null)
+const menuDlgSelection = ref([])
+const savingRoles = ref(false)
+
+const loadRoles = async () => {
+  const rs = await api.get('/system/roles')
+  roleRows.value = Object.entries(rs).map(([role, v]) => ({
+    role, label: roleLabels[role] || role,
+    desc: v.desc, menus: [...(v.menus || [])],
+    host: { ...v.host }
+  }))
+}
+const openMenuDlg = row => {
+  menuDlgRole.value = row
+  menuDlgSelection.value = [...row.menus]
+  menuDlgVisible.value = true
+}
+const confirmMenuDlg = () => {
+  menuDlgRole.value.menus = [...menuDlgSelection.value]
+  menuDlgVisible.value = false
+}
+const saveRoles = async () => {
+  savingRoles.value = true
+  try {
+    const payload = {}
+    for (const r of roleRows.value) {
+      payload[r.role] = { desc: r.desc, menus: r.menus, host: r.host }
+    }
+    await api.put('/system/roles', payload)
+    ElMessage.success(t('system.saved'))
+  } finally { savingRoles.value = false }
+}
 
 onMounted(async () => {
   try {
@@ -129,6 +210,7 @@ onMounted(async () => {
     }
     ldapPort.value = Number(form.ldap_port) || 389
     if (cfg.ldap_bind_password === '******') form.ldap_bind_password = '******'
+    await loadRoles()
   } finally { loading.value = false }
 })
 

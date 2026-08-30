@@ -60,6 +60,34 @@ func UpdateSystemConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// GetSystemRoles 角色设置（所有登录用户可读，用于菜单/界面过滤）
+func GetSystemRoles(c *gin.Context) {
+	c.JSON(http.StatusOK, service.GetRoleSettings())
+}
+
+// UpdateSystemRoles 保存角色设置（admin）
+func UpdateSystemRoles(c *gin.Context) {
+	var req map[string]service.RolePerm
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	// admin 权限固定全开，防止误配置锁死
+	admin := req[model.RoleAdmin]
+	admin.Host.View, admin.Host.Create, admin.Host.Edit, admin.Host.Delete = true, true, true, true
+	if len(admin.Menus) == 0 {
+		def := service.DefaultRoleSettings()[model.RoleAdmin]
+		admin.Menus = def.Menus
+	}
+	admin.Desc = "全部权限，含用户/系统管理"
+	req[model.RoleAdmin] = admin
+	if err := service.SetRoleSettings(req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 // TestLDAPConfig 用当前已保存配置测试 LDAP 连通性
 func TestLDAPConfig(c *gin.Context) {
 	if err := service.TestLDAP(service.LoadLDAPSettings()); err != nil {

@@ -33,8 +33,9 @@ func Audit() gin.HandlerFunc {
 		// 读取请求体做摘要（最多 1KB）
 		var summary string
 		if c.Request.Body != nil {
-			raw, _ := io.ReadAll(io.LimitReader(c.Request.Body, 1024))
-			summary = sanitize(string(raw))
+			// 完整读取后再回填，避免截断导致后续绑定失败（脚本内容等大请求体）
+			raw, _ := io.ReadAll(c.Request.Body)
+			summary = truncateText(sanitize(string(raw)), 1024)
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(raw))
 		}
 		bw := &bodyWriter{ResponseWriter: c.Writer, body: bytes.NewBuffer(nil)}
@@ -57,6 +58,14 @@ func Audit() gin.HandlerFunc {
 		}(CurrentUser(c), c.Request.Method, c.Request.URL.Path, c.ClientIP(), c.Writer.Status(), summary)
 		_ = bw.body
 	}
+}
+
+// truncateText 审计摘要只保留前 1KB（截断发生在回填之后，不影响业务请求）
+func truncateText(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "...(truncated)"
 }
 
 // sanitize 屏蔽敏感字段
