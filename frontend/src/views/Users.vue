@@ -125,11 +125,33 @@
           <el-option v-for="h in hosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
         </el-select>
       </el-form-item>
+      <el-form-item :label="$t('users.credRules')">
+        <div style="width:100%">
+          <div v-for="(r, i) in gform.rules" :key="i" style="display:flex; gap:6px; margin-bottom:6px">
+            <el-select v-model="r.host_group_id" style="width:200px" size="small" :placeholder="$t('users.ruleAllHosts')">
+              <el-option :label="$t('users.ruleAllHosts')" :value="null" />
+              <el-option v-for="g in hostGroups" :key="g.id" :label="g.name" :value="g.id" />
+            </el-select>
+            <el-input v-model="r.username" size="small" class="mono" :placeholder="$t('users.ruleUsername')" style="width:200px" />
+            <el-button type="danger" link size="small" @click="gform.rules.splice(i, 1)">{{ $t('apps.remove') }}</el-button>
+          </div>
+          <el-button size="small" @click="gform.rules.push({ host_group_id: null, username: '' })">{{ $t('users.ruleAdd') }}</el-button>
+          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('users.ruleTip') }}</div>
+        </div>
+      </el-form-item>
       <el-form-item :label="$t('hosts.credLinkedAccounts')">
-        <el-select v-model="gform.credential_ids" multiple filterable style="width:100%">
-          <el-option v-for="c in allCreds" :key="c.id"
-                     :label="`${c.host_name} · ${c.host_ip} — ${c.username}${c.label ? '（' + c.label + '）' : ''}`" :value="c.id" />
-        </el-select>
+        <div style="width:100%">
+          <div style="display:flex; gap:6px; margin-bottom:6px; flex-wrap:wrap">
+            <el-input v-model="credFilter" size="small" :placeholder="$t('tasks.searchOutput')" style="width:180px" clearable />
+            <el-button size="small" @click="selectFilteredCreds">{{ $t('users.selectAllFiltered') }}</el-button>
+            <el-button v-for="g in hostGroups" :key="g.id" size="small" @click="selectGroupCreds(g)">{{ g.name }} ✓</el-button>
+            <el-button size="small" @click="gform.credential_ids = []">{{ $t('exec.clearAll') }}</el-button>
+          </div>
+          <el-select v-model="gform.credential_ids" multiple filterable style="width:100%" :max-collapse-tags="2" collapse-tags>
+            <el-option v-for="c in allCreds" :key="c.id"
+                       :label="`${c.host_name} · ${c.host_ip} — ${c.username}${c.label ? '（' + c.label + '）' : ''}`" :value="c.id" />
+          </el-select>
+        </div>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -160,7 +182,23 @@ const grantUser = ref(null)
 const grantForm = ref({ host_groups: [], apps: [] })
 const gVisible = ref(false)
 const allCreds = ref([])
-const gform = ref({ name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [] })
+const credFilter = ref('')
+const gform = ref({ name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [], rules: [] })
+
+// 批量快选：全选搜索结果 / 按主机分组全选
+const selectFilteredCreds = () => {
+  const kw = credFilter.value.trim().toLowerCase()
+  const ids = new Set(gform.value.credential_ids)
+  for (const c of allCreds.value) {
+    if (!kw || `${c.host_name} ${c.host_ip} ${c.username} ${c.label || ''}`.toLowerCase().includes(kw)) ids.add(c.id)
+  }
+  gform.value.credential_ids = [...ids]
+}
+const selectGroupCreds = g => {
+  const ids = new Set(gform.value.credential_ids)
+  for (const c of allCreds.value.filter(x => x.host_id && hosts.value.find(h => h.id === x.host_id && h.group_id === g.id))) ids.add(c.id)
+  gform.value.credential_ids = [...ids]
+}
 
 const roleLabel = r => ({
   admin: t('layout.roleAdmin'), ops: t('layout.roleOps'),
@@ -227,10 +265,11 @@ const gDlg = async row => {
     const d = await api.get(`/user_groups/${row.id}`)
     gform.value = {
       id: d.id, name: d.name, description: d.description,
-      member_ids: d.member_ids || [], host_ids: d.host_ids || [], host_group_ids: d.host_group_ids || [], credential_ids: d.credential_ids || []
+      member_ids: d.member_ids || [], host_ids: d.host_ids || [], host_group_ids: d.host_group_ids || [],
+      credential_ids: d.credential_ids || [], rules: (d.rules || []).map(r => ({ host_group_id: r.host_group_id, username: r.username }))
     }
   } else {
-    gform.value = { name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [] }
+    gform.value = { name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [], rules: [] }
   }
   gVisible.value = true
 }
@@ -239,12 +278,14 @@ const gSave = async () => {
   if (gform.value.id) {
     await api.put(`/user_groups/${gform.value.id}`, { name: gform.value.name, description: gform.value.description })
     await api.put(`/user_groups/${gform.value.id}/links`, {
-      member_ids: gform.value.member_ids, host_ids: gform.value.host_ids, host_group_ids: gform.value.host_group_ids, credential_ids: gform.value.credential_ids
+      member_ids: gform.value.member_ids, host_ids: gform.value.host_ids, host_group_ids: gform.value.host_group_ids, credential_ids: gform.value.credential_ids,
+      rules: gform.value.rules.filter(r => r.username && r.username.trim())
     })
   } else {
     const created = await api.post('/user_groups', { name: gform.value.name, description: gform.value.description })
     await api.put(`/user_groups/${created.id}/links`, {
-      member_ids: gform.value.member_ids, host_ids: gform.value.host_ids, host_group_ids: gform.value.host_group_ids, credential_ids: gform.value.credential_ids
+      member_ids: gform.value.member_ids, host_ids: gform.value.host_ids, host_group_ids: gform.value.host_group_ids, credential_ids: gform.value.credential_ids,
+      rules: gform.value.rules.filter(r => r.username && r.username.trim())
     })
   }
   ElMessage.success(t('hosts.saved'))

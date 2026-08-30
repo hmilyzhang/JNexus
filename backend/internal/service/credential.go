@@ -19,22 +19,43 @@ func UsableCredentials(user *model.User, host *model.Host) []model.HostCredentia
 	if user.IsAdmin() || CanExecHost(user, host.ID, host.GroupID) {
 		return creds
 	}
-	// 仅用户组直接关联的凭据
-	var ids []uint
+	// 用户组授权：直接关联的凭据 + 账号规则（主机分组范围 × 账号名）
+	var linkedIDs []uint
 	model.DB.Table("user_group_credentials ugc").
 		Joins("JOIN user_group_members ugm ON ugm.user_group_id = ugc.user_group_id").
 		Where("ugm.user_id = ?", user.ID).
-		Pluck("ugc.credential_id", &ids)
-	if len(ids) == 0 {
-		return nil
+		Pluck("ugc.credential_id", &linkedIDs)
+	idSet := map[uint]bool{}
+	for _, id := range linkedIDs {
+		idSet[id] = true
 	}
+
+	// 用户所在组的账号规则
+	type credRule struct {
+		HostGroupID *uint
+		Username    string
+	}
+	var rules []credRule
+	model.DB.Table("user_group_cred_rules ugr").
+		Joins("JOIN user_group_members ugm ON ugm.user_group_id = ugr.user_group_id").
+		Select("ugr.host_group_id, ugr.username").
+		Where("ugm.user_id = ?", user.ID).
+		Scan(&rules)
+
 	var usable []model.HostCredential
 	for _, c := range creds {
-		for _, id := range ids {
-			if c.ID == id {
-				usable = append(usable, c)
-				break
+		ok := idSet[c.ID]
+		if !ok {
+			for _, r := range rules {
+				inScope := r.HostGroupID == nil || (host.GroupID != nil && *r.HostGroupID == *host.GroupID)
+				if inScope && r.Username == c.Username {
+					ok = true
+					break
+				}
 			}
+		}
+		if ok {
+			usable = append(usable, c)
 		}
 	}
 	return usable

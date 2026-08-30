@@ -249,6 +249,14 @@ type UserGroupCredential struct {
 	CredentialID uint `gorm:"index" json:"credential_id"`
 }
 
+// 用户组账号规则：主机分组范围（空=全部主机）× 账号名，一次规则覆盖存量与新增主机
+type UserGroupCredRule struct {
+	ID          uint   `gorm:"primaryKey" json:"id"`
+	UserGroupID uint   `gorm:"index" json:"user_group_id"`
+	HostGroupID *uint  `gorm:"index" json:"host_group_id"` // NULL=全部主机
+	Username    string `gorm:"size:64;index" json:"username"`
+}
+
 func (u *User) IsAdmin() bool { return u.Role == RoleAdmin }
 
 // JSONParams 把 map 序列化为 JSON 字符串

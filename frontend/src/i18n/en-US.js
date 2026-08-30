@@ -147,6 +147,11 @@ export default {
     credKeyRequired: 'Key auth requires selecting an SSH key',
     credSelectPlaceholder: 'Default account (per-host default usable account)',
     credOsAccount: 'OS account',
+    credRules: 'Account rules',
+    ruleAdd: '+ Add rule',
+    ruleAllHosts: 'All hosts',
+    ruleUsername: 'Username, e.g. appuser',
+    ruleTip: 'Rule = host scope × username; auto-covers existing and future hosts with the same account name (recommended for large-scale grants)',
     credLinkedAccounts: 'Linked OS accounts',
     credPublishAccount: 'Release account (optional)',
     needKey: 'Please select a key'

@@ -147,6 +147,11 @@ export default {
     credKeyRequired: '密钥认证需要选择 SSH 密钥',
     credSelectPlaceholder: '默认账号（各主机默认可用账号）',
     credOsAccount: 'OS 账号',
+    credRules: '账号规则',
+    ruleAdd: '+ 添加规则',
+    ruleAllHosts: '全部主机',
+    ruleUsername: '账号名，如 appuser',
+    ruleTip: '规则 = 主机范围 × 账号名，自动覆盖范围内存量与新增主机的同名账号（推荐用于大规模批量授权）',
     credLinkedAccounts: '关联 OS 账号',
     credPublishAccount: '发布账号(可选)',
     needKey: '请选择密钥'

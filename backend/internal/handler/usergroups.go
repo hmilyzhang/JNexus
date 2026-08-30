@@ -3,6 +3,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -70,6 +71,7 @@ func DeleteUserGroup(c *gin.Context) {
 	model.DB.Where("user_group_id = ?", id).Delete(&model.UserGroupMember{})
 	model.DB.Where("user_group_id = ?", id).Delete(&model.UserGroupHost{})
 	model.DB.Where("user_group_id = ?", id).Delete(&model.UserGroupHostGroup{})
+	model.DB.Where("user_group_id = ?", id).Delete(&model.UserGroupCredRule{})
 	model.DB.Delete(&model.UserGroup{}, id)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
@@ -87,10 +89,17 @@ func GetUserGroup(c *gin.Context) {
 	model.DB.Model(&model.UserGroupHost{}).Where("user_group_id = ?", id).Pluck("host_id", &hostIDs)
 	model.DB.Model(&model.UserGroupHostGroup{}).Where("user_group_id = ?", id).Pluck("host_group_id", &groupIDs)
 	model.DB.Model(&model.UserGroupCredential{}).Where("user_group_id = ?", id).Pluck("credential_id", &credIDs)
+	type ruleRow struct {
+		HostGroupID *uint  `json:"host_group_id"`
+		Username    string `json:"username"`
+	}
+	var rules []ruleRow
+	model.DB.Model(&model.UserGroupCredRule{}).Select("host_group_id", "username").
+		Where("user_group_id = ?", id).Scan(&rules)
 	c.JSON(http.StatusOK, gin.H{
 		"id": g.ID, "name": g.Name, "description": g.Description,
 		"member_ids": memberIDs, "host_ids": hostIDs, "host_group_ids": groupIDs,
-		"credential_ids": credIDs,
+		"credential_ids": credIDs, "rules": rules,
 	})
 }
 
@@ -106,6 +115,10 @@ func UpdateUserGroupLinks(c *gin.Context) {
 		HostIDs      []uint `json:"host_ids"`
 		GroupIDs     []uint `json:"host_group_ids"`
 		CredentialIDs []uint `json:"credential_ids"`
+		Rules        []struct {
+			HostGroupID *uint  `json:"host_group_id"`
+			Username    string `json:"username" binding:"required"`
+		} `json:"rules"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
@@ -126,6 +139,13 @@ func UpdateUserGroupLinks(c *gin.Context) {
 	model.DB.Where("user_group_id = ?", g.ID).Delete(&model.UserGroupCredential{})
 	for _, v := range req.CredentialIDs {
 		model.DB.Create(&model.UserGroupCredential{UserGroupID: g.ID, CredentialID: v})
+	}
+	model.DB.Where("user_group_id = ?", g.ID).Delete(&model.UserGroupCredRule{})
+	for _, r := range req.Rules {
+		if strings.TrimSpace(r.Username) == "" {
+			continue
+		}
+		model.DB.Create(&model.UserGroupCredRule{UserGroupID: g.ID, HostGroupID: r.HostGroupID, Username: strings.TrimSpace(r.Username)})
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

@@ -112,6 +112,9 @@
         <el-input v-model="importForm.password" type="password" show-password autocomplete="new-password"
                   :placeholder="$t('hosts.commonPasswordPlaceholder')" />
       </el-form-item>
+      <el-form-item :label="$t('hosts.credLabel')">
+        <el-input v-model="importForm.credential_label" :placeholder="$t('hosts.credLabelPlaceholder')" />
+      </el-form-item>
       <el-form-item :label="$t('hosts.defaultUser')"><el-input v-model="importForm.username" placeholder="root" /></el-form-item>
       <el-form-item :label="$t('hosts.importKey')" v-if="!importForm.auto_pair">
         <el-select v-model="importForm.ssh_key_id" style="width:100%">
@@ -261,7 +264,7 @@ const importing = ref(false)
 const hostVisible = ref(false)
 const hostForm = ref({})
 const importVisible = ref(false)
-const importForm = ref({ content: '', ssh_key_id: null, username: 'root', password: '', auto_pair: true })
+const importForm = ref({ content: '', ssh_key_id: null, username: 'root', password: '', credential_label: '', auto_pair: true })
 const groupVisible = ref(false)
 const newGroup = ref('')
 const showKeys = ref(false)

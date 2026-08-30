@@ -193,6 +193,22 @@ func DeleteHost(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// createDefaultCred 为导入的主机生成默认 OS 账号（与主机自带账号一致）
+func createDefaultCred(hostID uint, username, authType string, sshKeyID *uint, encPassword, label string) {
+	if strings.TrimSpace(label) == "" {
+		label = "默认"
+	}
+	var cnt int64
+	model.DB.Model(&model.HostCredential{}).Where("host_id = ?", hostID).Count(&cnt)
+	if cnt > 0 {
+		return
+	}
+	model.DB.Create(&model.HostCredential{
+		HostID: hostID, Username: username, AuthType: authType,
+		SSHKeyID: sshKeyID, Password: encPassword, Label: label, IsDefault: true,
+	})
+}
+
 // ImportHosts 批量导入：每行 ip,port,username,分组名
 // 兼容旧格式：4 段时第 4 段为分组；5 段时第 3 段为该行独立密码、第 4 段为分组
 // 页面级统一密码放在请求字段中（不写入 CSV，JSON 传输不经 shell 转义），
@@ -204,6 +220,7 @@ func ImportHosts(c *gin.Context) {
 		AuthType  string `json:"auth_type"`
 		Username  string `json:"username"`  // 可作为默认用户名
 		Password  string `json:"password"`  // 页面统一密码（原样使用，不做 trim/转义）
+		CredLabel string `json:"credential_label"` // 生成的 OS 账号标签
 		AutoPair  bool   `json:"auto_pair"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -219,6 +236,10 @@ func ImportHosts(c *gin.Context) {
 
 	// 自动配对模式：整批共用一对密钥
 	var batchKey *model.SSHKey
+	credLabel := strings.TrimSpace(req.CredLabel)
+	if credLabel == "" {
+		credLabel = "默认"
+	}
 	if req.AutoPair {
 		k, err := service.GenerateAndStoreKeyPair(
 			fmt.Sprintf("import-%s", time.Now().Format("20060102150405")), "autoops-import")
@@ -323,6 +344,7 @@ func ImportHosts(c *gin.Context) {
 				continue
 			}
 			model.DB.Model(&h).Updates(map[string]any{"auth_type": "key", "ssh_key_id": batchKey.ID})
+			createDefaultCred(h.ID, username, "key", &batchKey.ID, "", credLabel)
 			paired++
 			created++
 			continue
@@ -341,6 +363,7 @@ func ImportHosts(c *gin.Context) {
 			errors = append(errors, fmt.Sprintf("%s: %v", ip, err))
 			continue
 		}
+		createDefaultCred(h.ID, h.Username, h.AuthType, h.SSHKeyID, h.Password, req.CredLabel)
 		created++
 	}
 	resp := gin.H{"created": created, "skipped": skipped, "errors": errors}
