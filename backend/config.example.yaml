@@ -17,3 +17,8 @@ auth:
 
 storage:
   upload_dir: "./uploads"
+
+# 环境变量可覆盖以上配置（优先级：AUTOOPS_DSN > AUTOOPS_DB_* > 本文件）：
+#   AUTOOPS_DSN / AUTOOPS_DB_HOST / AUTOOPS_DB_PORT / AUTOOPS_DB_USER /
+#   AUTOOPS_DB_PASSWORD / AUTOOPS_DB_NAME / AUTOOPS_JWT_SECRET / AUTOOPS_AES_KEY
+# Docker 外部数据库部署见 deploy/docker-compose.external.yml
