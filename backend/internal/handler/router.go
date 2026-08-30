@@ -141,6 +141,17 @@ func SetupRouter() *gin.Engine {
 		// 权限分配数据源
 		auth.GET("/grants/options", GrantsOptions)
 
+		// 用户组管理（admin）
+		ug := auth.Group("/user_groups", middleware.RequireRole())
+		{
+			ug.GET("", ListUserGroups)
+			ug.POST("", CreateUserGroup)
+			ug.PUT("/:id", UpdateUserGroup)
+			ug.DELETE("/:id", DeleteUserGroup)
+			ug.GET("/:id", GetUserGroup)
+			ug.PUT("/:id/links", UpdateUserGroupLinks)
+		}
+
 		// Dashboard
 		auth.GET("/dashboard", Dashboard)
 

@@ -18,14 +18,25 @@ import (
 func ListUsers(c *gin.Context) {
 	var users []model.User
 	model.DB.Find(&users)
-	c.JSON(http.StatusOK, users)
+	out := make([]gin.H, 0, len(users))
+	for _, u := range users {
+		var memberOf []uint
+		model.DB.Model(&model.UserGroupMember{}).Where("user_id = ?", u.ID).Pluck("user_group_id", &memberOf)
+		out = append(out, gin.H{
+			"id": u.ID, "username": u.Username, "role": u.Role, "auth_source": u.AuthSource,
+			"email": u.Email, "status": u.Status, "last_login_at": u.LastLoginAt,
+			"created_at": u.CreatedAt, "member_of": memberOf,
+		})
+	}
+	c.JSON(http.StatusOK, out)
 }
 
 func CreateUser(c *gin.Context) {
 	var req struct {
-		Username string `json:"username" binding:"required,min=2"`
-		Password string `json:"password" binding:"required,min=6"`
-		Role     string `json:"role" binding:"required"`
+		Username     string `json:"username" binding:"required,min=2"`
+		Password     string `json:"password" binding:"required,min=6"`
+		Role         string `json:"role" binding:"required"`
+		UserGroupIDs []uint `json:"user_group_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（用户名≥2位，密码≥6位）"})
@@ -42,6 +53,9 @@ func CreateUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名已存在"})
 		return
 	}
+	for _, gid := range req.UserGroupIDs {
+		model.DB.Create(&model.UserGroupMember{UserGroupID: gid, UserID: u.ID})
+	}
 	c.JSON(http.StatusOK, u)
 }
 
@@ -53,8 +67,9 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Role   *string `json:"role"`
-		Status *int    `json:"status"`
+		Role         *string `json:"role"`
+		Status       *int    `json:"status"`
+		UserGroupIDs *[]uint `json:"user_group_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
@@ -68,6 +83,12 @@ func UpdateUser(c *gin.Context) {
 		updates["status"] = *req.Status
 	}
 	model.DB.Model(&u).Updates(updates)
+	if req.UserGroupIDs != nil {
+		model.DB.Where("user_id = ?", u.ID).Delete(&model.UserGroupMember{})
+		for _, gid := range *req.UserGroupIDs {
+			model.DB.Create(&model.UserGroupMember{UserGroupID: gid, UserID: u.ID})
+		}
+	}
 	c.JSON(http.StatusOK, u)
 }
 
@@ -81,6 +102,7 @@ func DeleteUser(c *gin.Context) {
 	model.DB.Delete(&model.User{}, id)
 	model.DB.Where("user_id = ?", id).Delete(&model.UserHostGroup{})
 	model.DB.Where("user_id = ?", id).Delete(&model.UserApp{})
+	model.DB.Where("user_id = ?", id).Delete(&model.UserGroupMember{})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 

@@ -195,6 +195,35 @@ type UserApp struct {
 	AppID    uint `gorm:"index" json:"app_id"`
 }
 
+// 用户组：批量管理用户的主机访问权限
+type UserGroup struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	Name        string    `gorm:"uniqueIndex;size:128" json:"name"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// 用户组 ↔ 主机（直接授权）
+type UserGroupHost struct {
+	ID          uint `gorm:"primaryKey" json:"id"`
+	UserGroupID uint `gorm:"index" json:"user_group_id"`
+	HostID      uint `gorm:"index" json:"host_id"`
+}
+
+// 用户组 ↔ 主机分组（整组授权）
+type UserGroupHostGroup struct {
+	ID          uint `gorm:"primaryKey" json:"id"`
+	UserGroupID uint `gorm:"index" json:"user_group_id"`
+	HostGroupID uint `gorm:"index" json:"host_group_id"`
+}
+
+// 用户组 ↔ 用户（组成员）
+type UserGroupMember struct {
+	ID          uint `gorm:"primaryKey" json:"id"`
+	UserGroupID uint `gorm:"index" json:"user_group_id"`
+	UserID      uint `gorm:"index" json:"user_id"`
+}
+
 func (u *User) IsAdmin() bool { return u.Role == RoleAdmin }
 
 // JSONParams 把 map 序列化为 JSON 字符串

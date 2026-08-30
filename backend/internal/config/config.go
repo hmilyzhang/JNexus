@@ -42,6 +42,23 @@ func Load(path string) error {
 	if v := os.Getenv("AUTOOPS_DSN"); v != "" {
 		Cfg.Database.DSN = v
 	}
+	// 外部数据库分项配置：AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME
+	// 设置了 AUTOOPS_DB_HOST 且未显式给 DSN 时，自动拼装 DSN
+	if Cfg.Database.DSN == "" && os.Getenv("AUTOOPS_DB_HOST") != "" {
+		host := os.Getenv("AUTOOPS_DB_HOST")
+		port := os.Getenv("AUTOOPS_DB_PORT")
+		user := os.Getenv("AUTOOPS_DB_USER")
+		pass := os.Getenv("AUTOOPS_DB_PASSWORD")
+		name := os.Getenv("AUTOOPS_DB_NAME")
+		if port == "" {
+			port = "5432"
+		}
+		if name == "" {
+			name = "autoops"
+		}
+		Cfg.Database.DSN = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			host, port, user, pass, name)
+	}
 	if v := os.Getenv("AUTOOPS_JWT_SECRET"); v != "" {
 		Cfg.Auth.JWTSecret = v
 	}

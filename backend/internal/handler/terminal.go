@@ -14,6 +14,7 @@ import (
 
 	"autoops/internal/model"
 	"autoops/internal/pkg"
+	"autoops/internal/service"
 	"autoops/internal/sshpool"
 )
 
@@ -71,8 +72,13 @@ func WebTerminal(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "主机不存在"})
 		return
 	}
-	if !user.IsAdmin() && user.Role != model.RoleOps {
+	if !user.IsAdmin() && user.Role != model.RoleOps && user.Role != model.RolePublisher {
 		c.JSON(http.StatusForbidden, gin.H{"error": "权限不足"})
+		return
+	}
+	// 数据级权限：个人分组授权或用户组关联
+	if !service.CanExecHost(&user, host.ID, host.GroupID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无该主机的访问权限"})
 		return
 	}
 

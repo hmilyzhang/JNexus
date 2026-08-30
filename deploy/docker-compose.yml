@@ -1,11 +1,14 @@
+# 默认：捆绑 PostgreSQL。
+# 使用外部数据库：见 docker-compose.external.yml，或直接设置 AUTOOPS_DB_* 环境变量后
+# 运行 `docker compose up -d autoops`（数据库/表结构由程序启动时自动创建）。
 services:
   postgres:
     image: postgres:16-alpine
     container_name: autoops-pg
     environment:
-      POSTGRES_USER: autoops
-      POSTGRES_PASSWORD: autoops123
-      POSTGRES_DB: autoops
+      POSTGRES_USER: ${AUTOOPS_DB_USER:-autoops}
+      POSTGRES_PASSWORD: ${AUTOOPS_DB_PASSWORD:-autoops123}
+      POSTGRES_DB: ${AUTOOPS_DB_NAME:-autoops}
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -24,9 +27,14 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      AUTOOPS_DSN: "host=postgres port=5432 user=autoops password=autoops123 dbname=autoops sslmode=disable"
-      AUTOOPS_JWT_SECRET: "change-me-to-a-long-random-string"
-      AUTOOPS_AES_KEY: "y0urBase64Encoded32BytesKeyGoesHere="
+      # 外部数据库只需修改以下变量（或设置 AUTOOPS_DSN 使用完整 DSN）
+      AUTOOPS_DB_HOST: ${AUTOOPS_DB_HOST:-postgres}
+      AUTOOPS_DB_PORT: ${AUTOOPS_DB_PORT:-5432}
+      AUTOOPS_DB_USER: ${AUTOOPS_DB_USER:-autoops}
+      AUTOOPS_DB_PASSWORD: ${AUTOOPS_DB_PASSWORD:-autoops123}
+      AUTOOPS_DB_NAME: ${AUTOOPS_DB_NAME:-autoops}
+      AUTOOPS_JWT_SECRET: ${AUTOOPS_JWT_SECRET:-change-me-to-a-long-random-string}
+      AUTOOPS_AES_KEY: ${AUTOOPS_AES_KEY:-y0urBase64Encoded32BytesKeyGoesHere=}
     ports:
       - "8080:8080"
     volumes:

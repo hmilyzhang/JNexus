@@ -134,28 +134,52 @@ func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint, ips []str
 	// 数据级权限过滤
 	allowed := hosts[:0]
 	for _, h := range hosts {
-		if userCanExecHost(operator, h.GroupID) {
+		if CanExecHost(operator, h.ID, h.GroupID) {
 			allowed = append(allowed, h)
 		}
 	}
 	return allowed, nil
 }
 
-func userCanExecHost(user *model.User, groupID *uint) bool {
+// CanExecHost 判断用户能否在指定主机上执行：
+// admin 全通过；运维/发布员通过「个人分组授权」或「用户组（直接关联主机/关联主机分组）」获得权限
+func CanExecHost(user *model.User, hostID uint, groupID *uint) bool {
 	if user.IsAdmin() {
 		return true
 	}
 	if user.Role != model.RoleOps && user.Role != model.RolePublisher {
 		return false
 	}
-	if groupID == nil {
-		return false
+	// 个人授权：所在主机分组
+	if groupID != nil {
+		var cnt int64
+		model.DB.Model(&model.UserHostGroup{}).
+			Where("user_id = ? AND group_id = ? AND can_exec = ?", user.ID, *groupID, true).
+			Count(&cnt)
+		if cnt > 0 {
+			return true
+		}
 	}
+	// 用户组直接关联主机
 	var cnt int64
-	model.DB.Model(&model.UserHostGroup{}).
-		Where("user_id = ? AND group_id = ? AND can_exec = ?", user.ID, *groupID, true).
+	model.DB.Table("user_group_hosts ug_h").
+		Joins("JOIN user_group_members ug_m ON ug_m.user_group_id = ug_h.user_group_id").
+		Where("ug_m.user_id = ? AND ug_h.host_id = ?", user.ID, hostID).
 		Count(&cnt)
-	return cnt > 0
+	if cnt > 0 {
+		return true
+	}
+	// 用户组关联主机分组
+	if groupID != nil {
+		model.DB.Table("user_group_host_groups ug_g").
+			Joins("JOIN user_group_members ug_m ON ug_m.user_group_id = ug_g.user_group_id").
+			Where("ug_m.user_id = ? AND ug_g.host_group_id = ?", user.ID, *groupID).
+			Count(&cnt)
+		if cnt > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // runTask 并发执行任务，实时推送输出

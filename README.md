@@ -16,7 +16,7 @@
 | 文件分发 | 浏览器上传 → 并发 SFTP 分发到多台主机指定目录（支持树状选择与多 IP），进度实时可见 |
 | 脚本中心 | 脚本增删改查，一键批量执行（复用执行引擎） |
 | 发布中心 | 应用绑定主机与部署路径；发布流水线：停止 → 备份(带时间戳) → 上传 → 启动 → 健康检查；失败可一键回滚到最近备份 |
-| 用户管理 | 管理员/运维/发布员/只读 四种角色 + 数据级授权（可执行的主机分组、可发布的应用）；**LDAP 认证**（登录自动建号、默认角色可配） |
+| 用户管理 | 双 Tab：用户管理 + 组管理。管理员/运维/发布员/只读 四种角色；用户组可关联主机与主机分组，组成员自动获得访问权限（与个人授权叠加）；**LDAP 认证**（登录自动建号、默认角色可配） |
 | 系统配置 | 系统名称、LDAP 服务器（连接测试）、角色说明等集中管理 |
 | 审计日志 | 所有写操作自动记录（人、动作、资源、来源 IP、状态码），执行任务全留痕 |
 | 危险命令拦截 | 正则规则库（rm -rf、mkfs、dd、shutdown、drop database 等内置 11 条），命中即阻断并写审计；管理员可增删改、可测试 |
@@ -64,6 +64,21 @@ cd deploy
 docker compose up -d --build
 # 修改 docker-compose.yml 中的 JWT_SECRET 与 AES_KEY！
 ```
+
+**使用外部 PostgreSQL**：无需改镜像，通过环境变量传入连接信息，程序启动时自动创建全部表结构（数据库本身需先创建）：
+
+```bash
+export AUTOOPS_DB_HOST=10.3.0.100     # 数据库地址
+export AUTOOPS_DB_PORT=5432
+export AUTOOPS_DB_USER=autoops
+export AUTOOPS_DB_PASSWORD=yourpass
+export AUTOOPS_DB_NAME=autoops        # 需预先 CREATE DATABASE
+export AUTOOPS_JWT_SECRET=<随机长字符串>
+export AUTOOPS_AES_KEY=$(openssl rand -base64 32)
+docker compose -f docker-compose.external.yml up -d --build
+```
+
+也可用 `AUTOOPS_DSN` 直接给完整连接串（本地二进制同样支持这些环境变量，优先级：`AUTOOPS_DSN` > `AUTOOPS_DB_*` > config.yaml）。
 
 ## 使用说明
 
