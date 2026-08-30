@@ -26,6 +26,11 @@ type User struct {
 	Status      int       `gorm:"default:1" json:"status"` // 1 启用 0 禁用
 	LastLoginAt *time.Time `json:"last_login_at"`
 	CreatedAt   time.Time `json:"created_at"`
+	CreatedBy   string     `gorm:"size:64" json:"created_by"` // 创建人（LDAP 自动建号记为 LDAP）
+	UpdatedBy   string     `gorm:"size:64" json:"updated_by"` // 最近修改人
+	UpdatedAt   time.Time  `json:"updated_at"`
+	DisabledAt  *time.Time `json:"disabled_at"`               // 禁用时间（启用后清空）
+	DisabledBy  string     `gorm:"size:64" json:"disabled_by"` // 禁用操作人
 }
 
 // SystemConfig 系统配置（key-value，值可为 JSON 文本）

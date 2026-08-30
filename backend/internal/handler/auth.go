@@ -87,7 +87,7 @@ func tryLDAPLogin(username, password string, autoCreate bool) (model.User, error
 		}
 		u = model.User{
 			Username: username, Role: settings.DefaultRole,
-			AuthSource: "ldap", Email: email, Status: 1,
+			AuthSource: "ldap", Email: email, Status: 1, CreatedBy: "LDAP",
 		}
 		if err := model.DB.Create(&u).Error; err != nil {
 			return model.User{}, err

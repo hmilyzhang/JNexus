@@ -72,6 +72,9 @@ export default {
     releases: '发布单',
     dangerRules: '启用拦截规则',
     lastLogin: '最后登录',
+    createdBy: '创建人/时间',
+    updatedBy: '最近修改',
+    disabledAt: '禁用时间/操作人',
     role: '角色',
     authSource: '认证来源',
     quickNav: '快捷入口'

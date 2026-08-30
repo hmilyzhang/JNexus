@@ -72,6 +72,9 @@ export default {
     releases: 'Releases',
     dangerRules: 'Active Rules',
     lastLogin: 'Last login',
+    createdBy: 'Created by/at',
+    updatedBy: 'Last modified',
+    disabledAt: 'Disabled at/by',
     role: 'Role',
     authSource: 'Auth source',
     quickNav: 'Quick Access'

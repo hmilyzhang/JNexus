@@ -5,6 +5,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -25,7 +26,10 @@ func ListUsers(c *gin.Context) {
 		out = append(out, gin.H{
 			"id": u.ID, "username": u.Username, "role": u.Role, "auth_source": u.AuthSource,
 			"email": u.Email, "status": u.Status, "last_login_at": u.LastLoginAt,
-			"created_at": u.CreatedAt, "member_of": memberOf,
+			"created_at": u.CreatedAt, "created_by": u.CreatedBy,
+			"updated_by": u.UpdatedBy, "updated_at": u.UpdatedAt,
+			"disabled_at": u.DisabledAt, "disabled_by": u.DisabledBy,
+			"member_of": memberOf,
 		})
 	}
 	c.JSON(http.StatusOK, out)
@@ -48,7 +52,8 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 	hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	u := model.User{Username: req.Username, Password: string(hash), Role: req.Role, Status: 1}
+	u := model.User{Username: req.Username, Password: string(hash), Role: req.Role, Status: 1,
+		CreatedBy: currentUser(c).Username, UpdatedBy: currentUser(c).Username}
 	if err := model.DB.Create(&u).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名已存在"})
 		return
@@ -75,12 +80,21 @@ func UpdateUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 		return
 	}
-	updates := map[string]any{}
+	op := currentUser(c).Username
+	updates := map[string]any{"updated_by": op, "updated_at": time.Now()}
 	if req.Role != nil {
 		updates["role"] = *req.Role
 	}
 	if req.Status != nil {
 		updates["status"] = *req.Status
+		if *req.Status == 0 { // 禁用：记录操作人与时间
+			now := time.Now()
+			updates["disabled_at"] = now
+			updates["disabled_by"] = op
+		} else { // 启用：清空
+			updates["disabled_at"] = nil
+			updates["disabled_by"] = ""
+		}
 	}
 	model.DB.Model(&u).Updates(updates)
 	if req.UserGroupIDs != nil {
@@ -129,6 +143,7 @@ func SetUserGrants(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	refreshUserAudit(c, uint(id))
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -152,6 +167,12 @@ func doSetGrants(tx *gorm.DB, userID uint, req *grantsReq) error {
 		}
 	}
 	return nil
+}
+
+// refreshUserAudit 刷新用户「最近修改」审计字段
+func refreshUserAudit(c *gin.Context, userID uint) {
+	model.DB.Model(&model.User{}).Where("id = ?", userID).
+		Updates(map[string]any{"updated_by": currentUser(c).Username, "updated_at": time.Now()})
 }
 
 func GetUserGrants(c *gin.Context) {

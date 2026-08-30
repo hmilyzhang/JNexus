@@ -105,7 +105,7 @@ func Seed() error {
 	DB.Model(&User{}).Count(&cnt)
 	if cnt == 0 {
 		hash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
-		admin := User{Username: "admin", Password: string(hash), Role: RoleAdmin, Status: 1}
+		admin := User{Username: "admin", Password: string(hash), Role: RoleAdmin, Status: 1, CreatedBy: "system", UpdatedBy: "system"}
 		if err := DB.Create(&admin).Error; err != nil {
 			return err
 		}

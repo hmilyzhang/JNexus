@@ -34,7 +34,30 @@
               <el-tag size="small" :type="row.status === 1 ? 'success' : 'danger'">{{ row.status === 1 ? $t('common.enabled') : $t('common.disabled') }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="last_login_at" :label="$t('users.lastLogin')" width="170" />
+          <el-table-column prop="last_login_at" :label="$t('users.lastLogin')" width="150">
+          <template #default="{ row }">{{ fmtTime(row.last_login_at) }}</template>
+        </el-table-column>
+        <el-table-column :label="$t('users.createdBy')" width="130">
+          <template #default="{ row }">
+            <div>{{ row.created_by || '-' }}</div>
+            <div style="color:#909399; font-size:12px">{{ fmtTime(row.created_at) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('users.updatedBy')" width="130">
+          <template #default="{ row }">
+            <div>{{ row.updated_by || '-' }}</div>
+            <div style="color:#909399; font-size:12px">{{ fmtTime(row.updated_at) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('users.disabledAt')" width="130">
+          <template #default="{ row }">
+            <template v-if="row.status === 0">
+              <div>{{ row.disabled_by || '-' }}</div>
+              <div style="color:#f56c6c; font-size:12px">{{ fmtTime(row.disabled_at) }}</div>
+            </template>
+            <span v-else style="color:#c0c4cc">-</span>
+          </template>
+        </el-table-column>
           <el-table-column :label="$t('common.operation')" width="180" fixed="right">
             <template #default="{ row }">
               <el-button size="small" link @click="grantDlg(row)">{{ $t('users.grant') }}</el-button>
@@ -199,6 +222,8 @@ const selectGroupCreds = g => {
   for (const c of allCreds.value.filter(x => x.host_id && hosts.value.find(h => h.id === x.host_id && h.group_id === g.id))) ids.add(c.id)
   gform.value.credential_ids = [...ids]
 }
+
+const fmtTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 
 const roleLabel = r => ({
   admin: t('layout.roleAdmin'), ops: t('layout.roleOps'),

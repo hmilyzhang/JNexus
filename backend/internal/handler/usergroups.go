@@ -4,6 +4,7 @@ package handler
 import (
 	"net/http"
 	"strings"
+	"time"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -124,9 +125,23 @@ func UpdateUserGroupLinks(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 		return
 	}
+	oldMemberIDs, newMemberIDs := []uint{}, []uint{}
+	model.DB.Model(&model.UserGroupMember{}).Where("user_group_id = ?", g.ID).Pluck("user_id", &oldMemberIDs)
 	model.DB.Where("user_group_id = ?", g.ID).Delete(&model.UserGroupMember{})
 	for _, v := range req.MemberIDs {
 		model.DB.Create(&model.UserGroupMember{UserGroupID: g.ID, UserID: v})
+		newMemberIDs = append(newMemberIDs, v)
+	}
+	// 成员变化刷新双方用户的「最近修改」审计字段
+	op := currentUser(c).Username
+	now := time.Now()
+	touched := map[uint]bool{}
+	for _, id := range append(oldMemberIDs, newMemberIDs...) {
+		if !touched[id] {
+			model.DB.Model(&model.User{}).Where("id = ?", id).
+				Updates(map[string]any{"updated_by": op, "updated_at": now})
+			touched[id] = true
+		}
 	}
 	model.DB.Where("user_group_id = ?", g.ID).Delete(&model.UserGroupHost{})
 	for _, v := range req.HostIDs {
