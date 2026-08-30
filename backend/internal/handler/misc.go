@@ -17,11 +17,6 @@ import (
 func ListAudit(c *gin.Context) {
 	var logs []model.AuditLog
 	q := model.DB
-	u := currentUser(c)
-	// 非 admin 只能看自己的操作记录
-	if !u.IsAdmin() {
-		q = q.Where("user_id = ?", u.ID)
-	}
 	if username := c.Query("username"); username != "" {
 		q = q.Where("username ILIKE ?", "%"+username+"%")
 	}

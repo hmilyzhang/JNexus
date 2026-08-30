@@ -60,7 +60,8 @@ const info = ref({ user: {} })
 
 const roleLabel = computed(() => ({
   admin: t('layout.roleAdmin'), ops: t('layout.roleOps'),
-  publisher: t('layout.rolePublisher'), viewer: t('layout.roleViewer')
+  publisher: t('layout.rolePublisher'), viewer: t('layout.roleViewer'),
+  auditor: t('layout.roleAuditor')
 })[store.role] || store.role)
 const initial = computed(() => (store.user?.username || '?')[0].toUpperCase())
 
@@ -75,12 +76,15 @@ const statCards = computed(() => [
   { key: 'danger_rules', label: 'dashboard.dangerRules', icon: 'Warning', color: '#fa8c16', path: '/danger' }
 ])
 
-const quickNavs = [
-  { path: '/exec', label: 'menu.exec', icon: 'Promotion' },
-  { path: '/releases', label: 'menu.releases', icon: 'UploadFilled' },
-  { path: '/hosts', label: 'menu.hosts', icon: 'Monitor' },
-  { path: '/audit', label: 'menu.audit', icon: 'Notebook' }
-]
+const quickNavs = computed(() => {
+  const all = [
+    { path: '/exec', label: 'menu.exec', icon: 'Promotion' },
+    { path: '/releases', label: 'menu.releases', icon: 'UploadFilled' },
+    { path: '/hosts', label: 'menu.hosts', icon: 'Monitor' },
+    { path: '/audit', label: 'menu.audit', icon: 'Notebook' }
+  ]
+  return all.filter(q => q.path !== '/audit' || store.isAdmin || store.isAuditor)
+})
 
 const formatTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 

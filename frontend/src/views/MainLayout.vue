@@ -74,25 +74,28 @@ api.get('/system/info').then(info => {
   localStorage.setItem('system_name', info.system_name || 'AutoOps')
 }).catch(() => {})
 
-const roleLabel = computed(() => t('layout.role' + (store.role || '').replace(/^(\w)/, c => c.toUpperCase())) ||
-  ({ admin: '管理员', ops: '运维', publisher: '发布员', viewer: '只读' })[store.role] || store.role)
+const roleLabel = computed(() => ({
+  admin: t('layout.roleAdmin'), ops: t('layout.roleOps'),
+  publisher: t('layout.rolePublisher'), viewer: t('layout.roleViewer'),
+  auditor: t('layout.roleAuditor')
+})[store.role] || store.role)
 
 const menus = computed(() => {
   const items = [
     { path: '/dashboard', title: 'menu.dashboard', icon: 'Odometer' },
     { path: '/hosts', title: 'menu.hosts', icon: 'Monitor' },
     { path: '/exec', title: 'menu.exec', icon: 'Promotion' },
-    { path: '/tasks', title: 'menu.tasks', icon: 'List' },
+    { path: '/tasks', title: 'menu.tasks', icon: 'List', audit: true },
     { path: '/files', title: 'menu.files', icon: 'FolderOpened' },
     { path: '/scripts', title: 'menu.scripts', icon: 'Document' },
     { path: '/apps', title: 'menu.apps', icon: 'Box' },
     { path: '/releases', title: 'menu.releases', icon: 'UploadFilled' },
     { path: '/users', title: 'menu.users', icon: 'User', admin: true },
     { path: '/danger', title: 'menu.danger', icon: 'Warning', admin: true },
-    { path: '/audit', title: 'menu.audit', icon: 'Notebook' },
+    { path: '/audit', title: 'menu.audit', icon: 'Notebook', audit: true },
     { path: '/system', title: 'menu.system', icon: 'Setting', admin: true }
   ]
-  return items.filter(m => !m.admin || store.isAdmin)
+  return items.filter(m => (!m.admin || store.isAdmin) && (!m.audit || store.isAdmin || store.isAuditor))
 })
 
 const localeLabel = computed(() => (locales.find(l => l.value === i18n.global.locale.value) || {}).label || '中文')

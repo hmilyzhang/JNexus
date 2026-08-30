@@ -54,6 +54,7 @@ export default {
     roleAdmin: '管理员',
     roleOps: '运维',
     rolePublisher: '发布员',
+    roleAuditor: '审计员',
     roleViewer: '只读',
     byline: 'By JJ Zhang Version 1.0'
   },

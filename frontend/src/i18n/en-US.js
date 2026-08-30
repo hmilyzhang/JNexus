@@ -54,6 +54,7 @@ export default {
     roleAdmin: 'Admin',
     roleOps: 'Ops',
     rolePublisher: 'Publisher',
+    roleAuditor: 'Auditor',
     roleViewer: 'Viewer',
     byline: 'By JJ Zhang Version 1.0'
   },

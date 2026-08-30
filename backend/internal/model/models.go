@@ -13,6 +13,7 @@ const (
 	RoleOps       = "ops"       // 运维
 	RolePublisher = "publisher" // 发布员
 	RoleViewer    = "viewer"    // 只读
+	RoleAuditor   = "auditor"   // 审计员：可查看执行记录与审计日志
 )
 
 type User struct {

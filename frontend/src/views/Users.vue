@@ -87,6 +87,7 @@
           <el-option :label="$t('layout.roleOps')" value="ops" />
           <el-option :label="$t('layout.rolePublisher')" value="publisher" />
           <el-option :label="$t('layout.roleViewer')" value="viewer" />
+            <el-option :label="$t('layout.roleAuditor')" value="auditor" />
         </el-select>
       </el-form-item>
       <el-form-item :label="$t('users.userGroups')">
@@ -163,7 +164,8 @@ const gform = ref({ name: '', description: '', member_ids: [], host_ids: [], hos
 
 const roleLabel = r => ({
   admin: t('layout.roleAdmin'), ops: t('layout.roleOps'),
-  publisher: t('layout.rolePublisher'), viewer: t('layout.roleViewer')
+  publisher: t('layout.rolePublisher'), viewer: t('layout.roleViewer'),
+  auditor: t('layout.roleAuditor')
 }[r] || r)
 const groupName = id => (ugroups.value.find(g => g.id === id) || {}).name || id
 

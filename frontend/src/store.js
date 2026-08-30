@@ -9,6 +9,7 @@ export const useUserStore = defineStore('user', {
   getters: {
     role: s => s.user?.role || '',
     isAdmin: s => s.user?.role === 'admin',
+    isAuditor: s => s.user?.role === 'auditor',
     roleLabel: s => ({
       admin: '管理员', ops: '运维', publisher: '发布员', viewer: '只读'
     })[s.user?.role] || s.user?.role || ''

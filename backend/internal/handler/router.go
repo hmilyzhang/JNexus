@@ -97,7 +97,8 @@ func SetupRouter() *gin.Engine {
 		{
 			exec.POST("", StartExec)
 		}
-		tasks := auth.Group("/tasks", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer))
+				// 执行记录：仅管理员/审计员可查看
+		tasks := auth.Group("/tasks", middleware.RequireRole(model.RoleAuditor))
 		{
 			tasks.GET("", ListTasks)
 			tasks.GET("/:id", GetTask)
@@ -136,8 +137,11 @@ func SetupRouter() *gin.Engine {
 			releases.POST("/:id/rollback", RollbackHandler)
 		}
 
-		// 审计日志（admin 全量，其他人可看自己的）
-		auth.GET("/audit", ListAudit)
+		// 审计日志：仅管理员/审计员
+		audit := auth.Group("/audit", middleware.RequireRole(model.RoleAuditor))
+		{
+			audit.GET("", ListAudit)
+		}
 
 		// 危险命令规则（admin）
 		danger := auth.Group("/danger_rules", middleware.RequireRole())
