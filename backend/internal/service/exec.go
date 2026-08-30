@@ -61,6 +61,21 @@ func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, erro
 		return 0, nil, fmt.Errorf("未选择任何有权限的目标主机")
 	}
 
+	// 指定 OS 账号时在提交阶段即校验使用权，避免任务创建后才失败
+	if req.CredentialID != nil {
+		var cred model.HostCredential
+		if err := model.DB.First(&cred, *req.CredentialID).Error; err != nil {
+			return 0, nil, fmt.Errorf("OS 账号不存在")
+		}
+		var credHost model.Host
+		if err := model.DB.First(&credHost, cred.HostID).Error; err != nil {
+			return 0, nil, fmt.Errorf("OS 账号所属主机不存在")
+		}
+		if _, err := ResolveCredential(operator, &credHost, req.CredentialID); err != nil {
+			return 0, nil, err
+		}
+	}
+
 	conc := req.Concurrency
 	if conc <= 0 {
 		conc = 10
