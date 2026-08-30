@@ -115,7 +115,12 @@ func runHostPipeline(rel *model.Release, item model.ReleaseItem) {
 	host := model.Host{}
 	model.DB.First(&host, item.HostID)
 
-	cli, err := sshpool.ClientFor(&host)
+	cred, cerr := resolveReleaseCredential(&ah, &host)
+	if cerr != nil {
+		updateItem(item.ID, "stop", "failed", cerr.Error())
+		return
+	}
+	cli, err := sshpool.ClientForCredential(&host, cred)
 	if err != nil {
 		updateItem(item.ID, "stop", "failed", "连接失败: "+err.Error())
 		return
@@ -247,7 +252,12 @@ func runRollback(rel *model.Release) {
 			}
 			host := model.Host{}
 			model.DB.First(&host, item.HostID)
-			cli, err := sshpool.ClientFor(&host)
+			cred, cerr := resolveReleaseCredential(&ah, &host)
+			if cerr != nil {
+				updateItem(item.ID, "stop", "failed", cerr.Error())
+				return
+			}
+			cli, err := sshpool.ClientForCredential(&host, cred)
 			if err != nil {
 				updateItem(item.ID, "stop", "failed", "连接失败: "+err.Error())
 				return
@@ -296,6 +306,22 @@ func runRollback(rel *model.Release) {
 	}
 	model.DB.Model(&model.Release{}).Where("id = ?", rel.ID).Update("status", st)
 	ws.H.Broadcast(fmt.Sprintf("release-%d", rel.ID), map[string]any{"type": "release_done", "status": st})
+}
+
+// resolveReleaseCredential 发布使用的 OS 账号：AppHost 指定优先，否则主机默认账号
+func resolveReleaseCredential(ah *model.AppHost, host *model.Host) (*model.HostCredential, error) {
+	if ah.CredentialID != nil {
+		var cred model.HostCredential
+		if err := model.DB.First(&cred, *ah.CredentialID).Error; err != nil {
+			return nil, fmt.Errorf("指定的 OS 账号不存在")
+		}
+		return &cred, nil
+	}
+	var cred model.HostCredential
+	if err := model.DB.Where("host_id = ?", host.ID).Order("is_default DESC, id ASC").First(&cred).Error; err != nil {
+		return nil, fmt.Errorf("主机未配置 OS 账号")
+	}
+	return &cred, nil
 }
 
 func updateItem(itemID uint, step, status, log string) {

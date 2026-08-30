@@ -48,6 +48,7 @@ import i18n from '../i18n'
 const { t } = i18n.global
 const route = useRoute()
 const hosts = ref([])
+const usableCreds = ref([])
 const loading = ref(true)
 const sessions = ref([])
 const activeId = ref(null)
@@ -60,7 +61,16 @@ const treeData = computed(() => {
   for (const h of hosts.value) {
     const key = h.group_id ? `g-${h.group_id}` : 'g-none'
     if (!byGroup.has(key)) byGroup.set(key, { key, type: 'group', label: h.group?.name || t('hosts.uncategorized'), children: [] })
-    byGroup.get(key).children.push({ key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] })
+    const hostNode = { key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] }
+    // 该主机上当前用户可用的 OS 账号作为叶子，点击即以该账号进入终端
+    const creds = (usableCreds.value || []).filter(c => c.host_id === h.id)
+    for (const c of creds) {
+      hostNode.children.push({
+        key: 'c-' + c.id, type: 'credential', credentialId: c.id,
+        label: `${c.username}${c.label ? '（' + c.label + '）' : ''}`, host: h, children: []
+      })
+    }
+    byGroup.get(key).children.push(hostNode)
   }
   return [...byGroup.values()]
 })
@@ -74,16 +84,20 @@ const setTermEl = (id, el) => { if (el) termEls[id] = el }
 
 const loadHosts = async () => {
   loading.value = true
-  try { hosts.value = await api.get('/hosts') } finally { loading.value = false }
+  try {
+    hosts.value = await api.get('/hosts')
+    usableCreds.value = await api.get('/credentials/usable')
+  } finally { loading.value = false }
 }
 
 onMounted(async () => {
   await loadHosts()
   // 支持 /shell?host=ID 直接打开指定主机终端
   const q = Number(route.query.host)
+  const qc = Number(route.query.credential_id)
   if (q) {
     const h = hosts.value.find(x => x.id === q)
-    if (h) await openSession(h)
+    if (h) await openSession(h, qc || undefined)
   }
 })
 
@@ -92,15 +106,18 @@ onBeforeUnmount(() => {
 })
 
 const onTreeNode = node => {
-  if (node.type === 'host') openSession(node.host)
+  if (node.type === 'credential') openSession(node.host, node.credentialId)
+  else if (node.type === 'host') openSession(node.host)
 }
 
-const openSession = async host => {
-  const exist = sessions.value.find(s => s.hostId === host.id)
+const openSession = async (host, credentialId) => {
+  const exist = sessions.value.find(s => s.hostId === host.id && s.credentialId === credentialId)
   if (exist) { activate(exist.id); return }
 
+  const cred = (usableCreds.value || []).find(c => c.id === credentialId)
+  const credSuffix = cred ? ` — ${cred.username}` : ''
   const id = ++seq
-  sessions.value.push({ id, hostId: host.id, label: `${host.name} · ${host.ip}`, connected: false, term: null, ws: null, fit: null })
+  sessions.value.push({ id, hostId: host.id, credentialId, label: `${host.name} · ${host.ip}${credSuffix}`, connected: false, term: null, ws: null, fit: null })
   activeId.value = id
   await nextTick()
 
@@ -121,7 +138,8 @@ const openSession = async host => {
   fit.fit()
 
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  const ws = new WebSocket(`${proto}://${location.host}/api/ws/term/${host.id}?token=${localStorage.getItem('token')}`)
+  const credQs = credentialId ? `&credential_id=${credentialId}` : ''
+  const ws = new WebSocket(`${proto}://${location.host}/api/ws/term/${host.id}?token=${localStorage.getItem('token')}${credQs}`)
   ws.onopen = () => {
     s.connected = true
     term.focus()

@@ -23,6 +23,7 @@ type appReq struct {
 	Description string `json:"description"`
 	AppHosts    []struct {
 		HostID         uint   `json:"host_id" binding:"required"`
+		CredentialID   *uint  `json:"credential_id"`
 		DeployDir      string `json:"deploy_dir" binding:"required"`
 		JarName        string `json:"jar_name" binding:"required"`
 		StopCmd        string `json:"stop_cmd"`
@@ -36,7 +37,8 @@ func saveAppHosts(appID uint, req *appReq) error {
 	model.DB.Where("app_id = ?", appID).Delete(&model.AppHost{})
 	for _, ah := range req.AppHosts {
 		rec := model.AppHost{
-			AppID: appID, HostID: ah.HostID, DeployDir: ah.DeployDir, JarName: ah.JarName,
+			AppID: appID, HostID: ah.HostID, CredentialID: ah.CredentialID,
+			DeployDir: ah.DeployDir, JarName: ah.JarName,
 			StopCmd: ah.StopCmd, StartCmd: ah.StartCmd, BackupDir: ah.BackupDir, HealthCheckURL: ah.HealthCheckURL,
 		}
 		if err := model.DB.Create(&rec).Error; err != nil {

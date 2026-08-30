@@ -103,6 +103,7 @@ type TaskHostResult struct {
 	HostID    uint      `json:"host_id"`
 	HostIP    string    `gorm:"size:64" json:"host_ip"`
 	HostName  string    `gorm:"size:128" json:"host_name"`
+	OsUser    string    `gorm:"size:64" json:"os_user"` // 执行使用的 OS 账号
 	Status    string    `gorm:"size:16;default:pending" json:"status"` // pending / running / success / failed / blocked
 	ExitCode  int       `json:"exit_code"`
 	Output    string    `gorm:"type:text" json:"output"`
@@ -124,6 +125,7 @@ type AppHost struct {
 	ID             uint   `gorm:"primaryKey" json:"id"`
 	AppID          uint   `gorm:"index" json:"app_id"`
 	HostID         uint   `json:"host_id"`
+	CredentialID   *uint  `json:"credential_id"`    // 发布使用的 OS 账号（空=主机默认账号）
 	DeployDir      string `gorm:"size:256" json:"deploy_dir"`      // 如 /app/myapp
 	JarName        string `gorm:"size:256" json:"jar_name"`        // 如 app.jar
 	StopCmd        string `gorm:"size:512" json:"stop_cmd"`        // 为空则按进程名 kill
@@ -222,6 +224,28 @@ type UserGroupMember struct {
 	ID          uint `gorm:"primaryKey" json:"id"`
 	UserGroupID uint `gorm:"index" json:"user_group_id"`
 	UserID      uint `gorm:"index" json:"user_id"`
+}
+
+// 主机访问凭据：一台主机可挂多个 OS 账号，不同团队使用不同账号实现账号隔离
+type HostCredential struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	HostID    uint      `gorm:"index" json:"host_id"`
+	Username  string    `gorm:"size:64" json:"username"`
+	AuthType  string    `gorm:"size:16;default:key" json:"auth_type"` // key / password
+	SSHKeyID  *uint     `json:"ssh_key_id"`
+	Password  string    `json:"-"` // AES-GCM 加密
+	Label     string    `gorm:"size:64" json:"label"` // 用途：运维/应用/发布等
+	IsDefault bool      `gorm:"default:false" json:"is_default"`
+	CreatedAt time.Time `json:"created_at"`
+
+	SSHKey *SSHKey `gorm:"foreignKey:SSHKeyID" json:"ssh_key,omitempty"`
+}
+
+// 用户组 ↔ 凭据（把 OS 账号分配给团队）
+type UserGroupCredential struct {
+	ID           uint `gorm:"primaryKey" json:"id"`
+	UserGroupID  uint `gorm:"index" json:"user_group_id"`
+	CredentialID uint `gorm:"index" json:"credential_id"`
 }
 
 func (u *User) IsAdmin() bool { return u.Role == RoleAdmin }

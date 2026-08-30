@@ -18,22 +18,35 @@ import (
 	"autoops/internal/pkg"
 )
 
-// ClientFor 根据主机记录建立 SSH 连接
+// ClientFor 根据主机记录建立 SSH 连接（使用主机默认凭据；无凭据时回退主机自带账号）
 func ClientFor(h *model.Host) (*gossh.Client, error) {
+	var cred model.HostCredential
+	if err := model.DB.Where("host_id = ?", h.ID).Order("is_default DESC, id ASC").First(&cred).Error; err == nil {
+		return ClientForCredential(h, &cred)
+	}
+	return connect(h, h.Username, h.AuthType, h.SSHKeyID, h.Password)
+}
+
+// ClientForCredential 用指定的 OS 账号（凭据）连接主机
+func ClientForCredential(h *model.Host, cred *model.HostCredential) (*gossh.Client, error) {
+	return connect(h, cred.Username, cred.AuthType, cred.SSHKeyID, cred.Password)
+}
+
+func connect(h *model.Host, username, authType string, sshKeyID *uint, encPassword string) (*gossh.Client, error) {
 	var auth gossh.AuthMethod
-	switch h.AuthType {
+	switch authType {
 	case "password":
-		pwd, err := pkg.Decrypt(h.Password)
+		pwd, err := pkg.Decrypt(encPassword)
 		if err != nil {
 			return nil, fmt.Errorf("解密密码失败: %w", err)
 		}
 		auth = gossh.Password(pwd)
 	default: // key
-		if h.SSHKeyID == nil {
+		if sshKeyID == nil {
 			return nil, fmt.Errorf("主机未配置认证方式")
 		}
 		var key model.SSHKey
-		if err := model.DB.First(&key, *h.SSHKeyID).Error; err != nil {
+		if err := model.DB.First(&key, *sshKeyID).Error; err != nil {
 			return nil, fmt.Errorf("密钥不存在: %w", err)
 		}
 		privPEM, err := pkg.Decrypt(key.PrivateKey)
@@ -51,7 +64,7 @@ func ClientFor(h *model.Host) (*gossh.Client, error) {
 		port = 22
 	}
 	cfg := &gossh.ClientConfig{
-		User:            h.Username,
+		User:            username,
 		Auth:            []gossh.AuthMethod{auth},
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(), // 内网运维平台，忽略主机指纹校验
 		Timeout:         10 * time.Second,

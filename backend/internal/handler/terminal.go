@@ -76,13 +76,25 @@ func WebTerminal(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "权限不足"})
 		return
 	}
-	// 数据级权限：个人分组授权或用户组关联
-	if !service.CanExecHost(&user, host.ID, host.GroupID) {
+	// 数据级权限：主机级授权 或 拥有该主机的可用 OS 账号（用户组关联凭据）
+	if !service.CanExecHost(&user, host.ID, host.GroupID) && len(service.UsableCredentials(&user, &host)) == 0 {
 		c.JSON(http.StatusForbidden, gin.H{"error": "无该主机的访问权限"})
 		return
 	}
+	// OS 账号选择：?credential_id= 指定，否则主机默认可用账号
+	var credPtr *model.HostCredential
+	if cid, ok := atoiParam(c.Query("credential_id")); ok {
+		cid64 := uint(cid)
+		credPtr, err = service.ResolveCredential(&user, &host, &cid64)
+	} else {
+		credPtr, err = service.ResolveCredential(&user, &host, nil)
+	}
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
 
-	cli, err := sshpool.ClientFor(&host)
+	cli, err := sshpool.ClientForCredential(&host, credPtr)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return

@@ -27,6 +27,7 @@ type DistributeRequest struct {
 	RemoteDir  string   `json:"remote_dir"`
 	RemoteName string   `json:"remote_name"` // 可选，重命名
 	LocalFile  string   `json:"local_file"`  // 已上传到服务端的文件名
+	CredentialID *uint  `json:"credential_id"` // 指定 OS 账号（可选）
 }
 
 // DistributeFile 把已上传的本地文件并发 SFTP 分发到目标主机
@@ -60,11 +61,11 @@ func DistributeFile(operator *model.User, localPath, localName string, req Distr
 		return 0, nil, err
 	}
 
-	go runDistribute(task.ID, localPath, localName, req.RemoteDir, req.RemoteName, results)
+	go runDistribute(operator, req.CredentialID, task.ID, localPath, localName, req.RemoteDir, req.RemoteName, results)
 	return task.ID, nil, nil
 }
 
-func runDistribute(taskID uint, localPath, localName, remoteDir, remoteName string, results []model.TaskHostResult) {
+func runDistribute(operator *model.User, credID *uint, taskID uint, localPath, localName, remoteDir, remoteName string, results []model.TaskHostResult) {
 	fi, err := os.Stat(localPath)
 	total := int64(0)
 	if err == nil {
@@ -108,12 +109,18 @@ func runDistribute(taskID uint, localPath, localName, remoteDir, remoteName stri
 			host := model.Host{}
 			model.DB.First(&host, res.HostID)
 
-			cli, err := sshpool.ClientFor(&host)
+			cred, cerr := ResolveCredential(operator, &host, credID)
+			if cerr != nil {
+				finish(res.ID, -1, cerr.Error(), "failed")
+				return
+			}
+			cli, err := sshpool.ClientForCredential(&host, cred)
 			if err != nil {
 				finish(res.ID, -1, "连接失败: "+err.Error(), "failed")
 				return
 			}
 			defer cli.Close()
+			model.DB.Model(&model.TaskHostResult{}).Where("id = ?", res.ID).Update("os_user", cred.Username)
 
 			msg, code := sftpUpload(cli, localPath, remoteDir, name, total, taskID, res.ID)
 			status := "success"

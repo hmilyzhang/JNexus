@@ -124,6 +124,12 @@
           <el-option v-for="h in hosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
         </el-select>
       </el-form-item>
+      <el-form-item :label="$t('hosts.credLinkedAccounts')">
+        <el-select v-model="gform.credential_ids" multiple filterable style="width:100%">
+          <el-option v-for="c in allCreds" :key="c.id"
+                     :label="`${c.host_name} · ${c.host_ip} — ${c.username}${c.label ? '（' + c.label + '）' : ''}`" :value="c.id" />
+        </el-select>
+      </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="gVisible = false">{{ $t('common.cancel') }}</el-button>
@@ -152,7 +158,8 @@ const grantVisible = ref(false)
 const grantUser = ref(null)
 const grantForm = ref({ host_groups: [], apps: [] })
 const gVisible = ref(false)
-const gform = ref({ name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [] })
+const allCreds = ref([])
+const gform = ref({ name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [] })
 
 const roleLabel = r => ({
   admin: t('layout.roleAdmin'), ops: t('layout.roleOps'),
@@ -167,6 +174,7 @@ const load = async () => {
     ugroups.value = await api.get('/user_groups')
     hosts.value = await api.get('/hosts')
     hostGroups.value = await api.get('/host_groups')
+    allCreds.value = await api.get('/credentials/usable')
     options.value = await api.get('/grants/options')
   } finally { loading.value = false }
 }
@@ -217,10 +225,10 @@ const gDlg = async row => {
     const d = await api.get(`/user_groups/${row.id}`)
     gform.value = {
       id: d.id, name: d.name, description: d.description,
-      member_ids: d.member_ids || [], host_ids: d.host_ids || [], host_group_ids: d.host_group_ids || []
+      member_ids: d.member_ids || [], host_ids: d.host_ids || [], host_group_ids: d.host_group_ids || [], credential_ids: d.credential_ids || []
     }
   } else {
-    gform.value = { name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [] }
+    gform.value = { name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [] }
   }
   gVisible.value = true
 }
@@ -229,12 +237,12 @@ const gSave = async () => {
   if (gform.value.id) {
     await api.put(`/user_groups/${gform.value.id}`, { name: gform.value.name, description: gform.value.description })
     await api.put(`/user_groups/${gform.value.id}/links`, {
-      member_ids: gform.value.member_ids, host_ids: gform.value.host_ids, host_group_ids: gform.value.host_group_ids
+      member_ids: gform.value.member_ids, host_ids: gform.value.host_ids, host_group_ids: gform.value.host_group_ids, credential_ids: gform.value.credential_ids
     })
   } else {
     const created = await api.post('/user_groups', { name: gform.value.name, description: gform.value.description })
     await api.put(`/user_groups/${created.id}/links`, {
-      member_ids: gform.value.member_ids, host_ids: gform.value.host_ids, host_group_ids: gform.value.host_group_ids
+      member_ids: gform.value.member_ids, host_ids: gform.value.host_ids, host_group_ids: gform.value.host_group_ids, credential_ids: gform.value.credential_ids
     })
   }
   ElMessage.success(t('hosts.saved'))

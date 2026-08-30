@@ -23,6 +23,7 @@ type ExecRequest struct {
 	HostIDs     []uint   `json:"host_ids"`
 	GroupID     *uint    `json:"group_id"`
 	IPs         []string `json:"ips"` // 多 IP 逗号分隔输入
+	CredentialID *uint   `json:"credential_id"` // 指定 OS 账号（可选，默认取各主机默认可用账号）
 	Command     string   `json:"command"`
 	ScriptID    *uint    `json:"script_id"`
 	ScriptArgs  string   `json:"script_args"`
@@ -96,7 +97,7 @@ func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, erro
 		return 0, nil, err
 	}
 
-	go runTask(task.ID, command, results, conc, time.Duration(timeout)*time.Second)
+	go runTask(operator, req.CredentialID, task.ID, command, results, conc, time.Duration(timeout)*time.Second)
 	return task.ID, nil, nil
 }
 
@@ -133,9 +134,10 @@ func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint, ips []str
 	}
 	// 数据级权限过滤
 	allowed := hosts[:0]
-	for _, h := range hosts {
-		if CanExecHost(operator, h.ID, h.GroupID) {
-			allowed = append(allowed, h)
+	for i := range hosts {
+		// 主机级权限（个人授权/用户组关联主机）或拥有该主机的可用 OS 账号（用户组关联凭据）
+		if CanExecHost(operator, hosts[i].ID, hosts[i].GroupID) || len(UsableCredentials(operator, &hosts[i])) > 0 {
+			allowed = append(allowed, hosts[i])
 		}
 	}
 	return allowed, nil
@@ -183,7 +185,7 @@ func CanExecHost(user *model.User, hostID uint, groupID *uint) bool {
 }
 
 // runTask 并发执行任务，实时推送输出
-func runTask(taskID uint, command string, results []model.TaskHostResult, concurrency int, timeout time.Duration) {
+func runTask(operator *model.User, reqCredID *uint, taskID uint, command string, results []model.TaskHostResult, concurrency int, timeout time.Duration) {
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -223,13 +225,21 @@ func runTask(taskID uint, command string, results []model.TaskHostResult, concur
 				"type": "status", "result_id": res.ID, "host_id": res.HostID, "status": "running",
 			})
 
-			cli, err := sshpool.ClientFor(&host)
+			cred, cerr := ResolveCredential(operator, &host, reqCredID)
+			if cerr != nil {
+				finishResult(res.ID, -1, cerr.Error(), "failed")
+				pushTaskStatus()
+				return
+			}
+			cli, err := sshpool.ClientForCredential(&host, cred)
 			if err != nil {
 				finishResult(res.ID, -1, "连接失败: "+err.Error(), "failed")
 				pushTaskStatus()
 				return
 			}
 			defer cli.Close()
+			model.DB.Model(&model.TaskHostResult{}).Where("id = ?", res.ID).Update("os_user", cred.Username)
+			ws.H.Broadcast(taskTopic(taskID), map[string]any{"type": "os_user", "result_id": res.ID, "os_user": cred.Username})
 
 			var buf strings.Builder
 			var wmu sync.Mutex

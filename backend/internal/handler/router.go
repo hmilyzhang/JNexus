@@ -80,6 +80,16 @@ func SetupRouter() *gin.Engine {
 			hosts.DELETE("/:id", DeleteHost)
 			hosts.POST("/import", ImportHosts)
 			hosts.POST("/probe", ProbeHostsHandler)
+			// OS 账号（凭据）管理
+			hosts.GET("/:id/credentials", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer), ListHostCredentials)
+			hosts.POST("/:id/credentials", middleware.RequireRole(model.RoleOps), CreateHostCredential)
+		}
+		creds := auth.Group("/credentials", middleware.RequireRole(model.RoleOps, model.RolePublisher))
+		{
+			creds.GET("/usable", UsableCredentialsHandler)
+			creds.PUT("/:id", middleware.RequireRole(model.RoleOps), UpdateCredential)
+			creds.DELETE("/:id", middleware.RequireRole(model.RoleOps), DeleteCredential)
+			creds.POST("/:id/default", middleware.RequireRole(model.RoleOps), SetDefaultCredential)
 		}
 
 		// 批量执行

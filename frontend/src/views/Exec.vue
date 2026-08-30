@@ -13,6 +13,12 @@
             </el-input>
           </div>
         </el-form-item>
+        <el-form-item :label="$t('hosts.credOsAccount')">
+          <el-select v-model="credentialId" style="width:100%" clearable :placeholder="$t('hosts.credSelectPlaceholder')">
+            <el-option v-for="c in usableCreds" :key="c.id"
+                       :label="`${c.host_name} · ${c.host_ip} — ${c.username}${c.label ? '（' + c.label + '）' : ''}`" :value="c.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item :label="$t('exec.mode')">
           <el-radio-group v-model="form.mode">
             <el-radio value="command">{{ $t('exec.modeCommand') }}</el-radio>
@@ -77,6 +83,8 @@ const taskFailed = ref(false)
 const liveResults = ref([])
 const selectedNodes = ref([])
 const ipInput = ref('')
+const credentialId = ref(null)
+const usableCreds = ref([])
 let ws = null
 
 const form = reactive({ mode: 'command', command: '', script_id: null, script_args: '', timeout_sec: 300, concurrency: 10 })
@@ -110,6 +118,7 @@ const resolveSelected = () => {
 const loadHosts = async () => {
   hosts.value = await api.get('/hosts')
   scripts.value = await api.get('/scripts')
+  usableCreds.value = await api.get('/credentials/usable')
 }
 
 onMounted(loadHosts)
@@ -170,6 +179,7 @@ const run = async () => {
   const payload = { timeout_sec: form.timeout_sec, concurrency: form.concurrency }
   if (ids.length) payload.host_ids = ids
   if (ips.length) payload.ips = ips
+  if (credentialId.value) payload.credential_id = credentialId.value
   if (form.mode === 'command') payload.command = form.command
   else { payload.script_id = form.script_id; payload.script_args = form.script_args }
 

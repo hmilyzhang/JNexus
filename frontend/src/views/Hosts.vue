@@ -54,6 +54,7 @@
           <el-table-column :label="$t('common.operation')" width="220" fixed="right">
             <template #default="{ row }">
               <el-button size="small" type="primary" link @click="openTerminal(row)">{{ $t('hosts.terminal') }}</el-button>
+              <el-button size="small" type="warning" link @click="dlgCred(row)">{{ $t('hosts.credMgmt') }}</el-button>
               <el-button size="small" link @click="dlgHost(row)">{{ $t('common.edit') }}</el-button>
               <el-popconfirm :title="$t('hosts.delHostConfirm')" @confirm="delHost(row)">
                 <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
@@ -181,6 +182,61 @@
       <el-button type="primary" @click="saveKey">{{ $t('common.save') }}</el-button>
     </template>
   </el-dialog>
+
+  <!-- OS 账号管理 -->
+  <el-dialog v-model="credVisible" :title="`${$t('hosts.credTitle')}：${credHost?.name}（${credHost?.ip}）`" width="680px">
+    <div style="margin-bottom:10px">
+      <el-button type="primary" size="small" @click="credFormDlg()">{{ $t('hosts.credAdd') }}</el-button>
+    </div>
+    <el-table :data="creds" size="small" border>
+      <el-table-column prop="username" :label="$t('hosts.credUser')" width="140" />
+      <el-table-column prop="label" :label="$t('hosts.credLabel')" width="140" />
+      <el-table-column :label="$t('hosts.auth')" width="80">
+        <template #default="{ row }">{{ row.auth_type === 'key' ? $t('hosts.authKey') : $t('hosts.authPassword') }}</template>
+      </el-table-column>
+      <el-table-column :label="$t('hosts.credDefault')" width="90">
+        <template #default="{ row }">
+          <el-tag v-if="row.is_default" size="small" type="success">{{ $t('hosts.credDefault') }}</el-tag>
+          <el-button v-else size="small" link @click="setDefaultCred(row)">{{ $t('hosts.credSetDefault') }}</el-button>
+        </template>
+      </el-table-column>
+      <el-table-column :label="$t('common.operation')" width="140">
+        <template #default="{ row }">
+          <el-button size="small" link @click="credFormDlg(row)">{{ $t('common.edit') }}</el-button>
+          <el-popconfirm :title="$t('hosts.credDelConfirm')" @confirm="delCred(row)">
+            <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+          </el-popconfirm>
+        </template>
+      </el-table-column>
+    </el-table>
+  </el-dialog>
+
+  <!-- OS 账号 新增/编辑 -->
+  <el-dialog v-model="credFormVisible" :title="credForm.id ? $t('common.edit') : $t('hosts.credAdd')" width="460px" append-to-body>
+    <el-form label-width="110px">
+      <el-form-item :label="$t('hosts.credUser')"><el-input v-model="credForm.username" /></el-form-item>
+      <el-form-item :label="$t('hosts.credLabel')"><el-input v-model="credForm.label" :placeholder="$t('hosts.credLabelPlaceholder')" /></el-form-item>
+      <el-form-item :label="$t('hosts.authType')">
+        <el-radio-group v-model="credForm.auth_type">
+          <el-radio value="key">{{ $t('hosts.key') }}</el-radio>
+          <el-radio value="password">{{ $t('hosts.password') }}</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item :label="$t('hosts.key')" v-if="credForm.auth_type === 'key'">
+        <el-select v-model="credForm.ssh_key_id" :placeholder="$t('hosts.keyPlaceholder')" style="width:100%">
+          <el-option v-for="k in keys" :key="k.id" :label="k.name" :value="k.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item :label="$t('hosts.password')" v-else>
+        <el-input v-model="credForm.password" type="password" show-password :placeholder="credForm.id ? $t('hosts.passwordKeep') : ''" />
+      </el-form-item>
+      <el-form-item :label="$t('hosts.credDefault')"><el-switch v-model="credForm.is_default" /></el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="credFormVisible = false">{{ $t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="saveCred">{{ $t('common.save') }}</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -260,11 +316,60 @@ const dlgHost = row => {
   hostForm.value = row ? { ...row, password: '' } : { name: '', ip: '', port: 22, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null }
   hostVisible.value = true
 }
+// ---- OS 账号（凭据）管理 ----
+const credVisible = ref(false)
+const credHost = ref(null)
+const creds = ref([])
+const credFormVisible = ref(false)
+const credForm = ref({})
+
+const dlgCred = async row => {
+  credHost.value = row
+  credVisible.value = true
+  creds.value = await api.get(`/hosts/${row.id}/credentials`)
+}
+const credFormDlg = row => {
+  credForm.value = row
+    ? { ...row, password: '' }
+    : { username: '', label: '', auth_type: 'key', ssh_key_id: keys.value[0]?.id, password: '', is_default: false }
+  credFormVisible.value = true
+}
+const saveCred = async () => {
+  if (!credForm.value.username) { ElMessage.warning(t('hosts.credUser')); return }
+  if (credForm.value.auth_type === 'key' && !credForm.value.ssh_key_id) { ElMessage.warning(t('hosts.credKeyRequired')); return }
+  if (credForm.value.id) await api.put(`/credentials/${credForm.value.id}`, credForm.value)
+  else await api.post(`/hosts/${credHost.value.id}/credentials`, credForm.value)
+  ElMessage.success(t('hosts.saved'))
+  credFormVisible.value = false
+  creds.value = await api.get(`/hosts/${credHost.value.id}/credentials`)
+}
+const delCred = async row => {
+  await api.delete(`/credentials/${row.id}`)
+  creds.value = await api.get(`/hosts/${credHost.value.id}/credentials`)
+}
+const setDefaultCred = async row => {
+  await api.post(`/credentials/${row.id}/default`)
+  creds.value = await api.get(`/hosts/${credHost.value.id}/credentials`)
+}
+
 const saveHost = async () => {
   if (!hostForm.value.ip || !hostForm.value.username) { ElMessage.warning(t('hosts.needIpUser')); return }
   if (hostForm.value.auth_type === 'key' && !hostForm.value.ssh_key_id) { ElMessage.warning(t('hosts.needKey')); return }
-  if (hostForm.value.id) await api.put(`/hosts/${hostForm.value.id}`, hostForm.value)
-  else await api.post('/hosts', hostForm.value)
+  if (hostForm.value.id) {
+    await api.put(`/hosts/${hostForm.value.id}`, hostForm.value)
+  } else {
+    const created = await api.post('/hosts', hostForm.value)
+    // 新主机同步创建默认 OS 账号
+    if (hostForm.value.auth_type === 'key' && hostForm.value.ssh_key_id) {
+      await api.post(`/hosts/${created.id}/credentials`, {
+        username: hostForm.value.username, auth_type: 'key', ssh_key_id: hostForm.value.ssh_key_id, is_default: true
+      })
+    } else if (hostForm.value.auth_type === 'password' && hostForm.value.password) {
+      await api.post(`/hosts/${created.id}/credentials`, {
+        username: hostForm.value.username, auth_type: 'password', password: hostForm.value.password, is_default: true
+      })
+    }
+  }
   ElMessage.success(t('hosts.saved'))
   hostVisible.value = false
   load()

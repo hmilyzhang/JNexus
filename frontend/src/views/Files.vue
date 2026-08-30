@@ -23,6 +23,12 @@
             </el-input>
           </div>
         </el-form-item>
+        <el-form-item :label="$t('hosts.credOsAccount')">
+          <el-select v-model="credentialId" style="width:100%" clearable :placeholder="$t('hosts.credSelectPlaceholder')">
+            <el-option v-for="c in usableCreds" :key="c.id"
+                       :label="`${c.host_name} · ${c.host_ip} — ${c.username}${c.label ? '（' + c.label + '）' : ''}`" :value="c.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item :label="$t('files.remoteDir')">
           <el-input v-model="remoteDir" placeholder="/tmp" class="mono" />
         </el-form-item>
@@ -66,6 +72,8 @@ const { t } = i18n.global
 const hosts = ref([])
 const selectedNodes = ref([])
 const ipInput = ref('')
+const credentialId = ref(null)
+const usableCreds = ref([])
 const remoteDir = ref('/tmp')
 const remoteName = ref('')
 const uploadedName = ref('')
@@ -120,6 +128,7 @@ const distribute = async () => {
     }
     const ids = resolveSelected()
     if (ids.length) payload.host_ids = ids
+    if (credentialId.value) payload.credential_id = credentialId.value
     const ips = ipInput.value.split(',').map(s => s.trim()).filter(Boolean)
     if (ips.length) payload.ips = ips
     const res = await api.post('/files/distribute', payload)
@@ -141,6 +150,9 @@ const distribute = async () => {
   } finally { distributing.value = false }
 }
 
-onMounted(async () => { hosts.value = await api.get('/hosts') })
+onMounted(async () => {
+  hosts.value = await api.get('/hosts')
+  usableCreds.value = await api.get('/credentials/usable')
+})
 onUnmounted(() => ws?.close())
 </script>

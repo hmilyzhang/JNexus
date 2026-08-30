@@ -29,8 +29,31 @@ func Connect(dsn string) error {
 		&DangerRule{}, &AuditLog{}, &UserHostGroup{}, &UserApp{},
 		&SystemConfig{},
 		&UserGroup{}, &UserGroupHost{}, &UserGroupHostGroup{}, &UserGroupMember{},
+		&HostCredential{}, &UserGroupCredential{},
 	); err != nil {
 		return fmt.Errorf("数据库迁移失败: %w", err)
+	}
+	if err := MigrateHostCredentials(); err != nil {
+		return fmt.Errorf("主机凭据迁移失败: %w", err)
+	}
+	return nil
+}
+
+// MigrateHostCredentials 存量主机自动迁移：每台已有账号的主机生成一个默认凭据
+func MigrateHostCredentials() error {
+	var hosts []Host
+	DB.Find(&hosts)
+	for _, h := range hosts {
+		var cnt int64
+		DB.Model(&HostCredential{}).Where("host_id = ?", h.ID).Count(&cnt)
+		if cnt == 0 && h.Username != "" {
+			if err := DB.Create(&HostCredential{
+				HostID: h.ID, Username: h.Username, AuthType: h.AuthType,
+				SSHKeyID: h.SSHKeyID, Password: h.Password, Label: "默认", IsDefault: true,
+			}).Error; err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

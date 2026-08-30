@@ -39,6 +39,10 @@
               <el-select v-model="ah.host_id" filterable :placeholder="$t('apps.host')" style="width:180px" size="small">
                 <el-option v-for="h in hosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
               </el-select>
+              <el-select v-model="ah.credential_id" filterable clearable :placeholder="$t('hosts.credPublishAccount')" style="width:200px" size="small">
+                <el-option v-for="c in usableCreds.filter(x => x.host_id === ah.host_id)" :key="c.id"
+                           :label="`${c.username}${c.label ? '（' + c.label + '）' : ''}`" :value="c.id" />
+              </el-select>
               <el-input v-model="ah.deploy_dir" :placeholder="$t('apps.deployDirPlaceholder')" class="mono" style="width:180px" size="small" />
               <el-input v-model="ah.jar_name" :placeholder="$t('apps.jarNamePlaceholder')" class="mono" style="width:140px" size="small" />
               <el-input v-model="ah.stop_cmd" :placeholder="$t('apps.stopCmdPlaceholder')" class="mono" style="width:200px" size="small" />
@@ -47,7 +51,7 @@
               <el-input v-model="ah.health_check_url" :placeholder="$t('apps.healthUrlPlaceholder')" class="mono" style="width:180px" size="small" />
               <el-button type="danger" link size="small" @click="form.app_hosts.splice(i, 1)">{{ $t('apps.remove') }}</el-button>
             </div>
-            <el-button size="small" @click="form.app_hosts.push({ host_id: null, deploy_dir: '', jar_name: 'app.jar', stop_cmd: '', start_cmd: '', backup_dir: '', health_check_url: '' })">
+            <el-button size="small" @click="form.app_hosts.push({ host_id: null, credential_id: null, deploy_dir: '', jar_name: 'app.jar', stop_cmd: '', start_cmd: '', backup_dir: '', health_check_url: '' })">
               {{ $t('apps.addHostRow') }}
             </el-button>
           </div>
@@ -70,6 +74,7 @@ import { ElMessage } from 'element-plus'
 const { t } = i18n.global
 const apps = ref([])
 const hosts = ref([])
+const usableCreds = ref([])
 const loading = ref(false)
 const visible = ref(false)
 const form = ref({ name: '', description: '', app_hosts: [] })
@@ -78,13 +83,17 @@ const load = async () => {
   loading.value = true
   try { apps.value = await api.get('/apps') } finally { loading.value = false }
 }
-onMounted(async () => { load(); hosts.value = await api.get('/hosts') })
+onMounted(async () => {
+  load()
+  hosts.value = await api.get('/hosts')
+  usableCreds.value = await api.get('/credentials/usable')
+})
 
 const dlg = row => {
   form.value = row ? {
     id: row.id, name: row.name, description: row.description,
     app_hosts: (row.app_hosts || []).map(ah => ({
-      host_id: ah.host_id, deploy_dir: ah.deploy_dir, jar_name: ah.jar_name,
+      host_id: ah.host_id, credential_id: ah.credential_id || null, deploy_dir: ah.deploy_dir, jar_name: ah.jar_name,
       stop_cmd: ah.stop_cmd, start_cmd: ah.start_cmd, backup_dir: ah.backup_dir, health_check_url: ah.health_check_url
     }))
   } : { name: '', description: '', app_hosts: [] }

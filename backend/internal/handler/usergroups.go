@@ -82,13 +82,15 @@ func GetUserGroup(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "用户组不存在"})
 		return
 	}
-	var memberIDs, hostIDs, groupIDs []uint
+	var memberIDs, hostIDs, groupIDs, credIDs []uint
 	model.DB.Model(&model.UserGroupMember{}).Where("user_group_id = ?", id).Pluck("user_id", &memberIDs)
 	model.DB.Model(&model.UserGroupHost{}).Where("user_group_id = ?", id).Pluck("host_id", &hostIDs)
 	model.DB.Model(&model.UserGroupHostGroup{}).Where("user_group_id = ?", id).Pluck("host_group_id", &groupIDs)
+	model.DB.Model(&model.UserGroupCredential{}).Where("user_group_id = ?", id).Pluck("credential_id", &credIDs)
 	c.JSON(http.StatusOK, gin.H{
 		"id": g.ID, "name": g.Name, "description": g.Description,
 		"member_ids": memberIDs, "host_ids": hostIDs, "host_group_ids": groupIDs,
+		"credential_ids": credIDs,
 	})
 }
 
@@ -100,9 +102,10 @@ func UpdateUserGroupLinks(c *gin.Context) {
 		return
 	}
 	var req struct {
-		MemberIDs []uint `json:"member_ids"`
-		HostIDs   []uint `json:"host_ids"`
-		GroupIDs  []uint `json:"host_group_ids"`
+		MemberIDs    []uint `json:"member_ids"`
+		HostIDs      []uint `json:"host_ids"`
+		GroupIDs     []uint `json:"host_group_ids"`
+		CredentialIDs []uint `json:"credential_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
@@ -119,6 +122,10 @@ func UpdateUserGroupLinks(c *gin.Context) {
 	model.DB.Where("user_group_id = ?", g.ID).Delete(&model.UserGroupHostGroup{})
 	for _, v := range req.GroupIDs {
 		model.DB.Create(&model.UserGroupHostGroup{UserGroupID: g.ID, HostGroupID: v})
+	}
+	model.DB.Where("user_group_id = ?", g.ID).Delete(&model.UserGroupCredential{})
+	for _, v := range req.CredentialIDs {
+		model.DB.Create(&model.UserGroupCredential{UserGroupID: g.ID, CredentialID: v})
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
