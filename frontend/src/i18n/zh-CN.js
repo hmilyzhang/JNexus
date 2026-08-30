@@ -207,6 +207,7 @@ export default {
     uploadOk: '文件已上传到服务端'
   },
   tasks: {
+    mine: '仅显示本人发起的任务',
     allTypes: '全部类型',
     typeCommand: '命令',
     typeScript: '脚本',

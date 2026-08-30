@@ -409,8 +409,13 @@ func DeleteKey(c *gin.Context) {
 // ---- 任务查询 ----
 
 func ListTasks(c *gin.Context) {
+	u := currentUser(c)
 	var tasks []model.Task
 	q := model.DB
+	// 范围：管理员/审计员看全量，其他人仅本人任务
+	if !u.IsAdmin() && u.Role != model.RoleAuditor {
+		q = q.Where("operator = ?", u.Username)
+	}
 	if t := c.Query("type"); t != "" {
 		q = q.Where("type = ?", t)
 	}
@@ -420,9 +425,15 @@ func ListTasks(c *gin.Context) {
 
 func GetTask(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
+	u := currentUser(c)
 	var task model.Task
 	if err := model.DB.First(&task, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "任务不存在"})
+		return
+	}
+	// 范围：非管理员/审计员只能查看本人任务
+	if !u.IsAdmin() && u.Role != model.RoleAuditor && task.Operator != u.Username {
+		c.JSON(http.StatusForbidden, gin.H{"error": "只能查看本人发起的任务"})
 		return
 	}
 	var results []model.TaskHostResult

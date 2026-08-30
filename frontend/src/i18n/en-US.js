@@ -207,6 +207,7 @@ export default {
     uploadOk: 'File uploaded to server'
   },
   tasks: {
+    mine: 'Showing only tasks you started',
     allTypes: 'All types',
     typeCommand: 'Command',
     typeScript: 'Script',

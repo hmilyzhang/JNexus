@@ -10,6 +10,7 @@
           <el-option :label="$t('tasks.typeRelease')" value="release" />
         </el-select>
         <el-button @click="load">{{ $t('common.refresh') }}</el-button>
+        <el-tag v-if="mineOnly" size="small" type="info" style="align-self:center">{{ $t('tasks.mine') }}</el-tag>
       </div>
       <el-table :data="tasks" v-loading="loading" size="small" border @row-click="openDetail">
         <el-table-column prop="id" label="ID" width="70" />
@@ -48,11 +49,14 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
+import { useUserStore } from '../store'
 
 const route = useRoute()
+const store = useUserStore()
+const mineOnly = computed(() => !['admin', 'auditor'].includes(store.role))
 const tasks = ref([])
 const typeFilter = ref('')
 const loading = ref(false)

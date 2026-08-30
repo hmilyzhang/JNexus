@@ -85,7 +85,7 @@ const menus = computed(() => {
     { path: '/dashboard', title: 'menu.dashboard', icon: 'Odometer' },
     { path: '/hosts', title: 'menu.hosts', icon: 'Monitor' },
     { path: '/exec', title: 'menu.exec', icon: 'Promotion' },
-    { path: '/tasks', title: 'menu.tasks', icon: 'List', audit: true },
+    { path: '/tasks', title: 'menu.tasks', icon: 'List', hideViewer: true },
     { path: '/files', title: 'menu.files', icon: 'FolderOpened' },
     { path: '/scripts', title: 'menu.scripts', icon: 'Document' },
     { path: '/apps', title: 'menu.apps', icon: 'Box' },
@@ -95,7 +95,7 @@ const menus = computed(() => {
     { path: '/audit', title: 'menu.audit', icon: 'Notebook', audit: true },
     { path: '/system', title: 'menu.system', icon: 'Setting', admin: true }
   ]
-  return items.filter(m => (!m.admin || store.isAdmin) && (!m.audit || store.isAdmin || store.isAuditor))
+  return items.filter(m => (!m.admin || store.isAdmin) && (!m.audit || store.isAdmin || store.isAuditor) && (!m.hideViewer || store.role !== 'viewer'))
 })
 
 const localeLabel = computed(() => (locales.find(l => l.value === i18n.global.locale.value) || {}).label || '中文')

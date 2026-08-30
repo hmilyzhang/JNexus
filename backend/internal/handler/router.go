@@ -97,8 +97,8 @@ func SetupRouter() *gin.Engine {
 		{
 			exec.POST("", StartExec)
 		}
-				// 执行记录：仅管理员/审计员可查看
-		tasks := auth.Group("/tasks", middleware.RequireRole(model.RoleAuditor))
+				// 执行记录：管理员/审计员看全量，运维/发布员仅本人任务（handler 内过滤）
+		tasks := auth.Group("/tasks", middleware.RequireRole(model.RoleAuditor, model.RoleOps, model.RolePublisher, model.RoleViewer))
 		{
 			tasks.GET("", ListTasks)
 			tasks.GET("/:id", GetTask)
