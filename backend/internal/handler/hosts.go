@@ -281,9 +281,11 @@ func ImportHosts(c *gin.Context) {
 		username := req.Username
 		password := ""
 		groupName := ""
-		// 按字段数解析，避免歧义：
-		// 2段: ip,port  3段: ip,port,user  4段: ip,port,user,group  5段: ip,port,user,password,group
+		// 按字段数解析，避免歧义（含可选名称列时已前移）：
+		// 1段: ip  2段: ip,port  3段: ip,port,user  4段: ip,port,user,group  5段: ip,port,user,password,group
 		switch len(parts) {
+		case 1:
+			// 仅 IP，其余全用默认值
 		case 2:
 			if v, err := strconv.Atoi(strings.TrimSpace(parts[1])); err == nil {
 				port = v
