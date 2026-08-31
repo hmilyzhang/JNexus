@@ -26,13 +26,16 @@ services:
       AUTOOPS_DB_USER: ${AUTOOPS_DB_USER:?请设置数据库用户}
       AUTOOPS_DB_PASSWORD: ${AUTOOPS_DB_PASSWORD:?请设置数据库密码}
       AUTOOPS_DB_NAME: ${AUTOOPS_DB_NAME:-autoops}
-      AUTOOPS_JWT_SECRET: ${AUTOOPS_JWT_SECRET:?请设置 JWT 密钥}
-      AUTOOPS_AES_KEY: ${AUTOOPS_AES_KEY:?请设置 AES 主密钥}
+      # JWT/AES 密钥：不设置时由容器入口首次启动自动生成并持久化到 data 卷
+      AUTOOPS_JWT_SECRET: ${AUTOOPS_JWT_SECRET:-}
+      AUTOOPS_AES_KEY: ${AUTOOPS_AES_KEY:-}
     ports:
       - "8080:8080"
     volumes:
       - uploads:/app/uploads
+      - data:/app/data
     restart: unless-stopped
 
 volumes:
   uploads:
+  data:

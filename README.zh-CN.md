@@ -66,12 +66,11 @@ cd frontend && npm install && npm run dev   # http://localhost:5173 代理到 80
 
 ### 4. 生产部署（Docker Compose）
 
-捆绑数据库：
+捆绑数据库（JWT/AES 密钥首次启动自动生成并持久化在 `data` 卷；如需指定，设置 `AUTOOPS_JWT_SECRET` / `AUTOOPS_AES_KEY` 环境变量覆盖）：
 
 ```bash
 cd deploy
 docker compose up -d --build
-# 先修改 docker-compose.yml（或环境变量）中的 JWT_SECRET 与 AES_KEY！
 ```
 
 外部 PostgreSQL——启动时自动创建全部表结构（仅需预先建库）：
@@ -82,9 +81,8 @@ export AUTOOPS_DB_PORT=5432
 export AUTOOPS_DB_USER=autoops
 export AUTOOPS_DB_PASSWORD=yourpass
 export AUTOOPS_DB_NAME=autoops        # 需先 CREATE DATABASE
-export AUTOOPS_JWT_SECRET=<随机长字符串>
-export AUTOOPS_AES_KEY=$(openssl rand -base64 32)
 docker compose -f docker-compose.external.yml up -d --build
+# JWT/AES 密钥自动生成并持久化在 `data` 卷；如需指定，设置 AUTOOPS_JWT_SECRET / AUTOOPS_AES_KEY 覆盖
 ```
 
 优先级：`AUTOOPS_DSN` > `AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME` > `config.yaml`（本地二进制同样支持）。

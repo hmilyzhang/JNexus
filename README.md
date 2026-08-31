@@ -64,12 +64,11 @@ Open http://localhost:8080 — the built frontend (`frontend/dist`) is served by
 
 ### 4. Production (Docker Compose)
 
-Bundled database:
+Bundled database (JWT/AES keys are auto-generated on first start and persisted in the `data` volume; set `AUTOOPS_JWT_SECRET` / `AUTOOPS_AES_KEY` env vars to override):
 
 ```bash
 cd deploy
 docker compose up -d --build
-# Change JWT_SECRET and AES_KEY in docker-compose.yml (or via env) first!
 ```
 
 External PostgreSQL — tables are created automatically on startup (only the database itself must exist):
@@ -80,9 +79,9 @@ export AUTOOPS_DB_PORT=5432
 export AUTOOPS_DB_USER=autoops
 export AUTOOPS_DB_PASSWORD=yourpass
 export AUTOOPS_DB_NAME=autoops        # CREATE DATABASE first
-export AUTOOPS_JWT_SECRET=<long random string>
-export AUTOOPS_AES_KEY=$(openssl rand -base64 32)
 docker compose -f docker-compose.external.yml up -d --build
+# JWT/AES keys are auto-generated and persisted in the `data` volume;
+# set AUTOOPS_JWT_SECRET / AUTOOPS_AES_KEY to override.
 ```
 
 Env precedence: `AUTOOPS_DSN` > `AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME` > `config.yaml` (same for the plain binary).

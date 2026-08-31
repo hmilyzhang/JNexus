@@ -6,26 +6,6 @@ services:
     image: postgres:16-alpine
     container_name: autoops-pg
     environment:
-      POSTGRES_USER: ${AUTOOPS_DB_USER:-autoops}
-      POSTGRES_PASSWORD: ${AUTOOPS_DB_PASSWORD:-autoops123}
-      POSTGRES_DB: ${AUTOOPS_DB_NAME:-autoops}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U autoops"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  autoops:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
-    container_name: autoops-server
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
       # 外部数据库只需修改以下变量（或设置 AUTOOPS_DSN 使用完整 DSN）
       AUTOOPS_DB_HOST: ${AUTOOPS_DB_HOST:-postgres}
@@ -33,14 +13,17 @@ services:
       AUTOOPS_DB_USER: ${AUTOOPS_DB_USER:-autoops}
       AUTOOPS_DB_PASSWORD: ${AUTOOPS_DB_PASSWORD:-autoops123}
       AUTOOPS_DB_NAME: ${AUTOOPS_DB_NAME:-autoops}
-      AUTOOPS_JWT_SECRET: ${AUTOOPS_JWT_SECRET:-change-me-to-a-long-random-string}
-      AUTOOPS_AES_KEY: ${AUTOOPS_AES_KEY:-+Z3CJhKNan6SChfrHz5LMNv51V4wM2IFq0XvrFrr+2E=}
+      # JWT/AES 密钥：不设置时由容器入口首次启动自动生成并持久化到 data 卷
+      AUTOOPS_JWT_SECRET: ${AUTOOPS_JWT_SECRET:-}
+      AUTOOPS_AES_KEY: ${AUTOOPS_AES_KEY:-}
     ports:
       - "8080:8080"
     volumes:
       - uploads:/app/uploads
+      - data:/app/data
     restart: unless-stopped
 
 volumes:
   pgdata:
   uploads:
+  data:
