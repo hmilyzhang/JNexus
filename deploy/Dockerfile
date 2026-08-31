@@ -7,7 +7,8 @@ COPY frontend/ ./
 RUN npm run build
 
 # ---- 后端构建 ----
-FROM golang:1.22-alpine AS be
+# 注意：镜像版本需 >= backend/go.mod 的 go 指令版本
+FROM golang:1.25-alpine AS be
 WORKDIR /be
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
