@@ -34,7 +34,7 @@ services:
       AUTOOPS_DB_PASSWORD: ${AUTOOPS_DB_PASSWORD:-autoops123}
       AUTOOPS_DB_NAME: ${AUTOOPS_DB_NAME:-autoops}
       AUTOOPS_JWT_SECRET: ${AUTOOPS_JWT_SECRET:-change-me-to-a-long-random-string}
-      AUTOOPS_AES_KEY: ${AUTOOPS_AES_KEY:-y0urBase64Encoded32BytesKeyGoesHere=}
+      AUTOOPS_AES_KEY: ${AUTOOPS_AES_KEY:-+Z3CJhKNan6SChfrHz5LMNv51V4wM2IFq0XvrFrr+2E=}
     ports:
       - "8080:8080"
     volumes:

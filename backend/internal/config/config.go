@@ -33,10 +33,17 @@ var Cfg Config
 func Load(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("读取配置文件失败: %w", err)
+		// 容器部署可不带配置文件：环境变量提供数据库连接即可启动
+		if os.IsNotExist(err) && (os.Getenv("AUTOOPS_DSN") != "" || os.Getenv("AUTOOPS_DB_HOST") != "") {
+			data = nil
+		} else {
+			return fmt.Errorf("读取配置文件失败: %w", err)
+		}
 	}
-	if err := yaml.Unmarshal(data, &Cfg); err != nil {
-		return fmt.Errorf("解析配置文件失败: %w", err)
+	if len(data) > 0 {
+		if err := yaml.Unmarshal(data, &Cfg); err != nil {
+			return fmt.Errorf("解析配置文件失败: %w", err)
+		}
 	}
 	// 环境变量覆盖
 	if v := os.Getenv("AUTOOPS_DSN"); v != "" {
