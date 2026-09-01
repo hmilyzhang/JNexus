@@ -6,6 +6,26 @@ services:
     image: postgres:16-alpine
     container_name: autoops-pg
     environment:
+      POSTGRES_USER: ${AUTOOPS_DB_USER:-autoops}
+      POSTGRES_PASSWORD: ${AUTOOPS_DB_PASSWORD:-autoops123}
+      POSTGRES_DB: ${AUTOOPS_DB_NAME:-autoops}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autoops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  autoops:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: autoops-server
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       # 外部数据库只需修改以下变量（或设置 AUTOOPS_DSN 使用完整 DSN）
       AUTOOPS_DB_HOST: ${AUTOOPS_DB_HOST:-postgres}
