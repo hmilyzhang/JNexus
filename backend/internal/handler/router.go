@@ -183,24 +183,35 @@ func SetupRouter() *gin.Engine {
 		}
 	}
 
-	// 托管前端 SPA（frontend/dist）
-	frontDist := filepath.Join("..", "frontend", "dist")
-	if abs, err := filepath.Abs(frontDist); err == nil {
-		if st, err := os.Stat(abs); err == nil && st.IsDir() {
-			r.StaticFile("/favicon.ico", filepath.Join(abs, "favicon.ico"))
-			r.NoRoute(func(c *gin.Context) {
-				p := c.Request.URL.Path
-				if p != "/" && !strings.HasPrefix(p, "/assets") {
-					c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
-					c.File(filepath.Join(abs, "index.html"))
-					return
-				}
-				if strings.HasPrefix(p, "/assets") {
-					c.Header("Cache-Control", "public, max-age=31536000, immutable")
-				}
-				c.File(filepath.Join(abs, strings.TrimPrefix(p, "/")))
-			})
+	// 托管前端 SPA（frontend/dist）：兼容本地开发（backend/ 下相对路径）与容器（/app/frontend/dist）
+	candidates := []string{
+		filepath.Join("..", "frontend", "dist"), // 本地：从 backend/ 启动
+		filepath.Join("frontend", "dist"),       // 容器：WORKDIR /app
+		"/app/frontend/dist",                    // 容器：绝对路径兜底
+	}
+	for _, frontDist := range candidates {
+		abs, err := filepath.Abs(frontDist)
+		if err != nil {
+			continue
 		}
+		st, err := os.Stat(abs)
+		if err != nil || !st.IsDir() {
+			continue
+		}
+		r.StaticFile("/favicon.ico", filepath.Join(abs, "favicon.ico"))
+		r.NoRoute(func(c *gin.Context) {
+			p := c.Request.URL.Path
+			if p != "/" && !strings.HasPrefix(p, "/assets") {
+				c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+				c.File(filepath.Join(abs, "index.html"))
+				return
+			}
+			if strings.HasPrefix(p, "/assets") {
+				c.Header("Cache-Control", "public, max-age=31536000, immutable")
+			}
+			c.File(filepath.Join(abs, strings.TrimPrefix(p, "/")))
+		})
+		break
 	}
 
 	return r
