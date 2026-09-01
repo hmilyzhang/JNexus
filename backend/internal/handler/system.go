@@ -162,6 +162,19 @@ func Dashboard(c *gin.Context) {
 		return n
 	}
 	online := count(&model.Host{}, "status = ?", "online")
+	// 任务数范围：管理员/审计员看全量，其他人仅统计本人发起的任务
+	taskQ := model.DB.Model(&model.Task{})
+	if !u.IsAdmin() && u.Role != model.RoleAuditor {
+		taskQ = taskQ.Where("operator = ?", u.Username)
+	}
+	var taskCnt int64
+	taskQ.Count(&taskCnt)
+
+	// 拦截规则/用户数为管理员维度，非管理员返回 0（前端隐藏对应卡片）
+	dangerCnt, userCnt := count(&model.DangerRule{}, "enabled = ?", true), count(&model.User{}, "")
+	if !u.IsAdmin() {
+		dangerCnt, userCnt = 0, 0
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
 			"username": u.Username, "role": u.Role, "auth_source": u.AuthSource,
@@ -170,11 +183,11 @@ func Dashboard(c *gin.Context) {
 		"hosts_total":  count(&model.Host{}, ""),
 		"hosts_online": online,
 		"host_groups":  count(&model.HostGroup{}, ""),
-		"users":        count(&model.User{}, ""),
-		"tasks":        count(&model.Task{}, ""),
+		"users":        userCnt,
+		"tasks":        taskCnt,
 		"scripts":      count(&model.Script{}, ""),
 		"apps":         count(&model.Application{}, ""),
 		"releases":     count(&model.Release{}, ""),
-		"danger_rules": count(&model.DangerRule{}, "enabled = ?", true),
+		"danger_rules": dangerCnt,
 	})
 }

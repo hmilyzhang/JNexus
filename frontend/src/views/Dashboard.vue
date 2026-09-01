@@ -65,16 +65,24 @@ const roleLabel = computed(() => ({
 })[store.role] || store.role)
 const initial = computed(() => (store.user?.username || '?')[0].toUpperCase())
 
-const statCards = computed(() => [
-  { key: 'hosts_total', label: 'dashboard.hostsTotal', icon: 'Monitor', color: '#409eff', path: '/hosts' },
-  { key: 'hosts_online', label: 'dashboard.hostsOnline', icon: 'Connection', color: '#67c23a', path: '/hosts' },
-  { key: 'host_groups', label: 'dashboard.hostGroups', icon: 'Folder', color: '#e6a23c', path: '/hosts' },
-  { key: 'tasks', label: 'dashboard.tasks', icon: 'Promotion', color: '#909399', path: '/tasks' },
-  { key: 'apps', label: 'dashboard.apps', icon: 'Box', color: '#f56c6c', path: '/apps' },
-  { key: 'releases', label: 'dashboard.releases', icon: 'UploadFilled', color: '#9254de', path: '/releases' },
-  { key: 'users', label: 'dashboard.users', icon: 'User', color: '#36cfc9', path: '/users' },
-  { key: 'danger_rules', label: 'dashboard.dangerRules', icon: 'Warning', color: '#fa8c16', path: '/danger' }
-])
+const statCards = computed(() => {
+  const all = [
+    { key: 'hosts_total', label: 'dashboard.hostsTotal', icon: 'Monitor', color: '#409eff', path: '/hosts' },
+    { key: 'hosts_online', label: 'dashboard.hostsOnline', icon: 'Connection', color: '#67c23a', path: '/hosts' },
+    { key: 'host_groups', label: 'dashboard.hostGroups', icon: 'Folder', color: '#e6a23c', path: '/hosts' },
+    { key: 'tasks', label: 'dashboard.tasks', icon: 'Promotion', color: '#909399', path: '/tasks' },
+    { key: 'apps', label: 'dashboard.apps', icon: 'Box', color: '#f56c6c', path: '/apps' },
+    { key: 'releases', label: 'dashboard.releases', icon: 'UploadFilled', color: '#9254de', path: '/releases' },
+    { key: 'users', label: 'dashboard.users', icon: 'User', color: '#36cfc9', path: '/users', admin: true },
+    { key: 'danger_rules', label: 'dashboard.dangerRules', icon: 'Warning', color: '#fa8c16', path: '/danger', admin: true }
+  ]
+  // 无权限的卡片不展示（用户数/拦截规则仅管理员；执行记录对只读隐藏）
+  return all.filter(c => {
+    if (c.admin && !store.isAdmin) return false
+    if (c.key === 'tasks' && store.role === 'viewer') return false
+    return true
+  })
+})
 
 const quickNavs = computed(() => {
   const all = [
