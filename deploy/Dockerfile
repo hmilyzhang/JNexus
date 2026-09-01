@@ -24,7 +24,7 @@ COPY --from=be /autoops-server /app/autoops-server
 COPY --from=fe /fe/dist /app/frontend/dist
 COPY backend/config.example.yaml /app/config.example.yaml
 COPY deploy/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh && mkdir -p /app/data && chown autoops /app/data
+RUN chmod +x /app/entrypoint.sh && mkdir -p /app/data /app/uploads && chown autoops /app/data /app/uploads
 ENV GIN_MODE=release
 EXPOSE 8080
 USER autoops
