@@ -15,6 +15,15 @@ import (
 	"autoops/internal/pkg"
 )
 
+// GenerateKeyPairRaw 生成密钥对并落库，返回（可安装公钥行、密钥记录）
+func GenerateKeyPairRaw(comment string) (string, *model.SSHKey, error) {
+	k, err := GenerateAndStoreKeyPair(fmt.Sprintf("%s-%s", comment, time.Now().Format("20060102150405")), comment)
+	if err != nil {
+		return "", nil, err
+	}
+	return KeyPairPublicLine(k), k, nil
+}
+
 // GenerateAndStoreKeyPair 生成 ed25519 密钥对并加密落库，返回 SSHKey 记录
 func GenerateAndStoreKeyPair(name, comment string) (*model.SSHKey, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)

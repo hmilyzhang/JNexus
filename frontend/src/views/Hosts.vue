@@ -86,6 +86,12 @@
       </el-form-item>
       <el-form-item :label="$t('hosts.password')" v-else>
         <el-input v-model="hostForm.password" type="password" show-password :placeholder="hostForm.id ? $t('hosts.passwordKeep') : ''" />
+        <el-checkbox v-if="!hostForm.id" v-model="hostForm.auto_pair" style="margin-top:4px">
+          {{ $t('hosts.autoPair') }}
+        </el-checkbox>
+        <div v-if="!hostForm.id && hostForm.auto_pair" style="color:#909399; font-size:12px; line-height:1.5">
+          {{ $t('hosts.autoPairTip') }}
+        </div>
       </el-form-item>
       <el-form-item :label="$t('hosts.group')">
         <el-select v-model="hostForm.group_id" :placeholder="$t('hosts.groupPlaceholder')" style="width:100%" clearable>
@@ -316,7 +322,7 @@ const openTerminal = row => {
 }
 
 const dlgHost = row => {
-  hostForm.value = row ? { ...row, password: '' } : { name: '', ip: '', port: 22, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null }
+  hostForm.value = row ? { ...row, password: '' } : { name: '', ip: '', port: 22, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null, auto_pair: true }
   hostVisible.value = true
 }
 // ---- OS 账号（凭据）管理 ----
@@ -360,20 +366,23 @@ const saveHost = async () => {
   if (hostForm.value.auth_type === 'key' && !hostForm.value.ssh_key_id) { ElMessage.warning(t('hosts.needKey')); return }
   if (hostForm.value.id) {
     await api.put(`/hosts/${hostForm.value.id}`, hostForm.value)
+    ElMessage.success(t('hosts.saved'))
   } else {
-    const created = await api.post('/hosts', hostForm.value)
-    // 新主机同步创建默认 OS 账号
+    const res = await api.post('/hosts', hostForm.value)
+    // 密钥认证：同步创建默认 OS 账号；密码认证：后端已建账号并按 auto_pair 尝试配对
     if (hostForm.value.auth_type === 'key' && hostForm.value.ssh_key_id) {
-      await api.post(`/hosts/${created.id}/credentials`, {
+      await api.post(`/hosts/${res.host.id}/credentials`, {
         username: hostForm.value.username, auth_type: 'key', ssh_key_id: hostForm.value.ssh_key_id, is_default: true
       })
+      ElMessage.success(t('hosts.saved'))
     } else if (hostForm.value.auth_type === 'password' && hostForm.value.password) {
-      await api.post(`/hosts/${created.id}/credentials`, {
-        username: hostForm.value.username, auth_type: 'password', password: hostForm.value.password, is_default: true
-      })
+      if (res.paired) {
+        ElMessage.success(t('hosts.saved') + ' · ' + t('hosts.pairOk'))
+      } else {
+        ElMessage.warning((res.pair_error || t('hosts.saved')) + '', { duration: 6000 })
+      }
     }
   }
-  ElMessage.success(t('hosts.saved'))
   hostVisible.value = false
   load()
 }

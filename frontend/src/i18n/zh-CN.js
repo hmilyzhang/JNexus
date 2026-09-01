@@ -113,6 +113,7 @@ export default {
     defaultUser: '默认用户名',
     importKey: '认证密钥',
     autoPair: '账号密码自动配对密钥',
+    pairOk: '密钥已自动配对，后续使用密钥认证',
     autoPairTip: '开启后，带密码的主机将自动生成密钥对并推送公钥到目标机（Linux），成功后切换为密钥认证',
     hostList: '主机列表',
     hostListPlaceholder: '每行一台主机，格式（逗号分隔）：\n名称,IP,端口,用户名,分组名\n端口/用户名/分组可省略；首列若直接填 IP 则名称默认取 IP\nweb-01,10.0.0.1\nweb-02,10.0.0.2,22,root,Prod\n密码请在上方「统一密码」中输入，无需写入本文件',

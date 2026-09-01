@@ -113,6 +113,7 @@ export default {
     defaultUser: 'Default user',
     importKey: 'Auth key',
     autoPair: 'Auto pair SSH key with password',
+    pairOk: 'Key paired automatically; key auth will be used',
     autoPairTip: 'When enabled, hosts with a password will get a generated key pair pushed to the target (Linux) and switch to key auth on success',
     hostList: 'Host list',
     hostListPlaceholder: 'One host per line, comma separated:\nNAME,IP,port,user,group\nPort/user/group optional; if the first field is an IP the name defaults to it\nweb-01,10.0.0.1\nweb-02,10.0.0.2,22,root,Prod\nEnter the password in the Common password field above instead of in this file',

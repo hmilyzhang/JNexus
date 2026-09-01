@@ -172,13 +172,13 @@ func SetupRouter() *gin.Engine {
 		auth.GET("/dashboard", Dashboard)
 
 		// 系统配置（admin）
+		auth.GET("/system/roles", GetSystemRoles) // 所有登录用户可读（前端菜单渲染依赖）
 		sysCfg := auth.Group("/system", middleware.RequireRole())
 		{
 			sysCfg.GET("/config", GetSystemConfig)
 			sysCfg.PUT("/config", UpdateSystemConfig)
 			sysCfg.POST("/ldap/test", TestLDAPConfig)
 			sysCfg.POST("/smtp/test", TestSMTPConfig)
-			sysCfg.GET("/roles", GetSystemRoles)
 			sysCfg.PUT("/roles", UpdateSystemRoles)
 		}
 	}

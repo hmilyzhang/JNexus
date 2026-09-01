@@ -104,14 +104,16 @@ func ListHosts(c *gin.Context) {
 }
 
 type hostReq struct {
-	Name     string `json:"name"`
-	IP       string `json:"ip" binding:"required"`
-	Port     int    `json:"port"`
-	Username string `json:"username" binding:"required"`
-	AuthType string `json:"auth_type"`
-	SSHKeyID *uint  `json:"ssh_key_id"`
-	Password string `json:"password"`
-	GroupID  *uint  `json:"group_id"`
+	Name        string `json:"name"`
+	IP          string `json:"ip" binding:"required"`
+	Port        int    `json:"port"`
+	Username    string `json:"username" binding:"required"`
+	AuthType    string `json:"auth_type"`
+	SSHKeyID    *uint  `json:"ssh_key_id"`
+	Password    string `json:"password"`
+	GroupID     *uint  `json:"group_id"`
+	CredLabel   string `json:"credential_label"` // 生成 OS 账号的用途标签
+	AutoPair    bool   `json:"auto_pair"`        // 密码创建后自动配对密钥
 }
 
 func (r *hostReq) toHost(h *model.Host) error {
@@ -156,7 +158,48 @@ func CreateHost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "创建失败"})
 		return
 	}
-	c.JSON(http.StatusOK, h)
+
+	resp := gin.H{}
+	// 创建默认 OS 账号；密码认证且要求自动配对时：密码登录推送公钥，成功切换密钥认证
+	if h.AuthType == "password" && req.Password != "" {
+		encPwd := h.Password
+		label := strings.TrimSpace(req.CredLabel)
+		if label == "" {
+			label = "默认"
+		}
+		cred := model.HostCredential{
+			HostID: h.ID, Username: h.Username, AuthType: "password",
+			Password: encPwd, Label: label, IsDefault: true,
+		}
+		if err := model.DB.Create(&cred).Error; err != nil {
+			resp["cred_error"] = "创建 OS 账号失败: " + err.Error()
+		} else if req.AutoPair {
+			pub, priv, err := service.GenerateKeyPairRaw("autoops-host")
+			if err != nil {
+				resp["pair_error"] = "生成密钥对失败: " + err.Error()
+			} else {
+				if perr := service.InstallPubKeyWithPassword(h.IP, h.Port, h.Username, req.Password, pub); perr != nil {
+					resp["pair_error"] = "密钥配对失败(" + perr.Error() + ")，已保留密码认证"
+				} else {
+					keyCred := model.HostCredential{
+						HostID: h.ID, Username: h.Username, AuthType: "key",
+						SSHKeyID: sshKeyIDOf(priv), Label: label, IsDefault: true,
+					}
+					if err := model.DB.Create(&keyCred).Error; err == nil {
+						model.DB.Model(&cred).Update("is_default", false)
+						model.DB.Model(&h).Updates(map[string]any{"auth_type": "key", "ssh_key_id": sshKeyIDOf(priv)})
+						h.AuthType = "key"
+						h.SSHKeyID = sshKeyIDOf(priv)
+						resp["paired"] = true
+					} else {
+						resp["pair_error"] = "保存密钥凭据失败: " + err.Error()
+					}
+				}
+			}
+		}
+	}
+	resp["host"] = h
+	c.JSON(http.StatusOK, resp)
 }
 
 func UpdateHost(c *gin.Context) {
@@ -193,6 +236,8 @@ func DeleteHost(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
+
+func sshKeyIDOf(k *model.SSHKey) *uint { id := k.ID; return &id }
 
 // createDefaultCred 为导入的主机生成默认 OS 账号（与主机自带账号一致）
 func createDefaultCred(hostID uint, username, authType string, sshKeyID *uint, encPassword, label string) {
