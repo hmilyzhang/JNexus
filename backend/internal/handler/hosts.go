@@ -29,17 +29,25 @@ func ListGroups(c *gin.Context) {
 	var cnts []groupCnt
 	model.DB.Model(&model.Host{}).Select("group_id, count(*) as cnt").
 		Where("group_id IS NOT NULL").Group("group_id").Scan(&cnts)
-	m := map[uint]int64{}
+	direct := map[uint]int64{}
 	for _, x := range cnts {
 		if x.GroupID != nil {
-			m[*x.GroupID] = x.Cnt
+			direct[*x.GroupID] = x.Cnt
+		}
+	}
+	// 主机总数含后代分组（多级树）
+	total := map[uint]int64{}
+	for _, g := range groups {
+		for _, id := range service.GroupAndDescendants(g.ID) {
+			total[g.ID] += direct[id]
 		}
 	}
 	out := make([]gin.H, 0, len(groups))
 	for _, g := range groups {
 		out = append(out, gin.H{
-			"id": g.ID, "name": g.Name, "description": g.Description,
-			"host_count": m[g.ID], "created_at": g.CreatedAt,
+			"id": g.ID, "name": g.Name, "parent_id": g.ParentID,
+			"description": g.Description,
+			"host_count": total[g.ID], "created_at": g.CreatedAt,
 		})
 	}
 	c.JSON(http.StatusOK, out)
@@ -70,8 +78,44 @@ func UpdateGroup(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 		return
 	}
-	model.DB.Model(&g).Updates(map[string]any{"name": req.Name, "description": req.Description})
-	c.JSON(http.StatusOK, g)
+	if req.ParentID != nil {
+		if *req.ParentID == g.ID {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "不能将分组挂到自己下面"})
+			return
+		}
+		if wouldCycle(g.ID, *req.ParentID) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "不能移动到自己的后代分组下（会形成循环）"})
+			return
+		}
+		var p model.HostGroup
+		if err := model.DB.First(&p, *req.ParentID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "上级分组不存在"})
+			return
+		}
+	}
+	model.DB.Model(&g).Updates(map[string]any{"name": req.Name, "description": req.Description, "parent_id": req.ParentID})
+	c.JSON(http.StatusOK, gin.H{"id": g.ID, "name": req.Name, "parent_id": req.ParentID})
+}
+
+// wouldCycle 检查把 group 挂到 newParent 下是否形成环
+func wouldCycle(groupID uint, newParentID uint) bool {
+	var groups []model.HostGroup
+	model.DB.Find(&groups)
+	parent := map[uint]*uint{}
+	for _, g := range groups {
+		parent[g.ID] = g.ParentID
+	}
+	cur := newParentID
+	for {
+		if cur == groupID {
+			return true
+		}
+		p := parent[cur]
+		if p == nil {
+			return false
+		}
+		cur = *p
+	}
 }
 
 func DeleteGroup(c *gin.Context) {
@@ -80,6 +124,12 @@ func DeleteGroup(c *gin.Context) {
 	model.DB.Model(&model.Host{}).Where("group_id = ?", id).Count(&cnt)
 	if cnt > 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("分组下还有 %d 台主机，请先移出", cnt)})
+		return
+	}
+	var childCnt int64
+	model.DB.Model(&model.HostGroup{}).Where("parent_id = ?", id).Count(&childCnt)
+	if childCnt > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "分组下还有子分组，请先删除或移出"})
 		return
 	}
 	model.DB.Delete(&model.HostGroup{}, id)
@@ -236,6 +286,34 @@ func DeleteHost(c *gin.Context) {
 
 func sshKeyIDOf(k *model.SSHKey) *uint { id := k.ID; return &id }
 
+// ensureGroupPath 按 / 分隔的分组路径逐级创建分组（存在则复用），返回末级分组 ID
+func ensureGroupPath(path string) (*uint, error) {
+	var parentID *uint
+	for _, seg := range strings.Split(path, "/") {
+		seg = strings.TrimSpace(seg)
+		if seg == "" {
+			continue
+		}
+		var g model.HostGroup
+		q := model.DB.Where("name = ?", seg)
+		if parentID != nil {
+			q = q.Where("parent_id = ?", *parentID)
+		} else {
+			q = q.Where("parent_id IS NULL")
+		}
+		err := q.First(&g).Error
+		if err != nil {
+			g = model.HostGroup{Name: seg, ParentID: parentID}
+			if err := model.DB.Create(&g).Error; err != nil {
+				return nil, fmt.Errorf("创建分组 %s 失败", seg)
+			}
+		}
+		id := g.ID
+		parentID = &id
+	}
+	return parentID, nil
+}
+
 // createDefaultCred 为导入的主机生成默认 OS 账号（与主机自带账号一致）
 func createDefaultCred(hostID uint, username, authType string, sshKeyID *uint, encPassword, label string) {
 	if strings.TrimSpace(label) == "" {
@@ -356,15 +434,13 @@ func ImportHosts(c *gin.Context) {
 		}
 		var groupID *uint
 		if groupName != "" {
-			var g model.HostGroup
-			if err := model.DB.Where("name = ?", groupName).First(&g).Error; err != nil {
-				g = model.HostGroup{Name: groupName}
-				if err := model.DB.Create(&g).Error; err != nil {
-					errors = append(errors, fmt.Sprintf("%s: 创建分组失败", ip))
-					continue
-				}
+			// 支持 / 分隔的多级分组路径，如 生产/数据库
+			gid, gerr := ensureGroupPath(groupName)
+			if gerr != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", ip, gerr))
+				continue
 			}
-			groupID = &g.ID
+			groupID = gid
 		}
 
 		// 密码优先级：行内密码 > 页面统一密码

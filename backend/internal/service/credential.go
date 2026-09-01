@@ -42,12 +42,21 @@ func UsableCredentials(user *model.User, host *model.Host) []model.HostCredentia
 		Where("ugm.user_id = ?", user.ID).
 		Scan(&rules)
 
+	// 主机所在分组的祖先链：规则命中任一祖先分组即生效（多级级联）
+	var ancestorSet map[uint]bool
+	if host.GroupID != nil {
+		ancestorSet = map[uint]bool{}
+		for _, id := range GroupAncestors(*host.GroupID) {
+			ancestorSet[id] = true
+		}
+	}
+
 	var usable []model.HostCredential
 	for _, c := range creds {
 		ok := idSet[c.ID]
 		if !ok {
 			for _, r := range rules {
-				inScope := r.HostGroupID == nil || (host.GroupID != nil && *r.HostGroupID == *host.GroupID)
+				inScope := r.HostGroupID == nil || (ancestorSet != nil && ancestorSet[*r.HostGroupID])
 				if inScope && r.Username == c.Username {
 					ok = true
 					break

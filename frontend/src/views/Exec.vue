@@ -93,35 +93,56 @@ let ws = null
 const form = reactive({ mode: 'command', command: '', script_id: null, script_args: '', timeout_sec: 300, concurrency: 10 })
 
 // 树状选择数据：分组节点 value=g-<id>，主机节点 value=<id>
-const treeData = computed(() => {
-  const nodes = []
-  const byGroup = new Map()
-  for (const h of hosts.value) {
-    const key = h.group_id ? `g-${h.group_id}` : 'g-none'
-    if (!byGroup.has(key)) byGroup.set(key, { value: key, label: h.group?.name || t('hosts.uncategorized'), children: [] })
-    byGroup.get(key).children.push({ value: h.id, label: `${h.name} · ${h.ip}` })
+// 多级分组树：分组按 parent_id 嵌套，主机挂到所在分组节点（未分组挂根）
+const buildTree = (hosts, groups, leafOf) => {
+  const byId = new Map(groups.map(g => [g.id, { value: `g-${g.id}`, label: g.name, children: [] }]))
+  const roots = []
+  for (const g of groups) {
+    const node = byId.get(g.id)
+    if (g.parent_id && byId.has(g.parent_id)) byId.get(g.parent_id).children.push(node)
+    else roots.push(node)
   }
-  for (const v of byGroup.values()) nodes.push(v)
-  return nodes
-})
+  for (const h of hosts) {
+    const leaf = leafOf(h)
+    if (h.group_id && byId.has(h.group_id)) byId.get(h.group_id).children.push(leaf)
+    else roots.push(leaf)
+  }
+  return roots
+}
+
+const treeData = computed(() => buildTree(hosts.value, groups.value, h => ({ value: h.id, label: `${h.name} · ${h.ip}` })))
 
 // 展开选择：分组节点映射为其下主机 ID
 const resolveSelected = () => {
   const ids = new Set()
+  const descendants = gid => {
+    const out = new Set([gid])
+    let changed = true
+    while (changed) {
+      changed = false
+      for (const g of groups.value) {
+        if (g.parent_id && out.has(g.parent_id) && !out.has(g.id)) { out.add(g.id); changed = true }
+      }
+    }
+    return out
+  }
   for (const v of selectedNodes.value) {
     if (typeof v === 'number') { ids.add(v); continue }
-    const gid = v === 'g-none' ? null : Number(String(v).slice(2))
+    if (v === 'g-none') continue
+    const gset = descendants(Number(String(v).slice(2)))
     for (const h of hosts.value) {
-      if ((gid === null && !h.group_id) || h.group_id === gid) ids.add(h.id)
+      if (h.group_id && gset.has(h.group_id)) ids.add(h.id)
     }
   }
   return [...ids]
 }
 
+const groups = ref([])
 const loadHosts = async () => {
   hosts.value = await api.get('/hosts')
   scripts.value = await api.get('/scripts')
   usableCreds.value = await api.get('/credentials/usable')
+  groups.value = await api.get('/host_groups')
 }
 
 onMounted(loadHosts)

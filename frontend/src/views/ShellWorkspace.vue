@@ -49,6 +49,7 @@ const { t } = i18n.global
 const route = useRoute()
 const hosts = ref([])
 const usableCreds = ref([])
+const hostGroups = ref([])
 const loading = ref(true)
 const sessions = ref([])
 const activeId = ref(null)
@@ -56,13 +57,18 @@ const termEls = {}
 let seq = 0
 const encoder = new TextEncoder()
 
+// 多级分组树：分组按 parent_id 嵌套，主机挂到所在分组，OS 账号挂到主机下
 const treeData = computed(() => {
-  const byGroup = new Map()
+  const groups = hostGroups.value
+  const byId = new Map(groups.map(g => [g.id, { key: `g-${g.id}`, type: 'group', label: g.name, children: [] }]))
+  const roots = []
+  for (const g of groups) {
+    const node = byId.get(g.id)
+    if (g.parent_id && byId.has(g.parent_id)) byId.get(g.parent_id).children.push(node)
+    else roots.push(node)
+  }
   for (const h of hosts.value) {
-    const key = h.group_id ? `g-${h.group_id}` : 'g-none'
-    if (!byGroup.has(key)) byGroup.set(key, { key, type: 'group', label: h.group?.name || t('hosts.uncategorized'), children: [] })
     const hostNode = { key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] }
-    // 该主机上当前用户可用的 OS 账号作为叶子，点击即以该账号进入终端
     const creds = (usableCreds.value || []).filter(c => c.host_id === h.id)
     for (const c of creds) {
       hostNode.children.push({
@@ -70,9 +76,10 @@ const treeData = computed(() => {
         label: `${c.username}${c.label ? '（' + c.label + '）' : ''}`, host: h, children: []
       })
     }
-    byGroup.get(key).children.push(hostNode)
+    if (h.group_id && byId.has(h.group_id)) byId.get(h.group_id).children.push(hostNode)
+    else roots.push(hostNode)
   }
-  return [...byGroup.values()]
+  return roots
 })
 
 const activeLabel = computed(() => {
@@ -87,6 +94,7 @@ const loadHosts = async () => {
   try {
     hosts.value = await api.get('/hosts')
     usableCreds.value = await api.get('/credentials/usable')
+    hostGroups.value = await api.get('/host_groups')
   } finally { loading.value = false }
 }
 

@@ -145,21 +145,40 @@
 
   <!-- 分组管理 -->
   <el-dialog v-model="groupVisible" :title="$t('hosts.groupMgmt')" width="520px">
-    <div style="display:flex; gap:8px; margin-bottom:12px">
+    <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center; flex-wrap:wrap">
+      <el-select v-model="newGroupParent" :placeholder="$t('hosts.parentGroup')" style="width:180px" clearable>
+        <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+      </el-select>
       <el-input v-model="newGroup" :placeholder="$t('hosts.groupName')" style="width:200px" />
       <el-button type="primary" @click="addGroup">{{ $t('hosts.addGroup') }}</el-button>
     </div>
-    <el-table :data="groups" size="small" border>
+    <el-table :data="groups" size="small" border row-key="id" default-expand-all>
       <el-table-column prop="name" :label="$t('hosts.groupName')" />
-      <el-table-column prop="host_count" :label="$t('hosts.hostCountCol')" width="80" />
-      <el-table-column :label="$t('common.operation')" width="140">
+      <el-table-column prop="host_count" :label="$t('hosts.hostCountCol')" width="90" />
+      <el-table-column :label="$t('common.operation')" width="150">
         <template #default="{ row }">
+          <el-button size="small" link @click="renameGroupDlg(row)">{{ $t('common.edit') }}</el-button>
           <el-popconfirm :title="$t('hosts.delGroupConfirm')" @confirm="delGroup(row)">
             <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
           </el-popconfirm>
         </template>
       </el-table-column>
     </el-table>
+
+    <el-dialog v-model="renameVisible" :title="$t('common.edit')" width="380px" append-to-body>
+      <el-form label-width="100px">
+        <el-form-item :label="$t('hosts.groupName')"><el-input v-model="renameForm.name" /></el-form-item>
+        <el-form-item :label="$t('hosts.parentGroup')">
+          <el-select v-model="renameForm.parent_id" style="width:100%" clearable>
+            <el-option v-for="g in groups.filter(x => x.id !== renameForm.id)" :key="g.id" :label="g.name" :value="g.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="renameVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="saveRename">{{ $t('common.save') }}</el-button>
+      </template>
+    </el-dialog>
   </el-dialog>
 
   <!-- SSH 密钥管理 -->
@@ -313,12 +332,40 @@ const keyDlgVisible = ref(false)
 const keyForm = ref({ name: '', public_key: '', private_key: '' })
 
 // 树状数据：分组 → 主机，未分组单独一层
-const treeData = computed(() => {
-  const nodes = groups.value.map(g => ({
+// 多级分组树：按 parent_id 递归构建
+const buildGroupTree = (groups, hosts) => {
+  const byId = new Map(groups.map(g => [g.id, {
     key: 'g-' + g.id, type: 'group', groupId: g.id, label: g.name,
-    children: allHosts.value.filter(h => h.group_id === g.id)
-      .map(h => ({ key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] }))
-  }))
+    children: groups.filter(c => c.parent_id === g.id)
+      .map(c => buildGroupNode(c, groups, hosts))
+  }]))
+  const roots = groups.filter(g => !g.parent_id).map(g => byId.get(g.id))
+  for (const g of groups) {
+    if (g.parent_id) {
+      const p = byId.get(g.parent_id)
+      if (p) {
+        const node = byId.get(g.id)
+        node.children = node.children.concat(hosts.filter(h => h.group_id === g.id)
+          .map(h => ({ key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] })))
+        continue
+      }
+    }
+    if (!g.parent_id) {
+      byId.get(g.id).children = byId.get(g.id).children.concat(hosts.filter(h => h.group_id === g.id)
+        .map(h => ({ key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] })))
+    }
+  }
+  return roots
+}
+const buildGroupNode = (g, groups, hosts) => ({
+  key: 'g-' + g.id, type: 'group', groupId: g.id, label: g.name,
+  children: groups.filter(c => c.parent_id === g.id).map(c => buildGroupNode(c, groups, hosts))
+    .concat(hosts.filter(h => h.group_id === g.id)
+      .map(h => ({ key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] })))
+})
+
+const treeData = computed(() => {
+  const nodes = buildGroupTree(groups.value, allHosts.value)
   const orphan = allHosts.value.filter(h => !h.group_id)
     .map(h => ({ key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] }))
   if (orphan.length) {
@@ -488,13 +535,27 @@ const doImport = async () => {
   } finally { importing.value = false }
 }
 
-const dlgGroup = () => { groupVisible.value = true; load() }
+const newGroupParent = ref(null)
+const renameVisible = ref(false)
+const renameForm = ref({})
+const renameGroupDlg = row => {
+  renameForm.value = { id: row.id, name: row.name, parent_id: row.parent_id || null }
+  renameVisible.value = true
+}
+const saveRename = async () => {
+  if (!renameForm.value.name) { ElMessage.warning(t('hosts.groupName')); return }
+  await api.put(`/host_groups/${renameForm.value.id}`, { name: renameForm.value.name, description: '', parent_id: renameForm.value.parent_id })
+  ElMessage.success(t('hosts.saved'))
+  renameVisible.value = false
+  load()
+}
 const addGroup = async () => {
   if (!newGroup.value) return
-  await api.post('/host_groups', { name: newGroup.value })
+  await api.post('/host_groups', { name: newGroup.value, parent_id: newGroupParent.value })
   newGroup.value = ''
   load()
 }
+const dlgGroup = () => { groupVisible.value = true; load() }
 const delGroup = async row => {
   await api.delete(`/host_groups/${row.id}`)
   ElMessage.success(t('hosts.deleted'))

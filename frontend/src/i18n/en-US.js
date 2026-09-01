@@ -121,6 +121,7 @@ export default {
     importResult: '{created} created, {skipped} skipped{errors}',
     importPairResult: ', key paired: {paired} ok / {failed} failed',
     groupName: 'Group name',
+    parentGroup: 'Parent group',
     addGroup: 'Add group',
     hostCountCol: 'Hosts',
     delGroupConfirm: 'Delete this group?',

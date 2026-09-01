@@ -124,7 +124,8 @@ func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint, ips []str
 			return nil, err
 		}
 	} else if groupID != nil {
-		if err := model.DB.Preload("Group").Where("group_id = ?", *groupID).Find(&hosts).Error; err != nil {
+		// 含全部后代分组（多级树级联）
+		if err := model.DB.Preload("Group").Where("group_id IN ?", GroupAndDescendants(*groupID)).Find(&hosts).Error; err != nil {
 			return nil, err
 		}
 	} else if len(ips) > 0 {
@@ -167,11 +168,12 @@ func CanExecHost(user *model.User, hostID uint, groupID *uint) bool {
 	if user.Role != model.RoleOps && user.Role != model.RolePublisher {
 		return false
 	}
-	// 个人授权：所在主机分组
+	// 个人授权：所在主机分组（含祖先分组级联）
 	if groupID != nil {
+		chain := GroupAncestors(*groupID)
 		var cnt int64
 		model.DB.Model(&model.UserHostGroup{}).
-			Where("user_id = ? AND group_id = ? AND can_exec = ?", user.ID, *groupID, true).
+			Where("user_id = ? AND group_id IN ? AND can_exec = ?", user.ID, chain, true).
 			Count(&cnt)
 		if cnt > 0 {
 			return true
@@ -186,11 +188,12 @@ func CanExecHost(user *model.User, hostID uint, groupID *uint) bool {
 	if cnt > 0 {
 		return true
 	}
-	// 用户组关联主机分组
+	// 用户组关联主机分组（命中主机分组的任一祖先即生效）
 	if groupID != nil {
+		chain := GroupAncestors(*groupID)
 		model.DB.Table("user_group_host_groups ug_g").
 			Joins("JOIN user_group_members ug_m ON ug_m.user_group_id = ug_g.user_group_id").
-			Where("ug_m.user_id = ? AND ug_g.host_group_id = ?", user.ID, *groupID).
+			Where("ug_m.user_id = ? AND ug_g.host_group_id IN ?", user.ID, chain).
 			Count(&cnt)
 		if cnt > 0 {
 			return true

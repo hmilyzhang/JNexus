@@ -120,6 +120,7 @@ export default {
     hostListPlaceholder: '每行一台主机，格式（逗号分隔）：\n名称,IP,端口,用户名,分组名\n端口/用户名/分组可省略；首列若直接填 IP 则名称默认取 IP\nweb-01,10.0.0.1\nweb-02,10.0.0.2,22,root,Prod\n密码请在上方「统一密码」中输入，无需写入本文件',
     importResult: '新增 {created} 台，跳过 {skipped} 台{errors}',
     importPairResult: '，密钥配对成功 {paired} 台 / 失败 {failed} 台',
+    parentGroup: '上级分组',
     groupName: '分组名',
     addGroup: '添加分组',
     hostCountCol: '主机数',

@@ -85,23 +85,44 @@ const failed = ref(false)
 const progress = ref([])
 let ws = null
 
+const groups = ref([])
+
+// 多级分组树：分组按 parent_id 嵌套，主机挂到所在分组节点
 const treeData = computed(() => {
-  const byGroup = new Map()
-  for (const h of hosts.value) {
-    const key = h.group_id ? `g-${h.group_id}` : 'g-none'
-    if (!byGroup.has(key)) byGroup.set(key, { value: key, label: h.group?.name || t('hosts.uncategorized'), children: [] })
-    byGroup.get(key).children.push({ value: h.id, label: `${h.name} · ${h.ip}` })
+  const byId = new Map(groups.value.map(g => [g.id, { value: `g-${g.id}`, label: g.name, children: [] }]))
+  const roots = []
+  for (const g of groups.value) {
+    const node = byId.get(g.id)
+    if (g.parent_id && byId.has(g.parent_id)) byId.get(g.parent_id).children.push(node)
+    else roots.push(node)
   }
-  return [...byGroup.values()]
+  for (const h of hosts.value) {
+    const leaf = { value: h.id, label: `${h.name} · ${h.ip}` }
+    if (h.group_id && byId.has(h.group_id)) byId.get(h.group_id).children.push(leaf)
+    else roots.push(leaf)
+  }
+  return roots
 })
 
 const resolveSelected = () => {
   const ids = new Set()
+  const descendants = gid => {
+    const out = new Set([gid])
+    let changed = true
+    while (changed) {
+      changed = false
+      for (const g of groups.value) {
+        if (g.parent_id && out.has(g.parent_id) && !out.has(g.id)) { out.add(g.id); changed = true }
+      }
+    }
+    return out
+  }
   for (const v of selectedNodes.value) {
     if (typeof v === 'number') { ids.add(v); continue }
-    const gid = v === 'g-none' ? null : Number(String(v).slice(2))
+    if (v === 'g-none') continue
+    const gset = descendants(Number(String(v).slice(2)))
     for (const h of hosts.value) {
-      if ((gid === null && !h.group_id) || h.group_id === gid) ids.add(h.id)
+      if (h.group_id && gset.has(h.group_id)) ids.add(h.id)
     }
   }
   return [...ids]
@@ -153,6 +174,7 @@ const distribute = async () => {
 onMounted(async () => {
   hosts.value = await api.get('/hosts')
   usableCreds.value = await api.get('/credentials/usable')
+  groups.value = await api.get('/host_groups')
 })
 onUnmounted(() => ws?.close())
 </script>
