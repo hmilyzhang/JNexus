@@ -88,6 +88,7 @@ const menuItems = [
   { key: 'paired', path: '/paired', title: 'menu.paired', icon: 'Key' },
   { key: 'exec', path: '/exec', title: 'menu.exec', icon: 'Promotion' },
   { key: 'tasks', path: '/tasks', title: 'menu.tasks', icon: 'List' },
+  { key: 'cron', path: '/crons', title: 'menu.cron', icon: 'Timer' },
   { key: 'files', path: '/files', title: 'menu.files', icon: 'FolderOpened' },
   { key: 'scripts', path: '/scripts', title: 'menu.scripts', icon: 'Document' },
   { key: 'apps', path: '/apps', title: 'menu.apps', icon: 'Box' },

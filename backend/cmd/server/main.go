@@ -45,6 +45,7 @@ func main() {
 	if err := service.LoadDangerRules(); err != nil {
 		log.Fatalf("加载危险命令规则失败: %v", err)
 	}
+	service.StartScheduler() // 计划任务调度循环
 
 	if err := os.MkdirAll(config.Cfg.Storage.UploadDir, 0755); err != nil {
 		log.Fatalf("创建上传目录失败: %v", err)

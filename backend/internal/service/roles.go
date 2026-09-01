@@ -25,7 +25,7 @@ const roleSettingsKey = "role_settings"
 
 // DefaultRoleSettings 角色默认配置（首次使用时写入）
 func DefaultRoleSettings() map[string]RolePerm {
-	allMenus := []string{"dashboard", "hosts", "exec", "tasks", "files", "scripts", "apps", "releases", "users", "danger", "audit", "system"}
+	allMenus := []string{"dashboard", "hosts", "exec", "tasks", "cron", "files", "scripts", "apps", "releases", "users", "danger", "audit", "system"}
 	mk := func(desc string, menus []string, v, c, e, d, cred bool) RolePerm {
 		r := RolePerm{Desc: desc, Menus: menus}
 		r.Host.View, r.Host.Create, r.Host.Edit, r.Host.Delete = v, c, e, d
@@ -34,7 +34,7 @@ func DefaultRoleSettings() map[string]RolePerm {
 	}
 	return map[string]RolePerm{
 		model.RoleAdmin:     mk("全部权限，含用户/系统管理", allMenus, true, true, true, true, true),
-		model.RoleOps:       mk("主机、执行、文件、脚本、发布", []string{"dashboard", "hosts", "paired", "exec", "tasks", "files", "scripts", "apps", "releases"}, true, true, true, true, true),
+		model.RoleOps:       mk("主机、执行、文件、脚本、发布", []string{"dashboard", "hosts", "paired", "exec", "tasks", "cron", "files", "scripts", "apps", "releases"}, true, true, true, true, true),
 		model.RolePublisher: mk("执行与发布（需数据授权）", []string{"dashboard", "hosts", "exec", "tasks", "files", "apps", "releases"}, true, false, false, false, false),
 		model.RoleViewer:    mk("只读查看", []string{"dashboard", "hosts"}, true, false, false, false, false),
 		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit"}, true, false, false, false, false),
@@ -65,17 +65,19 @@ func GetRoleSettings() map[string]RolePerm {
 		if legacy {
 			rp.Cred = d.Cred
 		}
-		// 新增「配对密钥」菜单自动补进 ops（admin 恒见全部）
-		if role == model.RoleOps {
-			has := false
-			for _, m := range rp.Menus {
-				if m == "paired" {
-					has = true
-					break
+		// 新增菜单自动补进 admin/ops（admin 恒见全部）
+		if role == model.RoleAdmin || role == model.RoleOps {
+			for _, nm := range []string{"paired", "cron"} {
+				has := false
+				for _, m := range rp.Menus {
+					if m == nm {
+						has = true
+						break
+					}
 				}
-			}
-			if !has {
-				rp.Menus = append(rp.Menus, "paired")
+				if !has {
+					rp.Menus = append(rp.Menus, nm)
+				}
 			}
 		}
 		out[role] = rp

@@ -98,6 +98,7 @@ type Task struct {
 	Type      string         `gorm:"size:16;index" json:"type"`
 	Operator  string         `gorm:"size:64;index" json:"operator"`
 	Params    string         `gorm:"type:text" json:"params"` // JSON
+	CronJobID *uint          `gorm:"index" json:"cron_job_id"` // 计划任务触发来源
 	Status    string         `gorm:"size:16;index;default:running" json:"status"` // running / done / failed / blocked
 	CreatedAt time.Time      `json:"created_at"`
 	FinishedAt *time.Time    `json:"finished_at"`
@@ -232,6 +233,29 @@ type UserGroupMember struct {
 	ID          uint `gorm:"primaryKey" json:"id"`
 	UserGroupID uint `gorm:"index" json:"user_group_id"`
 	UserID      uint `gorm:"index" json:"user_id"`
+}
+
+// 计划任务：定时执行命令或脚本
+type CronJob struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	Name         string    `gorm:"uniqueIndex;size:128" json:"name"`
+	Type         string    `gorm:"size:16;default:command" json:"type"` // command / script
+	Command      string    `gorm:"type:text" json:"command"`
+	ScriptID     *uint     `json:"script_id"`
+	ScriptArgs   string    `gorm:"size:512" json:"script_args"`
+	HostIDs      string    `gorm:"type:text" json:"host_ids"` // JSON 数组
+	GroupID      *uint     `json:"group_id"`
+	IPs          string    `gorm:"size:512" json:"ips"`
+	CredentialID *uint     `json:"credential_id"`
+	CronExpr     string    `gorm:"size:64" json:"cron_expr"`
+	TimeoutSec   int       `gorm:"default:300" json:"timeout_sec"`
+	Concurrency  int       `gorm:"default:10" json:"concurrency"`
+	Enabled      bool      `gorm:"default:true" json:"enabled"`
+	NextRunAt    *time.Time `json:"next_run_at"`
+	LastRunAt    *time.Time `json:"last_run_at"`
+	LastTaskID   *uint     `json:"last_task_id"`
+	CreatedBy    string    `gorm:"size:64" json:"created_by"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // 主机访问凭据：一台主机可挂多个 OS 账号，不同团队使用不同账号实现账号隔离

@@ -200,6 +200,7 @@ const closeSession = id => {
   const idx = sessions.value.findIndex(x => x.id === id)
   if (idx < 0) return
   const s = sessions.value[idx]
+  try { s.ro?.disconnect() } catch { /* ignore */ }
   try { s.ws?.close() } catch { /* ignore */ }
   try { s.term?.dispose() } catch { /* ignore */ }
   delete termEls[id]

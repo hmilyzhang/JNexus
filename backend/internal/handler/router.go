@@ -87,6 +87,18 @@ func SetupRouter() *gin.Engine {
 		// 配对密钥列表：管理员/运维可见
 		auth.GET("/credentials/paired", middleware.RequireRole(model.RoleAuditor, model.RoleOps), ListPairedCredentials)
 
+		// 计划任务：管理员/运维可管理
+		crons := auth.Group("/crons", middleware.RequireRole(model.RoleOps))
+		{
+			crons.GET("", ListCrons)
+			crons.POST("", CreateCron)
+			crons.PUT("/:id", UpdateCron)
+			crons.DELETE("/:id", DeleteCron)
+			crons.POST("/:id/toggle", ToggleCron)
+			crons.POST("/:id/run", RunCronNow)
+			crons.GET("/:id/history", CronHistory)
+		}
+
 		creds := auth.Group("/credentials", middleware.RequireRole(model.RoleOps, model.RolePublisher))
 		{
 			creds.GET("/usable", UsableCredentialsHandler)
