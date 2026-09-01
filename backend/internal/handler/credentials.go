@@ -53,6 +53,53 @@ func UsableCredentialsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+// ListPairedCredentials 配对密钥列表：全部密钥认证的 OS 账号，
+// 名称 = 主机名-账号，便于识别配对到哪台机器
+func ListPairedCredentials(c *gin.Context) {
+	var creds []model.HostCredential
+	model.DB.Preload("SSHKey").Where("auth_type = ?", "key").Order("id DESC").Find(&creds)
+	type pairRow struct {
+		ID         uint   `json:"id"`
+		HostID     uint   `json:"host_id"`
+		Name       string `json:"name"` // 主机名-账号
+		HostName   string `json:"host_name"`
+		HostIP     string `json:"host_ip"`
+		Username   string `json:"username"`
+		Label      string `json:"label"`
+		KeyName    string `json:"key_name"`
+		PublicKey  string `json:"public_key"`
+		IsDefault  bool   `json:"is_default"`
+		CreatedAt  string `json:"created_at"`
+	}
+	hostCache := map[uint]model.Host{}
+	out := make([]pairRow, 0, len(creds))
+	for _, cr := range creds {
+		h, ok := hostCache[cr.HostID]
+		if !ok {
+			model.DB.First(&h, cr.HostID)
+			hostCache[cr.HostID] = h
+		}
+		keyName := ""
+		pubKey := ""
+		if cr.SSHKey != nil {
+			keyName = cr.SSHKey.Name
+			pubKey = cr.SSHKey.PublicKey
+		}
+		name := h.Name + "-" + cr.Username
+		if h.Name == "" {
+			name = cr.Username
+		}
+		out = append(out, pairRow{
+			ID: cr.ID, HostID: cr.HostID, Name: name,
+			HostName: h.Name, HostIP: h.IP,
+			Username: cr.Username, Label: cr.Label,
+			KeyName: keyName, PublicKey: pubKey,
+			IsDefault: cr.IsDefault, CreatedAt: cr.CreatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+	c.JSON(http.StatusOK, out)
+}
+
 type credReq struct {
 	Username  string `json:"username" binding:"required"`
 	AuthType  string `json:"auth_type"`
@@ -60,6 +107,7 @@ type credReq struct {
 	Password  string `json:"password"`
 	Label     string `json:"label"`
 	IsDefault bool   `json:"is_default"`
+	AutoPair  bool   `json:"auto_pair"` // 密码+自动配对：推送平台公钥后仅保留密钥凭据
 }
 
 func (r *credReq) apply(cred *model.HostCredential) error {
@@ -88,11 +136,33 @@ func makeDefault(hostID, credID uint) {
 
 func CreateHostCredential(c *gin.Context) {
 	hostID, _ := strconv.Atoi(c.Param("id"))
+	var host model.Host
+	if err := model.DB.First(&host, hostID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "主机不存在"})
+		return
+	}
 	var req credReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名必填"})
 		return
 	}
+	label := req.Label
+	if label == "" {
+		label = "默认"
+	}
+
+	// 密码 + 自动配对：推送平台公钥，成功仅登记密钥凭据；失败不产生记录
+	if req.AutoPair && req.Password != "" {
+		paired, cred, err := service.PairAndCreateCredential(&host, req.Username, req.Password, label, req.IsDefault)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "配对失败: " + err.Error()})
+			return
+		}
+		_ = paired
+		c.JSON(http.StatusOK, cred)
+		return
+	}
+
 	if req.AuthType == "key" && req.SSHKeyID == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "密钥认证需要选择 SSH 密钥"})
 		return

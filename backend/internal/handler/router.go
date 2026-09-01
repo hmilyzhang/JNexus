@@ -82,15 +82,20 @@ func SetupRouter() *gin.Engine {
 			hosts.POST("/probe", ProbeHostsHandler)
 			// OS 账号（凭据）管理
 			hosts.GET("/:id/credentials", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer), ListHostCredentials)
-			hosts.POST("/:id/credentials", middleware.RequireRole(model.RoleOps), CreateHostCredential)
+			hosts.POST("/:id/credentials", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), CreateHostCredential)
 		}
+		// 配对密钥列表：管理员/运维可见
+		auth.GET("/credentials/paired", middleware.RequireRole(model.RoleAuditor, model.RoleOps), ListPairedCredentials)
+
 		creds := auth.Group("/credentials", middleware.RequireRole(model.RoleOps, model.RolePublisher))
 		{
-			creds.POST("/batch", middleware.RequireRole(model.RoleOps), middleware.RequireHostPerm("edit"), BatchAddCredentialsHandler)
 			creds.GET("/usable", UsableCredentialsHandler)
-			creds.PUT("/:id", middleware.RequireRole(model.RoleOps), UpdateCredential)
-			creds.DELETE("/:id", middleware.RequireRole(model.RoleOps), DeleteCredential)
-			creds.POST("/:id/default", middleware.RequireRole(model.RoleOps), SetDefaultCredential)
+			// OS 账号管理：需角色开启「账号管理」权限
+			creds.POST("/batch", middleware.RequireRole(model.RoleOps), middleware.RequireHostPerm("edit"), middleware.RequireCredPerm(), BatchAddCredentialsHandler)
+			creds.PUT("/:id", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), UpdateCredential)
+			creds.POST("/:id/default", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), SetDefaultCredential)
+			// 删除：仅系统管理员
+			creds.DELETE("/:id", middleware.RequireRole(), DeleteCredential)
 		}
 
 		// 批量执行
@@ -179,6 +184,7 @@ func SetupRouter() *gin.Engine {
 			sysCfg.PUT("/config", UpdateSystemConfig)
 			sysCfg.POST("/ldap/test", TestLDAPConfig)
 			sysCfg.POST("/smtp/test", TestSMTPConfig)
+			sysCfg.GET("/platform_key", GetPlatformKey)
 			sysCfg.PUT("/roles", UpdateSystemRoles)
 		}
 	}

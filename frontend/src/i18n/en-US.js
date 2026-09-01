@@ -2,6 +2,7 @@
 export default {
   menu: {
     dashboard: 'Dashboard',
+    paired: 'Paired Keys',
     hosts: 'Hosts',
     exec: 'Batch Exec',
     tasks: 'Tasks',
@@ -137,6 +138,9 @@ export default {
     keySaved: 'Key saved',
     needNameIpUser: 'Name, IP and username are required',
     credMgmt: 'OS Accounts',
+    credBatchBtn: 'Batch Add Accounts',
+    credBatchTip: 'Batch-add an OS account to selected existing hosts; password + auto-pair pushes the platform key and switches to key auth',
+    credBatch: 'Batch add OS account',
     credTitle: 'OS Account Management',
     credAdd: 'Add Account',
     credUser: 'Username',
@@ -229,10 +233,7 @@ export default {
     duration: 'Duration',
     clickRow: 'Click a host row above to view its output',
     typeCred: 'Batch Accounts',
-    credBatch: 'Batch add OS account',
-    credBatchBtn: 'Batch Add Accounts',
     credBatchTarget: 'Target hosts',
-    credBatchTip: 'Batch-add an OS account to selected existing hosts; password + auto-pair pushes the platform key and switches to key auth',
     allTypes: 'All types',
     typeCommand: 'Command',
     typeScript: 'Script',
@@ -391,6 +392,12 @@ export default {
     empty: 'Click a host in the asset tree to open a shell connection',
     tip: 'Click a host to open/switch its terminal'
   },
+  paired: {
+    name: 'Name (host-account)',
+    keyName: 'Key name',
+    tip: 'Lists all accounts registered via auto-pairing; deletion is admin-only via host OS accounts',
+    platformKey: 'Platform pairing public key (pushed to targets on auto-pair)'
+  },
   system: {
     title: 'System Settings',
     general: 'General',
@@ -420,6 +427,8 @@ export default {
     ldapRequiredGroupsTip: 'One per line: full group DN or CN. User must match at least one; empty means no restriction',
     testConn: 'Test connection',
     testOk: 'LDAP connection OK',
+    credPerm: 'OS account perms',
+    credManage: 'Manage accounts',
     hostPerms: 'Host permissions',
     permView: 'View',
     permCreate: 'Create',

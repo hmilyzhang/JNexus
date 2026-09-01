@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -160,46 +159,44 @@ func CreateHost(c *gin.Context) {
 	}
 
 	resp := gin.H{}
-	// 创建默认 OS 账号；密码认证且要求自动配对时：密码登录推送公钥，成功切换密钥认证
+	// 密码认证且要求自动配对：用平台密钥推送公钥，成功仅保留密钥凭据；失败回退密码凭据
 	if h.AuthType == "password" && req.Password != "" {
-		encPwd := h.Password
 		label := strings.TrimSpace(req.CredLabel)
 		if label == "" {
 			label = "默认"
 		}
-		cred := model.HostCredential{
-			HostID: h.ID, Username: h.Username, AuthType: "password",
-			Password: encPwd, Label: label, IsDefault: true,
-		}
-		if err := model.DB.Create(&cred).Error; err != nil {
-			resp["cred_error"] = "创建 OS 账号失败: " + err.Error()
-		} else if req.AutoPair {
-			pub, priv, err := service.GenerateKeyPairRaw("autoops-host")
-			if err != nil {
-				resp["pair_error"] = "生成密钥对失败: " + err.Error()
-			} else {
-				if perr := service.InstallPubKeyWithPassword(h.IP, h.Port, h.Username, req.Password, pub); perr != nil {
-					resp["pair_error"] = "密钥配对失败(" + perr.Error() + ")，已保留密码认证"
-				} else {
-					keyCred := model.HostCredential{
-						HostID: h.ID, Username: h.Username, AuthType: "key",
-						SSHKeyID: sshKeyIDOf(priv), Label: label, IsDefault: true,
-					}
-					if err := model.DB.Create(&keyCred).Error; err == nil {
-						model.DB.Model(&cred).Update("is_default", false)
-						model.DB.Model(&h).Updates(map[string]any{"auth_type": "key", "ssh_key_id": sshKeyIDOf(priv)})
-						h.AuthType = "key"
-						h.SSHKeyID = sshKeyIDOf(priv)
-						resp["paired"] = true
-					} else {
-						resp["pair_error"] = "保存密钥凭据失败: " + err.Error()
-					}
-				}
+		if _, _, perr := service.PairAndCreateCredential(&h, h.Username, req.Password, label, true); perr == nil {
+			sshKey := platformKeyID()
+			model.DB.Model(&h).Updates(map[string]any{"auth_type": "key", "ssh_key_id": sshKey})
+			h.AuthType = "key"
+			h.SSHKeyID = sshKey
+			resp["paired"] = true
+		} else {
+			encPwd := h.Password
+			cred := model.HostCredential{
+				HostID: h.ID, Username: h.Username, AuthType: "password",
+				Password: encPwd, Label: label, IsDefault: true,
+			}
+			if err := model.DB.Create(&cred).Error; err != nil {
+				resp["cred_error"] = "创建 OS 账号失败: " + err.Error()
+			}
+			if req.AutoPair {
+				resp["pair_error"] = "密钥配对失败(" + perr.Error() + ")，已保留密码认证"
 			}
 		}
 	}
 	resp["host"] = h
 	c.JSON(http.StatusOK, resp)
+}
+
+// platformKeyID 平台密钥 ID（配对成功后回填主机默认密钥）
+func platformKeyID() *uint {
+	k, err := service.EnsurePlatformKey()
+	if err != nil {
+		return nil
+	}
+	id := k.ID
+	return &id
 }
 
 func UpdateHost(c *gin.Context) {
@@ -282,19 +279,13 @@ func ImportHosts(c *gin.Context) {
 	}
 
 	// 自动配对模式：整批共用一对密钥
-	var batchKey *model.SSHKey
 	credLabel := strings.TrimSpace(req.CredLabel)
 	if credLabel == "" {
 		credLabel = "默认"
 	}
-	if req.AutoPair {
-		k, err := service.GenerateAndStoreKeyPair(
-			fmt.Sprintf("import-%s", time.Now().Format("20060102150405")), "autoops-import")
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "生成密钥对失败: " + err.Error()})
-			return
-		}
-		batchKey = k
+	if _, err := service.EnsurePlatformKey(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "初始化平台密钥失败: " + err.Error()})
+		return
 	}
 
 	var created, skipped, paired, pairFailed int
@@ -385,8 +376,8 @@ func ImportHosts(c *gin.Context) {
 		h := model.Host{Name: hostName, IP: ip, Port: port, Username: username,
 			AuthType: req.AuthType, SSHKeyID: req.SSHKeyID, GroupID: groupID, Status: "unknown"}
 
-		// 密码 + 自动配对：先按密码建主机，推送公钥成功后切换为密钥认证
-		if effectivePassword != "" && req.AutoPair && batchKey != nil {
+		// 密码 + 自动配对：密码建主机 → 平台密钥推送公钥 → 仅保留密钥凭据；失败回退密码凭据
+		if effectivePassword != "" && req.AutoPair {
 			h.AuthType = "password"
 			enc, err := pkg.Encrypt(effectivePassword)
 			if err != nil {
@@ -398,15 +389,16 @@ func ImportHosts(c *gin.Context) {
 				errors = append(errors, fmt.Sprintf("%s: %v", ip, err))
 				continue
 			}
-			pubLine := service.KeyPairPublicLine(batchKey)
-			if err := service.InstallPubKeyWithPassword(ip, port, username, effectivePassword, pubLine); err != nil {
+			_, _, perr := service.PairAndCreateCredential(&h, username, effectivePassword, credLabel, true)
+			if perr != nil {
 				pairFailed++
-				errors = append(errors, fmt.Sprintf("%s: 密钥配对失败(%v)，已保留密码认证", ip, err))
+				createDefaultCred(h.ID, username, "password", nil, enc, credLabel)
+				errors = append(errors, fmt.Sprintf("%s: 密钥配对失败(%v)，已保留密码认证", ip, perr))
 				created++
 				continue
 			}
-			model.DB.Model(&h).Updates(map[string]any{"auth_type": "key", "ssh_key_id": batchKey.ID})
-			createDefaultCred(h.ID, username, "key", &batchKey.ID, "", credLabel)
+			paired++
+			model.DB.Model(&h).Updates(map[string]any{"auth_type": "key", "ssh_key_id": platformKeyID()})
 			paired++
 			created++
 			continue
@@ -428,14 +420,10 @@ func ImportHosts(c *gin.Context) {
 		createDefaultCred(h.ID, h.Username, h.AuthType, h.SSHKeyID, h.Password, req.CredLabel)
 		created++
 	}
-	resp := gin.H{"created": created, "skipped": skipped, "errors": errors}
-	if batchKey != nil {
-		resp["key_id"] = batchKey.ID
-		resp["key_name"] = batchKey.Name
-		resp["paired"] = paired
-		resp["pair_failed"] = pairFailed
-	}
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, gin.H{
+		"created": created, "skipped": skipped, "errors": errors,
+		"paired": paired, "pair_failed": pairFailed,
+	})
 }
 
 // ProbeHostsHandler 并发探测

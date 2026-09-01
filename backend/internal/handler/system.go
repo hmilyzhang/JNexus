@@ -93,6 +93,19 @@ func UpdateSystemRoles(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// GetPlatformKey 平台配对密钥公钥信息（admin）
+func GetPlatformKey(c *gin.Context) {
+	k, err := service.EnsurePlatformKey()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"name": k.Name, "public_key": k.PublicKey, "created_at": k.CreatedAt,
+		"hint": "自动配对会将该公钥写入目标机 ~/.ssh/authorized_keys",
+	})
+}
+
 // TestSMTPConfig 发送测试邮件
 func TestSMTPConfig(c *gin.Context) {
 	var req struct {

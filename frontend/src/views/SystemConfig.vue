@@ -129,6 +129,11 @@
             <el-input v-model="row.desc" size="small" :disabled="row.role === 'admin'" />
           </template>
         </el-table-column>
+        <el-table-column :label="$t('system.credPerm')" width="110">
+          <template #default="{ row }">
+            <el-checkbox v-model="row.cred" size="small" :disabled="row.role === 'admin'">{{ $t('system.credManage') }}</el-checkbox>
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('system.hostPerms')" width="300">
           <template #default="{ row }">
             <el-checkbox v-model="row.host.view" size="small">{{ $t('system.permView') }}</el-checkbox>
@@ -199,6 +204,7 @@ const roleLabels = {
 }
 const menuKeys = [
   { key: 'dashboard', label: 'menu.dashboard' },
+  { key: 'paired', label: 'menu.paired' },
   { key: 'shell', label: 'shell.title' },
   { key: 'hosts', label: 'menu.hosts' },
   { key: 'exec', label: 'menu.exec' },
@@ -222,7 +228,7 @@ const loadRoles = async () => {
   roleRows.value = Object.entries(rs).map(([role, v]) => ({
     role, label: roleLabels[role] || role,
     desc: v.desc, menus: [...(v.menus || [])],
-    host: { ...v.host }
+    host: { ...v.host }, cred: !!v.cred
   }))
 }
 const openMenuDlg = row => {
@@ -239,7 +245,7 @@ const saveRoles = async () => {
   try {
     const payload = {}
     for (const r of roleRows.value) {
-      payload[r.role] = { desc: r.desc, menus: r.menus, host: r.host }
+      payload[r.role] = { desc: r.desc, menus: r.menus, host: r.host, cred: r.cred }
     }
     await api.put('/system/roles', payload)
     ElMessage.success(t('system.saved'))

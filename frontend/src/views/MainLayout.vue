@@ -85,6 +85,7 @@ const roleLabel = computed(() => ({
 const menuItems = [
   { key: 'dashboard', path: '/dashboard', title: 'menu.dashboard', icon: 'Odometer' },
   { key: 'hosts', path: '/hosts', title: 'menu.hosts', icon: 'Monitor' },
+  { key: 'paired', path: '/paired', title: 'menu.paired', icon: 'Key' },
   { key: 'exec', path: '/exec', title: 'menu.exec', icon: 'Promotion' },
   { key: 'tasks', path: '/tasks', title: 'menu.tasks', icon: 'List' },
   { key: 'files', path: '/files', title: 'menu.files', icon: 'FolderOpened' },

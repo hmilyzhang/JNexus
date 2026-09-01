@@ -3,11 +3,12 @@ package service
 
 import (
 	"encoding/json"
+	"strings"
 
 	"autoops/internal/model"
 )
 
-// RolePerm 角色可配置权限：描述 + 可见菜单 + 主机细粒度权限
+// RolePerm 角色可配置权限：描述 + 可见菜单 + 主机细粒度权限 + OS 账号管理
 type RolePerm struct {
 	Desc  string   `json:"desc"`
 	Menus []string `json:"menus"`
@@ -17,6 +18,7 @@ type RolePerm struct {
 		Edit   bool `json:"edit"`
 		Delete bool `json:"delete"`
 	} `json:"host"`
+	Cred bool `json:"cred"` // OS 账号管理（新增/编辑/设默认；删除恒为 admin）
 }
 
 const roleSettingsKey = "role_settings"
@@ -24,17 +26,18 @@ const roleSettingsKey = "role_settings"
 // DefaultRoleSettings 角色默认配置（首次使用时写入）
 func DefaultRoleSettings() map[string]RolePerm {
 	allMenus := []string{"dashboard", "hosts", "exec", "tasks", "files", "scripts", "apps", "releases", "users", "danger", "audit", "system"}
-	mk := func(desc string, menus []string, v, c, e, d bool) RolePerm {
+	mk := func(desc string, menus []string, v, c, e, d, cred bool) RolePerm {
 		r := RolePerm{Desc: desc, Menus: menus}
 		r.Host.View, r.Host.Create, r.Host.Edit, r.Host.Delete = v, c, e, d
+		r.Cred = cred
 		return r
 	}
 	return map[string]RolePerm{
-		model.RoleAdmin:     mk("全部权限，含用户/系统管理", allMenus, true, true, true, true),
-		model.RoleOps:       mk("主机、执行、文件、脚本、发布", []string{"dashboard", "hosts", "exec", "tasks", "files", "scripts", "apps", "releases"}, true, true, true, true),
-		model.RolePublisher: mk("执行与发布（需数据授权）", []string{"dashboard", "hosts", "exec", "tasks", "files", "apps", "releases"}, true, false, false, false),
-		model.RoleViewer:    mk("只读查看", []string{"dashboard", "hosts"}, true, false, false, false),
-		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit"}, true, false, false, false),
+		model.RoleAdmin:     mk("全部权限，含用户/系统管理", allMenus, true, true, true, true, true),
+		model.RoleOps:       mk("主机、执行、文件、脚本、发布", []string{"dashboard", "hosts", "paired", "exec", "tasks", "files", "scripts", "apps", "releases"}, true, true, true, true, true),
+		model.RolePublisher: mk("执行与发布（需数据授权）", []string{"dashboard", "hosts", "exec", "tasks", "files", "apps", "releases"}, true, false, false, false, false),
+		model.RoleViewer:    mk("只读查看", []string{"dashboard", "hosts"}, true, false, false, false, false),
+		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit"}, true, false, false, false, false),
 	}
 }
 
@@ -50,14 +53,42 @@ func GetRoleSettings() map[string]RolePerm {
 	if err := json.Unmarshal([]byte(sc.Value), &out); err != nil {
 		return DefaultRoleSettings()
 	}
-	// 补齐新增角色的默认值
+	// 补齐新增角色的默认值；存量配置缺 cred 字段时按默认值回填（避免旧数据静默失权）
 	def := DefaultRoleSettings()
+	legacy := !strings.Contains(sc.Value, "\"cred\"")
 	for role, d := range def {
 		if _, ok := out[role]; !ok {
 			out[role] = d
+			continue
 		}
+		rp := out[role] // map 取出的结构体需复制后修改
+		if legacy {
+			rp.Cred = d.Cred
+		}
+		// 新增「配对密钥」菜单自动补进 ops（admin 恒见全部）
+		if role == model.RoleOps {
+			has := false
+			for _, m := range rp.Menus {
+				if m == "paired" {
+					has = true
+					break
+				}
+			}
+			if !has {
+				rp.Menus = append(rp.Menus, "paired")
+			}
+		}
+		out[role] = rp
 	}
 	return out
+}
+
+// HasCredPerm 角色是否拥有 OS 账号管理权限（admin 恒通过）
+func HasCredPerm(role string) bool {
+	if role == model.RoleAdmin {
+		return true
+	}
+	return GetRoleSettings()[role].Cred
 }
 
 // SetRoleSettings 保存角色配置

@@ -80,21 +80,6 @@ func BatchAddCredentials(operator *model.User, req BatchCredRequest) (uint, erro
 }
 
 func runBatchCred(operator *model.User, req BatchCredRequest, username, authType string, taskID uint, hosts []model.Host, results []model.TaskHostResult, conc int) {
-	// 自动配对：整批共用一对新生成的密钥
-	var batchKey *model.SSHKey
-	var pubLine string
-	if req.AutoPair && req.Password != "" {
-		k, err := GenerateAndStoreKeyPair(fmt.Sprintf("batch-%s", time.Now().Format("20060102150405")), "autoops-batch")
-		if err != nil {
-			for _, r := range results {
-				finishCredResult(taskID, r.ID, -1, "生成密钥对失败: "+err.Error())
-			}
-			finalizeCredTask(taskID)
-			return
-		}
-		batchKey = k
-		pubLine = KeyPairPublicLine(k)
-	}
 
 	sem := make(chan struct{}, conc)
 	var wg sync.WaitGroup
@@ -117,26 +102,22 @@ func runBatchCred(operator *model.User, req BatchCredRequest, username, authType
 				return
 			}
 
+			// 自动配对：密码登录推送平台公钥，成功仅登记密钥凭据
+			if req.AutoPair && req.Password != "" {
+				paired, _, perr := PairAndCreateCredential(&host, username, req.Password, req.Label, false)
+				if perr != nil {
+					finishCredResult(taskID, res.ID, -1, "配对失败: "+perr.Error())
+					return
+				}
+				_ = paired
+				finishCredResult(taskID, res.ID, 0, "已添加并完成密钥配对")
+				return
+			}
+
 			useAuthType := authType
 			encPwd := ""
 			sshKeyID := req.SSHKeyID
-
-			// 自动配对：密码登录推送公钥，成功后按密钥认证登记
-			if req.AutoPair && req.Password != "" && batchKey != nil {
-				cli, err := dialWithPassword(host, username, req.Password)
-				if err != nil {
-					finishCredResult(taskID, res.ID, -1, "配对失败: "+err.Error())
-					return
-				}
-				code, perr := installPubKey(cli, pubLine)
-				cli.Close()
-				if perr != nil || code != 0 {
-					finishCredResult(taskID, res.ID, -1, fmt.Sprintf("推送公钥失败(exit=%d): %v", code, perr))
-					return
-				}
-				useAuthType = "key"
-				sshKeyID = &batchKey.ID
-			} else if useAuthType == "password" {
+			if useAuthType == "password" {
 				enc, err := pkg.Encrypt(req.Password)
 				if err != nil {
 					finishCredResult(taskID, res.ID, -1, err.Error())
@@ -155,11 +136,7 @@ func runBatchCred(operator *model.User, req BatchCredRequest, username, authType
 				finishCredResult(taskID, res.ID, -1, "创建凭据失败: "+err.Error())
 				return
 			}
-			msg := "已添加"
-			if req.AutoPair {
-				msg = "已添加并完成密钥配对"
-			}
-			finishCredResult(taskID, res.ID, 0, msg)
+			finishCredResult(taskID, res.ID, 0, "已添加")
 		}(i)
 	}
 	wg.Wait()

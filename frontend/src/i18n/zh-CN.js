@@ -2,6 +2,7 @@
 export default {
   menu: {
     dashboard: '仪表盘',
+    paired: '配对密钥',
     hosts: '主机管理',
     exec: '批量执行',
     tasks: '执行记录',
@@ -137,6 +138,9 @@ export default {
     keySaved: '密钥已保存',
     needNameIpUser: '名称、IP 与用户名必填',
     credMgmt: 'OS 账号',
+    credBatchBtn: '批量添加账号',
+    credBatchTip: '为选中的存量主机批量添加 OS 账号；密码+自动配对会推送平台公钥并切换为密钥认证',
+    credBatch: '批量添加 OS 账号',
     credTitle: 'OS 账号管理',
     credAdd: '添加账号',
     credUser: '账号名',
@@ -229,10 +233,7 @@ export default {
     duration: '耗时',
     clickRow: '点击上方主机行查看该台输出',
     typeCred: '批量账号',
-    credBatch: '批量添加 OS 账号',
-    credBatchBtn: '批量添加账号',
     credBatchTarget: '目标主机',
-    credBatchTip: '为选中的存量主机批量添加 OS 账号；密码+自动配对会推送平台公钥并切换为密钥认证',
     allTypes: '全部类型',
     typeCommand: '命令',
     typeScript: '脚本',
@@ -391,6 +392,12 @@ export default {
     empty: '点击左侧主机树中的主机，打开 Shell 终端连接',
     tip: '点击主机即可打开/切换终端'
   },
+  paired: {
+    name: '名称（主机-账号）',
+    keyName: '密钥名称',
+    tip: '列出所有通过自动配对登记的密钥账号；删除 OS 账号请由管理员在主机 OS 账号管理中操作',
+    platformKey: '平台配对公钥（自动配对时写入目标机）'
+  },
   system: {
     title: '系统配置',
     general: '基础设置',
@@ -420,6 +427,8 @@ export default {
     ldapRequiredGroupsTip: '每行一个，填写组的完整 DN 或 CN，命中其一即可登录；留空则不限制',
     testConn: '测试连接',
     testOk: 'LDAP 连接成功',
+    credPerm: 'OS 账号权限',
+    credManage: '管理账号',
     hostPerms: '主机权限',
     permView: '查看',
     permCreate: '新建',

@@ -28,6 +28,7 @@
           <el-button type="primary" @click="dlgHost()">{{ $t('hosts.addHost') }}</el-button>
           <el-button @click="dlgImport">{{ $t('hosts.import') }}</el-button>
           <el-button type="info" plain @click="$router.push('/shell')">{{ $t('hosts.terminal') }}</el-button>
+          <el-button v-if="canManageCreds" type="success" plain @click="batchCredVisible = true">{{ $t('hosts.credBatchBtn') }}</el-button>
           <el-button @click="dlgGroup">{{ $t('hosts.groupMgmt') }}</el-button>
           <el-button type="warning" plain @click="showKeys = true">{{ $t('hosts.keyMgmt') }}</el-button>
         </div>
@@ -54,7 +55,7 @@
           <el-table-column :label="$t('common.operation')" width="220" fixed="right">
             <template #default="{ row }">
               <el-button size="small" type="primary" link @click="openTerminal(row)">{{ $t('hosts.terminal') }}</el-button>
-              <el-button size="small" type="warning" link @click="dlgCred(row)">{{ $t('hosts.credMgmt') }}</el-button>
+              <el-button v-if="canManageCreds" size="small" type="warning" link @click="dlgCred(row)">{{ $t('hosts.credMgmt') }}</el-button>
               <el-button size="small" link @click="dlgHost(row)">{{ $t('common.edit') }}</el-button>
               <el-popconfirm :title="$t('hosts.delHostConfirm')" @confirm="delHost(row)">
                 <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
@@ -192,9 +193,35 @@
     </template>
   </el-dialog>
 
+  <!-- 批量添加账号 -->
+  <el-dialog v-model="batchCredVisible" :title="$t('hosts.credBatch')" width="560px">
+    <el-form label-width="110px">
+      <el-form-item :label="$t('files.targetHosts')">
+        <el-select v-model="batchForm.host_ids" multiple filterable style="width:100%" :max-collapse-tags="2" collapse-tags>
+          <el-option v-for="h in allHosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item :label="$t('hosts.credUser')"><el-input v-model="batchForm.username" class="mono" /></el-form-item>
+      <el-form-item :label="$t('hosts.credLabel')"><el-input v-model="batchForm.label" :placeholder="$t('hosts.credLabelPlaceholder')" /></el-form-item>
+      <el-form-item :label="$t('hosts.authType')">
+        <el-radio-group v-model="batchForm.auth_type">
+          <el-radio value="password">{{ $t('hosts.password') }} + {{ $t('hosts.autoPair') }}</el-radio>
+        </el-radio-group>
+        <div style="color:#909399; font-size:12px; line-height:1.5">{{ $t('hosts.credBatchTip') }}</div>
+      </el-form-item>
+      <el-form-item :label="$t('hosts.commonPassword')">
+        <el-input v-model="batchForm.password" type="password" show-password autocomplete="new-password" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="batchCredVisible = false">{{ $t('common.cancel') }}</el-button>
+      <el-button type="primary" :loading="batchRunning" @click="runBatchCred">{{ $t('common.execute') }}</el-button>
+    </template>
+  </el-dialog>
+
   <!-- OS 账号管理 -->
   <el-dialog v-model="credVisible" :title="`${$t('hosts.credTitle')}：${credHost?.name}（${credHost?.ip}）`" width="680px">
-    <div style="margin-bottom:10px">
+    <div style="margin-bottom:10px" v-if="canManageCreds">
       <el-button type="primary" size="small" @click="credFormDlg()">{{ $t('hosts.credAdd') }}</el-button>
     </div>
     <el-table :data="creds" size="small" border>
@@ -231,13 +258,19 @@
           <el-radio value="password">{{ $t('hosts.password') }}</el-radio>
         </el-radio-group>
       </el-form-item>
-      <el-form-item :label="$t('hosts.key')" v-if="credForm.auth_type === 'key'">
+      <el-form-item :label="$t('hosts.key')" v-if="credForm.auth_type === 'key' && !credForm.auto_pair">
         <el-select v-model="credForm.ssh_key_id" :placeholder="$t('hosts.keyPlaceholder')" style="width:100%">
           <el-option v-for="k in keys" :key="k.id" :label="k.name" :value="k.id" />
         </el-select>
       </el-form-item>
       <el-form-item :label="$t('hosts.password')" v-else>
         <el-input v-model="credForm.password" type="password" show-password :placeholder="credForm.id ? $t('hosts.passwordKeep') : ''" />
+        <el-checkbox v-if="!credForm.id" v-model="credForm.auto_pair" style="margin-top:4px">
+          {{ $t('hosts.autoPair') }}
+        </el-checkbox>
+        <div v-if="!credForm.id && credForm.auto_pair" style="color:#909399; font-size:12px; line-height:1.5">
+          {{ $t('hosts.autoPairTip') }}
+        </div>
       </el-form-item>
       <el-form-item :label="$t('hosts.credDefault')"><el-switch v-model="credForm.is_default" /></el-form-item>
     </el-form>
@@ -254,9 +287,11 @@ import { useRouter } from 'vue-router'
 import api from '../api'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '../store'
 
 const { t } = i18n.global
 const router = useRouter()
+const store = useUserStore()
 const hosts = ref([])
 const allHosts = ref([])
 const groups = ref([])
@@ -314,7 +349,11 @@ const load = async () => {
 }
 const loadKeys = async () => { keys.value = await api.get('/ssh_keys') }
 
-onMounted(() => { load(); loadKeys() })
+onMounted(() => {
+  load()
+  loadKeys()
+  api.get('/hosts').then(hs => { allHosts.value = hs }).catch(() => {})
+})
 
 // 终端：跳转到 Web Shell 终端工作台，可带主机直接连接
 const openTerminal = row => {
@@ -331,6 +370,23 @@ const credHost = ref(null)
 const creds = ref([])
 const credFormVisible = ref(false)
 const credForm = ref({})
+const roleSettings = ref({})
+const canManageCreds = computed(() => {
+  if (store.isAdmin) return true
+  return !!roleSettings.value[store.role]?.cred
+})
+api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
+
+const runBatchCred = async () => {
+  if (!batchForm.value.host_ids.length) { ElMessage.warning(t('exec.needHosts')); return }
+  if (!batchForm.value.username || !batchForm.value.password) { ElMessage.warning(t('hosts.needIpUser')); return }
+  batchRunning.value = true
+  try {
+    const res = await api.post('/credentials/batch', { ...batchForm.value, auto_pair: true })
+    batchCredVisible.value = false
+    router.push(`/tasks?detail=${res.task_id}`)
+  } finally { batchRunning.value = false }
+}
 
 const dlgCred = async row => {
   credHost.value = row
@@ -340,12 +396,14 @@ const dlgCred = async row => {
 const credFormDlg = row => {
   credForm.value = row
     ? { ...row, password: '' }
-    : { username: '', label: '', auth_type: 'key', ssh_key_id: keys.value[0]?.id, password: '', is_default: false }
+    : { username: '', label: '', auth_type: 'password', ssh_key_id: null, password: '', is_default: false, auto_pair: true }
   credFormVisible.value = true
 }
 const saveCred = async () => {
   if (!credForm.value.username) { ElMessage.warning(t('hosts.credUser')); return }
-  if (credForm.value.auth_type === 'key' && !credForm.value.ssh_key_id) { ElMessage.warning(t('hosts.credKeyRequired')); return }
+  if (credForm.value.auth_type === 'key' && !credForm.value.auto_pair && !credForm.value.ssh_key_id) {
+    ElMessage.warning(t('hosts.credKeyRequired')); return
+  }
   if (credForm.value.id) await api.put(`/credentials/${credForm.value.id}`, credForm.value)
   else await api.post(`/hosts/${credHost.value.id}/credentials`, credForm.value)
   ElMessage.success(t('hosts.saved'))
@@ -398,6 +456,9 @@ const probeAll = async () => {
 }
 
 const dlgImport = () => { importVisible.value = true }
+const batchCredVisible = ref(false)
+const batchRunning = ref(false)
+const batchForm = ref({ host_ids: [], username: '', label: '', auth_type: 'password', password: '' })
 
 // 读取 CSV/TXT 文件内容填入文本框（每行一台主机）
 const onImportFile = ev => {

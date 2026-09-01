@@ -12,6 +12,7 @@ const routes = [
       { path: 'dashboard', name: 'dashboard', component: () => import('./views/Dashboard.vue'), meta: { title: 'menu.dashboard', icon: 'Odometer' } },
       { path: 'shell', name: 'shell', component: () => import('./views/ShellWorkspace.vue'), meta: { title: 'shell.title', icon: 'Terminal' } },
       { path: 'hosts', name: 'hosts', component: () => import('./views/Hosts.vue'), meta: { title: 'menu.hosts', icon: 'Monitor' } },
+      { path: 'paired', name: 'paired', component: () => import('./views/Paired.vue'), meta: { title: 'menu.paired', icon: 'Key' } },
       { path: 'exec', name: 'exec', component: () => import('./views/Exec.vue'), meta: { title: 'menu.exec', icon: 'Promotion' } },
       { path: 'tasks', name: 'tasks', component: () => import('./views/Tasks.vue'), meta: { title: 'menu.tasks', icon: 'List' } },
       { path: 'files', name: 'files', component: () => import('./views/Files.vue'), meta: { title: 'menu.files', icon: 'FolderOpened' } },
