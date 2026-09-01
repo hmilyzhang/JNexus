@@ -266,6 +266,7 @@ const save = async () => {
     const payload = { ...form, ldap_port: String(ldapPort.value), smtp_port: String(smtpPort.value), smtp_ssl: smtpSsl.value ? 'true' : 'false' }
     await api.put('/system/config', payload)
     localStorage.setItem('system_name', form.system_name)
+    document.title = form.system_name
     ElMessage.success(t('system.saved'))
   } finally { saving.value = false }
 }

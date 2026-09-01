@@ -38,6 +38,7 @@ const systemName = ref(localStorage.getItem('system_name') || 'AutoOps 运维平
 api.get('/system/info').then(info => {
   systemName.value = info.system_name || systemName.value
   localStorage.setItem('system_name', info.system_name || 'AutoOps 运维平台')
+  document.title = systemName.value
 }).catch(() => {})
 
 const doLogin = async () => {

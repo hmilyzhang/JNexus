@@ -72,6 +72,7 @@ const systemName = ref(localStorage.getItem('system_name') || 'AutoOps')
 api.get('/system/info').then(info => {
   systemName.value = info.system_name || 'AutoOps'
   localStorage.setItem('system_name', info.system_name || 'AutoOps')
+  document.title = info.system_name || 'AutoOps'
 }).catch(() => {})
 
 const roleLabel = computed(() => ({
