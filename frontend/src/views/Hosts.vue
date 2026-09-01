@@ -52,14 +52,21 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column :label="$t('common.operation')" width="220" fixed="right">
+          <el-table-column :label="$t('common.operation')" width="110" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" type="primary" link @click="openTerminal(row)">{{ $t('hosts.terminal') }}</el-button>
-              <el-button v-if="canManageCreds" size="small" type="warning" link @click="dlgCred(row)">{{ $t('hosts.credMgmt') }}</el-button>
-              <el-button size="small" link @click="dlgHost(row)">{{ $t('common.edit') }}</el-button>
-              <el-popconfirm :title="$t('hosts.delHostConfirm')" @confirm="delHost(row)">
-                <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
-              </el-popconfirm>
+              <el-dropdown trigger="click" @command="cmd => onRowCmd(cmd, row)">
+                <el-button size="small" type="primary" plain>
+                  {{ $t('common.operation') }}<el-icon style="margin-left:4px"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="terminal">{{ $t('hosts.terminal') }}</el-dropdown-item>
+                    <el-dropdown-item v-if="canManageCreds" command="cred">{{ $t('hosts.credMgmt') }}</el-dropdown-item>
+                    <el-dropdown-item command="edit" divided>{{ $t('common.edit') }}</el-dropdown-item>
+                    <el-dropdown-item command="delete" style="color:#f56c6c">{{ $t('common.delete') }}</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </template>
           </el-table-column>
         </el-table>
@@ -305,7 +312,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import i18n from '../i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../store'
 
 const { t } = i18n.global
@@ -407,6 +414,19 @@ const openTerminal = row => {
   router.push(`/shell?host=${row.id}`)
 }
 
+// 行操作下拉分发
+const onRowCmd = async (cmd, row) => {
+  if (cmd === 'terminal') openTerminal(row)
+  else if (cmd === 'cred') dlgCred(row)
+  else if (cmd === 'edit') dlgHost(row)
+  else if (cmd === 'delete') {
+    try {
+      await ElMessageBox.confirm(t('hosts.delHostConfirm'), t('common.tip'), { type: 'warning' })
+    } catch { return }
+    delHost(row)
+  }
+}
+
 const dlgHost = row => {
   hostForm.value = row ? { ...row, password: '' } : { name: '', ip: '', port: 22, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null, auto_pair: true }
   hostVisible.value = true
@@ -496,7 +516,7 @@ const delHost = async row => { await api.delete(`/hosts/${row.id}`); ElMessage.s
 const probeAll = async () => {
   probing.value = true
   try {
-    await api.post('/probe', { host_ids: hosts.value.map(h => h.id) })
+    await api.post('/hosts/probe', { host_ids: hosts.value.map(h => h.id) })
     await load()
     ElMessage.success(t('hosts.probeDone'))
   } finally { probing.value = false }

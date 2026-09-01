@@ -129,7 +129,29 @@
   </el-dialog>
 
   <!-- 用户组 编辑/新增 -->
-  <el-dialog v-model="gVisible" :title="gform.id ? $t('users.groupEdit') : $t('users.groupCreate')" width="620px">
+      <!-- 授权对话框 -->
+    <el-dialog v-model="grantVisible" :title="`${$t('users.grant')}：${grantUser?.username}`" width="560px">
+      <div style="font-weight:600; margin-bottom:8px">{{ $t('users.execGroups') }}</div>
+      <el-table :data="grantForm.host_groups" size="small" border>
+        <el-table-column prop="name" :label="$t('hosts.groupName')" />
+        <el-table-column :label="$t('users.canExec')" width="90">
+          <template #default="{ row }"><el-checkbox v-model="row.can_exec" /></template>
+        </el-table-column>
+        <el-table-column :label="$t('users.canDeploy')" width="90">
+          <template #default="{ row }"><el-checkbox v-model="row.can_deploy" /></template>
+        </el-table-column>
+      </el-table>
+      <div style="font-weight:600; margin:14px 0 8px">{{ $t('users.deployableApps') }}</div>
+      <el-checkbox-group v-model="grantForm.apps">
+        <el-checkbox v-for="a in options.apps" :key="a.id" :value="a.id">{{ a.name }}</el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="grantVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="saveGrants">{{ $t('common.save') }}</el-button>
+      </template>
+    </el-dialog>
+
+<el-dialog v-model="gVisible" :title="gform.id ? $t('users.groupEdit') : $t('users.groupCreate')" width="620px">
     <el-form label-width="130px">
       <el-form-item :label="$t('users.groupName')"><el-input v-model="gform.name" /></el-form-item>
       <el-form-item :label="$t('scripts.desc')"><el-input v-model="gform.description" /></el-form-item>

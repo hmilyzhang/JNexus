@@ -207,6 +207,11 @@ func SetupRouter() *gin.Engine {
 		r.StaticFile("/favicon.ico", filepath.Join(abs, "favicon.ico"))
 		r.NoRoute(func(c *gin.Context) {
 			p := c.Request.URL.Path
+			// 未知 API 路径返回 404 JSON，不能兜底成 SPA 页面
+			if strings.HasPrefix(p, "/api/") {
+				c.JSON(http.StatusNotFound, gin.H{"error": "接口不存在"})
+				return
+			}
 			if p != "/" && !strings.HasPrefix(p, "/assets") {
 				c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 				c.File(filepath.Join(abs, "index.html"))
