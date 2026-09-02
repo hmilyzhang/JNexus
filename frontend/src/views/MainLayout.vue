@@ -3,8 +3,9 @@
   <el-container style="height: 100vh">
     <el-aside width="200px" style="background:#1d2935; display:flex; flex-direction:column">
       <div class="logo">{{ systemName }}</div>
-      <el-menu :default-active="$route.path" router background-color="#1d2935" text-color="#a7b1c2"
-               active-text-color="#ffffff" style="border-right:none; flex:1; overflow-y:auto" :ellipsis="false">
+      <el-menu ref="menuRef" :default-active="$route.path" router background-color="#1d2935" text-color="#a7b1c2"
+               active-text-color="#ffffff" style="border-right:none; flex:1; overflow-y:auto" :ellipsis="false"
+               @select="onMenuSelect">
         <template v-for="m in menus" :key="m.key">
           <el-sub-menu v-if="m.children" :index="m.key">
             <template #title>
@@ -113,6 +114,15 @@ const menuItems = [
 ]
 const roleSettings = ref({})
 api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
+
+const menuRef = ref(null)
+const jobsChildren = ['/exec', '/files', '/scripts']
+// 点击非「任务执行」子项的菜单时，自动收起该下拉
+const onMenuSelect = index => {
+  if (!jobsChildren.includes(index)) {
+    try { menuRef.value?.close('jobs') } catch { /* ignore */ }
+  }
+}
 
 const menus = computed(() => {
   if (store.isAdmin) return menuItems
