@@ -44,6 +44,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
 import i18n from '../i18n'
+import '@xterm/xterm/css/xterm.css'
 
 const { t } = i18n.global
 const route = useRoute()
@@ -217,7 +218,8 @@ const closeSession = id => {
 .side-card { overflow: auto; }
 .term-card { height: 100%; }
 .term-card :deep(.el-card__body) { height: calc(100% - 40px); padding: 8px; }
-.term-container { width: 100%; height: 100%; background: #1e1e1e; border-radius: 6px; }
+.term-container { position: relative; overflow: hidden; width: 100%; height: 100%; background: #1e1e1e; border-radius: 6px; }
+.term-container :deep(.xterm) { height: 100%; }
 .term-empty { color: #909399; text-align: center; padding-top: 120px; }
 .tree-node { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .sess-item {
