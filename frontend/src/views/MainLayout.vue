@@ -1,9 +1,11 @@
 <!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <el-container style="height: 100vh">
-    <el-aside width="200px" style="background:#1d2935; display:flex; flex-direction:column">
-      <div class="logo">{{ systemName }}</div>
-      <el-menu ref="menuRef" :default-active="$route.path" router background-color="#1d2935" text-color="#a7b1c2"
+    <el-aside :width="collapsed ? '64px' : '200px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
+      <div class="logo" v-if="!collapsed">{{ systemName }}</div>
+      <div class="logo logo-mini" v-else title="AutoOps">A</div>
+      <el-menu ref="menuRef" :default-active="$route.path" router :collapse="collapsed" :collapse-transition="false"
+               popper-class="sidebar-popper" background-color="#1d2935" text-color="#a7b1c2"
                active-text-color="#ffffff" style="border-right:none; flex:1; overflow-y:auto" :ellipsis="false"
                @select="onMenuSelect">
         <template v-for="m in menus" :key="m.key">
@@ -23,11 +25,16 @@
           </el-menu-item>
         </template>
       </el-menu>
-      <div class="byline">{{ $t('layout.byline') }}</div>
+      <div class="byline" v-if="!collapsed">{{ $t('layout.byline') }}</div>
     </el-aside>
     <el-container>
       <el-header class="header">
-        <div class="title">{{ $route.meta.title ? $t($route.meta.title) : 'AutoOps' }}</div>
+        <div style="display:flex; align-items:center; gap:12px">
+          <el-button text @click="toggleCollapse" style="padding:6px">
+            <el-icon :size="18"><component :is="collapsed ? 'Expand' : 'Fold'" /></el-icon>
+          </el-button>
+          <div class="title">{{ $route.meta.title ? $t($route.meta.title) : 'AutoOps' }}</div>
+        </div>
         <div style="display:flex; align-items:center; gap:16px">
           <el-dropdown @command="onLocale">
             <span class="user-info"><el-icon><Clock /></el-icon>{{ localeLabel }}</span>
@@ -116,6 +123,11 @@ const roleSettings = ref({})
 api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
 
 const menuRef = ref(null)
+const collapsed = ref(localStorage.getItem('sidebar_collapsed') === '1')
+const toggleCollapse = () => {
+  collapsed.value = !collapsed.value
+  localStorage.setItem('sidebar_collapsed', collapsed.value ? '1' : '0')
+}
 const jobsChildren = ['/exec', '/files', '/scripts']
 // 点击非「任务执行」子项的菜单时，自动收起该下拉
 const onMenuSelect = index => {
@@ -163,7 +175,26 @@ const doChangePwd = async () => {
 }
 </script>
 
+<style>
+/* 折叠模式下拉出的子菜单与侧栏同色 */
+.sidebar-popper.el-menu--vertical {
+  background-color: #1d2935;
+  border: none;
+}
+.sidebar-popper .el-menu {
+  background-color: #1d2935;
+}
+.sidebar-popper .el-menu-item {
+  color: #a7b1c2;
+  background-color: #1d2935;
+}
+.sidebar-popper .el-menu-item:hover {
+  background-color: #263445;
+  color: #ffffff;
+}
+</style>
 <style scoped>
+.logo-mini { text-align: center; padding-left: 0; padding-right: 0; font-size: 22px; }
 /* 紧凑菜单项：更长菜单在常规视口高度内不出现滚动条 */
 aside :deep(.el-menu-item),
 aside :deep(.el-sub-menu__title) {
