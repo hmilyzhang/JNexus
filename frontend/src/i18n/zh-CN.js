@@ -3,7 +3,7 @@ export default {
   menu: {
     dashboard: '仪表盘',
     paired: '配对密钥',
-    osaccounts: 'OS 账号',
+    osaccounts: '主机账号',
     jobs: '任务执行',
     hosts: '主机管理',
     exec: '批量执行',
@@ -141,11 +141,11 @@ export default {
     probeDone: '探测完成',
     keySaved: '密钥已保存',
     needNameIpUser: '名称、IP 与用户名必填',
-    credMgmt: 'OS 账号',
+    credMgmt: '主机账号',
     credBatchBtn: '批量添加账号',
     credBatchTip: '为选中的存量主机批量添加 OS 账号；密码+自动配对会推送平台公钥并切换为密钥认证',
     credBatch: '批量添加 OS 账号',
-    credTitle: 'OS 账号管理',
+    credTitle: '主机账号管理',
     credAdd: '添加账号',
     credUser: '账号名',
     credLabel: '用途标签',
@@ -429,6 +429,7 @@ export default {
   },
   osac: {
     rotFilterAll: '全部轮换状态',
+    pwdChanged: '最后密码修改',
     rotFailed: '只看轮换失败',
     rotOn: '仅启用轮换',
     rotOff: '未启用轮换'

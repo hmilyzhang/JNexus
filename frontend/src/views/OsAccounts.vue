@@ -38,6 +38,12 @@
             <span v-else style="color:#c0c4cc">-</span>
           </template>
         </el-table-column>
+        <el-table-column :label="$t('osac.pwdChanged')" width="150">
+          <template #default="{ row }">
+            <span v-if="row.auth_type === 'password'">{{ fmtTime(row.last_rotated_at || row.created_at) }}</span>
+            <span v-else style="color:#c0c4cc">-</span>
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('rot.status')" min-width="150">
           <template #default="{ row }">
             <template v-if="row.rotate_enabled">

@@ -3,7 +3,7 @@ export default {
   menu: {
     dashboard: 'Dashboard',
     paired: 'Paired Keys',
-    osaccounts: 'OS Accounts',
+    osaccounts: 'Host Accounts',
     jobs: 'Job Execution',
     hosts: 'Hosts',
     exec: 'Batch Exec',
@@ -141,11 +141,11 @@ export default {
     probeDone: 'Probe finished',
     keySaved: 'Key saved',
     needNameIpUser: 'Name, IP and username are required',
-    credMgmt: 'OS Accounts',
+    credMgmt: 'Host Accounts',
     credBatchBtn: 'Batch Add Accounts',
     credBatchTip: 'Batch-add an OS account to selected existing hosts; password + auto-pair pushes the platform key and switches to key auth',
     credBatch: 'Batch add OS account',
-    credTitle: 'OS Account Management',
+    credTitle: 'Host Account Management',
     credAdd: 'Add Account',
     credUser: 'Username',
     credLabel: 'Label',
@@ -429,6 +429,7 @@ export default {
   },
   osac: {
     rotFilterAll: 'All rotation status',
+    pwdChanged: 'Last password change',
     rotFailed: 'Failed only',
     rotOn: 'Rotation enabled',
     rotOff: 'Rotation disabled'

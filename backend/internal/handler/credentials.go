@@ -109,6 +109,7 @@ func UsableCredentialsHandler(c *gin.Context) {
 			out = append(out, gin.H{
 				"id": cred.ID, "host_id": hosts[i].ID, "username": cred.Username,
 				"label": cred.Label, "is_default": cred.IsDefault,
+				"auth_type": cred.AuthType,
 				"host_name": hosts[i].Name, "host_ip": hosts[i].IP,
 			})
 		}

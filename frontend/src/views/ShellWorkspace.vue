@@ -70,7 +70,9 @@ const treeData = computed(() => {
   }
   for (const h of hosts.value) {
     const hostNode = { key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] }
-    const creds = (usableCreds.value || []).filter(c => c.host_id === h.id)
+    // 终端优先密钥登录：仅展示密钥类型的可用账号；主机无密钥账号时回退展示全部
+    let creds = (usableCreds.value || []).filter(c => c.host_id === h.id && c.auth_type === 'key')
+    if (!creds.length) creds = (usableCreds.value || []).filter(c => c.host_id === h.id)
     for (const c of creds) {
       hostNode.children.push({
         key: 'c-' + c.id, type: 'credential', credentialId: c.id,
