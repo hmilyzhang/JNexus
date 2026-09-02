@@ -3,6 +3,7 @@ export default {
   menu: {
     dashboard: '仪表盘',
     paired: '配对密钥',
+    jobs: '任务执行',
     hosts: '主机管理',
     exec: '批量执行',
     cron: '计划任务',

@@ -3,6 +3,7 @@ export default {
   menu: {
     dashboard: 'Dashboard',
     paired: 'Paired Keys',
+    jobs: 'Job Execution',
     hosts: 'Hosts',
     exec: 'Batch Exec',
     cron: 'Schedules',

@@ -118,6 +118,10 @@
     </el-card>
     </el-tab-pane>
 
+    <el-tab-pane :label="$t('menu.paired')" name="paired">
+      <Paired />
+    </el-tab-pane>
+
     <el-tab-pane :label="$t('system.roles')" name="roles">
     <el-card>
       <el-table :data="roleRows" size="small" border>
@@ -178,6 +182,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import api from '../api'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
+import Paired from './Paired.vue'
 
 const { t } = i18n.global
 const activeTab = ref('general')
@@ -204,7 +209,6 @@ const roleLabels = {
 }
 const menuKeys = [
   { key: 'dashboard', label: 'menu.dashboard' },
-  { key: 'paired', label: 'menu.paired' },
   { key: 'shell', label: 'shell.title' },
   { key: 'hosts', label: 'menu.hosts' },
   { key: 'exec', label: 'menu.exec' },

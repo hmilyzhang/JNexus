@@ -67,7 +67,7 @@ func GetRoleSettings() map[string]RolePerm {
 		}
 		// 新增菜单自动补进 admin/ops（admin 恒见全部）
 		if role == model.RoleAdmin || role == model.RoleOps {
-			for _, nm := range []string{"paired", "cron"} {
+			for _, nm := range []string{"cron"} {
 				has := false
 				for _, m := range rp.Menus {
 					if m == nm {

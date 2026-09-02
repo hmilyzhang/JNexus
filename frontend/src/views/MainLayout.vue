@@ -4,11 +4,23 @@
     <el-aside width="200px" style="background:#1d2935; display:flex; flex-direction:column">
       <div class="logo">{{ systemName }}</div>
       <el-menu :default-active="$route.path" router background-color="#1d2935" text-color="#a7b1c2"
-               active-text-color="#ffffff" style="border-right:none; flex:1; overflow-y:auto">
-        <el-menu-item v-for="m in menus" :key="m.path" :index="m.path">
-          <el-icon><component :is="m.icon" /></el-icon>
-          <span>{{ $t(m.title) }}</span>
-        </el-menu-item>
+               active-text-color="#ffffff" style="border-right:none; flex:1; overflow-y:auto" :ellipsis="false">
+        <template v-for="m in menus" :key="m.key">
+          <el-sub-menu v-if="m.children" :index="m.key">
+            <template #title>
+              <el-icon><component :is="m.icon" /></el-icon>
+              <span>{{ $t(m.title) }}</span>
+            </template>
+            <el-menu-item v-for="c in m.children" :key="c.key" :index="c.path">
+              <el-icon><component :is="c.icon" /></el-icon>
+              <span>{{ $t(c.title) }}</span>
+            </el-menu-item>
+          </el-sub-menu>
+          <el-menu-item v-else :index="m.path">
+            <el-icon><component :is="m.icon" /></el-icon>
+            <span>{{ $t(m.title) }}</span>
+          </el-menu-item>
+        </template>
       </el-menu>
       <div class="byline">{{ $t('layout.byline') }}</div>
     </el-aside>
@@ -85,12 +97,13 @@ const roleLabel = computed(() => ({
 const menuItems = [
   { key: 'dashboard', path: '/dashboard', title: 'menu.dashboard', icon: 'Odometer' },
   { key: 'hosts', path: '/hosts', title: 'menu.hosts', icon: 'Monitor' },
-  { key: 'paired', path: '/paired', title: 'menu.paired', icon: 'Key' },
-  { key: 'exec', path: '/exec', title: 'menu.exec', icon: 'Promotion' },
+  { key: 'jobs', title: 'menu.jobs', icon: 'Operation', children: [
+    { key: 'exec', path: '/exec', title: 'menu.exec', icon: 'Promotion' },
+    { key: 'files', path: '/files', title: 'menu.files', icon: 'FolderOpened' },
+    { key: 'scripts', path: '/scripts', title: 'menu.scripts', icon: 'Document' }
+  ] },
   { key: 'tasks', path: '/tasks', title: 'menu.tasks', icon: 'List' },
   { key: 'cron', path: '/crons', title: 'menu.cron', icon: 'Timer' },
-  { key: 'files', path: '/files', title: 'menu.files', icon: 'FolderOpened' },
-  { key: 'scripts', path: '/scripts', title: 'menu.scripts', icon: 'Document' },
   { key: 'apps', path: '/apps', title: 'menu.apps', icon: 'Box' },
   { key: 'releases', path: '/releases', title: 'menu.releases', icon: 'UploadFilled' },
   { key: 'users', path: '/users', title: 'menu.users', icon: 'User' },
@@ -105,7 +118,16 @@ const menus = computed(() => {
   if (store.isAdmin) return menuItems
   const conf = roleSettings.value[store.role]
   const allowed = new Set(conf?.menus || [])
-  return menuItems.filter(m => allowed.has(m.key))
+  const out = []
+  for (const m of menuItems) {
+    if (m.children) {
+      const kids = m.children.filter(c => allowed.has(c.key))
+      if (kids.length) out.push({ ...m, children: kids })
+    } else if (allowed.has(m.key)) {
+      out.push(m)
+    }
+  }
+  return out
 })
 
 const localeLabel = computed(() => (locales.find(l => l.value === i18n.global.locale.value) || {}).label || '中文')
@@ -132,6 +154,21 @@ const doChangePwd = async () => {
 </script>
 
 <style scoped>
+/* 紧凑菜单项：更长菜单在常规视口高度内不出现滚动条 */
+aside :deep(.el-menu-item),
+aside :deep(.el-sub-menu__title) {
+  height: 44px;
+  line-height: 44px;
+}
+/* 滚动条视觉隐藏（保留滚动能力，极矮窗口仍可滚动到底） */
+aside::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
+aside {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
 .logo {
   color: #fff; font-size: 18px; font-weight: bold;
   padding: 18px 20px 12px; letter-spacing: 1px;

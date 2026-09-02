@@ -85,7 +85,7 @@ func SetupRouter() *gin.Engine {
 			hosts.POST("/:id/credentials", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), CreateHostCredential)
 		}
 		// 配对密钥列表：管理员/运维可见
-		auth.GET("/credentials/paired", middleware.RequireRole(model.RoleAuditor, model.RoleOps), ListPairedCredentials)
+		auth.GET("/credentials/paired", middleware.RequireRole(), ListPairedCredentials)
 
 		// 计划任务：管理员/运维可管理
 		crons := auth.Group("/crons", middleware.RequireRole(model.RoleOps))
