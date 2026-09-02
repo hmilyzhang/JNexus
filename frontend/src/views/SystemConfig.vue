@@ -247,6 +247,7 @@ const menuKeys = [
   { key: 'dashboard', label: 'menu.dashboard' },
   { key: 'shell', label: 'shell.title' },
   { key: 'hosts', label: 'menu.hosts' },
+  { key: 'osaccounts', label: 'menu.osaccounts' },
   { key: 'exec', label: 'menu.exec' },
   { key: 'tasks', label: 'menu.tasks' },
   { key: 'cron', label: 'menu.cron' },

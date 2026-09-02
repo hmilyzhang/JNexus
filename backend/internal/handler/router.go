@@ -101,6 +101,7 @@ func SetupRouter() *gin.Engine {
 
 		creds := auth.Group("/credentials", middleware.RequireRole(model.RoleOps, model.RolePublisher))
 		{
+			creds.GET("", ListAllCredentials)
 			creds.GET("/usable", UsableCredentialsHandler)
 			// OS 账号管理：需角色开启「账号管理」权限
 			creds.POST("/batch", middleware.RequireRole(model.RoleOps), middleware.RequireHostPerm("edit"), middleware.RequireCredPerm(), BatchAddCredentialsHandler)

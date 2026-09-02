@@ -4,6 +4,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,67 @@ func BatchAddCredentialsHandler(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
+}
+
+// ListAllCredentials 全局 OS 账号列表（跨主机，供账号管理页使用）
+// 筛选：host_id、keyword（账号/标签/主机名/IP）、rotation（failed/on/off）
+func ListAllCredentials(c *gin.Context) {
+	var creds []model.HostCredential
+	model.DB.Preload("SSHKey").Order("host_id, is_default DESC, id ASC").Find(&creds)
+
+	hosts := map[uint]model.Host{}
+	var hs []model.Host
+	model.DB.Find(&hs)
+	for _, h := range hs {
+		hosts[h.ID] = h
+	}
+
+	keyword := strings.ToLower(c.Query("keyword"))
+	rotation := c.Query("rotation")
+
+	out := make([]gin.H, 0, len(creds))
+	for _, cr := range creds {
+		h := hosts[cr.HostID]
+		rowFailed := cr.RotateEnabled && strings.Contains(cr.LastRotationResult, "失败")
+		match := true
+		if keyword != "" &&
+			!strings.Contains(strings.ToLower(cr.Username), keyword) &&
+			!strings.Contains(strings.ToLower(cr.Label), keyword) &&
+			!strings.Contains(strings.ToLower(h.Name), keyword) &&
+			!strings.Contains(strings.ToLower(h.IP), keyword) {
+			match = false
+		}
+		if match {
+			switch rotation {
+			case "failed":
+				match = rowFailed
+			case "ok":
+				match = cr.RotateEnabled && !rowFailed
+			case "on":
+				match = cr.RotateEnabled
+			case "off":
+				match = !cr.RotateEnabled
+			}
+		}
+		if !match {
+			continue
+		}
+		keyName := ""
+		if cr.SSHKey != nil {
+			keyName = cr.SSHKey.Name
+		}
+		out = append(out, gin.H{
+			"id": cr.ID, "host_id": cr.HostID,
+			"host_name": h.Name, "host_ip": h.IP,
+			"username": cr.Username, "label": cr.Label,
+			"auth_type": cr.AuthType, "key_name": keyName,
+			"is_default": cr.IsDefault,
+			"rotate_enabled": cr.RotateEnabled, "rotate_days": cr.RotateDays,
+			"last_rotated_at": cr.LastRotatedAt, "last_rotation_result": cr.LastRotationResult,
+			"is_ldap": cr.IsLDAP, "created_at": cr.CreatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, out)
 }
 
 // ListHostCredentials 主机的 OS 账号列表

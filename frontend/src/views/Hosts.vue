@@ -28,7 +28,6 @@
           <el-button type="primary" @click="dlgHost()">{{ $t('hosts.addHost') }}</el-button>
           <el-button @click="dlgImport">{{ $t('hosts.import') }}</el-button>
           <el-button type="info" plain @click="$router.push('/shell')">{{ $t('hosts.terminal') }}</el-button>
-          <el-button v-if="canManageCreds" type="success" plain @click="batchCredVisible = true">{{ $t('hosts.credBatchBtn') }}</el-button>
           <el-button @click="dlgGroup">{{ $t('hosts.groupMgmt') }}</el-button>
           <el-button type="warning" plain @click="showKeys = true">{{ $t('hosts.keyMgmt') }}</el-button>
         </div>
@@ -219,125 +218,6 @@
     </template>
   </el-dialog>
 
-  <!-- 批量添加账号 -->
-  <el-dialog v-model="batchCredVisible" :title="$t('hosts.credBatch')" width="560px">
-    <el-form label-width="110px">
-      <el-form-item :label="$t('files.targetHosts')">
-        <el-select v-model="batchForm.host_ids" multiple filterable style="width:100%" :max-collapse-tags="2" collapse-tags>
-          <el-option v-for="h in allHosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
-        </el-select>
-      </el-form-item>
-      <el-form-item :label="$t('hosts.credUser')"><el-input v-model="batchForm.username" class="mono" /></el-form-item>
-      <el-form-item :label="$t('hosts.credLabel')"><el-input v-model="batchForm.label" :placeholder="$t('hosts.credLabelPlaceholder')" /></el-form-item>
-      <el-form-item :label="$t('hosts.authType')">
-        <el-radio-group v-model="batchForm.auth_type">
-          <el-radio value="password">{{ $t('hosts.password') }} + {{ $t('hosts.autoPair') }}</el-radio>
-        </el-radio-group>
-        <div style="color:#909399; font-size:12px; line-height:1.5">{{ $t('hosts.credBatchTip') }}</div>
-      </el-form-item>
-      <el-form-item :label="$t('hosts.commonPassword')">
-        <el-input v-model="batchForm.password" type="password" show-password autocomplete="new-password" />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="batchCredVisible = false">{{ $t('common.cancel') }}</el-button>
-      <el-button type="primary" :loading="batchRunning" @click="runBatchCred">{{ $t('common.execute') }}</el-button>
-    </template>
-  </el-dialog>
-
-  <!-- OS 账号管理 -->
-  <el-dialog v-model="credVisible" :title="`${$t('hosts.credTitle')}：${credHost?.name}（${credHost?.ip}）`" width="680px">
-    <div style="margin-bottom:10px" v-if="canManageCreds">
-      <el-button type="primary" size="small" @click="credFormDlg()">{{ $t('hosts.credAdd') }}</el-button>
-    </div>
-    <el-table :data="creds" size="small" border>
-      <el-table-column prop="username" :label="$t('hosts.credUser')" width="140" />
-      <el-table-column prop="label" :label="$t('hosts.credLabel')" width="140" />
-      <el-table-column :label="$t('hosts.auth')" width="80">
-        <template #default="{ row }">{{ row.auth_type === 'key' ? $t('hosts.authKey') : $t('hosts.authPassword') }}</template>
-      </el-table-column>
-      <el-table-column :label="$t('rot.status')" min-width="140">
-        <template #default="{ row }">
-          <template v-if="row.auth_type === 'password' && row.rotate_enabled">
-            <div>{{ row.last_rotation_result || '-' }}</div>
-            <div style="color:#909399; font-size:12px">{{ $t('rot.last') }}: {{ fmtRot(row.last_rotated_at) }}</div>
-          </template>
-          <span v-else style="color:#c0c4cc">-</span>
-        </template>
-      </el-table-column>
-      <el-table-column :label="$t('rot.actions')" width="150" v-if="canManageCreds">
-        <template #default="{ row }">
-          <template v-if="row.auth_type === 'password'">
-            <el-button size="small" type="warning" link :loading="rotating === row.id" @click="rotateNow(row)">{{ $t('rot.now') }}</el-button>
-            <el-button v-if="store.isAdmin" size="small" link @click="revealPwd(row)">{{ $t('rot.view') }}</el-button>
-          </template>
-        </template>
-      </el-table-column>
-      <el-table-column :label="$t('hosts.credDefault')" width="90">
-        <template #default="{ row }">
-          <el-tag v-if="row.is_default" size="small" type="success">{{ $t('hosts.credDefault') }}</el-tag>
-          <el-button v-else size="small" link @click="setDefaultCred(row)">{{ $t('hosts.credSetDefault') }}</el-button>
-        </template>
-      </el-table-column>
-      <el-table-column :label="$t('common.operation')" width="140">
-        <template #default="{ row }">
-          <el-button size="small" link @click="credFormDlg(row)">{{ $t('common.edit') }}</el-button>
-          <el-popconfirm :title="$t('hosts.credDelConfirm')" @confirm="delCred(row)">
-            <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
-          </el-popconfirm>
-        </template>
-      </el-table-column>
-    </el-table>
-  </el-dialog>
-
-  <!-- OS 账号 新增/编辑 -->
-  <el-dialog v-model="credFormVisible" :title="credForm.id ? $t('common.edit') : $t('hosts.credAdd')" width="460px" append-to-body>
-    <el-form label-width="110px">
-      <el-form-item :label="$t('hosts.credUser')"><el-input v-model="credForm.username" /></el-form-item>
-      <el-form-item :label="$t('hosts.credLabel')"><el-input v-model="credForm.label" :placeholder="$t('hosts.credLabelPlaceholder')" /></el-form-item>
-      <el-form-item :label="$t('hosts.authType')">
-        <el-radio-group v-model="credForm.auth_type">
-          <el-radio value="key">{{ $t('hosts.key') }}</el-radio>
-          <el-radio value="password">{{ $t('hosts.password') }}</el-radio>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item :label="$t('hosts.key')" v-if="credForm.auth_type === 'key' && !credForm.auto_pair">
-        <el-select v-model="credForm.ssh_key_id" :placeholder="$t('hosts.keyPlaceholder')" style="width:100%">
-          <el-option v-for="k in keys" :key="k.id" :label="k.name" :value="k.id" />
-        </el-select>
-      </el-form-item>
-      <el-form-item :label="$t('hosts.password')" v-else>
-        <el-input v-model="credForm.password" type="password" show-password :placeholder="credForm.id ? $t('hosts.passwordKeep') : ''" />
-        <el-checkbox v-if="!credForm.id" v-model="credForm.auto_pair" style="margin-top:4px">
-          {{ $t('hosts.autoPair') }}
-        </el-checkbox>
-        <div v-if="!credForm.id && credForm.auto_pair" style="color:#909399; font-size:12px; line-height:1.5">
-          {{ $t('hosts.autoPairTip') }}
-        </div>
-      </el-form-item>
-      <el-form-item :label="$t('hosts.credDefault')"><el-switch v-model="credForm.is_default" /></el-form-item>
-      <template v-if="credForm.auth_type === 'password'">
-        <el-divider style="margin:8px 0 14px">{{ $t('rot.section') }}</el-divider>
-        <el-form-item :label="$t('rot.enable')">
-          <el-switch v-model="credForm.rotate_enabled" />
-          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('rot.enableTip') }}</div>
-        </el-form-item>
-        <el-form-item :label="$t('rot.days')" v-if="credForm.rotate_enabled">
-          <el-input-number v-model="credForm.rotate_days" :min="0" :max="365" />
-          <span style="margin-left:4px">{{ $t('rot.daysUnit') }}</span>
-          <div style="color:#909399; font-size:12px; width:100%">{{ $t('rot.daysTip') }}</div>
-        </el-form-item>
-        <el-form-item :label="$t('rot.isLdap')" v-if="credForm.rotate_enabled">
-          <el-switch v-model="credForm.is_ldap" />
-          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('rot.isLdapTip') }}</div>
-        </el-form-item>
-      </template>
-    </el-form>
-    <template #footer>
-      <el-button @click="credFormVisible = false">{{ $t('common.cancel') }}</el-button>
-      <el-button type="primary" @click="saveCred">{{ $t('common.save') }}</el-button>
-    </template>
-  </el-dialog>
 </template>
 
 <script setup>
@@ -450,7 +330,7 @@ const openTerminal = row => {
 // 行操作下拉分发
 const onRowCmd = async (cmd, row) => {
   if (cmd === 'terminal') openTerminal(row)
-  else if (cmd === 'cred') dlgCred(row)
+  else if (cmd === 'cred') router.push(`/os-accounts?host=${row.id}`)
   else if (cmd === 'edit') dlgHost(row)
   else if (cmd === 'delete') {
     try {
@@ -464,84 +344,13 @@ const dlgHost = row => {
   hostForm.value = row ? { ...row, password: '' } : { name: '', ip: '', port: 22, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null, auto_pair: true }
   hostVisible.value = true
 }
-// ---- OS 账号（凭据）管理 ----
-const credVisible = ref(false)
-const credHost = ref(null)
-const creds = ref([])
-const credFormVisible = ref(false)
-const credForm = ref({})
+// ---- OS 账号权限（下拉项显隐），管理功能在「OS 账号」页面 ----
 const roleSettings = ref({})
 const canManageCreds = computed(() => {
   if (store.isAdmin) return true
   return !!roleSettings.value[store.role]?.cred
 })
 api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
-
-const runBatchCred = async () => {
-  if (!batchForm.value.host_ids.length) { ElMessage.warning(t('exec.needHosts')); return }
-  if (!batchForm.value.username || !batchForm.value.password) { ElMessage.warning(t('hosts.needIpUser')); return }
-  batchRunning.value = true
-  try {
-    const res = await api.post('/credentials/batch', { ...batchForm.value, auto_pair: true })
-    batchCredVisible.value = false
-    router.push(`/tasks?detail=${res.task_id}`)
-  } finally { batchRunning.value = false }
-}
-
-const dlgCred = async row => {
-  credHost.value = row
-  credVisible.value = true
-  creds.value = await api.get(`/hosts/${row.id}/credentials`)
-}
-const credFormDlg = row => {
-  credForm.value = row
-    ? { ...row, password: '', rotate_days: row.rotate_days || 0 }
-    : { username: '', label: '', auth_type: 'password', ssh_key_id: null, password: '', is_default: false,
-        auto_pair: true, rotate_enabled: false, rotate_days: 0, is_ldap: false }
-  credFormVisible.value = true
-}
-
-// ---- 密码轮换 / 查看密码 ----
-const rotating = ref(null)
-const revealVisible = ref(false)
-const revealData = ref({})
-const fmtRot = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
-const rotateNow = async row => {
-  try {
-    await ElMessageBox.confirm(t('rot.confirm'), t('common.tip'), { type: 'warning' })
-  } catch { return }
-  rotating.value = row.id
-  try {
-    const r = await api.post(`/credentials/${row.id}/rotate`)
-    if (r.ok) ElMessage.success(r.result)
-    else ElMessage.error(r.result)
-    creds.value = await api.get(`/hosts/${credHost.value.id}/credentials`)
-  } finally { rotating.value = null }
-}
-const revealPwd = async row => {
-  const r = await api.post(`/credentials/${row.id}/reveal`)
-  revealData.value = { username: row.username, password: r.password }
-  revealVisible.value = true
-}
-const saveCred = async () => {
-  if (!credForm.value.username) { ElMessage.warning(t('hosts.credUser')); return }
-  if (credForm.value.auth_type === 'key' && !credForm.value.auto_pair && !credForm.value.ssh_key_id) {
-    ElMessage.warning(t('hosts.credKeyRequired')); return
-  }
-  if (credForm.value.id) await api.put(`/credentials/${credForm.value.id}`, credForm.value)
-  else await api.post(`/hosts/${credHost.value.id}/credentials`, credForm.value)
-  ElMessage.success(t('hosts.saved'))
-  credFormVisible.value = false
-  creds.value = await api.get(`/hosts/${credHost.value.id}/credentials`)
-}
-const delCred = async row => {
-  await api.delete(`/credentials/${row.id}`)
-  creds.value = await api.get(`/hosts/${credHost.value.id}/credentials`)
-}
-const setDefaultCred = async row => {
-  await api.post(`/credentials/${row.id}/default`)
-  creds.value = await api.get(`/hosts/${credHost.value.id}/credentials`)
-}
 
 const saveHost = async () => {
   if (!hostForm.value.name || !hostForm.value.ip || !hostForm.value.username) { ElMessage.warning(t('hosts.needNameIpUser')); return }
@@ -580,9 +389,6 @@ const probeAll = async () => {
 }
 
 const dlgImport = () => { importVisible.value = true }
-const batchCredVisible = ref(false)
-const batchRunning = ref(false)
-const batchForm = ref({ host_ids: [], username: '', label: '', auth_type: 'password', password: '' })
 
 // 读取 CSV/TXT 文件内容填入文本框（每行一台主机）
 const onImportFile = ev => {

@@ -3,6 +3,7 @@ export default {
   menu: {
     dashboard: '仪表盘',
     paired: '配对密钥',
+    osaccounts: 'OS 账号',
     jobs: '任务执行',
     hosts: '主机管理',
     exec: '批量执行',
@@ -425,6 +426,12 @@ export default {
     revealAudit: '⚠ 本次查看已记录审计日志',
     confirm: '确认立即轮换该账号密码？新密码将随机生成并加密保存。',
     last: '上次轮换'
+  },
+  osac: {
+    rotFilterAll: '全部轮换状态',
+    rotFailed: '只看轮换失败',
+    rotOn: '仅启用轮换',
+    rotOff: '未启用轮换'
   },
   paired: {
     name: '名称（主机-账号）',

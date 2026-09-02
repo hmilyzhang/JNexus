@@ -3,6 +3,7 @@ export default {
   menu: {
     dashboard: 'Dashboard',
     paired: 'Paired Keys',
+    osaccounts: 'OS Accounts',
     jobs: 'Job Execution',
     hosts: 'Hosts',
     exec: 'Batch Exec',
@@ -425,6 +426,12 @@ export default {
     revealAudit: '⚠ This view has been recorded in the audit log',
     confirm: 'Rotate this account password now? A new random password will be generated and stored encrypted.',
     last: 'Last rotated'
+  },
+  osac: {
+    rotFilterAll: 'All rotation status',
+    rotFailed: 'Failed only',
+    rotOn: 'Rotation enabled',
+    rotOff: 'Rotation disabled'
   },
   paired: {
     name: 'Name (host-account)',
