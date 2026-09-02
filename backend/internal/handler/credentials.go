@@ -4,6 +4,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -101,13 +102,16 @@ func ListPairedCredentials(c *gin.Context) {
 }
 
 type credReq struct {
-	Username  string `json:"username" binding:"required"`
-	AuthType  string `json:"auth_type"`
-	SSHKeyID  *uint  `json:"ssh_key_id"`
-	Password  string `json:"password"`
-	Label     string `json:"label"`
-	IsDefault bool   `json:"is_default"`
-	AutoPair  bool   `json:"auto_pair"` // 密码+自动配对：推送平台公钥后仅保留密钥凭据
+	Username      string `json:"username" binding:"required"`
+	AuthType      string `json:"auth_type"`
+	SSHKeyID      *uint  `json:"ssh_key_id"`
+	Password      string `json:"password"`
+	Label         string `json:"label"`
+	IsDefault     bool   `json:"is_default"`
+	AutoPair      bool   `json:"auto_pair"`      // 密码+自动配对：推送平台公钥后仅保留密钥凭据
+	RotateEnabled bool   `json:"rotate_enabled"` // 密码定期轮换
+	RotateDays    int    `json:"rotate_days"`
+	IsLDAP        bool   `json:"is_ldap"` // LDAP/域账号标记（排除轮换）
 }
 
 func (r *credReq) apply(cred *model.HostCredential) error {
@@ -118,6 +122,13 @@ func (r *credReq) apply(cred *model.HostCredential) error {
 	}
 	cred.SSHKeyID = r.SSHKeyID
 	cred.Label = r.Label
+	cred.RotateEnabled = r.RotateEnabled
+	if r.RotateDays > 0 {
+		cred.RotateDays = r.RotateDays
+	} else if cred.RotateDays == 0 {
+		cred.RotateDays = 90
+	}
+	cred.IsLDAP = r.IsLDAP
 	if r.Password != "" {
 		enc, err := pkg.Encrypt(r.Password)
 		if err != nil {
@@ -222,6 +233,67 @@ func DeleteCredential(c *gin.Context) {
 	model.DB.Where("credential_id = ?", id).Delete(&model.UserGroupCredential{})
 	model.DB.Delete(&model.HostCredential{}, id)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// RotateCredentialNow 立即轮换一次 OS 账号密码
+func RotateCredentialNow(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var cred model.HostCredential
+	if err := model.DB.First(&cred, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "OS 账号不存在"})
+		return
+	}
+	if cred.AuthType != "password" || cred.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "仅密码认证的账号支持轮换"})
+		return
+	}
+	var host model.Host
+	if err := model.DB.First(&host, cred.HostID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "主机不存在"})
+		return
+	}
+	if cred.IsLDAP {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "LDAP/域账号不执行轮换"})
+		return
+	}
+	_, err := service.RotateCredentialPassword(&host, &cred)
+	result := "轮换成功"
+	if err != nil {
+		result = "轮换失败: " + err.Error()
+	}
+	model.DB.Model(&cred).Updates(map[string]any{
+		"last_rotated_at":      time.Now(),
+		"last_rotation_result": result,
+	})
+	service.NotifyRotationResult(cred, result, err)
+	c.JSON(http.StatusOK, gin.H{"ok": err == nil, "result": result})
+}
+
+// RevealCredentialPassword 管理员查看账号密码明文（记录审计）
+func RevealCredentialPassword(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var cred model.HostCredential
+	if err := model.DB.First(&cred, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "OS 账号不存在"})
+		return
+	}
+	if cred.AuthType != "password" || cred.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "该账号无密码（密钥认证）"})
+		return
+	}
+	plain, err := pkg.Decrypt(cred.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "解密失败: " + err.Error()})
+		return
+	}
+	u := currentUser(c)
+	model.DB.Create(&model.AuditLog{
+		UserID: u.ID, Username: u.Username,
+		Action: "REVEAL", Resource: "/api/credentials/" + strconv.Itoa(id),
+		Detail: `{"os_user":"` + cred.Username + `"}`,
+		IP:     c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"password": plain})
 }
 
 func SetDefaultCredential(c *gin.Context) {

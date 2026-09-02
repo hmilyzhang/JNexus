@@ -106,6 +106,9 @@ func SetupRouter() *gin.Engine {
 			creds.POST("/batch", middleware.RequireRole(model.RoleOps), middleware.RequireHostPerm("edit"), middleware.RequireCredPerm(), BatchAddCredentialsHandler)
 			creds.PUT("/:id", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), UpdateCredential)
 			creds.POST("/:id/default", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), SetDefaultCredential)
+			creds.POST("/:id/rotate", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), RotateCredentialNow)
+			// 查看密码明文：仅系统管理员（记录审计）
+			creds.POST("/:id/reveal", middleware.RequireRole(), RevealCredentialPassword)
 			// 删除：仅系统管理员
 			creds.DELETE("/:id", middleware.RequireRole(), DeleteCredential)
 		}

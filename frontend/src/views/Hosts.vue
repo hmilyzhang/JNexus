@@ -256,6 +256,23 @@
       <el-table-column :label="$t('hosts.auth')" width="80">
         <template #default="{ row }">{{ row.auth_type === 'key' ? $t('hosts.authKey') : $t('hosts.authPassword') }}</template>
       </el-table-column>
+      <el-table-column :label="$t('rot.status')" min-width="140">
+        <template #default="{ row }">
+          <template v-if="row.auth_type === 'password' && row.rotate_enabled">
+            <div>{{ row.last_rotation_result || '-' }}</div>
+            <div style="color:#909399; font-size:12px">{{ $t('rot.last') }}: {{ fmtRot(row.last_rotated_at) }}</div>
+          </template>
+          <span v-else style="color:#c0c4cc">-</span>
+        </template>
+      </el-table-column>
+      <el-table-column :label="$t('rot.actions')" width="150" v-if="canManageCreds">
+        <template #default="{ row }">
+          <template v-if="row.auth_type === 'password'">
+            <el-button size="small" type="warning" link :loading="rotating === row.id" @click="rotateNow(row)">{{ $t('rot.now') }}</el-button>
+            <el-button v-if="store.isAdmin" size="small" link @click="revealPwd(row)">{{ $t('rot.view') }}</el-button>
+          </template>
+        </template>
+      </el-table-column>
       <el-table-column :label="$t('hosts.credDefault')" width="90">
         <template #default="{ row }">
           <el-tag v-if="row.is_default" size="small" type="success">{{ $t('hosts.credDefault') }}</el-tag>
@@ -462,9 +479,33 @@ const dlgCred = async row => {
 }
 const credFormDlg = row => {
   credForm.value = row
-    ? { ...row, password: '' }
-    : { username: '', label: '', auth_type: 'password', ssh_key_id: null, password: '', is_default: false, auto_pair: true }
+    ? { ...row, password: '', rotate_days: row.rotate_days || 90 }
+    : { username: '', label: '', auth_type: 'password', ssh_key_id: null, password: '', is_default: false,
+        auto_pair: true, rotate_enabled: false, rotate_days: 90, is_ldap: false }
   credFormVisible.value = true
+}
+
+// ---- 密码轮换 / 查看密码 ----
+const rotating = ref(null)
+const revealVisible = ref(false)
+const revealData = ref({})
+const fmtRot = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
+const rotateNow = async row => {
+  try {
+    await ElMessageBox.confirm(t('rot.confirm'), t('common.tip'), { type: 'warning' })
+  } catch { return }
+  rotating.value = row.id
+  try {
+    const r = await api.post(`/credentials/${row.id}/rotate`)
+    if (r.ok) ElMessage.success(r.result)
+    else ElMessage.error(r.result)
+    creds.value = await api.get(`/hosts/${credHost.value.id}/credentials`)
+  } finally { rotating.value = null }
+}
+const revealPwd = async row => {
+  const r = await api.post(`/credentials/${row.id}/reveal`)
+  revealData.value = { username: row.username, password: r.password }
+  revealVisible.value = true
 }
 const saveCred = async () => {
   if (!credForm.value.username) { ElMessage.warning(t('hosts.credUser')); return }

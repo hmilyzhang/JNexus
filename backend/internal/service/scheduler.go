@@ -41,6 +41,7 @@ func StartScheduler() {
 
 func tick() {
 	defer func() { recover() }()
+	go ScanDueRotations() // 密码轮换扫描
 	var jobs []model.CronJob
 	if err := model.DB.Where("enabled = ?", true).Find(&jobs).Error; err != nil {
 		return

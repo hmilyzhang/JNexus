@@ -17,6 +17,18 @@
     </el-card>
     </el-tab-pane>
 
+    <el-tab-pane :label="$t('rot.tab')" name="rotation">
+    <el-card>
+      <el-form label-width="150px">
+        <el-form-item :label="$t('rot.globalEnable')">
+          <el-switch v-model="form.rotation_enabled" active-value="true" inactive-value="false" />
+          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('rot.globalTip') }}</div>
+        </el-form-item>
+      </el-form>
+      <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+    </el-card>
+    </el-tab-pane>
+
     <el-tab-pane :label="$t('system.ldap')" name="ldap">
     <el-card>
       <el-form label-width="140px">
@@ -195,7 +207,8 @@ const form = reactive({
   ldap_attr_username: 'uid', ldap_default_role: 'viewer',
   ldap_group_check: 'false', ldap_group_base_dn: '', ldap_group_filter: '(member=%s)', ldap_required_groups: '',
   smtp_enabled: 'false', smtp_host: '', smtp_port: '25', smtp_ssl: 'false', smtp_tls: 'true',
-  smtp_username: '', smtp_password: '', smtp_from: '', smtp_recipients: '', smtp_notify: 'true'
+  smtp_username: '', smtp_password: '', smtp_from: '', smtp_recipients: '', smtp_notify: 'true',
+  rotation_enabled: 'false'
 })
 const smtpPort = ref(25)
 const smtpSsl = ref(false)

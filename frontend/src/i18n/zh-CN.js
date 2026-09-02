@@ -397,6 +397,27 @@ export default {
     empty: '点击左侧主机树中的主机，打开 Shell 终端连接',
     tip: '点击主机即可打开/切换终端'
   },
+  rot: {
+    tab: '密码轮换',
+    globalEnable: '启用密码定期轮换',
+    globalTip: '全局总开关；关闭后所有计划轮换暂停，账号上仍可手动触发',
+    section: '密码定期轮换',
+    enable: '启用轮换',
+    enableTip: '按周期自动修改该账号在目标机上的密码（随机 20 位强密码，加密保存，不明文展示）',
+    days: '轮换周期',
+    daysUnit: '天',
+    isLdap: 'LDAP/域账号',
+    isLdapTip: '域账号密码需在域控修改，本地 chpasswd 无法轮换；开启后自动跳过',
+    status: '轮换状态',
+    last: '上次轮换',
+    actions: '轮换操作',
+    now: '立即轮换',
+    view: '查看密码',
+    viewTitle: '查看账号密码（已记录审计）',
+    revealAudit: '⚠ 本次查看已记录审计日志',
+    confirm: '确认立即轮换该账号密码？新密码将随机生成并加密保存。',
+    last: '上次轮换'
+  },
   paired: {
     name: '名称（主机-账号）',
     keyName: '密钥名称',

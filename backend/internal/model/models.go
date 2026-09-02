@@ -269,6 +269,12 @@ type HostCredential struct {
 	Label     string    `gorm:"size:64" json:"label"` // 用途：运维/应用/发布等
 	IsDefault bool      `gorm:"default:false" json:"is_default"`
 	CreatedAt time.Time `json:"created_at"`
+	// 密码定期轮换（仅密码认证的账号；LDAP/域账号自动检测跳过）
+	RotateEnabled       bool       `gorm:"default:false" json:"rotate_enabled"`
+	RotateDays          int        `gorm:"default:90" json:"rotate_days"`
+	LastRotatedAt       *time.Time `json:"last_rotated_at"`
+	LastRotationResult  string     `gorm:"size:255" json:"last_rotation_result"`
+	IsLDAP              bool       `gorm:"default:false" json:"is_ldap"` // 手动标记域账号，排除轮换
 
 	SSHKey *SSHKey `gorm:"foreignKey:SSHKeyID" json:"ssh_key,omitempty"`
 }

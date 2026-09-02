@@ -397,6 +397,27 @@ export default {
     empty: 'Click a host in the asset tree to open a shell connection',
     tip: 'Click a host to open/switch its terminal'
   },
+  rot: {
+    tab: 'Password Rotation',
+    globalEnable: 'Enable password rotation',
+    globalTip: 'Global master switch; when off all scheduled rotations pause (manual trigger still available on accounts)',
+    section: 'Password auto-rotation',
+    enable: 'Enable rotation',
+    enableTip: 'Auto-rotate this account password on target hosts (random 20-char strong password, stored encrypted, never shown)',
+    days: 'Rotation period',
+    daysUnit: 'days',
+    isLdap: 'LDAP/domain account',
+    isLdapTip: 'Domain passwords must be changed on the domain controller; local chpasswd cannot rotate them. Enable to always skip',
+    status: 'Rotation status',
+    last: 'Last rotated',
+    actions: 'Rotation',
+    now: 'Rotate now',
+    view: 'View password',
+    viewTitle: 'View account password (audited)',
+    revealAudit: '⚠ This view has been recorded in the audit log',
+    confirm: 'Rotate this account password now? A new random password will be generated and stored encrypted.',
+    last: 'Last rotated'
+  },
   paired: {
     name: 'Name (host-account)',
     keyName: 'Key name',
