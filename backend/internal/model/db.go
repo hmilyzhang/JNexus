@@ -87,6 +87,9 @@ func SeedConfig() error {
 		"smtp_recipients": "",
 		"smtp_notify":    "true",
 		"rotation_enabled": "false",
+		"rotation_length": "20",
+		"rotation_complexity": "high",
+		"rotation_days": "90",
 	}
 	for k, v := range defaults {
 		var cnt int64

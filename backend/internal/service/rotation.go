@@ -16,23 +16,81 @@ import (
 )
 
 // chpasswd 安全字符集：不含单引号/反斜杠/$ 等 shell 敏感字符
-const pwdCharset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789#@%+_=."
+const (
+	pwdUpper = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+	pwdLower = "abcdefghijkmnopqrstuvwxyz"
+	pwdDigit = "23456789"
+	pwdSpec  = "#@%+_=."
+)
+
+// RotationPolicy 密码轮换策略（系统配置）
+type RotationPolicy struct {
+	Length     int
+	Complexity string // high: 大小写+数字+特殊字符；medium: 字母+数字；low: 小写+数字
+	Days       int    // 默认轮换周期（天）
+}
 
 // GetRotationEnabled 全局密码轮换开关
 func GetRotationEnabled() bool {
 	return SystemConfigMap()["rotation_enabled"] == "true"
 }
 
-// GenerateStrongPassword 生成 20 位随机强密码（避开 shell 敏感字符）
-func GenerateStrongPassword() (string, error) {
-	out := make([]byte, 20)
-	max := big.NewInt(int64(len(pwdCharset)))
-	for i := range out {
-		n, err := rand.Int(rand.Reader, max)
+// GetRotationPolicy 读取轮换策略（含默认值与边界修正）
+func GetRotationPolicy() RotationPolicy {
+	m := SystemConfigMap()
+	p := RotationPolicy{Complexity: "high", Days: 90, Length: 20}
+	fmt.Sscanf(m["rotation_length"], "%d", &p.Length)
+	if p.Length < 8 {
+		p.Length = 8
+	}
+	if p.Length > 64 {
+		p.Length = 64
+	}
+	switch m["rotation_complexity"] {
+	case "medium", "low":
+		p.Complexity = m["rotation_complexity"]
+	}
+	fmt.Sscanf(m["rotation_days"], "%d", &p.Days)
+	if p.Days < 1 {
+		p.Days = 90
+	}
+	return p
+}
+
+// GenerateStrongPassword 按策略生成随机密码（保证每类字符至少一位，避开 shell 敏感字符）
+func GenerateStrongPassword(p RotationPolicy) (string, error) {
+	classes := []string{pwdUpper, pwdLower, pwdDigit}
+	switch p.Complexity {
+	case "high":
+		classes = append(classes, pwdSpec)
+	case "low":
+		classes = []string{pwdLower, pwdDigit}
+	}
+	all := strings.Join(classes, "")
+	out := make([]byte, 0, p.Length)
+	// 每类至少一位
+	for _, cls := range classes {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(cls))))
 		if err != nil {
 			return "", err
 		}
-		out[i] = pwdCharset[n.Int64()]
+		out = append(out, cls[n.Int64()])
+	}
+	for len(out) < p.Length {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(all))))
+		if err != nil {
+			return "", err
+		}
+		out = append(out, all[n.Int64()])
+	}
+	// Fisher-Yates 洗牌
+	for i := len(out) - 1; i > 0; i-- {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
+		if err != nil {
+			return "", err
+		}
+		j := n.Int64()
+		out[i], out[j] = out[j], out[i]
 	}
 	return string(out), nil
 }
@@ -86,7 +144,8 @@ func RotateCredentialPassword(host *model.Host, cred *model.HostCredential) (str
 		return "", errLDAPSkip
 	}
 
-	newPwd, err := GenerateStrongPassword()
+	policy := GetRotationPolicy()
+	newPwd, err := GenerateStrongPassword(policy)
 	if err != nil {
 		return "", err
 	}
@@ -123,10 +182,15 @@ func ScanDueRotations() {
 	if err := model.DB.Where("rotate_enabled = ? AND auth_type = ?", true, "password").Find(&creds).Error; err != nil {
 		return
 	}
+	policy := GetRotationPolicy()
 	now := time.Now()
 	for i := range creds {
 		c := creds[i]
-		due := c.LastRotatedAt == nil || now.Sub(*c.LastRotatedAt) > time.Duration(c.RotateDays)*24*time.Hour
+		days := c.RotateDays
+		if days <= 0 {
+			days = policy.Days
+		}
+		due := c.LastRotatedAt == nil || now.Sub(*c.LastRotatedAt) > time.Duration(days)*24*time.Hour
 		if !due {
 			continue
 		}

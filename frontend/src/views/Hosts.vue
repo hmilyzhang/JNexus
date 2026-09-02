@@ -316,6 +316,22 @@
         </div>
       </el-form-item>
       <el-form-item :label="$t('hosts.credDefault')"><el-switch v-model="credForm.is_default" /></el-form-item>
+      <template v-if="credForm.auth_type === 'password'">
+        <el-divider style="margin:8px 0 14px">{{ $t('rot.section') }}</el-divider>
+        <el-form-item :label="$t('rot.enable')">
+          <el-switch v-model="credForm.rotate_enabled" />
+          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('rot.enableTip') }}</div>
+        </el-form-item>
+        <el-form-item :label="$t('rot.days')" v-if="credForm.rotate_enabled">
+          <el-input-number v-model="credForm.rotate_days" :min="0" :max="365" />
+          <span style="margin-left:4px">{{ $t('rot.daysUnit') }}</span>
+          <div style="color:#909399; font-size:12px; width:100%">{{ $t('rot.daysTip') }}</div>
+        </el-form-item>
+        <el-form-item :label="$t('rot.isLdap')" v-if="credForm.rotate_enabled">
+          <el-switch v-model="credForm.is_ldap" />
+          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('rot.isLdapTip') }}</div>
+        </el-form-item>
+      </template>
     </el-form>
     <template #footer>
       <el-button @click="credFormVisible = false">{{ $t('common.cancel') }}</el-button>
@@ -479,9 +495,9 @@ const dlgCred = async row => {
 }
 const credFormDlg = row => {
   credForm.value = row
-    ? { ...row, password: '', rotate_days: row.rotate_days || 90 }
+    ? { ...row, password: '', rotate_days: row.rotate_days || 0 }
     : { username: '', label: '', auth_type: 'password', ssh_key_id: null, password: '', is_default: false,
-        auto_pair: true, rotate_enabled: false, rotate_days: 90, is_ldap: false }
+        auto_pair: true, rotate_enabled: false, rotate_days: 0, is_ldap: false }
   credFormVisible.value = true
 }
 

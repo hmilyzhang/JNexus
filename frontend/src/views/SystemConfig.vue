@@ -24,6 +24,26 @@
           <el-switch v-model="form.rotation_enabled" active-value="true" inactive-value="false" />
           <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('rot.globalTip') }}</div>
         </el-form-item>
+        <template v-if="form.rotation_enabled === 'true'">
+          <el-form-item :label="$t('rot.policyLength')">
+            <el-input-number v-model="rotationLength" :min="8" :max="64" />
+            <span style="margin-left:8px; color:#909399; font-size:12px">8-64</span>
+          </el-form-item>
+          <el-form-item :label="$t('rot.policyComplexity')">
+            <el-radio-group v-model="rotationComplexity">
+              <el-radio value="high">High</el-radio>
+              <el-radio value="medium">Medium</el-radio>
+              <el-radio value="low">Low</el-radio>
+            </el-radio-group>
+            <div style="color:#909399; font-size:12px; width:100%">
+              High = {{ $t('rot.cHigh') }}；Medium = {{ $t('rot.cMedium') }}；Low = {{ $t('rot.cLow') }}
+            </div>
+          </el-form-item>
+          <el-form-item :label="$t('rot.policyDays')">
+            <el-input-number v-model="rotationDays" :min="1" :max="365" />
+            <span style="margin-left:8px; color:#909399; font-size:12px">{{ $t('rot.policyDaysTip') }}</span>
+          </el-form-item>
+        </template>
       </el-form>
       <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
     </el-card>
@@ -210,6 +230,9 @@ const form = reactive({
   smtp_username: '', smtp_password: '', smtp_from: '', smtp_recipients: '', smtp_notify: 'true',
   rotation_enabled: 'false'
 })
+const rotationLength = ref(20)
+const rotationComplexity = ref('high')
+const rotationDays = ref(90)
 const smtpPort = ref(25)
 const smtpSsl = ref(false)
 const smtpTestTo = ref('')
@@ -276,6 +299,9 @@ onMounted(async () => {
     for (const k of Object.keys(form)) {
       if (cfg[k] !== undefined && cfg[k] !== null) form[k] = cfg[k]
     }
+    rotationLength.value = Number(form.rotation_length) || 20
+    rotationComplexity.value = form.rotation_complexity || 'high'
+    rotationDays.value = Number(form.rotation_days) || 90
     smtpPort.value = Number(form.smtp_port) || 25
     smtpSsl.value = form.smtp_ssl === 'true'
     ldapPort.value = Number(form.ldap_port) || 389
@@ -287,7 +313,10 @@ onMounted(async () => {
 const save = async () => {
   saving.value = true
   try {
-    const payload = { ...form, ldap_port: String(ldapPort.value), smtp_port: String(smtpPort.value), smtp_ssl: smtpSsl.value ? 'true' : 'false' }
+    const payload = { ...form, ldap_port: String(ldapPort.value), smtp_port: String(smtpPort.value),
+      smtp_ssl: smtpSsl.value ? 'true' : 'false',
+      rotation_length: String(rotationLength.value), rotation_complexity: rotationComplexity.value,
+      rotation_days: String(rotationDays.value) }
     await api.put('/system/config', payload)
     localStorage.setItem('system_name', form.system_name)
     document.title = form.system_name

@@ -21,7 +21,7 @@ var editableConfigKeys = []string{
 	"ldap_group_check", "ldap_group_base_dn", "ldap_group_filter", "ldap_required_groups",
 	"smtp_enabled", "smtp_host", "smtp_port", "smtp_ssl", "smtp_tls",
 	"smtp_username", "smtp_password", "smtp_from", "smtp_recipients", "smtp_notify",
-	"rotation_enabled",
+	"rotation_enabled", "rotation_length", "rotation_complexity", "rotation_days",
 }
 
 // GetSystemConfig 读取系统配置（admin），密码字段打码

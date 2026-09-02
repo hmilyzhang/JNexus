@@ -123,11 +123,7 @@ func (r *credReq) apply(cred *model.HostCredential) error {
 	cred.SSHKeyID = r.SSHKeyID
 	cred.Label = r.Label
 	cred.RotateEnabled = r.RotateEnabled
-	if r.RotateDays > 0 {
-		cred.RotateDays = r.RotateDays
-	} else if cred.RotateDays == 0 {
-		cred.RotateDays = 90
-	}
+	cred.RotateDays = r.RotateDays // 0 = 跟随系统设置的全局周期
 	cred.IsLDAP = r.IsLDAP
 	if r.Password != "" {
 		enc, err := pkg.Encrypt(r.Password)
