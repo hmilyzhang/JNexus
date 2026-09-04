@@ -3,7 +3,7 @@
   <el-row :gutter="12" class="shell-row">
     <el-col :span="6">
       <el-card :header="$t('shell.assetTree')" v-loading="loading" class="side-card">
-        <el-tree :data="treeData" node-key="key" highlight-current default-expand-all :expand-on-click-node="false"
+        <el-tree :data="treeData" node-key="key" highlight-current :default-expand-all="false" :expand-on-click-node="false"
                  @node-click="onTreeNode">
           <template #default="{ data }">
             <span class="tree-node">

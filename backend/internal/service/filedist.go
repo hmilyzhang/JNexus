@@ -103,10 +103,14 @@ func runDistribute(operator *model.User, credID *uint, taskID uint, localPath, l
 		}
 	}
 
+	// 并发上限：400+ 台分发时不做限流会瞬间打出同等数量的 SFTP 连接
+	sem := make(chan struct{}, 10)
 	for _, res := range results {
 		wg.Add(1)
 		go func(res model.TaskHostResult) {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			host := model.Host{}
 			model.DB.First(&host, res.HostID)
 

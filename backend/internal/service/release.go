@@ -77,10 +77,13 @@ func runRelease(releaseID uint) {
 	var mu sync.Mutex
 	remain := len(items)
 
+	sem := make(chan struct{}, 20)
 	for _, item := range items {
 		wg.Add(1)
 		go func(item model.ReleaseItem) {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			defer func() {
 				if r := recover(); r != nil {
 					updateItem(item.ID, "health", "failed", fmt.Sprintf("panic: %v", r))

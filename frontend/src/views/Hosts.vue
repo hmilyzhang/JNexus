@@ -306,11 +306,16 @@ const onTreeNode = node => {
 const load = async () => {
   loading.value = true
   try {
-    const params = {}
-    if (keyword.value) params.keyword = keyword.value
-    if (groupFilter.value) params.group_id = groupFilter.value
-    hosts.value = await api.get('/hosts', { params })
-    allHosts.value = await api.get('/hosts')
+    // 单次全量请求，表格筛选在前端完成（左侧树同样使用全量数据），避免双份 /hosts 载荷
+    const all = await api.get('/hosts')
+    allHosts.value = all
+    let list = all
+    if (groupFilter.value) list = list.filter(h => String(h.group_id) === String(groupFilter.value))
+    if (keyword.value) {
+      const kw = keyword.value.toLowerCase()
+      list = list.filter(h => (h.name || '').toLowerCase().includes(kw) || (h.ip || '').toLowerCase().includes(kw))
+    }
+    hosts.value = list
   } finally { loading.value = false }
   groups.value = await api.get('/host_groups')
 }
@@ -319,7 +324,6 @@ const loadKeys = async () => { keys.value = await api.get('/ssh_keys') }
 onMounted(() => {
   load()
   loadKeys()
-  api.get('/hosts').then(hs => { allHosts.value = hs }).catch(() => {})
 })
 
 // 终端：跳转到 Web Shell 终端工作台，可带主机直接连接

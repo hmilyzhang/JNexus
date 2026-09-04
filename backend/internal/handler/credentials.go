@@ -103,9 +103,11 @@ func UsableCredentialsHandler(c *gin.Context) {
 	u := currentUser(c)
 	var hosts []model.Host
 	model.DB.Find(&hosts)
+	// 批量预取（固定 5-6 条查询），避免 400+ 主机时的 N+1
+	usable := service.UsableCredentialsAll(u, hosts)
 	out := []gin.H{}
 	for i := range hosts {
-		for _, cred := range service.UsableCredentials(u, &hosts[i]) {
+		for _, cred := range usable[hosts[i].ID] {
 			out = append(out, gin.H{
 				"id": cred.ID, "host_id": hosts[i].ID, "username": cred.Username,
 				"label": cred.Label, "is_default": cred.IsDefault,

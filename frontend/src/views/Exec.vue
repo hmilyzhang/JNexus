@@ -6,7 +6,7 @@
         <el-form-item :label="$t('exec.targetHosts')">
           <div style="width:100%">
             <el-tree-select v-model="selectedNodes" :data="treeData" multiple check-strictly=false
-                            :render-after-expand="false" default-expand-all :placeholder="$t('exec.targetHosts')"
+                            :render-after-expand="false" :default-expand-all="false" :placeholder="$t('exec.targetHosts')"
                             style="width:100%" node-key="value" :max-collapse-tags="3" collapse-tags />
             <el-input v-model="ipInput" :placeholder="$t('exec.ipInputPlaceholder')" style="margin-top:8px" clearable>
               <template #prepend>{{ $t('exec.ipInput') }}</template>
@@ -14,9 +14,14 @@
           </div>
         </el-form-item>
         <el-form-item :label="$t('hosts.credOsAccount')">
-          <el-select v-model="credentialId" style="width:100%" clearable :placeholder="$t('hosts.credSelectPlaceholder')">
-            <el-option v-for="c in usableCreds" :key="c.id"
-                       :label="`${c.host_name} · ${c.host_ip} — ${c.username}${c.label ? '（' + c.label + '）' : ''}`" :value="c.id" />
+          <el-select v-model="credentialId" style="width:100%" clearable filterable
+                       :placeholder="$t('hosts.credSelectPlaceholder')" @visible-change="credDdlVisible = $event">
+            <template v-if="credDdlVisible">
+              <el-option v-for="c in usableCreds" :key="c.id"
+                         :label="`${c.host_name} · ${c.host_ip} — ${c.username}${c.label ? '（' + c.label + '）' : ''}`" :value="c.id" />
+            </template>
+            <el-option v-else-if="selectedCred" :key="'sel-' + selectedCred.id"
+                       :label="`${selectedCred.host_name} · ${selectedCred.host_ip} — ${selectedCred.username}`" :value="selectedCred.id" />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('exec.mode')">
@@ -88,6 +93,8 @@ const selectedNodes = ref([])
 const ipInput = ref('')
 const credentialId = ref(null)
 const usableCreds = ref([])
+const credDdlVisible = ref(false)
+const selectedCred = computed(() => usableCreds.value.find(c => c.id === credentialId.value))
 let ws = null
 
 const form = reactive({ mode: 'command', command: '', script_id: null, script_args: '', timeout_sec: 300, concurrency: 10 })

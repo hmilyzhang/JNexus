@@ -16,7 +16,7 @@
         <el-form-item :label="$t('files.targetHosts')">
           <div style="width:100%">
             <el-tree-select v-model="selectedNodes" :data="treeData" multiple :render-after-expand="false"
-                            default-expand-all :placeholder="$t('files.targetHosts')" style="width:100%"
+                            :default-expand-all="false" :placeholder="$t('files.targetHosts')" style="width:100%"
                             node-key="value" :max-collapse-tags="3" collapse-tags />
             <el-input v-model="ipInput" :placeholder="$t('files.ipInputPlaceholder')" style="margin-top:8px" clearable>
               <template #prepend>{{ $t('files.ipInput') }}</template>
