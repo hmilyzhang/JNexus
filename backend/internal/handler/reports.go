@@ -32,7 +32,7 @@ type reportReq struct {
 func CreateReport(c *gin.Context) {
 	var req reportReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（模板必选）"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request (template required)"})
 		return
 	}
 	reportID, err := service.StartReport(currentUser(c), req.Template, req.HostIDs)
@@ -47,7 +47,7 @@ func findReport(c *gin.Context) (*model.Report, []model.ReportItem, bool) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var report model.Report
 	if err := model.DB.First(&report, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "报告不存在"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "report not found"})
 		return nil, nil, false
 	}
 	var items []model.ReportItem
@@ -95,7 +95,7 @@ func ExportReport(c *gin.Context) {
 	if format == "csv" {
 		var sb strings.Builder
 		sb.WriteString("\uFEFF")
-		sb.WriteString("主机名,IP,状态,错误,采集内容\n")
+		sb.WriteString("Hostname,IP,Status,Error,Content\n")
 		for _, it := range items {
 			err := it.Error
 			row := []string{it.HostName, it.HostIP, it.Status, err, it.Content}
@@ -118,20 +118,20 @@ func ExportReport(c *gin.Context) {
 		tplName = tpl.Name
 	}
 	var sb strings.Builder
-	sb.WriteString("================ AutoOps 采集报告 #" + strconv.Itoa(int(report.ID)) + " ================\n")
-	sb.WriteString("模板: " + tplName + "    操作人: " + report.Operator + "    时间: " + report.CreatedAt.Format("2006-01-02 15:04:05") + "\n")
-	sb.WriteString(fmt.Sprintf("目标: %d 台\n\n", len(items)))
+	sb.WriteString("================ AutoOps Collection Report #" + strconv.Itoa(int(report.ID)) + " ================\n")
+	sb.WriteString("Template: " + tplName + "    Operator: " + report.Operator + "    Time: " + report.CreatedAt.Format("2006-01-02 15:04:05") + "\n")
+	sb.WriteString(fmt.Sprintf("Targets: %d hosts\n\n", len(items)))
 	for _, it := range items {
-		st := "成功"
+		st := "Success"
 		if it.Status == "failed" {
-			st = "失败"
+			st = "Failed"
 		}
 		sb.WriteString(fmt.Sprintf("---------- [%s] %s (%s) ----------\n", st, it.HostName, it.HostIP))
 		if it.Error != "" {
-			sb.WriteString("错误: " + it.Error + "\n")
+			sb.WriteString("Error: " + it.Error + "\n")
 		}
 		if strings.TrimSpace(it.Content) == "" {
-			sb.WriteString("(无输出)\n")
+			sb.WriteString("(no output)\n")
 		} else {
 			sb.WriteString(it.Content)
 			if !strings.HasSuffix(it.Content, "\n") {
@@ -140,7 +140,7 @@ func ExportReport(c *gin.Context) {
 		}
 		sb.WriteString("\n")
 	}
-	sb.WriteString("================ 导出时间 " + time.Now().Format("2006-01-02 15:04:05") + " ================\n")
+	sb.WriteString("================ Exported at " + time.Now().Format("2006-01-02 15:04:05") + " ================\n")
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=report-%d-%s.log", int(report.ID), stamp))
 	c.Data(http.StatusOK, "application/octet-stream", []byte(sb.String()))
 }
