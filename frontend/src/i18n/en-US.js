@@ -9,6 +9,7 @@ export default {
     exec: 'Batch Exec',
     reports: 'Reports',
     tasks: 'Tasks',
+    cron: 'Schedules',
     files: 'File Distribute',
     scripts: 'Scripts',
     apps: 'Applications',

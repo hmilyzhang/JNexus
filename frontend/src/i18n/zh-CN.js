@@ -9,6 +9,7 @@ export default {
     exec: '批量执行',
     reports: '采集报告',
     tasks: '执行记录',
+    cron: '计划任务',
     files: '文件分发',
     scripts: '脚本中心',
     apps: '应用管理',
