@@ -7,7 +7,7 @@ export default {
     jobs: '任务执行',
     hosts: '主机管理',
     exec: '批量执行',
-    cron: '计划任务',
+    reports: '采集报告',
     tasks: '执行记录',
     files: '文件分发',
     scripts: '脚本中心',
@@ -427,6 +427,15 @@ export default {
     confirm: '确认立即轮换该账号密码？新密码将随机生成并加密保存。',
     last: '上次轮换'
   },
+  report: {
+    name: '报告名称',
+    listTitle: '报告列表',
+    generate: '生成报告',
+    generated: '报告已开始采集，稍候可在列表查看',
+    targetTip: '不选择主机时默认采集全部主机',
+    detail: '报告详情',
+    delConfirm: '确认删除该报告？'
+  },
   osac: {
     rotFilterAll: '全部轮换状态',
     pwdChanged: '最后密码修改',
@@ -490,8 +499,9 @@ export default {
     ldapRequiredGroupsTip: '每行一个，填写组的完整 DN 或 CN，命中其一即可登录；留空则不限制',
     testConn: '测试连接',
     testOk: 'LDAP 连接成功',
-    credPerm: 'OS 账号权限',
     credManage: '管理账号',
+    credPerm: 'OS 账号权限',
+    reportView: '查看报告',
     hostPerms: '主机权限',
     permView: '查看',
     permCreate: '新建',

@@ -16,6 +16,7 @@ const routes = [
       { path: 'exec', name: 'exec', component: () => import('./views/Exec.vue'), meta: { title: 'menu.exec', icon: 'Promotion' } },
       { path: 'tasks', name: 'tasks', component: () => import('./views/Tasks.vue'), meta: { title: 'menu.tasks', icon: 'List' } },
       { path: 'crons', name: 'crons', component: () => import('./views/CronJobs.vue'), meta: { title: 'menu.cron', icon: 'Timer' } },
+      { path: 'reports', name: 'reports', component: () => import('./views/Reports.vue'), meta: { title: 'menu.reports', icon: 'DataAnalysis' } },
       { path: 'files', name: 'files', component: () => import('./views/Files.vue'), meta: { title: 'menu.files', icon: 'FolderOpened' } },
       { path: 'scripts', name: 'scripts', component: () => import('./views/Scripts.vue'), meta: { title: 'menu.scripts', icon: 'Document' } },
       { path: 'apps', name: 'apps', component: () => import('./views/Apps.vue'), meta: { title: 'menu.apps', icon: 'Box' } },

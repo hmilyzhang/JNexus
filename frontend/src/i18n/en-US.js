@@ -7,7 +7,7 @@ export default {
     jobs: 'Job Execution',
     hosts: 'Hosts',
     exec: 'Batch Exec',
-    cron: 'Schedules',
+    reports: 'Reports',
     tasks: 'Tasks',
     files: 'File Distribute',
     scripts: 'Scripts',
@@ -427,6 +427,15 @@ export default {
     confirm: 'Rotate this account password now? A new random password will be generated and stored encrypted.',
     last: 'Last rotated'
   },
+  report: {
+    listTitle: 'Report list',
+    name: 'Report name',
+    generate: 'Generate report',
+    generated: 'Collection started; check the list shortly',
+    targetTip: 'If no host is selected all hosts are collected',
+    detail: 'Report detail',
+    delConfirm: 'Delete this report?'
+  },
   osac: {
     rotFilterAll: 'All rotation status',
     pwdChanged: 'Last password change',
@@ -490,8 +499,9 @@ export default {
     ldapRequiredGroupsTip: 'One per line: full group DN or CN. User must match at least one; empty means no restriction',
     testConn: 'Test connection',
     testOk: 'LDAP connection OK',
-    credPerm: 'OS account perms',
     credManage: 'Manage accounts',
+    credPerm: 'OS account perms',
+    reportView: 'View reports',
     hostPerms: 'Host permissions',
     permView: 'View',
     permCreate: 'Create',

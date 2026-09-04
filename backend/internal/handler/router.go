@@ -87,6 +87,17 @@ func SetupRouter() *gin.Engine {
 		// 配对密钥列表：管理员/运维可见
 		auth.GET("/credentials/paired", middleware.RequireRole(), ListPairedCredentials)
 
+		// 报告模块：权限由角色设置「查看报告」控制
+		reports := auth.Group("/reports", middleware.RequireReportPerm())
+		{
+			reports.GET("/templates", ListReportTemplates)
+			reports.GET("", ListReports)
+			reports.GET("/:id", GetReport)
+			reports.GET("/:id/export", ExportReport)
+			reports.POST("", CreateReport)
+			reports.DELETE("/:id", middleware.RequireRole(), DeleteReport)
+		}
+
 		// 计划任务：管理员/运维可管理
 		crons := auth.Group("/crons", middleware.RequireRole(model.RoleOps))
 		{

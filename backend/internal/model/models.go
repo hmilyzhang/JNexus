@@ -235,6 +235,30 @@ type UserGroupMember struct {
 	UserID      uint `gorm:"index" json:"user_id"`
 }
 
+// 采集报告：按模板在多台主机上收集信息并汇总
+type Report struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	Name       string    `gorm:"size:128" json:"name"`
+	Template   string    `gorm:"size:32" json:"template"` // accounts / crontab / health / osinfo
+	Operator   string    `gorm:"size:64" json:"operator"`
+	HostCount  int       `json:"host_count"`
+	Status     string    `gorm:"size:16;default:running" json:"status"` // running / done
+	CreatedAt  time.Time `json:"created_at"`
+	FinishedAt *time.Time `json:"finished_at"`
+}
+
+type ReportItem struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	ReportID  uint      `gorm:"index" json:"report_id"`
+	HostID    uint      `json:"host_id"`
+	HostName  string    `gorm:"size:128" json:"host_name"`
+	HostIP    string    `gorm:"size:64" json:"host_ip"`
+	Status    string    `gorm:"size:16" json:"status"` // success / failed
+	Content   string    `gorm:"type:text" json:"content"`
+	Error     string    `gorm:"size:255" json:"error"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // 计划任务：定时执行命令或脚本
 type CronJob struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`

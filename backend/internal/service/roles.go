@@ -19,6 +19,8 @@ type RolePerm struct {
 		Delete bool `json:"delete"`
 	} `json:"host"`
 	Cred bool `json:"cred"` // OS 账号管理（新增/编辑/设默认；删除恒为 admin）
+
+	Report bool `json:"report"` // 报告模块（生成/查看/导出）
 }
 
 const roleSettingsKey = "role_settings"
@@ -26,18 +28,18 @@ const roleSettingsKey = "role_settings"
 // DefaultRoleSettings 角色默认配置（首次使用时写入）
 func DefaultRoleSettings() map[string]RolePerm {
 	allMenus := []string{"dashboard", "hosts", "exec", "tasks", "cron", "files", "scripts", "apps", "releases", "users", "danger", "audit", "system"}
-	mk := func(desc string, menus []string, v, c, e, d, cred bool) RolePerm {
+	mk := func(desc string, menus []string, v, c, e, d, cred, report bool) RolePerm {
 		r := RolePerm{Desc: desc, Menus: menus}
 		r.Host.View, r.Host.Create, r.Host.Edit, r.Host.Delete = v, c, e, d
-		r.Cred = cred
+		r.Cred, r.Report = cred, report
 		return r
 	}
 	return map[string]RolePerm{
-		model.RoleAdmin:     mk("全部权限，含用户/系统管理", allMenus, true, true, true, true, true),
-		model.RoleOps:       mk("主机、执行、文件、脚本、发布", []string{"dashboard", "hosts", "paired", "exec", "tasks", "cron", "files", "scripts", "apps", "releases"}, true, true, true, true, true),
-		model.RolePublisher: mk("执行与发布（需数据授权）", []string{"dashboard", "hosts", "exec", "tasks", "files", "apps", "releases"}, true, false, false, false, false),
-		model.RoleViewer:    mk("只读查看", []string{"dashboard", "hosts"}, true, false, false, false, false),
-		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit"}, true, false, false, false, false),
+		model.RoleAdmin:     mk("全部权限，含用户/系统管理", allMenus, true, true, true, true, true, true),
+		model.RoleOps:       mk("主机、执行、文件、脚本、发布", []string{"dashboard", "hosts", "paired", "exec", "tasks", "cron", "files", "scripts", "apps", "releases", "reports"}, true, true, true, true, true, true),
+		model.RolePublisher: mk("执行与发布（需数据授权）", []string{"dashboard", "hosts", "exec", "tasks", "files", "apps", "releases"}, true, false, false, false, false, false),
+		model.RoleViewer:    mk("只读查看", []string{"dashboard", "hosts"}, true, false, false, false, false, false),
+		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit", "reports"}, true, false, false, false, false, true),
 	}
 }
 
@@ -64,10 +66,11 @@ func GetRoleSettings() map[string]RolePerm {
 		rp := out[role] // map 取出的结构体需复制后修改
 		if legacy {
 			rp.Cred = d.Cred
+			rp.Report = d.Report
 		}
-		// 新增菜单自动补进 admin/ops（admin 恒见全部）
-		if role == model.RoleAdmin || role == model.RoleOps {
-			for _, nm := range []string{"cron", "osaccounts"} {
+		// 新增菜单自动补进 admin/ops/auditor（admin 恒见全部）
+		if role == model.RoleAdmin || role == model.RoleOps || role == model.RoleAuditor {
+			for _, nm := range []string{"cron", "osaccounts", "reports"} {
 				has := false
 				for _, m := range rp.Menus {
 					if m == nm {
@@ -91,6 +94,14 @@ func HasCredPerm(role string) bool {
 		return true
 	}
 	return GetRoleSettings()[role].Cred
+}
+
+// HasReportPerm 角色是否可使用报告模块（admin 恒通过）
+func HasReportPerm(role string) bool {
+	if role == model.RoleAdmin {
+		return true
+	}
+	return GetRoleSettings()[role].Report
 }
 
 // SetRoleSettings 保存角色配置

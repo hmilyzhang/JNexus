@@ -1,0 +1,157 @@
+<!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
+<template>
+  <div>
+    <el-card header="生成报告">
+      <div class="tpl-cards">
+        <div v-for="t in templates" :key="t.key" class="tpl-card"
+             :class="{ active: form.template === t.key }" @click="form.template = t.key">
+          <div class="tpl-name">{{ t.name }}</div>
+          <div class="tpl-desc">{{ t.desc }}</div>
+        </div>
+      </div>
+      <el-form label-width="90px" style="margin-top:14px">
+        <el-form-item :label="$t('cron.target')">
+          <el-select v-model="form.host_ids" multiple filterable style="width:100%"
+                     :max-collapse-tags="2" collapse-tags :placeholder="$t('cron.target')">
+            <el-option v-for="h in hosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
+          </el-select>
+          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('report.targetTip') }}</div>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="generating" :disabled="!form.template || !form.host_ids.length"
+                     @click="generate">{{ $t('report.generate') }}</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card :header="$t('report.listTitle')" style="margin-top:16px">
+      <el-table :data="reports" v-loading="loading" size="small" border @row-click="openDetail">
+        <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column prop="name" :label="$t('report.name')" min-width="200" />
+        <el-table-column prop="operator" :label="$t('tasks.operator')" width="110" />
+        <el-table-column prop="host_count" :label="$t('cron.target')" width="90" />
+        <el-table-column :label="$t('tasks.status')" width="100">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.status === 'done' ? 'success' : 'warning'">
+              {{ row.status === 'done' ? $t('exec.taskDone') : $t('exec.taskRunning') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" :label="$t('tasks.createdAt')" width="170" />
+        <el-table-column :label="$t('common.operation')" width="80" fixed="right">
+          <template #default="{ row }">
+            <el-popconfirm v-if="store.isAdmin" :title="$t('report.delConfirm')" @confirm="del(row)">
+              <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <!-- 报告详情 -->
+    <el-drawer v-model="detailVisible" :title="detail ? detail.report.name : $t('report.detail')" size="780px">
+      <template v-if="detail">
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px">
+          <span style="flex:1"></span>
+          <el-button size="small" @click="download('log')">{{ $t('tasks.exportLog') }}</el-button>
+          <el-button size="small" @click="download('csv')">{{ $t('tasks.exportCsv') }}</el-button>
+        </div>
+        <div v-for="it in detail.items" :key="it.id" style="margin-bottom:14px">
+          <div style="font-size:13px; font-weight:600">
+            {{ it.host_name }}（{{ it.host_ip }}）
+            <el-tag size="small" :type="it.status === 'success' ? 'success' : 'danger'">{{ it.status }}</el-tag>
+          </div>
+          <div v-if="it.error" style="color:#f56c6c; font-size:12px; margin:4px 0">{{ it.error }}</div>
+          <div class="log-box" style="max-height:260px">{{ it.content || '(无输出)' }}</div>
+        </div>
+      </template>
+    </el-drawer>
+  </div>
+</template>
+
+<script setup>
+import { onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import api from '../api'
+import i18n from '../i18n'
+import { ElMessage } from 'element-plus'
+import { useUserStore } from '../store'
+
+const { t } = i18n.global
+const route = useRoute()
+const store = useUserStore()
+const templates = ref([])
+const reports = ref([])
+const hosts = ref([])
+const loading = ref(false)
+const generating = ref(false)
+const detailVisible = ref(false)
+const detail = ref(null)
+let pollTimer = null
+
+const generate = async () => {
+  generating.value = true
+  try {
+    const res = await api.post('/reports', { template: form.value.template, host_ids: form.value.host_ids })
+    ElMessage.success(t('report.generated'))
+    await load()
+    openDetail({ id: res.report_id })
+  } finally { generating.value = false }
+}
+
+const form = ref({ template: 'accounts', host_ids: [] })
+const openDetail = async row => {
+  detail.value = await api.get(`/reports/${row.id}`)
+  detailVisible.value = true
+  pollDetail(row.id)
+}
+const pollDetail = id => {
+  clearInterval(pollTimer)
+  pollTimer = setInterval(async () => {
+    try {
+      const d = await api.get(`/reports/${id}`)
+      detail.value = d
+      if (d.report.status === 'done') clearInterval(pollTimer)
+    } catch { clearInterval(pollTimer) }
+  }, 2000)
+}
+onUnmounted(() => clearInterval(pollTimer))
+
+const download = async format => {
+  const data = await api.get(`/reports/${detail.value.report.id}/export`, { params: { format }, responseType: 'blob' })
+  const url = URL.createObjectURL(new Blob([data]))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `report-${detail.value.report.id}.${format}`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+const load = async () => {
+  loading.value = true
+  try {
+    reports.value = await api.get('/reports')
+    templates.value = await api.get('/reports/templates')
+  } finally { loading.value = false }
+}
+
+const del = async row => { await api.delete(`/reports/${row.id}`); load() }
+
+onMounted(async () => {
+  await load()
+  hosts.value = await api.get('/hosts')
+  if (route.query.tpl) form.value.template = route.query.tpl
+})
+</script>
+
+<style scoped>
+.tpl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.tpl-card {
+  border: 1px solid #dcdfe6; border-radius: 6px; padding: 12px; cursor: pointer;
+  transition: border-color .2s;
+}
+.tpl-card:hover { border-color: #409eff; }
+.tpl-card.active { border-color: #409eff; background: #ecf5ff; }
+.tpl-name { font-weight: 600; margin-bottom: 4px; }
+.tpl-desc { color: #909399; font-size: 12px; line-height: 1.5; }
+</style>
