@@ -435,7 +435,16 @@ export default {
     generated: '报告已开始采集，稍候可在列表查看',
     targetTip: '不选择主机时默认采集全部主机',
     detail: '报告详情',
-    delConfirm: '确认删除该报告？'
+    delConfirm: '确认删除该报告？',
+    noOutput: '(无输出)',
+    tpl_accounts: '服务器账号信息',
+    tpl_accounts_desc: '系统全部账号（UID/Shell/Home）、可登录账号列表',
+    tpl_crontab: 'Crontab 定时任务',
+    tpl_crontab_desc: '全部用户 crontab 与 /etc/cron.d 列表',
+    tpl_health: '健康检查',
+    tpl_health_desc: '运行时间/负载、内存、磁盘使用率、CPU TOP 进程',
+    tpl_osinfo: '系统信息',
+    tpl_osinfo_desc: '内核版本、发行版、IP 地址'
   },
   osac: {
     rotFilterAll: '全部轮换状态',

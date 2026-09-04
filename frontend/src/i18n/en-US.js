@@ -435,7 +435,16 @@ export default {
     generated: 'Collection started; check the list shortly',
     targetTip: 'If no host is selected all hosts are collected',
     detail: 'Report detail',
-    delConfirm: 'Delete this report?'
+    delConfirm: 'Delete this report?',
+    noOutput: '(no output)',
+    tpl_accounts: 'Server Accounts',
+    tpl_accounts_desc: 'All system accounts (UID/Shell/Home) and login-enabled accounts',
+    tpl_crontab: 'Crontab Jobs',
+    tpl_crontab_desc: 'All user crontabs and /etc/cron.d listings',
+    tpl_health: 'Health Check',
+    tpl_health_desc: 'Uptime/load, memory, disk usage, top CPU processes',
+    tpl_osinfo: 'System Info',
+    tpl_osinfo_desc: 'Kernel version, distribution, IP addresses'
   },
   osac: {
     rotFilterAll: 'All rotation status',

@@ -1,12 +1,12 @@
 <!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
-    <el-card header="生成报告">
+    <el-card :header="$t('report.generate')">
       <div class="tpl-cards">
-        <div v-for="t in templates" :key="t.key" class="tpl-card"
-             :class="{ active: form.template === t.key }" @click="form.template = t.key">
-          <div class="tpl-name">{{ t.name }}</div>
-          <div class="tpl-desc">{{ t.desc }}</div>
+        <div v-for="tpl in templates" :key="tpl.key" class="tpl-card"
+             :class="{ active: form.template === tpl.key }" @click="form.template = tpl.key">
+          <div class="tpl-name">{{ tplName(tpl) }}</div>
+          <div class="tpl-desc">{{ tplDesc(tpl) }}</div>
         </div>
       </div>
       <el-form label-width="90px" style="margin-top:14px">
@@ -27,7 +27,9 @@
     <el-card :header="$t('report.listTitle')" style="margin-top:16px">
       <el-table :data="reports" v-loading="loading" size="small" border @row-click="openDetail">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" :label="$t('report.name')" min-width="200" />
+        <el-table-column :label="$t('report.name')" min-width="200">
+          <template #default="{ row }">{{ reportLabel(row) }}</template>
+        </el-table-column>
         <el-table-column prop="operator" :label="$t('tasks.operator')" width="110" />
         <el-table-column prop="host_count" :label="$t('cron.target')" width="90" />
         <el-table-column :label="$t('tasks.status')" width="100">
@@ -49,7 +51,7 @@
     </el-card>
 
     <!-- 报告详情 -->
-    <el-drawer v-model="detailVisible" :title="detail ? detail.report.name : $t('report.detail')" size="780px">
+    <el-drawer v-model="detailVisible" :title="detail ? reportLabel(detail.report) : $t('report.detail')" size="780px">
       <template v-if="detail">
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px">
           <span style="flex:1"></span>
@@ -62,7 +64,7 @@
             <el-tag size="small" :type="it.status === 'success' ? 'success' : 'danger'">{{ it.status }}</el-tag>
           </div>
           <div v-if="it.error" style="color:#f56c6c; font-size:12px; margin:4px 0">{{ it.error }}</div>
-          <div class="log-box" style="max-height:260px">{{ it.content || '(无输出)' }}</div>
+          <div class="log-box" style="max-height:260px">{{ it.content || $t('report.noOutput') }}</div>
         </div>
       </template>
     </el-drawer>
@@ -100,6 +102,23 @@ const generate = async () => {
 }
 
 const form = ref({ template: 'accounts', host_ids: [] })
+// 模板名/描述优先取语言包（report.tpl_<key>），无对应键时回退后端返回值
+const tplName = tpl => i18n.global.te(`report.tpl_${tpl.key}`)
+  ? i18n.global.t(`report.tpl_${tpl.key}`) : tpl.name
+const tplDesc = tpl => i18n.global.te(`report.tpl_${tpl.key}_desc`)
+  ? i18n.global.t(`report.tpl_${tpl.key}_desc`) : tpl.desc
+// 报告存库名称含中文模板名，展示时按 template 键重新本地化
+const fmtStamp = iso => {
+  const d = iso ? new Date(iso) : null
+  if (!d || isNaN(d)) return ''
+  const p = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
+}
+const reportLabel = r => {
+  if (r.template && i18n.global.te(`report.tpl_${r.template}`))
+    return `${i18n.global.t(`report.tpl_${r.template}`)} ${fmtStamp(r.created_at)}`.trim()
+  return r.name
+}
 const openDetail = async row => {
   detail.value = await api.get(`/reports/${row.id}`)
   detailVisible.value = true
