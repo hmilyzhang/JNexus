@@ -467,7 +467,9 @@ export default {
     tpl_health: '健康检查',
     tpl_health_desc: '运行时间/负载、内存、磁盘使用率、CPU TOP 进程',
     tpl_osinfo: '系统信息',
-    tpl_osinfo_desc: '内核版本、发行版、IP 地址'
+    tpl_osinfo_desc: '内核版本、发行版、IP 地址',
+    tpl_portcert: '端口与证书检查',
+    tpl_portcert_desc: '监听端口清单、HTTP/HTTPS 协议探测、HTTPS 证书与本机证书文件过期检查'
   },
   osac: {
     rotFilterAll: '全部轮换状态',

@@ -67,6 +67,64 @@ echo '== IP 地址 =='
 (ip -4 addr 2>/dev/null || ifconfig 2>/dev/null || hostname -I 2>/dev/null) | grep -w inet 2>/dev/null || hostname
 `,
 	},
+	{
+		Key:  "portcert",
+		Name: "端口与证书检查",
+		Desc: "监听端口清单、HTTP/HTTPS 协议探测、HTTPS 证书与本机证书文件过期检查",
+		Cmd: `echo '== 监听端口 =='
+LISTEN=$( (ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null) | grep -i listen )
+printf '%s\n' "$LISTEN" | head -100
+[ -z "$LISTEN" ] && echo 'N/A'
+echo
+echo '== 端口协议探测（http/https）=='
+TO=""
+command -v timeout >/dev/null 2>&1 && TO="timeout 3"
+ADDRS=$( (ss -tln 2>/dev/null | awk 'NR>1 {print $4}') ; (netstat -tln 2>/dev/null | awk 'NR>2 {print $4}') )
+PLIST=$(for a in $ADDRS; do p=${a##*:}; case "$p" in ''|*[!0-9]*) continue ;; esac; echo "$p"; done | sort -n | uniq | head -64)
+n=0
+for p in $PLIST; do
+  n=$((n+1))
+  proto=other; info=""
+  if command -v openssl >/dev/null 2>&1; then
+    if echo | $TO openssl s_client -connect 127.0.0.1:$p 2>/dev/null | grep -q 'BEGIN CERTIFICATE'; then
+      proto=https
+      cert=$(echo | $TO openssl s_client -connect 127.0.0.1:$p 2>/dev/null | openssl x509 -noout -subject -enddate 2>/dev/null | tr '\n' ' ')
+      [ -n "$cert" ] && info="$cert"
+    fi
+  fi
+  if [ "$proto" = other ] && command -v bash >/dev/null 2>&1; then
+    line=$($TO bash -c "exec 3<>/dev/tcp/127.0.0.1/$p && printf 'HEAD / HTTP/1.0\r\n\r\n' >&3 && head -c 16 <&3" 2>/dev/null)
+    case "$line" in HTTP/*) proto=http ;; esac
+  fi
+  echo "端口 $p: $proto $info"
+done
+[ "$n" = 0 ] && echo '未探测到监听端口'
+echo
+echo '== 本机证书文件过期检查 =='
+NOW=$(date +%s)
+FILES=$( (find /etc/ssl/certs /etc/pki/tls/certs /etc/grid-security /etc/kubernetes/ssl -maxdepth 3 -type f 2>/dev/null; find /etc/ssl /etc/pki -maxdepth 5 -type f \( -name '*.pem' -o -name '*.crt' -o -name '*.cer' \) 2>/dev/null) | sort -u | head -300 )
+if [ -z "$FILES" ]; then
+  echo '未找到证书目录/文件（/etc/ssl、/etc/pki）'
+else
+  exp=0; ok=0
+  for f in $FILES; do
+    [ -f "$f" ] || continue
+    END=$(openssl x509 -enddate -noout -in "$f" 2>/dev/null | cut -d= -f2)
+    [ -z "$END" ] && continue
+    ES=$(date -d "$END" +%s 2>/dev/null || date -j -f '%b %d %H:%M:%S %Y %Z' "$END" +%s 2>/dev/null)
+    if [ -z "$ES" ]; then
+      echo "未知    $END  $f"
+    elif [ "$ES" -lt "$NOW" ]; then
+      echo "已过期  $END  $f"
+      exp=$((exp+1))
+    else
+      ok=$((ok+1))
+    fi
+  done
+  echo "-- 证书文件汇总：有效 $ok，已过期 $exp"
+fi
+`,
+	},
 }
 
 // GetReportTemplates 供前端展示模板列表

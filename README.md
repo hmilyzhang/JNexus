@@ -17,7 +17,7 @@ Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 | Batch Exec | Tree host selection / multi-IP input, **OS account selection**, concurrent execution, WebSocket live per-host output, success/fail counters & progress |
 | Task Console | Aggregate task view: host table (account, status, exit code, duration, failed-first), output panel, failed-only filter, cross-host output keyword search, **export summary `.log` / CSV** |
 | Scheduled Tasks | Cron-based execution of commands or scripts on selected hosts; enable/disable, run-now, run history, email notification |
-| Reports | Preset collection templates — **server accounts**, **crontab listing**, **health check**, **system info** — run across hosts (empty target = all hosts), view per-host results, export `.log` / CSV; module access controlled per role |
+| Reports | Preset collection templates — **server accounts**, **crontab listing**, **health check**, **system info**, **ports & certificates** (listening ports, HTTP/HTTPS protocol detection, HTTPS & local certificate expiry) — run across hosts (empty target = all hosts), view per-host results, export `.log` / CSV; module access controlled per role |
 | Host Accounts | Standalone **host accounts** page (all accounts across hosts): filters by host/keyword/rotation status, add/edit/rotate/reveal (admin), **password auto-rotation** with configurable length/complexity/period (LDAP accounts auto-skipped) |
 | File Distribution | Upload → concurrent SFTP to many hosts (tree/IP selection), live progress |
 | Scripts | CRUD + one-click batch execution |
@@ -98,7 +98,7 @@ Env precedence: `AUTOOPS_DSN` > `AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME` > `con
 4. **Batch execution**: pick hosts (tree) or type IPs, optionally pick an OS account, run. Live per-host output; the task console aggregates status and lets you download a summary `.log` or CSV.
 5. **Release**: configure an app (hosts + deploy dir + jar name + optional commands/health URL/release account) in Applications, then upload the jar in Release Center. Failed releases roll back to the latest backup with one click.
 6. **Scheduled tasks**: create a cron schedule (presets available) to run a command/script on selected hosts; runs are recorded as tasks with history.
-7. **Reports**: pick a preset template (accounts / crontab / health / system info) and target hosts (leave empty to collect all hosts); per-host results are archived and exportable as `.log` / CSV.
+7. **Reports**: pick a preset template (accounts / crontab / health / system info / ports & certificates) and target hosts (leave empty to collect all hosts); per-host results are archived and exportable as `.log` / CSV. The ports & certificates report lists listening ports, classifies each as http / https / other (live TLS handshake + HTTP HEAD probe), and flags expired certificates — both those served on HTTPS ports and local certificate files under `/etc/ssl`, `/etc/pki`, etc.
 8. **Password rotation**: enable per account (Host Accounts page) with a rotation period; new random passwords are stored encrypted and never displayed. LDAP/domain accounts are detected and skipped automatically.
 9. **Roles**: System Settings → Role Settings controls each role's description, visible menus, host permissions (view/create/edit/delete), OS-account management, and report access. Admin is always full.
 10. **LDAP**: enable in System Settings, optionally require group membership (`Group Base DN` + filter + allowed groups). LDAP users are auto-created on first login with the configured default role.

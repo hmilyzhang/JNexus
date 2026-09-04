@@ -467,7 +467,9 @@ export default {
     tpl_health: 'Health Check',
     tpl_health_desc: 'Uptime/load, memory, disk usage, top CPU processes',
     tpl_osinfo: 'System Info',
-    tpl_osinfo_desc: 'Kernel version, distribution, IP addresses'
+    tpl_osinfo_desc: 'Kernel version, distribution, IP addresses',
+    tpl_portcert: 'Ports & Certificates',
+    tpl_portcert_desc: 'Listening ports, HTTP/HTTPS detection, HTTPS certificate and local certificate file expiry check'
   },
   osac: {
     rotFilterAll: 'All rotation status',
