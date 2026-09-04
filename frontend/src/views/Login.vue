@@ -49,14 +49,14 @@ const router = useRouter()
 const store = useUserStore()
 const form = ref({ username: '', password: '' })
 const loading = ref(false)
-const systemName = ref(localStorage.getItem('system_name') || 'AutoOps 运维平台')
+const systemName = ref(localStorage.getItem('system_name') || 'AutoOps')
 const mfaStep = ref(false)
 const mfaToken = ref('')
 const mfaCode = ref('')
 
 api.get('/system/info').then(info => {
   systemName.value = info.system_name || systemName.value
-  localStorage.setItem('system_name', info.system_name || 'AutoOps 运维平台')
+  localStorage.setItem('system_name', info.system_name || 'AutoOps')
   document.title = systemName.value
 }).catch(() => {})
 
