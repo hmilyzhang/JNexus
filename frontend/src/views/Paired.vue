@@ -12,15 +12,15 @@
       <el-table-column :label="$t('menu.hosts')" min-width="150">
         <template #default="{ row }">{{ row.host_name }}（{{ row.host_ip }}）</template>
       </el-table-column>
-      <el-table-column prop="username" :label="$t('hosts.credUser')" width="110" />
-      <el-table-column prop="label" :label="$t('hosts.credLabel')" width="120" />
-      <el-table-column prop="key_name" :label="$t('paired.keyName')" width="200" show-overflow-tooltip />
-      <el-table-column :label="$t('common.status')" width="100">
+      <el-table-column prop="username" :label="$t('hosts.credUser')" min-width="110" />
+      <el-table-column prop="label" :label="$t('hosts.credLabel')" min-width="120" />
+      <el-table-column prop="key_name" :label="$t('paired.keyName')" min-width="200" show-overflow-tooltip />
+      <el-table-column :label="$t('common.status')" min-width="100">
         <template #default="{ row }">
           <el-tag size="small" :type="row.is_default ? 'success' : 'info'">{{ row.is_default ? $t('hosts.credDefault') : '-' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" :label="$t('releases.time')" width="170" />
+      <el-table-column prop="created_at" :label="$t('releases.time')" min-width="170" />
     </el-table>
 
     <el-card :header="$t('paired.platformKey')" style="margin-top:16px" v-loading="keyLoading">

@@ -1,12 +1,12 @@
 <!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
-  <div v-loading="loading" style="max-width:860px">
+  <div v-loading="loading">
     <el-tabs v-model="activeTab">
     <el-tab-pane :label="$t('system.general')" name="general">
     <el-card>
       <el-form label-width="140px">
         <el-form-item :label="$t('system.systemName')">
-          <el-input v-model="form.system_name" style="width:320px" />
+          <el-input v-model="form.system_name" />
         </el-form-item>
         <el-form-item :label="$t('system.version')">
           <el-tag>Version 1.0</el-tag>
@@ -55,28 +55,28 @@
         <el-form-item :label="$t('system.ldapEnabled')"><el-switch v-model="form.ldap_enabled" active-value="true" inactive-value="false" /></el-form-item>
         <template v-if="form.ldap_enabled === 'true'">
           <el-form-item :label="$t('system.ldapHost')">
-            <el-input v-model="form.ldap_host" placeholder="ldap.example.com" style="width:320px" class="mono" />
+            <el-input v-model="form.ldap_host" placeholder="ldap.example.com" class="mono" />
           </el-form-item>
           <el-form-item :label="$t('system.ldapPort')"><el-input-number v-model="ldapPort" :min="1" :max="65535" /></el-form-item>
           <el-form-item :label="$t('system.ldapTls')"><el-switch v-model="form.ldap_tls" active-value="true" inactive-value="false" /></el-form-item>
           <el-form-item :label="$t('system.ldapBindDn')">
-            <el-input v-model="form.ldap_bind_dn" placeholder="cn=admin,dc=example,dc=com" style="width:420px" class="mono" />
+            <el-input v-model="form.ldap_bind_dn" placeholder="cn=admin,dc=example,dc=com" class="mono" />
           </el-form-item>
           <el-form-item :label="$t('system.ldapBindPwd')">
-            <el-input v-model="form.ldap_bind_password" type="password" show-password :placeholder="$t('system.ldapBindPwdPlaceholder')" style="width:320px" />
+            <el-input v-model="form.ldap_bind_password" type="password" show-password :placeholder="$t('system.ldapBindPwdPlaceholder')" />
           </el-form-item>
           <el-form-item :label="$t('system.ldapBaseDn')">
-            <el-input v-model="form.ldap_base_dn" placeholder="dc=example,dc=com" style="width:420px" class="mono" />
+            <el-input v-model="form.ldap_base_dn" placeholder="dc=example,dc=com" class="mono" />
           </el-form-item>
           <el-form-item :label="$t('system.ldapUserFilter')">
-            <el-input v-model="form.ldap_user_filter" placeholder="(uid=%s)" style="width:320px" class="mono" />
+            <el-input v-model="form.ldap_user_filter" placeholder="(uid=%s)" class="mono" />
             <div style="color:#909399; font-size:12px">{{ $t('system.ldapUserFilterTip') }}</div>
           </el-form-item>
           <el-form-item :label="$t('system.ldapAttrUsername')">
-            <el-input v-model="form.ldap_attr_username" placeholder="uid" style="width:200px" class="mono" />
+            <el-input v-model="form.ldap_attr_username" placeholder="uid" class="mono" />
           </el-form-item>
           <el-form-item :label="$t('system.ldapDefaultRole')">
-            <el-select v-model="form.ldap_default_role" style="width:200px">
+            <el-select v-model="form.ldap_default_role">
               <el-option label="Viewer" value="viewer" />
               <el-option :label="$t('layout.roleOps')" value="ops" />
               <el-option :label="$t('layout.rolePublisher')" value="publisher" />
@@ -89,10 +89,10 @@
           </el-form-item>
           <template v-if="form.ldap_group_check === 'true'">
             <el-form-item :label="$t('system.ldapGroupBaseDn')">
-              <el-input v-model="form.ldap_group_base_dn" placeholder="ou=groups,dc=example,dc=com" style="width:420px" class="mono" />
+              <el-input v-model="form.ldap_group_base_dn" placeholder="ou=groups,dc=example,dc=com" class="mono" />
             </el-form-item>
             <el-form-item :label="$t('system.ldapGroupFilter')">
-              <el-input v-model="form.ldap_group_filter" placeholder="(member=%s)" style="width:320px" class="mono" />
+              <el-input v-model="form.ldap_group_filter" placeholder="(member=%s)" class="mono" />
               <div style="color:#909399; font-size:12px">{{ $t('system.ldapGroupFilterTip') }}</div>
             </el-form-item>
             <el-form-item :label="$t('system.ldapRequiredGroups')">
@@ -118,21 +118,21 @@
         <el-form-item :label="$t('system.smtpEnabled')"><el-switch v-model="form.smtp_enabled" active-value="true" inactive-value="false" /></el-form-item>
         <template v-if="form.smtp_enabled === 'true'">
           <el-form-item :label="$t('system.smtpHost')">
-            <el-input v-model="form.smtp_host" placeholder="smtp.example.com" style="width:320px" class="mono" />
+            <el-input v-model="form.smtp_host" placeholder="smtp.example.com" class="mono" />
           </el-form-item>
           <el-form-item :label="$t('system.smtpPort')"><el-input-number v-model="smtpPort" :min="1" :max="65535" /></el-form-item>
           <el-form-item :label="$t('system.smtpMode')">
             <el-checkbox v-model="smtpSsl">{{ $t('system.smtpSsl') }} (465)</el-checkbox>
             <el-checkbox v-model="form.smtp_tls" style="margin-left:12px">{{ $t('system.smtpTls') }} (587)</el-checkbox>
           </el-form-item>
-          <el-form-item :label="$t('system.smtpUsername')"><el-input v-model="form.smtp_username" style="width:320px" class="mono" /></el-form-item>
+          <el-form-item :label="$t('system.smtpUsername')"><el-input v-model="form.smtp_username" class="mono" /></el-form-item>
           <el-form-item :label="$t('system.smtpPassword')">
-            <el-input v-model="form.smtp_password" type="password" show-password :placeholder="$t('system.ldapBindPwdPlaceholder')" style="width:320px" />
+            <el-input v-model="form.smtp_password" type="password" show-password :placeholder="$t('system.ldapBindPwdPlaceholder')" />
           </el-form-item>
-          <el-form-item :label="$t('system.smtpFrom')"><el-input v-model="form.smtp_from" placeholder="autoops@example.com" style="width:320px" class="mono" /></el-form-item>
+          <el-form-item :label="$t('system.smtpFrom')"><el-input v-model="form.smtp_from" placeholder="autoops@example.com" class="mono" /></el-form-item>
           <el-form-item :label="$t('system.smtpRecipients')">
             <el-input v-model="form.smtp_recipients" type="textarea" :rows="2" class="mono"
-                      placeholder="ops@example.com,boss@example.com" style="width:420px" />
+                      placeholder="ops@example.com,boss@example.com" />
             <div style="color:#909399; font-size:12px">{{ $t('system.smtpRecipientsTip') }}</div>
           </el-form-item>
           <el-form-item :label="$t('system.smtpNotify')"><el-switch v-model="form.smtp_notify" active-value="true" inactive-value="false" />
@@ -140,7 +140,7 @@
           </el-form-item>
           <el-form-item :label="$t('system.smtpTest')">
             <div style="display:flex; gap:8px; align-items:center">
-              <el-input v-model="smtpTestTo" :placeholder="$t('system.smtpTestTo')" style="width:240px" class="mono" />
+              <el-input v-model="smtpTestTo" :placeholder="$t('system.smtpTestTo')" style="flex:1" class="mono" />
               <el-button :loading="smtpTesting" @click="testSmtp">{{ $t('system.smtpSendTest') }}</el-button>
             </div>
           </el-form-item>
