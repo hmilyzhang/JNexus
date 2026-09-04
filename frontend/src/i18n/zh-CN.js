@@ -511,6 +511,7 @@ export default {
     testOk: 'LDAP 连接成功',
     credManage: '管理账号',
     credPerm: 'OS 账号权限',
+    reportPerm: '报告权限',
     reportView: '查看报告',
     hostPerms: '主机权限',
     permView: '查看',

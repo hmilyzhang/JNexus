@@ -511,6 +511,7 @@ export default {
     testOk: 'LDAP connection OK',
     credManage: 'Manage accounts',
     credPerm: 'OS account perms',
+    reportPerm: 'Report perms',
     reportView: 'View reports',
     hostPerms: 'Host permissions',
     permView: 'View',
