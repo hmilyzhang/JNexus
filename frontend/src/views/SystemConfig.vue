@@ -157,7 +157,7 @@
     <el-tab-pane :label="$t('system.roles')" name="roles">
     <el-card>
       <el-table :data="roleRows" size="small" border>
-        <el-table-column :label="$t('users.role')" width="110">
+        <el-table-column :label="$t('users.role')" min-width="100">
           <template #default="{ row }"><el-tag size="small">{{ row.label }}</el-tag></template>
         </el-table-column>
         <el-table-column :label="$t('scripts.desc')" min-width="200">
@@ -165,25 +165,27 @@
             <el-input v-model="row.desc" size="small" :disabled="row.role === 'admin'" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('system.credPerm')" width="110">
+        <el-table-column :label="$t('system.credPerm')" min-width="80" align="center">
           <template #default="{ row }">
-            <el-checkbox v-model="row.cred" size="small" :disabled="row.role === 'admin'">{{ $t('system.credManage') }}</el-checkbox>
+            <el-checkbox v-model="row.cred" size="small" :disabled="row.role === 'admin'" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('system.reportPerm')" width="110">
+        <el-table-column :label="$t('system.reportPerm')" min-width="80" align="center">
           <template #default="{ row }">
-            <el-checkbox v-model="row.report" size="small" :disabled="row.role === 'admin'">{{ $t('system.reportView') }}</el-checkbox>
+            <el-checkbox v-model="row.report" size="small" :disabled="row.role === 'admin'" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('system.hostPerms')" width="300">
+        <el-table-column :label="$t('system.hostPerms')" min-width="190">
           <template #default="{ row }">
-            <el-checkbox v-model="row.host.view" size="small">{{ $t('system.permView') }}</el-checkbox>
-            <el-checkbox v-model="row.host.create" size="small" :disabled="row.role === 'admin'">{{ $t('system.permCreate') }}</el-checkbox>
-            <el-checkbox v-model="row.host.edit" size="small" :disabled="row.role === 'admin'">{{ $t('system.permEdit') }}</el-checkbox>
-            <el-checkbox v-model="row.host.delete" size="small" :disabled="row.role === 'admin'">{{ $t('system.permDelete') }}</el-checkbox>
+            <div style="display:flex; flex-wrap:wrap; row-gap:2px">
+              <el-checkbox v-model="row.host.view" size="small" style="width:50%; margin-right:0">{{ $t('system.permView') }}</el-checkbox>
+              <el-checkbox v-model="row.host.create" size="small" style="width:50%; margin-right:0" :disabled="row.role === 'admin'">{{ $t('system.permCreate') }}</el-checkbox>
+              <el-checkbox v-model="row.host.edit" size="small" style="width:50%; margin-right:0" :disabled="row.role === 'admin'">{{ $t('system.permEdit') }}</el-checkbox>
+              <el-checkbox v-model="row.host.delete" size="small" style="width:50%; margin-right:0" :disabled="row.role === 'admin'">{{ $t('system.permDelete') }}</el-checkbox>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('system.menuPerms')" min-width="160">
+        <el-table-column :label="$t('system.menuPerms')" min-width="150">
           <template #default="{ row }">
             <el-button size="small" :disabled="row.role === 'admin'" @click="openMenuDlg(row)">
               {{ row.menus.length }}/{{ menuKeys.length }} · {{ $t('system.editMenus') }}
@@ -245,9 +247,8 @@ const smtpTesting = ref(false)
 const ldapPort = ref(389)
 
 const roleRows = ref([])
-const roleLabels = {
-  admin: 'Admin', ops: 'Ops', publisher: 'Publisher', viewer: 'Viewer', auditor: 'Auditor'
-}
+// 角色名/描述按语言包本地化显示（system.role<Cap> / layout.role<Cap>），保存的是显示值
+const roleCaps = { admin: 'Admin', ops: 'Ops', publisher: 'Publisher', viewer: 'Viewer', auditor: 'Auditor' }
 const menuKeys = [
   { key: 'dashboard', label: 'menu.dashboard' },
   { key: 'shell', label: 'shell.title' },
@@ -274,11 +275,16 @@ const savingRoles = ref(false)
 
 const loadRoles = async () => {
   const rs = await api.get('/system/roles')
-  roleRows.value = Object.entries(rs).map(([role, v]) => ({
-    role, label: roleLabels[role] || role,
-    desc: v.desc, menus: [...(v.menus || [])],
-    host: { ...v.host }, cred: !!v.cred, report: !!v.report
-  }))
+  roleRows.value = Object.entries(rs).map(([role, v]) => {
+    const cap = roleCaps[role] || ''
+    return {
+      role,
+      label: cap ? t('layout.role' + cap) : role,
+      desc: cap && i18n.global.te('system.role' + cap) ? t('system.role' + cap) : v.desc,
+      menus: [...(v.menus || [])],
+      host: { ...v.host }, cred: !!v.cred, report: !!v.report
+    }
+  })
 }
 const openMenuDlg = row => {
   menuDlgRole.value = row
