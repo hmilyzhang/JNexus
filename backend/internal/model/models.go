@@ -24,6 +24,8 @@ type User struct {
 	AuthSource  string    `gorm:"size:16;default:local" json:"auth_source"` // local / ldap
 	Email       string    `gorm:"size:128" json:"email"`
 	Status      int       `gorm:"default:1" json:"status"` // 1 启用 0 禁用
+	MFAEnabled  bool      `gorm:"default:false" json:"mfa_enabled"`
+	MFASecret   string    `gorm:"size:256" json:"-"` // TOTP 密钥，AES-GCM 加密存储
 	LastLoginAt *time.Time `json:"last_login_at"`
 	CreatedAt   time.Time `json:"created_at"`
 	CreatedBy   string     `gorm:"size:64" json:"created_by"` // 创建人（LDAP 自动建号记为 LDAP）

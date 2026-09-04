@@ -27,6 +27,7 @@ func SetupRouter() *gin.Engine {
 	api := r.Group("/api")
 	{
 		api.POST("/login", Login)
+		api.POST("/login/mfa", LoginMFA)
 		api.GET("/system/info", SystemInfo)
 		// Web 终端（自带 token 鉴权，不走 hub）
 		api.GET("/ws/term/:hostId", WebTerminal)
@@ -43,6 +44,12 @@ func SetupRouter() *gin.Engine {
 		auth.GET("/me", Me)
 		auth.POST("/change_password", ChangePassword)
 
+		// MFA（TOTP 两步验证）自助管理
+		auth.GET("/mfa/status", MFAStatus)
+		auth.POST("/mfa/setup", MFASetup)
+		auth.POST("/mfa/enable", MFAEnable)
+		auth.POST("/mfa/disable", MFADisable)
+
 		// 用户管理（admin）
 		users := auth.Group("/users", middleware.RequireRole())
 		{
@@ -52,6 +59,7 @@ func SetupRouter() *gin.Engine {
 			users.DELETE("/:id", DeleteUser)
 			users.PUT("/:id/grants", SetUserGrants)
 			users.GET("/:id/grants", GetUserGrants)
+			users.POST("/:id/mfa_reset", AdminResetUserMFA)
 		}
 
 		// 主机分组

@@ -52,6 +52,7 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="password">{{ $t('layout.changePwd') }}</el-dropdown-item>
+                <el-dropdown-item command="mfa">{{ $t('layout.mfaSecurity') }}</el-dropdown-item>
                 <el-dropdown-item command="logout" divided>{{ $t('layout.logout') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -72,6 +73,35 @@
     <template #footer>
       <el-button @click="pwdVisible = false">{{ $t('common.cancel') }}</el-button>
       <el-button type="primary" @click="doChangePwd">{{ $t('common.confirm') }}</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- MFA（TOTP 两步验证）自助管理 -->
+  <el-dialog v-model="mfaVisible" :title="$t('layout.mfaSecurity')" width="440px" @open="loadMfa">
+    <div v-if="mfaLoading" v-loading style="height:100px"></div>
+    <template v-else>
+      <template v-if="!mfaEnabled">
+        <template v-if="!mfaSetup">
+          <div style="color:#909399; font-size:13px; line-height:1.7; margin-bottom:12px">{{ $t('mfa.disabledTip') }}</div>
+          <el-button type="primary" style="width:100%" @click="mfaSetupStart">{{ $t('mfa.startSetup') }}</el-button>
+        </template>
+        <template v-else>
+          <div style="text-align:center"><img v-if="mfaSetup.qr" :src="mfaSetup.qr" style="width:200px; height:200px" alt="QR" /></div>
+          <div style="color:#909399; font-size:12px; text-align:center; margin:6px 0 4px">{{ $t('mfa.scanTip') }}</div>
+          <div class="mono" style="font-size:12px; text-align:center; margin-bottom:12px; word-break:break-all">{{ $t('mfa.secretKey') }}：{{ mfaSetup.secret }}</div>
+          <el-input v-model="mfaCode" maxlength="6" class="mono" size="large"
+                    :placeholder="$t('mfa.codePlaceholder')" style="text-align:center; letter-spacing:8px; margin-bottom:10px"
+                    @keyup.enter="mfaEnableNow" />
+          <el-button type="primary" style="width:100%" @click="mfaEnableNow">{{ $t('mfa.enable') }}</el-button>
+        </template>
+      </template>
+      <template v-else>
+        <el-result icon="success" :title="$t('mfa.enabledTitle')" style="padding:6px 0 14px" />
+        <el-input v-model="mfaCode" maxlength="6" class="mono" size="large"
+                  :placeholder="$t('mfa.disableTip')" style="text-align:center; letter-spacing:8px; margin-bottom:10px"
+                  @keyup.enter="mfaDisableNow" />
+        <el-button type="danger" style="width:100%" @click="mfaDisableNow">{{ $t('mfa.disable') }}</el-button>
+      </template>
     </template>
   </el-dialog>
 </template>
@@ -167,6 +197,8 @@ const onCmd = cmd => {
   } else if (cmd === 'password') {
     pwdForm.value = { old_password: '', new_password: '' }
     pwdVisible.value = true
+  } else if (cmd === 'mfa') {
+    mfaVisible.value = true
   }
 }
 
@@ -174,6 +206,38 @@ const doChangePwd = async () => {
   await api.post('/change_password', pwdForm.value)
   ElMessage.success(t('common.success'))
   pwdVisible.value = false
+}
+
+// ---- MFA（TOTP 两步验证）----
+const mfaVisible = ref(false)
+const mfaLoading = ref(false)
+const mfaEnabled = ref(false)
+const mfaSetup = ref(null)
+const mfaCode = ref('')
+const loadMfa = async () => {
+  mfaLoading.value = true
+  mfaSetup.value = null
+  mfaCode.value = ''
+  try {
+    const s = await api.get('/mfa/status')
+    mfaEnabled.value = !!s.enabled
+  } finally { mfaLoading.value = false }
+}
+const mfaSetupStart = async () => { mfaSetup.value = await api.post('/mfa/setup') }
+const mfaEnableNow = async () => {
+  if (mfaCode.value.length !== 6) { ElMessage.warning(t('mfa.codePlaceholder')); return }
+  try {
+    await api.post('/mfa/enable', { code: mfaCode.value })
+    ElMessage.success(t('mfa.enableOk'))
+    loadMfa()
+  } catch { /* 错误提示由拦截器展示 */ }
+}
+const mfaDisableNow = async () => {
+  try {
+    await api.post('/mfa/disable', { code: mfaCode.value })
+    ElMessage.success(t('mfa.disableOk'))
+    loadMfa()
+  } catch { /* 错误提示由拦截器展示 */ }
 }
 </script>
 

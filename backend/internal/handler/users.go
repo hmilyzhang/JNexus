@@ -25,7 +25,7 @@ func ListUsers(c *gin.Context) {
 		model.DB.Model(&model.UserGroupMember{}).Where("user_id = ?", u.ID).Pluck("user_group_id", &memberOf)
 		out = append(out, gin.H{
 			"id": u.ID, "username": u.Username, "role": u.Role, "auth_source": u.AuthSource,
-			"email": u.Email, "status": u.Status, "last_login_at": u.LastLoginAt,
+			"email": u.Email, "status": u.Status, "mfa_enabled": u.MFAEnabled, "last_login_at": u.LastLoginAt,
 			"created_at": u.CreatedAt, "created_by": u.CreatedBy,
 			"updated_by": u.UpdatedBy, "updated_at": u.UpdatedAt,
 			"disabled_at": u.DisabledAt, "disabled_by": u.DisabledBy,

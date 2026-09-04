@@ -25,6 +25,10 @@ func JWT() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "登录已过期，请重新登录"})
 			return
 		}
+		if claims.Purpose == "mfa" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "请先完成两步验证"})
+			return
+		}
 		var u model.User
 		if err := model.DB.First(&u, claims.UserID).Error; err != nil || u.Status != 1 {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "账号不可用"})

@@ -34,6 +34,11 @@
               <el-tag size="small" :type="row.status === 1 ? 'success' : 'danger'">{{ row.status === 1 ? $t('common.enabled') : $t('common.disabled') }}</el-tag>
             </template>
           </el-table-column>
+          <el-table-column :label="$t('mfa.column')" width="90">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.mfa_enabled ? 'success' : 'info'">{{ row.mfa_enabled ? $t('mfa.on') : $t('mfa.off') }}</el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="last_login_at" :label="$t('users.lastLogin')" width="150">
           <template #default="{ row }">{{ fmtTime(row.last_login_at) }}</template>
         </el-table-column>
@@ -58,10 +63,13 @@
             <span v-else style="color:#c0c4cc">-</span>
           </template>
         </el-table-column>
-          <el-table-column :label="$t('common.operation')" width="180" fixed="right">
+          <el-table-column :label="$t('common.operation')" width="230" fixed="right">
             <template #default="{ row }">
               <el-button size="small" link @click="grantDlg(row)">{{ $t('users.grant') }}</el-button>
               <el-button size="small" link @click="dlg(row)">{{ $t('common.edit') }}</el-button>
+              <el-popconfirm v-if="row.mfa_enabled" :title="$t('mfa.resetConfirm')" @confirm="resetMfa(row)">
+                <template #reference><el-button size="small" type="warning" link>{{ $t('mfa.reset') }}</el-button></template>
+              </el-popconfirm>
               <el-popconfirm :title="$t('users.delConfirm')" @confirm="del(row)">
                 <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
               </el-popconfirm>
@@ -284,6 +292,13 @@ const save = async () => {
   load()
 }
 const del = async row => { await api.delete(`/users/${row.id}`); load() }
+
+// 管理员重置用户 MFA（用户丢失验证器时解绑，重置后用户可重新绑定）
+const resetMfa = async row => {
+  await api.post(`/users/${row.id}/mfa_reset`)
+  ElMessage.success(t('common.success'))
+  load()
+}
 
 const grantDlg = async row => {
   grantUser.value = row

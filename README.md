@@ -2,7 +2,7 @@
 
 # AutoOps — Lightweight Ops Platform
 
-A self-built, lightweight operations platform: host management (multi OS accounts per host), batch command execution with live output, file distribution, script center, release pipeline with rollback, RBAC with configurable roles, audit logging, dangerous-command blocking, and LDAP authentication. Data is stored in an external PostgreSQL.
+A self-built, lightweight operations platform: host management (multi OS accounts per host), batch command execution with live output, file distribution, script center, release pipeline with rollback, RBAC with configurable roles, audit logging, dangerous-command blocking, LDAP authentication, and per-user **MFA (TOTP two-step verification)**. Data is stored in an external PostgreSQL.
 
 **By JJ Zhang · Version 1.0**
 
@@ -22,8 +22,9 @@ Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 | File Distribution | Upload → concurrent SFTP to many hosts (tree/IP selection), live progress |
 | Scripts | CRUD + one-click batch execution |
 | Release Center | App → host bindings (with release OS account); pipeline: stop → timestamped backup → upload → start → health check; one-click rollback to latest backup |
-| Users | Two tabs: Users + Group Management. Roles: admin / ops / publisher / viewer / **auditor**; user groups link members, hosts, host groups, **OS accounts** and **account rules** (`host scope × username`, auto-covers future hosts). User rows carry audit fields: creator, last modified by/at, disabled at/by |
+| Users | Two tabs: Users + Group Management. Roles: admin / ops / publisher / viewer / **auditor**; user groups link members, hosts, host groups, **OS accounts** and **account rules** (`host scope × username`, auto-covers future hosts). User rows carry audit fields: creator, last modified by/at, disabled at/by. Per-user **MFA status** with admin reset |
 | Web Shell | Full-screen terminal workspace: host asset tree expanded by usable OS account, multiple concurrent sessions, per-account connections |
+| **MFA** | **TOTP two-step verification** (RFC 6238, works with Google/Microsoft Authenticator): self-service enable via QR code in the user menu, 6-digit code required at login after the password step, self-disable with code, admin reset for lost devices; secrets AES-256-GCM encrypted |
 | Audit Log | All write operations recorded (who / action / resource / source IP / status), full output retention in tasks; visible to admin & auditor only |
 | Dangerous Commands | Regex rule library (rm -rf, mkfs, dd, shutdown, drop database… 11 built-in), blocks at exec/script/release entry points and writes audit; editable & testable by admin |
 | Email (SMTP) | SMTP settings (SSL / STARTTLS, auth, masked password), test send; task-completion notification emails with success/fail counts and per-host result table (failed tasks include output snippets) |
@@ -101,11 +102,13 @@ Env precedence: `AUTOOPS_DSN` > `AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME` > `con
 8. **Password rotation**: enable per account (Host Accounts page) with a rotation period; new random passwords are stored encrypted and never displayed. LDAP/domain accounts are detected and skipped automatically.
 9. **Roles**: System Settings → Role Settings controls each role's description, visible menus, host permissions (view/create/edit/delete), OS-account management, and report access. Admin is always full.
 10. **LDAP**: enable in System Settings, optionally require group membership (`Group Base DN` + filter + allowed groups). LDAP users are auto-created on first login with the configured default role.
-8. **Email notifications**: configure SMTP in System Settings (with a one-click test send). When enabled, exec / distribute / release / batch-account tasks send a result summary email to the recipients on completion — failed hosts with output snippets are highlighted.
+11. **MFA (TOTP two-step verification)**: enable per user via the user menu (top right) → **MFA Security**. Scan the QR code with any authenticator app (Google / Microsoft Authenticator etc.), enter a 6-digit code to confirm — afterwards sign-in requires password + dynamic code. Users can disable it themselves (code required); admins can reset a user's MFA from the Users page (e.g. lost device). TOTP secrets are stored AES-256-GCM encrypted.
+12. **Email notifications**: configure SMTP in System Settings (with a one-click test send). When enabled, exec / distribute / release / batch-account tasks send a result summary email to the recipients on completion — failed hosts with output snippets are highlighted.
 
 ## Security Design
 
 - SSH private keys & passwords encrypted at rest with AES-256-GCM; master key injected via config (env overridable).
+- TOTP (MFA) secrets encrypted with the same master key; the intermediate `mfa_token` issued after the password step is valid for 2 minutes, is rejected for API access, and only a verified code exchanges it for a real JWT.
 - Passwords hashed with bcrypt; JWT valid 24h.
 - Dangerous commands blocked at exec/script/release entry points (403 + audit record).
 - Audit log masks sensitive fields (password/content).

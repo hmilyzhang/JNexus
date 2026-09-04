@@ -58,6 +58,58 @@ func Login(c *gin.Context) {
 		}
 	}
 
+	// 开启 MFA 的账号：密码通过后先发短时 mfa_token，验证动态码后才发正式 token
+	if u.MFAEnabled {
+		mfaToken, err := pkg.GenMFAToken(u.ID, u.Username, u.Role)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "生成 token 失败"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"mfa_required": true,
+			"mfa_token":    mfaToken,
+			"username":     u.Username,
+		})
+		return
+	}
+
+	token, err := pkg.GenToken(u.ID, u.Username, u.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成 token 失败"})
+		return
+	}
+	model.DB.Model(&u).Update("last_login_at", time.Now())
+	c.JSON(http.StatusOK, gin.H{
+		"token": token,
+		"user":  gin.H{"id": u.ID, "username": u.Username, "role": u.Role, "auth_source": u.AuthSource},
+	})
+}
+
+// LoginMFA 登录第二步：校验 TOTP 动态码，换取正式 token
+func LoginMFA(c *gin.Context) {
+	var req struct {
+		MFAToken string `json:"mfa_token" binding:"required"`
+		Code     string `json:"code" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	claims, err := pkg.ParseToken(req.MFAToken)
+	if err != nil || claims.Purpose != "mfa" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "验证已超时，请重新登录"})
+		return
+	}
+	var u model.User
+	if err := model.DB.First(&u, claims.UserID).Error; err != nil || u.Status != 1 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "账号不可用"})
+		return
+	}
+	secret, err := pkg.Decrypt(u.MFASecret)
+	if err != nil || !pkg.VerifyTOTP(secret, req.Code) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "动态验证码错误"})
+		return
+	}
 	token, err := pkg.GenToken(u.ID, u.Username, u.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成 token 失败"})
