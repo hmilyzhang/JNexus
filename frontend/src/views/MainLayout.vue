@@ -144,6 +144,7 @@ const menuItems = [
   { key: 'tasks', path: '/tasks', title: 'menu.tasks', icon: 'List' },
   { key: 'cron', path: '/crons', title: 'menu.cron', icon: 'Timer' },
   { key: 'reports', path: '/reports', title: 'menu.reports', icon: 'DataAnalysis' },
+  { key: 'monitor', path: '/monitor', title: 'menu.monitor', icon: 'Cpu' },
   { key: 'apps', path: '/apps', title: 'menu.apps', icon: 'Box' },
   { key: 'releases', path: '/releases', title: 'menu.releases', icon: 'UploadFilled' },
   { key: 'users', path: '/users', title: 'menu.users', icon: 'User' },

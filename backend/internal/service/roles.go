@@ -26,7 +26,7 @@ type RolePerm struct {
 const roleSettingsKey = "role_settings"
 
 // allMenuKeys 全部菜单键（admin 默认全量；新增菜单键时须同步）
-var allMenuKeys = []string{"dashboard", "shell", "hosts", "osaccounts", "paired", "exec", "tasks", "cron", "reports", "files", "scripts", "apps", "releases", "users", "danger", "audit", "system"}
+var allMenuKeys = []string{"dashboard", "shell", "hosts", "osaccounts", "paired", "exec", "tasks", "cron", "reports", "monitor", "files", "scripts", "apps", "releases", "users", "danger", "audit", "system"}
 
 // DefaultRoleSettings 角色默认配置（首次使用时写入）
 func DefaultRoleSettings() map[string]RolePerm {
@@ -72,7 +72,7 @@ func GetRoleSettings() map[string]RolePerm {
 		}
 		// 新增菜单自动补进 admin/ops/auditor（admin 恒见全部）
 		if role == model.RoleAdmin || role == model.RoleOps || role == model.RoleAuditor {
-			for _, nm := range []string{"cron", "osaccounts", "reports"} {
+			for _, nm := range []string{"cron", "osaccounts", "reports", "monitor"} {
 				has := false
 				for _, m := range rp.Menus {
 					if m == nm {

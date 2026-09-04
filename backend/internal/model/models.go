@@ -327,3 +327,47 @@ func JSONParams(m map[string]any) string {
 	b, _ := json.Marshal(m)
 	return string(b)
 }
+
+// 应用监控项（Uptime Kuma 风格：HTTP(s) / TCP / Ping）
+type Monitor struct {
+	ID             uint       `gorm:"primaryKey" json:"id"`
+	Name           string     `gorm:"size:128" json:"name"`
+	Type           string     `gorm:"size:16" json:"type"` // http / tcp / ping
+	Target         string     `gorm:"size:256" json:"target"` // http: 完整 URL；tcp/ping: 主机名或 IP
+	Port           int        `json:"port"`                    // tcp: 目标端口
+	Method         string     `gorm:"size:8" json:"method"`   // http: GET / HEAD
+	AcceptedStatus string     `gorm:"size:64" json:"accepted_status"` // http: 200-299
+	Keyword        string     `gorm:"size:256" json:"keyword"`        // http: 关键字（可选）
+	KeywordType    string     `gorm:"size:16" json:"keyword_type"`    // contain / absent
+	IntervalSec    int        `json:"interval_sec"`
+	TimeoutSec     int        `json:"timeout_sec"`
+	Enabled        bool       `gorm:"default:true" json:"enabled"`
+	LastStatus     string     `gorm:"size:8" json:"last_status"` // up / down / 空=未检查
+	LastRespMs     int        `json:"last_resp_ms"`
+	LastError      string     `gorm:"size:255" json:"last_error"`
+	LastCheckedAt  *time.Time `json:"last_checked_at"`
+	NextRunAt      *time.Time `json:"-"`
+	CreatedBy      string     `gorm:"size:64" json:"created_by"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
+// MonitorSample 监控心跳样本（状态 + 耗时历史，用于心跳条与可用率）
+type MonitorSample struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	MonitorID uint      `gorm:"index" json:"monitor_id"`
+	Status    string    `gorm:"size:8" json:"status"` // up / down
+	RespMs    int       `json:"resp_ms"`
+	Error     string    `gorm:"size:255" json:"error"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}
+
+// HostMetric 主机基础资源采样（CPU / 内存 / 磁盘，经 SSH 采集）
+type HostMetric struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	HostID      uint      `gorm:"index" json:"host_id"`
+	CPUPercent  float64   `json:"cpu_percent"`
+	MemPercent  float64   `json:"mem_percent"`
+	DiskPercent float64   `json:"disk_percent"` // 所有真实挂载点中最大使用率
+	CollectedAt time.Time `gorm:"index" json:"collected_at"`
+}

@@ -259,6 +259,7 @@ const menuKeys = [
   { key: 'tasks', label: 'menu.tasks' },
   { key: 'cron', label: 'menu.cron' },
   { key: 'reports', label: 'menu.reports' },
+  { key: 'monitor', label: 'menu.monitor' },
   { key: 'files', label: 'menu.files' },
   { key: 'scripts', label: 'menu.scripts' },
   { key: 'apps', label: 'menu.apps' },

@@ -30,6 +30,7 @@ func Connect(dsn string) error {
 		&SystemConfig{},
 		&UserGroup{}, &UserGroupHost{}, &UserGroupHostGroup{}, &UserGroupMember{},
 		&HostCredential{}, &UserGroupCredential{}, &UserGroupCredRule{}, &CronJob{}, &Report{}, &ReportItem{},
+		&Monitor{}, &MonitorSample{}, &HostMetric{},
 	); err != nil {
 		return fmt.Errorf("数据库迁移失败: %w", err)
 	}
@@ -76,6 +77,8 @@ func SeedConfig() error {
 		"ldap_group_base_dn": "",
 		"ldap_group_filter":  "(member=%s)",
 		"ldap_required_groups": "",
+		"monitor_enabled":       "true",
+		"monitor_interval_sec":  "60",
 		"smtp_enabled":   "false",
 		"smtp_host":      "",
 		"smtp_port":      "25",

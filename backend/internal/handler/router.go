@@ -45,6 +45,22 @@ func SetupRouter() *gin.Engine {
 		auth.POST("/change_password", ChangePassword)
 
 		// MFA（TOTP 两步验证）自助管理
+		// 监控：应用监控项 + 主机资源
+		mon := auth.Group("/monitors", middleware.RequireRole())
+		{
+			mon.GET("", ListMonitors)
+			mon.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), CreateMonitor)
+			mon.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateMonitor)
+			mon.DELETE("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), DeleteMonitor)
+			mon.POST("/:id/test", middleware.RequireRole(model.RoleAdmin, model.RoleOps), TestMonitor)
+			mon.GET("/:id/history", MonitorHistory)
+		}
+		mg := auth.Group("/monitoring", middleware.RequireRole())
+		{
+			mg.GET("/hosts", HostMetricsList)
+			mg.GET("/hosts/:id/history", HostMetricHistory)
+		}
+
 		auth.GET("/mfa/status", MFAStatus)
 		auth.POST("/mfa/setup", MFASetup)
 		auth.POST("/mfa/enable", MFAEnable)
