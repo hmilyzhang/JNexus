@@ -18,7 +18,7 @@
           <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('report.targetTip') }}</div>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="generating" :disabled="!form.template || !form.host_ids.length"
+          <el-button type="primary" :loading="generating" :disabled="!form.template"
                      @click="generate">{{ $t('report.generate') }}</el-button>
         </el-form-item>
       </el-form>
