@@ -13,9 +13,12 @@ Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 | Module | Capabilities |
 |--------|--------------|
 | Dashboard | Post-login home: managed/online hosts, groups, tasks, apps, releases, users, active rules + current user info and quick access |
-| Hosts | Tree group view, import (`NAME,IP,port,user,group`, unified password on the page, auto SSH-key pairing), concurrent connectivity probe, per-host **multiple OS accounts** (labels, default flag), Web Shell |
+| Hosts | **Multi-level group tree**, import (`NAME,IP,port,user,group`, unified password on the page, auto SSH-key pairing), concurrent connectivity probe, per-host **multiple OS accounts** (labels, default flag), Web Shell |
 | Batch Exec | Tree host selection / multi-IP input, **OS account selection**, concurrent execution, WebSocket live per-host output, success/fail counters & progress |
 | Task Console | Aggregate task view: host table (account, status, exit code, duration, failed-first), output panel, failed-only filter, cross-host output keyword search, **export summary `.log` / CSV** |
+| Scheduled Tasks | Cron-based execution of commands or scripts on selected hosts; enable/disable, run-now, run history, email notification |
+| Reports | Preset collection templates — **server accounts**, **crontab listing**, **health check**, **system info** — run across hosts, view per-host results, export `.log` / CSV; module access controlled per role |
+| Host Accounts | Standalone **host accounts** page (all accounts across hosts): filters by host/keyword/rotation status, add/edit/rotate/reveal (admin), **password auto-rotation** with configurable length/complexity/period (LDAP accounts auto-skipped) |
 | File Distribution | Upload → concurrent SFTP to many hosts (tree/IP selection), live progress |
 | Scripts | CRUD + one-click batch execution |
 | Release Center | App → host bindings (with release OS account); pipeline: stop → timestamped backup → upload → start → health check; one-click rollback to latest backup |
@@ -24,7 +27,7 @@ Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 | Audit Log | All write operations recorded (who / action / resource / source IP / status), full output retention in tasks; visible to admin & auditor only |
 | Dangerous Commands | Regex rule library (rm -rf, mkfs, dd, shutdown, drop database… 11 built-in), blocks at exec/script/release entry points and writes audit; editable & testable by admin |
 | Email (SMTP) | SMTP settings (SSL / STARTTLS, auth, masked password), test send; task-completion notification emails with success/fail counts and per-host result table (failed tasks include output snippets) |
-| System Settings | Tabs: General (system name), LDAP auth (server, group-membership check, connection test), Role Settings (editable description / menu visibility / host permissions view-create-edit-delete per role) |
+| System Settings | Tabs: General (system name), LDAP auth (server, group-membership check, connection test), Email SMTP, **Password Rotation** (global switch, password length / complexity / default period), Role Settings (editable description / menu visibility / host permissions per role), Paired Keys |
 | i18n | Chinese / English switcher (top right) |
 
 ## Quick Start (Local Development)
@@ -93,8 +96,11 @@ Env precedence: `AUTOOPS_DSN` > `AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME` > `con
 3. **Team isolation**: create a user group, link it to OS accounts directly, or add an **account rule** (`host scope × username`, e.g. `All hosts × appuser`). Group members can then only use those accounts — ops team gets `root` via its own rule; app teams never see it.
 4. **Batch execution**: pick hosts (tree) or type IPs, optionally pick an OS account, run. Live per-host output; the task console aggregates status and lets you download a summary `.log` or CSV.
 5. **Release**: configure an app (hosts + deploy dir + jar name + optional commands/health URL/release account) in Applications, then upload the jar in Release Center. Failed releases roll back to the latest backup with one click.
-6. **Roles**: System Settings → Role Settings controls each role's description, visible menus, and host permissions (view/create/edit/delete). Admin is always full.
-7. **LDAP**: enable in System Settings, optionally require group membership (`Group Base DN` + filter + allowed groups). LDAP users are auto-created on first login with the configured default role.
+6. **Scheduled tasks**: create a cron schedule (presets available) to run a command/script on selected hosts; runs are recorded as tasks with history.
+7. **Reports**: pick a preset template (accounts / crontab / health / system info) and target hosts; per-host results are archived and exportable as `.log` / CSV.
+8. **Password rotation**: enable per account (Host Accounts page) with a rotation period; new random passwords are stored encrypted and never displayed. LDAP/domain accounts are detected and skipped automatically.
+9. **Roles**: System Settings → Role Settings controls each role's description, visible menus, host permissions (view/create/edit/delete), OS-account management, and report access. Admin is always full.
+10. **LDAP**: enable in System Settings, optionally require group membership (`Group Base DN` + filter + allowed groups). LDAP users are auto-created on first login with the configured default role.
 8. **Email notifications**: configure SMTP in System Settings (with a one-click test send). When enabled, exec / distribute / release / batch-account tasks send a result summary email to the recipients on completion — failed hosts with output snippets are highlighted.
 
 ## Security Design
