@@ -185,7 +185,7 @@ export default {
     ruleAdd: '+ 添加规则',
     ruleAllHosts: '全部主机',
     ruleUsername: '账号名，如 appuser',
-    ruleTip: '规则 = 主机范围 × 账号名，自动覆盖范围内存量与新增主机的同名账号（推荐用于大规模批量授权）',
+    ruleTip: '持续故障模式：故障持续满「阈值」秒仍未恢复才发送告警，期间恢复则不打扰；立即触发模式：首次检测到故障立即告警。恢复通知仅在本次故障实际发过告警后发送。主机系统重启由采集自动检测并立即推送，无需配置。',
     credLinkedAccounts: '关联 OS 账号',
     credRules: '账号规则',
     ruleAdd: '+ 添加规则',

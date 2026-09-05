@@ -27,7 +27,6 @@ type monitorReq struct {
 	TimeoutSec     int    `json:"timeout_sec"`
 	Enabled        *bool  `json:"enabled"`
 	ChannelIDs     []uint `json:"channel_ids"` // 告警通知通道绑定
-	Immediate      *bool  `json:"immediate"`   // 重启类：无视全局阈值，首次故障立即告警
 }
 
 // saveMonitorBindings 重写监控项的通知通道绑定
@@ -130,9 +129,6 @@ func CreateMonitor(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if req.Immediate != nil {
-		m.Immediate = *req.Immediate
-	}
 	if err := model.DB.Create(&m).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建失败"})
 		return
@@ -162,16 +158,12 @@ func UpdateMonitor(c *gin.Context) {
 		m.Enabled = *req.Enabled
 	}
 	m.NextRunAt = nil // 立即重新调度
-	if req.Immediate != nil {
-		m.Immediate = *req.Immediate
-	}
 	updates := map[string]any{
 		"name": m.Name, "type": m.Type, "target": m.Target, "port": m.Port,
 		"method": m.Method, "accepted_status": m.AcceptedStatus,
 		"keyword": m.Keyword, "keyword_type": m.KeywordType,
 		"interval_sec": m.IntervalSec, "timeout_sec": m.TimeoutSec,
 		"enabled": m.Enabled, "next_run_at": nil,
-		"immediate": m.Immediate,
 	}
 	model.DB.Model(&m).Updates(updates)
 	saveMonitorBindings(m.ID, req.ChannelIDs)

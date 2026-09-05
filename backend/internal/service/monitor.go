@@ -185,10 +185,11 @@ func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 	return up, ms, errMsg
 }
 
-// EvaluateAlertRules 报警规则引擎：
-//   - immediate（重启类监控或全局立即模式）：故障首次出现立即告警
+// EvaluateAlertRules 报警规则引擎（全局规则，对所有监控项生效）：
+//   - immediate 全局模式：故障首次出现立即告警
 //   - grace 模式（默认）：故障持续满全局阈值秒后才告警，未满阈值即恢复则完全不打扰
 //   - 恢复通知仅在本次故障周期内实际发过告警时发送（全局开关）
+//   - 主机系统重启由采集流程自动检测并独立推送，无需任何配置
 func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errMsg string, now time.Time) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -202,7 +203,7 @@ func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errM
 			model.DB.Model(m).Update("down_since", now)
 		}
 		fire := false
-		if m.Immediate || rule.Mode == "immediate" {
+		if rule.Mode == "immediate" {
 			fire = !m.AlertFired
 		} else {
 			grace := time.Duration(rule.GraceSec) * time.Second // 阈值 0 = 立即
@@ -295,15 +296,26 @@ func ScanDueMonitors() {
 
 // ---------- 主机基础资源采集（CPU / 内存 / 磁盘） ----------
 
-// 资源采集命令：一次 SSH 会话取齐三块数据，解析在服务端完成
-const metricCmd = `grep '^cpu ' /proc/stat; sleep 1; grep '^cpu ' /proc/stat; echo ---MEM---; head -5 /proc/meminfo; echo ---DISK---; df -P 2>/dev/null`
+// ---------- 主机基础资源采集（CPU / 内存 / 磁盘） ----------
+
+// 资源采集命令：一次 SSH 会话取齐 boot_id（重启检测）+ 三块资源数据，解析在服务端完成
+const metricCmd = `cat /proc/sys/kernel/random/boot_id 2>/dev/null; echo ---BOOT---; grep '^cpu ' /proc/stat; sleep 1; grep '^cpu ' /proc/stat; echo ---MEM---; head -5 /proc/meminfo; echo ---DISK---; df -P 2>/dev/null`
 
 type hostSample struct {
 	CPU, Mem, Disk float64
+	BootID         string
 }
 
 func parseMetricOutput(out string) (hostSample, bool) {
 	var s hostSample
+	boot := out
+	if idx := strings.Index(out, "---BOOT---"); idx >= 0 {
+		boot = out[:idx]
+		out = out[idx+len("---BOOT---"):]
+	} else {
+		return s, false
+	}
+	s.BootID = strings.TrimSpace(boot)
 	parts := strings.Split(out, "---MEM---")
 	if len(parts) < 2 {
 		return s, false
@@ -428,6 +440,16 @@ func CollectHostMetrics() {
 					HostID: h.ID, CPUPercent: s.CPU, MemPercent: s.Mem, DiskPercent: s.Disk,
 					CollectedAt: time.Now(),
 				})
+				// 主机重启自动检测：boot_id 与上次不同（且非首次采集）即推送
+				if s.BootID != "" {
+					if h.LastBootID != "" && s.BootID != h.LastBootID {
+						SendHostRebootAlert(&h, s.BootID)
+					}
+					if h.LastBootID != s.BootID {
+						model.DB.Model(&model.Host{}).Where("id = ?", h.ID).
+							Update("last_boot_id", s.BootID)
+					}
+				}
 			}
 		}(h)
 	}

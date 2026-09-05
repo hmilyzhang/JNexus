@@ -185,7 +185,7 @@ export default {
     ruleAdd: '+ Add rule',
     ruleAllHosts: 'All hosts',
     ruleUsername: 'Username, e.g. appuser',
-    ruleTip: 'Rule = host scope × username; auto-covers existing and future hosts with the same account name (recommended for large-scale grants)',
+    ruleTip: 'Grace mode: an alert fires only when the failure persists for the threshold seconds; recovering earlier stays silent. Immediate mode: alerts on the first failed check. Recovery notices are sent only if an alert was actually fired for that failure. Host system reboots are detected automatically during collection and pushed immediately - no configuration needed.',
     credLinkedAccounts: 'Linked OS accounts',
     credRules: 'Account rules',
     ruleAdd: '+ Add rule',

@@ -173,36 +173,6 @@
             </el-form-item>
           </el-form>
         </el-card>
-        <el-card style="margin-top:16px">
-          <template #header>
-            <div style="display:flex; align-items:center; gap:10px">
-              <span style="flex:1">{{ $t('monitor.ruleScope') }}</span>
-              <el-button size="small" :loading="loading" @click="load">{{ $t('common.refresh') }}</el-button>
-            </div>
-          </template>
-          <el-table :data="monitors" size="small" border>
-            <el-table-column :label="$t('monitor.targetHost')" min-width="200">
-              <template #default="{ row }">
-                {{ row.monitor.name }}
-                <div style="color:#909399; font-size:12px">{{ monitorTarget(row.monitor) }}</div>
-              </template>
-            </el-table-column>
-            <el-table-column :label="$t('monitor.ruleImmediateCol')" width="190" align="center">
-              <template #default="{ row }">
-                <el-checkbox v-model="row.monitor.immediate" @change="toggleImmediate(row)">{{ $t('monitor.ruleImmediate') }}</el-checkbox>
-              </template>
-            </el-table-column>
-            <el-table-column :label="$t('monitor.ruleDownFor')" min-width="150">
-              <template #default="{ row }">
-                <template v-if="row.monitor.down_since">
-                  <span style="color:#f56c6c">{{ downFor(row.monitor.down_since) }}</span>
-                  <el-tag v-if="row.monitor.alert_fired" size="small" type="danger" style="margin-left:6px">{{ $t('monitor.ruleAlerted') }}</el-tag>
-                </template>
-                <span v-else style="color:#c0c4cc">-</span>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
       </el-tab-pane>
     </el-tabs>
 
@@ -443,15 +413,7 @@ const saveAlertRule = async () => {
     ElMessage.success(t('common.success'))
   } finally { ruleSaving.value = false }
 }
-const toggleImmediate = async row => {
-  try {
-    await api.put(`/monitors/${row.monitor.id}`, {
-      ...row.monitor, channel_ids: row.channel_ids || [], immediate: !!row.monitor.immediate,
-    })
-  } catch {
-    row.monitor.immediate = !row.monitor.immediate
-  }
-}
+
 const downFor = since => {
   const sec = Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 1000))
   if (sec < 60) return sec + 's'

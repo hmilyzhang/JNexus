@@ -154,6 +154,32 @@ func SendMonitorAlert(m *model.Monitor, status string, respMs int, errMsg string
 	}
 }
 
+// SendHostRebootAlert 主机重启自动告警（boot_id 变化时触发），广播到所有启用的通知通道
+func SendHostRebootAlert(h *model.Host, newBootID string) {
+	var channels []model.AlertChannel
+	model.DB.Where("enabled = ?", true).Find(&channels)
+	if len(channels) == 0 {
+		return
+	}
+	now := time.Now().Format("2006-01-02 15:04:05")
+	subject := fmt.Sprintf("🔄 [REBOOT] %s", h.Name)
+	text := fmt.Sprintf("Host: %s\nIP: %s\nEvent: system rebooted (boot_id changed)\nDetected: %s",
+		h.Name, h.IP, now)
+	for _, ch := range channels {
+		ch := ch
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("[alert] channel %s send panic: %v\n", ch.Name, r)
+				}
+			}()
+			if err := SendViaChannel(&ch, subject, text); err != nil {
+				fmt.Printf("[alert] channel %s(%s) send failed: %v\n", ch.Name, ch.Type, err)
+			}
+		}()
+	}
+}
+
 func monitorTargetText(m *model.Monitor) string {
 	if m.Type == "tcp" {
 		return fmt.Sprintf("%s:%d", m.Target, m.Port)
