@@ -24,6 +24,8 @@ type AlertTemplates struct {
 	CmdAlertBody         string `json:"cmd_alert_body"`
 	CmdRecoveryTitle     string `json:"cmd_recovery_title"`
 	CmdRecoveryBody      string `json:"cmd_recovery_body"`
+	EmailTitle           string `json:"email_title"` // 邮件通道专用（优先于通用模板）
+	EmailBody            string `json:"email_body"`  // 支持 HTML
 }
 
 // BuiltinAlertTemplates 内建默认模板（与历史行为一致）
@@ -83,6 +85,12 @@ func LoadAlertTemplates() AlertTemplates {
 	}
 	if stored.CmdRecoveryBody != "" {
 		def.CmdRecoveryBody = stored.CmdRecoveryBody
+	}
+	if stored.EmailTitle != "" {
+		def.EmailTitle = stored.EmailTitle
+	}
+	if stored.EmailBody != "" {
+		def.EmailBody = stored.EmailBody
 	}
 	return def
 }

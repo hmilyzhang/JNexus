@@ -459,6 +459,8 @@ export default {
     tabRules: 'Alert Rules',
     tabTpl: 'Template Settings',
     tplTitle: 'Default notification templates (empty = built-in default; channel templates take priority)',
+    tplEmail: 'Email-dedicated',
+    tplEmailNote: 'Applies to email channels only (above the generic templates below, below per-channel templates); body supports HTML',
     tplMonAlert: 'Application monitors — alert',
     tplMonRecovery: 'Application monitors — recovery',
     tplReboot: 'Host reboot',

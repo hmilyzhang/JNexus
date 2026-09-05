@@ -519,6 +519,7 @@ const renderTplLocal = (tpl, vars) => {
   return out
 }
 const tplSections = [
+  { key: 'email', labelKey: 'tplEmail', titleField: 'email_title', bodyField: 'email_body' },
   { key: 'monitor_alert', labelKey: 'tplMonAlert', titleField: 'monitor_alert_title', bodyField: 'monitor_alert_body' },
   { key: 'monitor_recovery', labelKey: 'tplMonRecovery', titleField: 'monitor_recovery_title', bodyField: 'monitor_recovery_body' },
   { key: 'reboot', labelKey: 'tplReboot', titleField: 'reboot_title', bodyField: 'reboot_body' },
@@ -532,6 +533,7 @@ const previewVisible = ref(false)
 const previewData = reactive({ title: '', body: '' })
 const previewSection = key => {
   const pick = {
+    email: ['email_title', 'email_body'],
     monitor_alert: ['monitor_alert_title', 'monitor_alert_body'],
     monitor_recovery: ['monitor_recovery_title', 'monitor_recovery_body'],
     reboot: ['reboot_title', 'reboot_body'],

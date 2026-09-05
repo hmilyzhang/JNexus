@@ -74,6 +74,14 @@ func SendViaChannel(ch *model.AlertChannel, vars map[string]string, defSubject, 
 		if len(to) == 0 {
 			return fmt.Errorf("收件人未配置")
 		}
+		// 邮件专用模板：通道自身未配置 title/body_tpl 时生效（正文支持 HTML）
+		tpl := LoadAlertTemplates()
+		if strings.TrimSpace(tpl.EmailTitle) != "" && strings.TrimSpace(cfg["title_tpl"]) == "" {
+			subject = renderTpl(tpl.EmailTitle, vars)
+		}
+		if strings.TrimSpace(tpl.EmailBody) != "" && strings.TrimSpace(cfg["body_tpl"]) == "" {
+			return SendMail(smtp, to, subject, renderTpl(tpl.EmailBody, vars))
+		}
 		return SendMail(smtp, to, subject, "<pre style='font-family:monospace'>"+text+"</pre>")
 	case "webhook":
 		url := strings.TrimSpace(cfg["url"])
