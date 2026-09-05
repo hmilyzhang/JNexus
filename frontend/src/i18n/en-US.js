@@ -457,6 +457,9 @@ export default {
   },
   monitor: {
     tabRules: 'Alert Rules',
+    tabMaint: 'Maintenance',
+    maintAudit: 'Change log',
+    maintAuditEmpty: 'No changes yet',
     tabTpl: 'Template Settings',
     tplTitle: 'Default notification templates (empty = built-in default; channel templates take priority)',
     tplEmail: 'Email-dedicated',

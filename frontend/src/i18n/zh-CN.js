@@ -457,6 +457,9 @@ export default {
   },
   monitor: {
     tabRules: '报警规则',
+    tabMaint: '维护窗口',
+    maintAudit: '变更记录（留痕）',
+    maintAuditEmpty: '暂无变更记录',
     tabTpl: '模板设置',
     tplTitle: '默认通知模板（留空使用内建默认；通道级模板优先于此处）',
     tplEmail: '邮件通知专用',

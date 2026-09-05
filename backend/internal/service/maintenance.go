@@ -13,14 +13,15 @@ import (
 
 // 全局维护窗口：窗口内的 downtime 不计入可用率、不触发告警。
 // 全局设置（对所有监控项生效），存系统配置 JSON。
-// 每个窗口：{days: [1-7]（周一=1），start/end: "HH:MM"}，end < start 视为跨午夜。
+// 每个窗口：{date_start/date_end: "YYYY-MM-DD"（日历范围），start/end: "HH:MM"}，end < start 视为跨午夜。
 
 const maintenanceKey = "maintenance_windows"
 
 type MaintenanceWindow struct {
-	Days  []int  `json:"days"`  // ISO 星期：1=周一 ... 7=周日
-	Start string `json:"start"` // HH:MM
-	End   string `json:"end"`   // HH:MM
+	DateStart string `json:"date_start"` // YYYY-MM-DD
+	DateEnd   string `json:"date_end"`   // YYYY-MM-DD
+	Start     string `json:"start"`      // HH:MM
+	End       string `json:"end"`        // HH:MM
 }
 
 // LoadMaintenances 读取全局维护窗口
@@ -59,22 +60,30 @@ func parseHM(s string) (int, bool) {
 	return h*60 + m, true
 }
 
+func parseDate(s string) (time.Time, bool) {
+	t, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(s), time.Local)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
 // ValidateMaintenances 校验前端提交的窗口列表
 func ValidateMaintenances(wins []MaintenanceWindow) (string, error) {
-	for _, w := range wins {
-		if len(w.Days) == 0 {
-			return "", fmt.Errorf("维护窗口需至少选择一个生效日期")
+	for i, w := range wins {
+		ds, ok1 := parseDate(w.DateStart)
+		de, ok2 := parseDate(w.DateEnd)
+		if !ok1 || !ok2 {
+			return "", fmt.Errorf("窗口 %d：日期非法（需 YYYY-MM-DD）", i+1)
+		}
+		if de.Before(ds) {
+			return "", fmt.Errorf("窗口 %d：结束日期早于开始日期", i+1)
 		}
 		if _, ok := parseHM(w.Start); !ok {
-			return "", fmt.Errorf("维护窗口开始时间非法: %s", w.Start)
+			return "", fmt.Errorf("窗口 %d：开始时间非法（HH:MM）", i+1)
 		}
 		if _, ok := parseHM(w.End); !ok {
-			return "", fmt.Errorf("维护窗口结束时间非法: %s", w.End)
-		}
-		for _, d := range w.Days {
-			if d < 1 || d > 7 {
-				return "", fmt.Errorf("维护窗口日期需在 1-7（周一至周日）")
-			}
+			return "", fmt.Errorf("窗口 %d：结束时间非法（HH:MM）", i+1)
 		}
 	}
 	b, err := json.Marshal(wins)
@@ -90,20 +99,10 @@ func InMaintenanceWindow(t time.Time) bool {
 	if len(windows) == 0 {
 		return false
 	}
-	iso := int(t.Weekday()) // Sun=0
-	if iso == 0 {
-		iso = 7
-	}
+	day := t.Format("2006-01-02")
 	minutes := t.Hour()*60 + t.Minute()
 	for _, w := range windows {
-		dayOK := false
-		for _, d := range w.Days {
-			if d == iso {
-				dayOK = true
-				break
-			}
-		}
-		if !dayOK {
+		if day < w.DateStart || day > w.DateEnd {
 			continue
 		}
 		sm, ok1 := parseHM(w.Start)
