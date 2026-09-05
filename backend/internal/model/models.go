@@ -343,7 +343,6 @@ type Monitor struct {
 	IntervalSec    int        `json:"interval_sec"`
 	TimeoutSec     int        `json:"timeout_sec"`
 	Enabled        bool       `gorm:"default:true" json:"enabled"`
-	Maintenances   string     `gorm:"type:text" json:"maintenances"` // 维护窗口 JSON：[{days:[1-7 周一=1], start:"HH:MM", end:"HH:MM"}]
 	DownSince      *time.Time `json:"down_since"`                // 当前故障开始时间（恢复后清空）
 	AlertFired     bool       `json:"alert_fired"`               // 本次故障周期内是否已发送告警
 	LastStatus     string     `gorm:"size:8" json:"last_status"` // up / down / 空=未检查
@@ -390,9 +389,9 @@ type AlertChannel struct {
 // CmdAlertState 主机当前所处的 CMD 告警级别状态（每主机一行）
 type CmdAlertState struct {
 	HostID uint       `gorm:"primaryKey" json:"host_id"`
-	Level  string     `gorm:"size:4" json:"level"`  // P1-P4，空=正常
-	Since  *time.Time `json:"since"`                // 当前级别起始时间
-	Fired  bool       `json:"fired"`                // 该级别告警是否已发送
+	Level  string     `gorm:"size:4" json:"level"` // P1-P4，空=正常
+	Since  *time.Time `json:"since"`               // 当前级别起始时间
+	Fired  bool       `json:"fired"`               // 该级别告警是否已发送
 }
 
 // MonitorChannel 监控项 ↔ 通知通道 绑定
@@ -403,17 +402,17 @@ type MonitorChannel struct {
 
 // API 密钥（外部系统集成；仅存 SHA-256 哈希，完整密钥仅创建时展示一次）
 type ApiKey struct {
-	ID           uint       `gorm:"primaryKey" json:"id"`
-	Name         string     `gorm:"size:128" json:"name"`
-	KeyID        string     `gorm:"size:32;uniqueIndex" json:"key_id"` // 公开标识
-	KeyHash      string     `gorm:"size:64" json:"-"`                  // sha256(secret)
-	OwnerUserID  uint       `gorm:"index" json:"owner_user_id"`        // 以该用户身份执行
-	OwnerName    string     `gorm:"size:64" json:"owner_name"`
-	ExpiresAt    *time.Time `json:"expires_at"`            // 可选过期时间
-	IPAllowlist  string     `gorm:"size:512" json:"ip_allowlist"` // 逗号分隔 IP/CIDR，空=不限
-	Enabled      bool       `gorm:"default:true" json:"enabled"`
-	LastUsedAt   *time.Time `json:"last_used_at"`
-	LastUsedIP   string     `gorm:"size:64" json:"last_used_ip"`
-	CreatedAt    time.Time  `json:"created_at"`
-	CreatedBy    string     `gorm:"size:64" json:"created_by"`
+	ID          uint       `gorm:"primaryKey" json:"id"`
+	Name        string     `gorm:"size:128" json:"name"`
+	KeyID       string     `gorm:"size:32;uniqueIndex" json:"key_id"` // 公开标识
+	KeyHash     string     `gorm:"size:64" json:"-"`                  // sha256(secret)
+	OwnerUserID uint       `gorm:"index" json:"owner_user_id"`        // 以该用户身份执行
+	OwnerName   string     `gorm:"size:64" json:"owner_name"`
+	ExpiresAt   *time.Time `json:"expires_at"`                   // 可选过期时间
+	IPAllowlist string     `gorm:"size:512" json:"ip_allowlist"` // 逗号分隔 IP/CIDR，空=不限
+	Enabled     bool       `gorm:"default:true" json:"enabled"`
+	LastUsedAt  *time.Time `json:"last_used_at"`
+	LastUsedIP  string     `gorm:"size:64" json:"last_used_ip"`
+	CreatedAt   time.Time  `json:"created_at"`
+	CreatedBy   string     `gorm:"size:64" json:"created_by"`
 }

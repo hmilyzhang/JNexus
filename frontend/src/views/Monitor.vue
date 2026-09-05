@@ -178,6 +178,25 @@
         <el-card style="margin-top:16px">
           <template #header>
             <div style="display:flex; align-items:center; gap:10px">
+              <span style="flex:1">{{ $t('monitor.maintTitle') }}</span>
+              <el-button size="small" type="primary" :loading="maintSaving" @click="saveMaintWindows">{{ $t('common.save') }}</el-button>
+            </div>
+          </template>
+          <div style="color:#909399; font-size:12px; margin-bottom:10px">{{ $t('monitor.maintTip') }}</div>
+          <div v-for="(w, i) in maintWins" :key="i" style="display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap">
+            <el-select v-model="w.days" multiple size="small" style="width:260px" :placeholder="$t('monitor.maintDays')">
+              <el-option v-for="d in [1,2,3,4,5,6,7]" :key="d" :value="d" :label="dayLabel(d)" />
+            </el-select>
+            <el-time-select v-model="w.start" start="00:00" step="00:30" end="23:30" size="small" style="width:120px" :placeholder="$t('monitor.maintStart')" />
+            <span style="color:#909399">→</span>
+            <el-time-select v-model="w.end" start="00:00" step="00:30" end="23:59" size="small" style="width:120px" :placeholder="$t('monitor.maintEnd')" />
+            <el-button type="danger" link size="small" @click="maintWins.splice(i, 1)">{{ $t('apps.remove') }}</el-button>
+          </div>
+          <el-button size="small" @click="maintWins.push({ days: [1,2,3,4,5,6,7], start: '02:00', end: '04:00' })">{{ $t('monitor.maintAdd') }}</el-button>
+        </el-card>
+        <el-card style="margin-top:16px">
+          <template #header>
+            <div style="display:flex; align-items:center; gap:10px">
               <span style="flex:1">{{ $t('monitor.cmdLevels') }}</span>
               <el-button size="small" type="primary" :loading="cmdSaving" @click="saveCmdLevels">{{ $t('common.save') }}</el-button>
             </div>
@@ -322,21 +341,6 @@
         </template>
         <el-form-item :label="$t('monitor.interval')"><el-input-number v-model="form.interval_sec" :min="15" :max="86400" /></el-form-item>
         <el-form-item :label="$t('monitor.timeout')"><el-input-number v-model="form.timeout_sec" :min="1" :max="120" /></el-form-item>
-        <el-form-item :label="$t('monitor.maintTitle')">
-          <div style="width:100%">
-            <div v-for="(w, i) in form.maintenances" :key="i" style="display:flex; gap:6px; align-items:center; margin-bottom:6px">
-              <el-select v-model="w.days" multiple size="small" style="width:220px" :placeholder="$t('monitor.maintDays')">
-                <el-option v-for="d in [1,2,3,4,5,6,7]" :key="d" :value="d" :label="dayLabel(d)" />
-              </el-select>
-              <el-time-select v-model="w.start" start="00:00" step="00:30" end="23:30" size="small" style="width:110px" :placeholder="$t('monitor.maintStart')" />
-              <span style="color:#909399">→</span>
-              <el-time-select v-model="w.end" start="00:00" step="00:30" end="23:59" size="small" style="width:110px" :placeholder="$t('monitor.maintEnd')" />
-              <el-button type="danger" link size="small" @click="form.maintenances.splice(i, 1)">{{ $t('apps.remove') }}</el-button>
-            </div>
-            <el-button size="small" @click="form.maintenances.push({ days: [1,2,3,4,5,6,7], start: '02:00', end: '04:00' })">{{ $t('monitor.maintAdd') }}</el-button>
-            <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('monitor.maintTip') }}</div>
-          </div>
-        </el-form-item>
         <el-form-item :label="$t('monitor.notif')">
           <el-select v-model="form.channel_ids" multiple style="width:100%" :placeholder="$t('monitor.chEmpty')">
             <el-option v-for="ch in channels" :key="ch.id" :label="`${ch.name}（${chTypeLabel(ch.type)}）`" :value="ch.id" />
@@ -515,16 +519,8 @@ const openDlg = (m, channelIds) => {
     interval_sec: m?.interval_sec || 60, timeout_sec: m?.timeout_sec || 10,
     enabled: m ? !!m.enabled : true, port: m?.port || 80,
     channel_ids: [...(channelIds || [])],
-    maintenances: parseMaint(m?.maintenances),
   })
   dlgVisible.value = true
-}
-const dayLabel = d => ({ 1: t('profile.mon'), 2: t('profile.tue'), 3: t('profile.wed'), 4: t('profile.thu'), 5: t('profile.fri'), 6: t('profile.sat'), 7: t('profile.sun') }[d] || d)
-const parseMaint = raw => {
-  try {
-    const arr = typeof raw === 'string' ? JSON.parse(raw || '[]') : (raw || [])
-    return arr.map(w => ({ days: w.days || [1,2,3,4,5,6,7], start: w.start || '02:00', end: w.end || '04:00' }))
-  } catch { return [] }
 }
 const save = async () => {
   const payload = { ...form }
@@ -646,6 +642,19 @@ const saveAlertTemplates = async () => {
   } finally { tplSaving.value = false }
 }
 
+// ---- 全局维护窗口 ----
+const maintWins = ref([])
+const maintSaving = ref(false)
+const dayLabel = d => ({ 1: t('profile.mon'), 2: t('profile.tue'), 3: t('profile.wed'), 4: t('profile.thu'), 5: t('profile.fri'), 6: t('profile.sat'), 7: t('profile.sun') }[d] || d)
+const loadMaintWindows = async () => { maintWins.value = await api.get('/maintenance_windows') }
+const saveMaintWindows = async () => {
+  maintSaving.value = true
+  try {
+    maintWins.value = await api.put('/maintenance_windows', maintWins.value.map(w => ({ ...w })))
+    ElMessage.success(t('common.success'))
+  } finally { maintSaving.value = false }
+}
+
 // ---- CMD 分级阈值 ----
 const cmdLevels = ref([])
 const cmdSaving = ref(false)
@@ -725,6 +734,7 @@ onMounted(() => {
   loadAlertRule()
   loadAlertTemplates()
   loadCmdLevels()
+  loadMaintWindows()
   timer = setInterval(load, 30000)
 })
 onUnmounted(() => clearInterval(timer))

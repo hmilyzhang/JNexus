@@ -11,8 +11,11 @@ import (
 	"autoops/internal/model"
 )
 
-// 维护窗口：窗口内的 downtime 不计入可用率、不触发告警。
-// 每个监控项可配置多个窗口：{days: [1-7]（周一=1），start/end: "HH:MM"}，end < start 视为跨午夜。
+// 全局维护窗口：窗口内的 downtime 不计入可用率、不触发告警。
+// 全局设置（对所有监控项生效），存系统配置 JSON。
+// 每个窗口：{days: [1-7]（周一=1），start/end: "HH:MM"}，end < start 视为跨午夜。
+
+const maintenanceKey = "maintenance_windows"
 
 type MaintenanceWindow struct {
 	Days  []int  `json:"days"`  // ISO 星期：1=周一 ... 7=周日
@@ -20,7 +23,10 @@ type MaintenanceWindow struct {
 	End   string `json:"end"`   // HH:MM
 }
 
-func parseMaintenances(raw string) []MaintenanceWindow {
+// LoadMaintenances 读取全局维护窗口
+func LoadMaintenances() []MaintenanceWindow {
+	m := SystemConfigMap()
+	raw := m[maintenanceKey]
 	if strings.TrimSpace(raw) == "" {
 		return nil
 	}
@@ -29,6 +35,15 @@ func parseMaintenances(raw string) []MaintenanceWindow {
 		return nil
 	}
 	return out
+}
+
+// SaveMaintenances 保存全局维护窗口
+func SaveMaintenances(wins []MaintenanceWindow) error {
+	b, err := json.Marshal(wins)
+	if err != nil {
+		return err
+	}
+	return model.DB.Save(&model.SystemConfig{Key: maintenanceKey, Value: string(b)}).Error
 }
 
 func parseHM(s string) (int, bool) {
@@ -44,9 +59,34 @@ func parseHM(s string) (int, bool) {
 	return h*60 + m, true
 }
 
-// InMaintenance 判断监控项在时刻 t 是否处于维护窗口
-func InMaintenance(m *model.Monitor, t time.Time) bool {
-	windows := parseMaintenances(m.Maintenances)
+// ValidateMaintenances 校验前端提交的窗口列表
+func ValidateMaintenances(wins []MaintenanceWindow) (string, error) {
+	for _, w := range wins {
+		if len(w.Days) == 0 {
+			return "", fmt.Errorf("维护窗口需至少选择一个生效日期")
+		}
+		if _, ok := parseHM(w.Start); !ok {
+			return "", fmt.Errorf("维护窗口开始时间非法: %s", w.Start)
+		}
+		if _, ok := parseHM(w.End); !ok {
+			return "", fmt.Errorf("维护窗口结束时间非法: %s", w.End)
+		}
+		for _, d := range w.Days {
+			if d < 1 || d > 7 {
+				return "", fmt.Errorf("维护窗口日期需在 1-7（周一至周日）")
+			}
+		}
+	}
+	b, err := json.Marshal(wins)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// InMaintenanceWindow 判断时刻 t 是否处于任一全局维护窗口（对所有监控项生效）
+func InMaintenanceWindow(t time.Time) bool {
+	windows := LoadMaintenances()
 	if len(windows) == 0 {
 		return false
 	}
@@ -80,33 +120,4 @@ func InMaintenance(m *model.Monitor, t time.Time) bool {
 		}
 	}
 	return false
-}
-
-// ValidateMaintenances 校验前端提交的维护窗口
-func ValidateMaintenances(raw json.RawMessage) (string, error) {
-	if len(raw) == 0 || strings.TrimSpace(string(raw)) == "" || string(raw) == "null" {
-		return "", nil
-	}
-	var wins []MaintenanceWindow
-	if err := json.Unmarshal(raw, &wins); err != nil {
-		return "", fmt.Errorf("维护窗口格式错误")
-	}
-	for _, w := range wins {
-		if _, ok := parseHM(w.Start); !ok {
-			return "", fmt.Errorf("维护窗口开始时间非法: %s", w.Start)
-		}
-		if _, ok := parseHM(w.End); !ok {
-			return "", fmt.Errorf("维护窗口结束时间非法: %s", w.End)
-		}
-		for _, d := range w.Days {
-			if d < 1 || d > 7 {
-				return "", fmt.Errorf("维护窗口日期需在 1-7（周一至周日）")
-			}
-		}
-	}
-	b, err := json.Marshal(wins)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
 }

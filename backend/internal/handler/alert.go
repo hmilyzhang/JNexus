@@ -166,6 +166,29 @@ func PreviewAlertTemplates(c *gin.Context) {
 	})
 }
 
+// GetMaintenances 全局维护窗口列表
+func GetMaintenances(c *gin.Context) {
+	c.JSON(http.StatusOK, service.LoadMaintenances())
+}
+
+// UpdateMaintenances 保存全局维护窗口（对所有监控项生效）
+func UpdateMaintenances(c *gin.Context) {
+	var req []service.MaintenanceWindow
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if _, err := service.ValidateMaintenances(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := service.SaveMaintenances(req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
+		return
+	}
+	c.JSON(http.StatusOK, service.LoadMaintenances())
+}
+
 // GetCmdLevels CMD 分级阈值配置
 func GetCmdLevels(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadCmdLevels())

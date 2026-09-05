@@ -78,6 +78,12 @@ func SetupRouter() *gin.Engine {
 			apikeys.DELETE("/:id", middleware.RequireRole(model.RoleAdmin), DeleteApiKey)
 		}
 
+		mwin := auth.Group("/maintenance_windows", middleware.RequireRole())
+		{
+			mwin.GET("", GetMaintenances)
+			mwin.PUT("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateMaintenances)
+		}
+
 		arule.GET("/cmd", GetCmdLevels)
 		arule.GET("/templates", GetAlertTemplates)
 		arule.POST("/templates/preview", PreviewAlertTemplates)

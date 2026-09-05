@@ -177,7 +177,7 @@ func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 	}
 	oldStatus := m.LastStatus
 	now := time.Now()
-	inMaint := InMaintenance(m, now)
+	inMaint := InMaintenanceWindow(now)
 	sampleStatus := status
 	if inMaint && status == "down" {
 		sampleStatus = "maint"

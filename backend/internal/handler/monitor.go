@@ -2,7 +2,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -16,19 +15,18 @@ import (
 )
 
 type monitorReq struct {
-	Name           string                      `json:"name" binding:"required"`
-	Type           string                      `json:"type" binding:"required"`
-	Target         string                      `json:"target" binding:"required"`
-	Port           int                         `json:"port"`
-	Method         string                      `json:"method"`
-	AcceptedStatus string                      `json:"accepted_status"`
-	Keyword        string                      `json:"keyword"`
-	KeywordType    string                      `json:"keyword_type"`
-	IntervalSec    int                         `json:"interval_sec"`
-	TimeoutSec     int                         `json:"timeout_sec"`
-	Enabled        *bool                       `json:"enabled"`
-	ChannelIDs     []uint                      `json:"channel_ids"`  // 告警通知通道绑定
-	Maintenances   []service.MaintenanceWindow `json:"maintenances"` // 维护窗口
+	Name           string `json:"name" binding:"required"`
+	Type           string `json:"type" binding:"required"`
+	Target         string `json:"target" binding:"required"`
+	Port           int    `json:"port"`
+	Method         string `json:"method"`
+	AcceptedStatus string `json:"accepted_status"`
+	Keyword        string `json:"keyword"`
+	KeywordType    string `json:"keyword_type"`
+	IntervalSec    int    `json:"interval_sec"`
+	TimeoutSec     int    `json:"timeout_sec"`
+	Enabled        *bool  `json:"enabled"`
+	ChannelIDs     []uint `json:"channel_ids"` // 告警通知通道绑定
 }
 
 // saveMonitorBindings 重写监控项的通知通道绑定
@@ -37,22 +35,6 @@ func saveMonitorBindings(monitorID uint, channelIDs []uint) {
 	for _, cid := range channelIDs {
 		model.DB.Create(&model.MonitorChannel{MonitorID: monitorID, ChannelID: cid})
 	}
-}
-
-// saveMaintenances 保存维护窗口（校验后落库）
-func mustJSON(v any) json.RawMessage {
-	b, _ := json.Marshal(v)
-	return b
-}
-
-func saveMaintenances(c *gin.Context, monitorID uint, wins []service.MaintenanceWindow) bool {
-	mw, err := service.ValidateMaintenances(mustJSON(wins))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return false
-	}
-	model.DB.Model(&model.Monitor{}).Where("id = ?", monitorID).Update("maintenances", mw)
-	return true
 }
 
 func applyMonitorReq(m *model.Monitor, req monitorReq) error {
@@ -135,13 +117,9 @@ func ListMonitors(c *gin.Context) {
 
 	out := []gin.H{}
 	for _, m := range monitors {
-		maint := []any{}
-		if m.Maintenances != "" {
-			_ = json.Unmarshal([]byte(m.Maintenances), &maint)
-		}
 		out = append(out, gin.H{
 			"monitor": m, "uptime24h": uptimeMap[m.ID], "uptime_30d": uptimeMap30[m.ID],
-			"recent": recentMap[m.ID], "channel_ids": chMap[m.ID], "maintenances": maint,
+			"recent": recentMap[m.ID], "channel_ids": chMap[m.ID],
 		})
 	}
 	c.JSON(http.StatusOK, out)
@@ -164,9 +142,6 @@ func CreateMonitor(c *gin.Context) {
 		return
 	}
 	saveMonitorBindings(m.ID, req.ChannelIDs)
-	if !saveMaintenances(c, m.ID, req.Maintenances) {
-		return
-	}
 	c.JSON(http.StatusOK, m)
 }
 
@@ -200,9 +175,6 @@ func UpdateMonitor(c *gin.Context) {
 	}
 	model.DB.Model(&m).Updates(updates)
 	saveMonitorBindings(m.ID, req.ChannelIDs)
-	if !saveMaintenances(c, m.ID, req.Maintenances) {
-		return
-	}
 	c.JSON(http.StatusOK, m)
 }
 
