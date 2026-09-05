@@ -81,6 +81,7 @@ func SetupRouter() *gin.Engine {
 		mwin := auth.Group("/maintenance_windows", middleware.RequireRole())
 		{
 			mwin.GET("", GetMaintenances)
+			mwin.GET("/logs", GetMaintenanceLogs)
 			mwin.PUT("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateMaintenances)
 		}
 

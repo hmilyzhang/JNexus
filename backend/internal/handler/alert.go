@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -186,7 +187,31 @@ func UpdateMaintenances(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
 		return
 	}
+	// 留痕：旧记录置为已失效，写入本次变更（操作人/IP/窗口内容/生效标记）
+	now := time.Now()
+	model.DB.Model(&model.MaintenanceLog{}).Where("active = ?", true).Update("active", false)
+	windowsJSON, _ := json.Marshal(req)
+	model.DB.Create(&model.MaintenanceLog{
+		Username: currentUser(c).Username, IP: c.ClientIP(),
+		Windows: string(windowsJSON), Active: true, CreatedAt: now,
+	})
 	c.JSON(http.StatusOK, service.LoadMaintenances())
+}
+
+// GetMaintenanceLogs 维护窗口变更留痕（最近 50 条，含生效状态）
+func GetMaintenanceLogs(c *gin.Context) {
+	var logs []model.MaintenanceLog
+	model.DB.Order("id DESC").Limit(50).Find(&logs)
+	out := []gin.H{}
+	for _, l := range logs {
+		var wins []service.MaintenanceWindow
+		_ = json.Unmarshal([]byte(l.Windows), &wins)
+		out = append(out, gin.H{
+			"username": l.Username, "ip": l.IP, "windows": wins,
+			"active": l.Active, "created_at": l.CreatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, out)
 }
 
 // GetCmdLevels CMD 分级阈值配置

@@ -249,9 +249,20 @@
             </div>
           </template>
           <el-table :data="maintAudit" size="small" border>
-            <el-table-column prop="username" :label="$t('audit.operator')" width="140" />
-            <el-table-column prop="resource" :label="$t('audit.action')" min-width="220" />
-            <el-table-column prop="ip" :label="$t('audit.sourceIp')" width="140" />
+            <el-table-column prop="username" :label="$t('audit.operator')" width="120" />
+            <el-table-column :label="$t('monitor.maintLogWindows')" min-width="220">
+              <template #default="{ row }">
+                <div v-for="(w, i) in row.windows" :key="i" class="mono" style="font-size:12px">
+                  {{ w.date_start }} → {{ w.date_end }} · {{ w.start }}-{{ w.end }}
+                </div>
+                <span v-if="!(row.windows || []).length" style="color:#c0c4cc">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('monitor.maintLogStatus')" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.active ? 'success' : 'info'">{{ row.active ? $t('monitor.maintActive') : $t('monitor.maintInactive') }}</el-tag>
+              </template>
+            </el-table-column>
             <el-table-column :label="$t('audit.time')" width="170">
               <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
             </el-table-column>
@@ -698,8 +709,7 @@ const saveMaintWindows = async () => {
 const loadMaintAudit = async () => {
   maintAuditLoading.value = true
   try {
-    const r = await api.get('/audit', { params: { keyword: 'maintenance_windows', size: 20 } })
-    maintAudit.value = r.items || []
+    maintAudit.value = await api.get('/maintenance_windows/logs')
   } finally { maintAuditLoading.value = false }
 }
 

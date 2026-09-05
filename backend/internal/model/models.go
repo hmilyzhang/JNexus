@@ -416,3 +416,13 @@ type ApiKey struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	CreatedBy   string     `gorm:"size:64" json:"created_by"`
 }
+
+// MaintenanceLog 维护窗口变更留痕（每次保存一条；active 标记当前生效版本）
+type MaintenanceLog struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Username  string    `gorm:"size:64;index" json:"username"`
+	IP        string    `gorm:"size:64" json:"ip"`
+	Windows   string    `gorm:"type:text" json:"windows"` // 窗口 JSON
+	Active    bool      `json:"active"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}
