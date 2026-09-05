@@ -532,11 +532,11 @@ const previewVisible = ref(false)
 const previewData = reactive({ title: '', body: '' })
 const previewSection = key => {
   const pick = {
-    tplMonAlert: ['monitor_alert_title', 'monitor_alert_body'],
-    tplMonRecovery: ['monitor_recovery_title', 'monitor_recovery_body'],
-    tplReboot: ['reboot_title', 'reboot_body'],
-    tplCmdAlert: ['cmd_alert_title', 'cmd_alert_body'],
-    tplCmdRecovery: ['cmd_recovery_title', 'cmd_recovery_body'],
+    monitor_alert: ['monitor_alert_title', 'monitor_alert_body'],
+    monitor_recovery: ['monitor_recovery_title', 'monitor_recovery_body'],
+    reboot: ['reboot_title', 'reboot_body'],
+    cmd_alert: ['cmd_alert_title', 'cmd_alert_body'],
+    cmd_recovery: ['cmd_recovery_title', 'cmd_recovery_body'],
   }[key] || ['', '']
   previewData.title = renderTplLocal(tplForm[pick[0]], sampleVars)
   previewData.body = renderTplLocal(tplForm[pick[1]], sampleVars)
