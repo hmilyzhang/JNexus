@@ -546,9 +546,24 @@ const previewSection = key => {
 }
 
 // ---- 全局默认模板 ----
+const EMAIL_DFT_TITLE = 'AutoOps 告警通知 - {host}'
+const EMAIL_DFT_BODY = (
+  '<h3>AutoOps 告警通知</h3>\n'
+  + '<p>主机：<b>{host}</b>（{ip}）</p>\n'
+  + '<p>级别：{level}</p>\n'
+  + '<p>指标：{metric} = <b>{value}%</b>（阈值 {threshold}%）</p>\n'
+  + '<p>状态：{status}</p>\n'
+  + '<p style="color:#c0392b">错误：{error}</p>\n'
+  + '<p>时间：{time}</p>'
+)
 const tplForm = reactive({})
 const tplSaving = ref(false)
-const loadAlertTemplates = async () => { Object.assign(tplForm, await api.get('/alert_rules/templates')) }
+const loadAlertTemplates = async () => {
+  Object.assign(tplForm, await api.get('/alert_rules/templates'))
+  // 邮件专用模板为空时预填充建议内容，方便直接修改
+  if (!tplForm.email_title) tplForm.email_title = EMAIL_DFT_TITLE
+  if (!tplForm.email_body) tplForm.email_body = EMAIL_DFT_BODY
+}
 const saveAlertTemplates = async () => {
   tplSaving.value = true
   try {

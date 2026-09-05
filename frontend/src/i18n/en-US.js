@@ -460,7 +460,7 @@ export default {
     tabTpl: 'Template Settings',
     tplTitle: 'Default notification templates (empty = built-in default; channel templates take priority)',
     tplEmail: 'Email-dedicated',
-    tplEmailNote: 'Applies to email channels only (above the generic templates below, below per-channel templates); body supports HTML',
+    tplEmailNote: 'Applies to email channels only (above the generic templates below, below per-channel templates); body supports HTML. Clear and save to fall back to the per-source default content.',
     tplMonAlert: 'Application monitors — alert',
     tplMonRecovery: 'Application monitors — recovery',
     tplReboot: 'Host reboot',

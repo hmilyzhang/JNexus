@@ -460,7 +460,7 @@ export default {
     tabTpl: '模板设置',
     tplTitle: '默认通知模板（留空使用内建默认；通道级模板优先于此处）',
     tplEmail: '邮件通知专用',
-    tplEmailNote: '仅对邮件类型通道生效（优先于下方通用模板，低于通道自身模板）；正文支持 HTML',
+    tplEmailNote: '仅对邮件类型通道生效（优先于下方通用模板，低于通道自身模板）；正文支持 HTML。清空并保存则恢复按告警源默认内容。',
     tplMonAlert: '应用监控 — 故障告警',
     tplMonRecovery: '应用监控 — 恢复通知',
     tplReboot: '主机重启',
