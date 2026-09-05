@@ -27,6 +27,9 @@ type monitorReq struct {
 	TimeoutSec     int    `json:"timeout_sec"`
 	Enabled        *bool  `json:"enabled"`
 	ChannelIDs     []uint `json:"channel_ids"` // 告警通知通道绑定
+	AlertMode      string `json:"alert_mode"`           // grace / immediate
+	AlertGraceSec  int    `json:"alert_grace_sec"`      // 故障持续阈值（秒）
+	NotifyRecovery *bool  `json:"notify_recovery"`      // 恢复通知开关
 }
 
 // saveMonitorBindings 重写监控项的通知通道绑定
@@ -129,6 +132,13 @@ func CreateMonitor(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if req.AlertMode == "immediate" || req.AlertMode == "grace" {
+		m.AlertMode = req.AlertMode
+	}
+	m.AlertGraceSec = req.AlertGraceSec
+	if req.NotifyRecovery != nil {
+		m.NotifyRecovery = *req.NotifyRecovery
+	}
 	if err := model.DB.Create(&m).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建失败"})
 		return
@@ -158,13 +168,29 @@ func UpdateMonitor(c *gin.Context) {
 		m.Enabled = *req.Enabled
 	}
 	m.NextRunAt = nil // 立即重新调度
-	model.DB.Model(&m).Updates(map[string]any{
+	if req.AlertMode != "" {
+		m.AlertMode = req.AlertMode
+	}
+	m.AlertGraceSec = req.AlertGraceSec // 0 表示立即触发
+	alertMode := m.AlertMode
+	if alertMode != "immediate" && alertMode != "grace" {
+		alertMode = "grace"
+	}
+	if req.AlertMode == "immediate" || req.AlertMode == "grace" {
+		alertMode = req.AlertMode
+	}
+	updates := map[string]any{
 		"name": m.Name, "type": m.Type, "target": m.Target, "port": m.Port,
 		"method": m.Method, "accepted_status": m.AcceptedStatus,
 		"keyword": m.Keyword, "keyword_type": m.KeywordType,
 		"interval_sec": m.IntervalSec, "timeout_sec": m.TimeoutSec,
 		"enabled": m.Enabled, "next_run_at": nil,
-	})
+		"alert_mode": alertMode, "alert_grace_sec": m.AlertGraceSec,
+	}
+	if req.NotifyRecovery != nil {
+		updates["notify_recovery"] = *req.NotifyRecovery
+	}
+	model.DB.Model(&m).Updates(updates)
 	saveMonitorBindings(m.ID, req.ChannelIDs)
 	c.JSON(http.StatusOK, m)
 }

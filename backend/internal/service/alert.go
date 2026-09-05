@@ -108,12 +108,8 @@ func SendViaChannel(ch *model.AlertChannel, subject, text string) error {
 	}
 }
 
-// NotifyMonitorStatusChange 监控项状态变化（故障/恢复）时向绑定通道推送。
-// oldStatus 为本次检查前的 last_status（空表示首次检查，不通知）。
-func NotifyMonitorStatusChange(m *model.Monitor, oldStatus, newStatus string, respMs int, errMsg string) {
-	if oldStatus == "" || oldStatus == newStatus {
-		return
-	}
+// SendMonitorAlert 按报警规则的判定结果向绑定通道发送告警/恢复通知
+func SendMonitorAlert(m *model.Monitor, status string, respMs int, errMsg string) {
 	var bindings []model.MonitorChannel
 	model.DB.Where("monitor_id = ?", m.ID).Find(&bindings)
 	if len(bindings) == 0 {
@@ -125,9 +121,12 @@ func NotifyMonitorStatusChange(m *model.Monitor, oldStatus, newStatus string, re
 	}
 	var channels []model.AlertChannel
 	model.DB.Where("id IN ? AND enabled = ?", channelIDs, true).Find(&channels)
+	if len(channels) == 0 {
+		return
+	}
 
 	now := time.Now().Format("2006-01-02 15:04:05")
-	down := newStatus == "down"
+	down := status == "down"
 	emoji := "🟢"
 	event := "RECOVERY"
 	if down {
@@ -136,7 +135,7 @@ func NotifyMonitorStatusChange(m *model.Monitor, oldStatus, newStatus string, re
 	}
 	subject := fmt.Sprintf("%s [%s] %s", emoji, event, m.Name)
 	text := fmt.Sprintf("Monitor: %s\nType: %s\nTarget: %s\nStatus: %s\nResponse: %dms\nTime: %s",
-		m.Name, m.Type, monitorTargetText(m), strings.ToUpper(newStatus), respMs, now)
+		m.Name, m.Type, monitorTargetText(m), strings.ToUpper(status), respMs, now)
 	if errMsg != "" {
 		text += "\nError: " + errMsg
 	}

@@ -453,6 +453,16 @@ export default {
     last: '上次轮换'
   },
   monitor: {
+    tabRules: '报警规则',
+    ruleTitle: '报警规则（阈值与恢复通知）',
+    ruleTip: '持续故障模式：故障持续满「阈值」秒仍未恢复才发送告警，期间恢复则不打扰；立即触发模式（重启类）：首次检测到故障立即告警。恢复通知仅在本次故障实际发过告警后发送。',
+    ruleMode: '告警模式',
+    modeGrace: '持续故障后告警',
+    modeImmediate: '立即触发（重启类）',
+    ruleThreshold: '阈值（秒）',
+    ruleRecovery: '恢复通知',
+    ruleDownFor: '当前故障持续',
+    ruleAlerted: '已告警',
     tabCmd: 'CMD 监控',
     tabApp: '应用监控',
     tabAlert: 'Alert 配置',

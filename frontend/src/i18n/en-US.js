@@ -453,6 +453,16 @@ export default {
     last: 'Last rotated'
   },
   monitor: {
+    tabRules: 'Alert Rules',
+    ruleTitle: 'Alert rules (thresholds & recovery)',
+    ruleTip: 'Grace mode: an alert fires only when the failure persists for the threshold seconds; recovering earlier stays silent. Immediate mode (restart-type): alerts on the first failed check. Recovery notices are sent only if an alert was actually fired for that failure period.',
+    ruleMode: 'Alert mode',
+    modeGrace: 'After sustained failure',
+    modeImmediate: 'Immediate (restart-type)',
+    ruleThreshold: 'Threshold (s)',
+    ruleRecovery: 'Recovery notice',
+    ruleDownFor: 'Currently down for',
+    ruleAlerted: 'Alerted',
     tabCmd: 'CMD Monitoring',
     tabApp: 'Application Monitors',
     tabAlert: 'Alert Configuration',

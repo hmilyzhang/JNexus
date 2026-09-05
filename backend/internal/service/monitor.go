@@ -167,7 +167,7 @@ func checkPing(m *model.Monitor, timeout time.Duration, start time.Time) (bool, 
 	return true, ms, ""
 }
 
-// RunMonitorOnce 执行监控项并落库（状态 + 心跳样本）；状态变化时向绑定通道推送告警
+// RunMonitorOnce 执行监控项并落库（状态 + 心跳样本），再按报警规则评估是否推送
 func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 	up, ms, errMsg := CheckMonitor(m)
 	status := "down"
@@ -181,10 +181,46 @@ func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 	}
 	model.DB.Model(m).Updates(updates)
 	model.DB.Create(&model.MonitorSample{MonitorID: m.ID, Status: status, RespMs: ms, Error: errMsg, CreatedAt: now})
-	if oldStatus != status {
-		NotifyMonitorStatusChange(m, oldStatus, status, ms, errMsg)
-	}
+	EvaluateAlertRules(m, oldStatus, status, ms, errMsg, now)
 	return up, ms, errMsg
+}
+
+// EvaluateAlertRules 报警规则引擎：
+//   - immediate 模式（重启类）：故障首次出现立即告警
+//   - grace 模式（默认）：故障持续满阈值秒后才告警，未满阈值即恢复则完全不打扰
+//   - 恢复通知仅在本次故障周期内实际发过告警时发送（可按监控项关闭）
+func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errMsg string, now time.Time) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("[alert] rule evaluate panic:", r)
+		}
+	}()
+	if status == "down" {
+		if m.DownSince == nil {
+			m.DownSince = &now
+			model.DB.Model(m).Update("down_since", now)
+		}
+		fire := false
+		if m.AlertMode == "immediate" {
+			fire = !m.AlertFired
+		} else {
+			grace := time.Duration(m.AlertGraceSec) * time.Second // 阈值 0 = 立即
+			fire = !m.AlertFired && now.Sub(*m.DownSince) >= grace
+		}
+		if fire {
+			m.AlertFired = true
+			model.DB.Model(m).Update("alert_fired", true)
+			SendMonitorAlert(m, "down", ms, errMsg)
+		}
+		return
+	}
+	// 恢复：清空故障计时；若本次故障周期内实际发过告警，按开关发送恢复通知
+	if m.AlertFired && m.NotifyRecovery {
+		SendMonitorAlert(m, "up", ms, errMsg)
+	}
+	m.AlertFired = false
+	m.DownSince = nil
+	model.DB.Model(m).Updates(map[string]any{"alert_fired": false, "down_since": nil})
 }
 
 // ScanDueMonitors 到期监控扫描（调度循环调用）
