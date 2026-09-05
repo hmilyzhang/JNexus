@@ -698,7 +698,7 @@ onUnmounted(() => clearInterval(timer))
 .hb { display: flex; gap: 2px; align-items: flex-end; height: 26px; flex-shrink: 0; width: 220px; }
 .hb-bar { flex: 1; max-width: 5px; border-radius: 2px; display: inline-block; height: 100%; min-width: 2px; }
 .hb-up { background: #67c23a; }
-.hb-down { background: #f56c6c; height: 60%; }
+.hb-down { background: #f56c6c; }
 .mon-stats { display: flex; gap: 14px; text-align: center; flex-shrink: 0; }
 .stat { width: 62px; }
 .stat-val { font-weight: 600; }
