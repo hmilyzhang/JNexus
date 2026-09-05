@@ -55,6 +55,15 @@ func SetupRouter() *gin.Engine {
 			mon.POST("/:id/test", middleware.RequireRole(model.RoleAdmin, model.RoleOps), TestMonitor)
 			mon.GET("/:id/history", MonitorHistory)
 		}
+		ach := auth.Group("/alert_channels", middleware.RequireRole())
+		{
+			ach.GET("", ListAlertChannels)
+			ach.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), CreateAlertChannel)
+			ach.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateAlertChannel)
+			ach.DELETE("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), DeleteAlertChannel)
+			ach.POST("/:id/test", middleware.RequireRole(model.RoleAdmin, model.RoleOps), TestAlertChannel)
+		}
+
 		mg := auth.Group("/monitoring", middleware.RequireRole())
 		{
 			mg.GET("/hosts", HostMetricsList)

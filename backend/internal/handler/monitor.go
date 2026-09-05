@@ -26,6 +26,15 @@ type monitorReq struct {
 	IntervalSec    int    `json:"interval_sec"`
 	TimeoutSec     int    `json:"timeout_sec"`
 	Enabled        *bool  `json:"enabled"`
+	ChannelIDs     []uint `json:"channel_ids"` // 告警通知通道绑定
+}
+
+// saveMonitorBindings 重写监控项的通知通道绑定
+func saveMonitorBindings(monitorID uint, channelIDs []uint) {
+	model.DB.Where("monitor_id = ?", monitorID).Delete(&model.MonitorChannel{})
+	for _, cid := range channelIDs {
+		model.DB.Create(&model.MonitorChannel{MonitorID: monitorID, ChannelID: cid})
+	}
 }
 
 func applyMonitorReq(m *model.Monitor, req monitorReq) error {
@@ -91,10 +100,18 @@ func ListMonitors(c *gin.Context) {
 		})
 	}
 
+	var bindings []model.MonitorChannel
+	model.DB.Find(&bindings)
+	chMap := map[uint][]uint{}
+	for _, b := range bindings {
+		chMap[b.MonitorID] = append(chMap[b.MonitorID], b.ChannelID)
+	}
+
 	out := []gin.H{}
 	for _, m := range monitors {
 		out = append(out, gin.H{
 			"monitor": m, "uptime24h": uptimeMap[m.ID], "recent": recentMap[m.ID],
+			"channel_ids": chMap[m.ID],
 		})
 	}
 	c.JSON(http.StatusOK, out)
@@ -116,6 +133,7 @@ func CreateMonitor(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建失败"})
 		return
 	}
+	saveMonitorBindings(m.ID, req.ChannelIDs)
 	c.JSON(http.StatusOK, m)
 }
 
@@ -147,6 +165,7 @@ func UpdateMonitor(c *gin.Context) {
 		"interval_sec": m.IntervalSec, "timeout_sec": m.TimeoutSec,
 		"enabled": m.Enabled, "next_run_at": nil,
 	})
+	saveMonitorBindings(m.ID, req.ChannelIDs)
 	c.JSON(http.StatusOK, m)
 }
 

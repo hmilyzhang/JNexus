@@ -371,3 +371,20 @@ type HostMetric struct {
 	DiskPercent float64   `json:"disk_percent"` // 所有真实挂载点中最大使用率
 	CollectedAt time.Time `gorm:"index" json:"collected_at"`
 }
+
+// 告警通知通道（参考 Uptime Kuma：邮件 / Webhook / 企业微信 / 钉钉 / 飞书 / Telegram）
+type AlertChannel struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Name      string    `gorm:"size:128" json:"name"`
+	Type      string    `gorm:"size:16" json:"type"` // email / webhook / wecom / dingtalk / feishu / telegram
+	Config    string    `gorm:"type:text" json:"config"` // JSON：各类型自己的字段
+	Enabled   bool      `gorm:"default:true" json:"enabled"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// MonitorChannel 监控项 ↔ 通知通道 绑定
+type MonitorChannel struct {
+	MonitorID uint `gorm:"primaryKey" json:"monitor_id"`
+	ChannelID uint `gorm:"primaryKey" json:"channel_id"`
+}

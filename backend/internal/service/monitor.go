@@ -167,19 +167,23 @@ func checkPing(m *model.Monitor, timeout time.Duration, start time.Time) (bool, 
 	return true, ms, ""
 }
 
-// RunMonitorOnce 执行监控项并落库（状态 + 心跳样本）
+// RunMonitorOnce 执行监控项并落库（状态 + 心跳样本）；状态变化时向绑定通道推送告警
 func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 	up, ms, errMsg := CheckMonitor(m)
 	status := "down"
 	if up {
 		status = "up"
 	}
+	oldStatus := m.LastStatus
 	now := time.Now()
 	updates := map[string]any{
 		"last_status": status, "last_resp_ms": ms, "last_error": errMsg, "last_checked_at": now,
 	}
 	model.DB.Model(m).Updates(updates)
 	model.DB.Create(&model.MonitorSample{MonitorID: m.ID, Status: status, RespMs: ms, Error: errMsg, CreatedAt: now})
+	if oldStatus != status {
+		NotifyMonitorStatusChange(m, oldStatus, status, ms, errMsg)
+	}
 	return up, ms, errMsg
 }
 
@@ -227,35 +231,35 @@ func parseMetricOutput(out string) (hostSample, bool) {
 		return s, false
 	}
 	cpuLines := strings.Split(strings.TrimSpace(parts[0]), "\n")
-		if len(cpuLines) >= 2 {
-			// 标准 CPU 占用算法（与 top 一致）：100 - 空闲时间占比；iowait 计入空闲
-			f := func(line string) (idle, total uint64) {
-				fl := strings.Fields(line)
-				if len(fl) < 5 || fl[0] != "cpu" {
-					return
-				}
-				for i, x := range fl[1:] {
-					n, e := strconv.ParseUint(x, 10, 64)
-					if e != nil {
-						continue
-					}
-					total += n
-					if i == 3 || i == 4 { // idle + iowait
-						idle += n
-					}
-				}
+	if len(cpuLines) >= 2 {
+		// 标准 CPU 占用算法（与 top 一致）：100 - 空闲时间占比；iowait 计入空闲
+		f := func(line string) (idle, total uint64) {
+			fl := strings.Fields(line)
+			if len(fl) < 5 || fl[0] != "cpu" {
 				return
 			}
-			id1, t1 := f(cpuLines[0])
-			id2, t2 := f(cpuLines[1])
-			dt := float64(t2 - t1)
-			if dt > 0 {
-				s.CPU = round1(100 * (1 - float64(id2-id1)/dt))
+			for i, x := range fl[1:] {
+				n, e := strconv.ParseUint(x, 10, 64)
+				if e != nil {
+					continue
+				}
+				total += n
+				if i == 3 || i == 4 { // idle + iowait
+					idle += n
+				}
 			}
-			if s.CPU < 0 {
-				s.CPU = 0
-			}
+			return
 		}
+		id1, t1 := f(cpuLines[0])
+		id2, t2 := f(cpuLines[1])
+		dt := float64(t2 - t1)
+		if dt > 0 {
+			s.CPU = round1(100 * (1 - float64(id2-id1)/dt))
+		}
+		if s.CPU < 0 {
+			s.CPU = 0
+		}
+	}
 	mem := parts[1]
 	if diskIdx := strings.Index(mem, "---DISK---"); diskIdx >= 0 {
 		mem = mem[:diskIdx]
