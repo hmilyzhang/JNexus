@@ -173,6 +173,55 @@
             </el-form-item>
           </el-form>
         </el-card>
+        <el-card style="margin-top:16px">
+          <template #header>
+            <div style="display:flex; align-items:center; gap:10px">
+              <span style="flex:1">{{ $t('monitor.cmdLevels') }}</span>
+              <el-button size="small" type="primary" :loading="cmdSaving" @click="saveCmdLevels">{{ $t('common.save') }}</el-button>
+            </div>
+          </template>
+          <el-table :data="cmdLevels" size="small" border>
+            <el-table-column :label="$t('monitor.level')" width="70" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.level === 'P1' ? 'danger' : row.level === 'P2' ? 'warning' : 'info'">{{ row.level }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('monitor.cpu')" min-width="120">
+              <template #default="{ row }">
+                <el-input-number v-model="row.cpu" size="small" :min="0" :max="100" />
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('monitor.mem')" min-width="120">
+              <template #default="{ row }">
+                <el-input-number v-model="row.mem" size="small" :min="0" :max="100" />
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('monitor.disk')" min-width="120">
+              <template #default="{ row }">
+                <el-input-number v-model="row.disk" size="small" :min="0" :max="100" />
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('monitor.ruleDuration')" min-width="130">
+              <template #default="{ row }">
+                <el-input-number v-model="row.duration_sec" size="small" :min="0" :max="86400" />
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('monitor.notif')" min-width="170">
+              <template #default="{ row }">
+                <el-select v-model="row.channel_ids" multiple size="small" style="width:100%" :placeholder="$t('monitor.chEmpty')">
+                  <el-option v-for="ch in channels" :key="ch.id" :label="`${ch.name}（${chTypeLabel(ch.type)}）`" :value="ch.id" />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('monitor.chTemplate')" min-width="240">
+              <template #default="{ row }">
+                <el-input v-model="row.template" type="textarea" :rows="2"
+                          :placeholder="$t('monitor.chTemplatePlaceholder')" />
+              </template>
+            </el-table-column>
+          </el-table>
+          <div style="color:#909399; font-size:12px; margin-top:8px">{{ $t('monitor.cmdLevelsTip') }}</div>
+        </el-card>
       </el-tab-pane>
     </el-tabs>
 
@@ -400,6 +449,18 @@ const testNow = async row => {
   load()
 }
 
+// ---- CMD 分级阈值 ----
+const cmdLevels = ref([])
+const cmdSaving = ref(false)
+const loadCmdLevels = async () => { cmdLevels.value = await api.get('/alert_rules/cmd') }
+const saveCmdLevels = async () => {
+  cmdSaving.value = true
+  try {
+    cmdLevels.value = await api.put('/alert_rules/cmd', cmdLevels.value.map(l => ({ ...l })))
+    ElMessage.success(t('common.success'))
+  } finally { cmdSaving.value = false }
+}
+
 // ---- 报警规则（全局） ----
 const alertRule = reactive({ mode: 'grace', grace_sec: 60, notify_recovery: true })
 const ruleSaving = ref(false)
@@ -462,6 +523,7 @@ const testChannel = async ch => {
 onMounted(() => {
   load()
   loadAlertRule()
+  loadCmdLevels()
   timer = setInterval(load, 30000)
 })
 onUnmounted(() => clearInterval(timer))

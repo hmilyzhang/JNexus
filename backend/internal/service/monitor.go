@@ -440,6 +440,7 @@ func CollectHostMetrics() {
 					HostID: h.ID, CPUPercent: s.CPU, MemPercent: s.Mem, DiskPercent: s.Disk,
 					CollectedAt: time.Now(),
 				})
+				EvaluateCmdAlerts(&h, s, time.Now())
 				// 主机重启自动检测：boot_id 与上次不同（且非首次采集）即推送
 				if s.BootID != "" {
 					if h.LastBootID != "" && s.BootID != h.LastBootID {

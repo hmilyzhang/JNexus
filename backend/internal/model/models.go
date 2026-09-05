@@ -386,6 +386,14 @@ type AlertChannel struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// CmdAlertState 主机当前所处的 CMD 告警级别状态（每主机一行）
+type CmdAlertState struct {
+	HostID uint       `gorm:"primaryKey" json:"host_id"`
+	Level  string     `gorm:"size:4" json:"level"`  // P1-P4，空=正常
+	Since  *time.Time `json:"since"`                // 当前级别起始时间
+	Fired  bool       `json:"fired"`                // 该级别告警是否已发送
+}
+
 // MonitorChannel 监控项 ↔ 通知通道 绑定
 type MonitorChannel struct {
 	MonitorID uint `gorm:"primaryKey" json:"monitor_id"`

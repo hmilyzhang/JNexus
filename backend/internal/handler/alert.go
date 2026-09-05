@@ -116,3 +116,53 @@ func UpdateAlertRule(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, service.LoadAlertRule())
 }
+
+// GetCmdLevels CMD 分级阈值配置
+func GetCmdLevels(c *gin.Context) {
+	c.JSON(http.StatusOK, service.LoadCmdLevels())
+}
+
+type cmdLevelReq struct {
+	Level       string  `json:"level"`
+	CPU         float64 `json:"cpu"`
+	Mem         float64 `json:"mem"`
+	Disk        float64 `json:"disk"`
+	DurationSec int     `json:"duration_sec"`
+	ChannelIDs  []uint  `json:"channel_ids"`
+	Template    string  `json:"template"`
+}
+
+// UpdateCmdLevels 保存 CMD 分级阈值配置（4 级整体保存）
+func UpdateCmdLevels(c *gin.Context) {
+	var req []cmdLevelReq
+	if err := c.ShouldBindJSON(&req); err != nil || len(req) == 0 || len(req) > 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（需要级别数组）"})
+		return
+	}
+	levels := make([]service.CmdLevel, 0, len(req))
+	seen := map[string]bool{}
+	for _, r := range req {
+		if seen[r.Level] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "级别重复: " + r.Level})
+			return
+		}
+		seen[r.Level] = true
+		if r.CPU < 0 || r.CPU > 100 || r.Mem < 0 || r.Mem > 100 || r.Disk < 0 || r.Disk > 100 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "阈值需在 0-100 之间"})
+			return
+		}
+		if r.DurationSec < 0 || r.DurationSec > 86400 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "持续时长需在 0-86400 秒之间"})
+			return
+		}
+		levels = append(levels, service.CmdLevel{
+			Level: r.Level, CPU: r.CPU, Mem: r.Mem, Disk: r.Disk,
+			DurationSec: r.DurationSec, ChannelIDs: r.ChannelIDs, Template: r.Template,
+		})
+	}
+	if err := service.SaveCmdLevels(levels); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
+		return
+	}
+	c.JSON(http.StatusOK, service.LoadCmdLevels())
+}
