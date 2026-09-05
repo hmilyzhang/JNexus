@@ -14,32 +14,32 @@ import (
 )
 
 var (
-	errCronType   = &cronError{"类型必须是 command 或 script"}
+	errCronType    = &cronError{"类型必须是 command 或 script"}
 	errCronCommand = &cronError{"命令内容必填"}
-	errCronScript = &cronError{"脚本类型需要选择脚本"}
+	errCronScript  = &cronError{"脚本类型需要选择脚本"}
 )
 
 type cronError struct{ msg string }
 
 func (e *cronError) Error() string { return e.msg }
 
-func jsonMarshal(v any) ([]byte, error) { return json.Marshal(v) }
+func jsonMarshal(v any) ([]byte, error)      { return json.Marshal(v) }
 func jsonUnmarshal(data string, v any) error { return json.Unmarshal([]byte(data), v) }
 
 type cronJobReq struct {
-	Name        string `json:"name" binding:"required"`
-	Type        string `json:"type" binding:"required"` // command / script
-	Command     string `json:"command"`
-	ScriptID    *uint  `json:"script_id"`
-	ScriptArgs  string `json:"script_args"`
-	HostIDs     []uint `json:"host_ids"`
-	GroupID     *uint  `json:"group_id"`
-	IPs         string `json:"ips"`
-	CredentialID *uint `json:"credential_id"`
-	CronExpr    string `json:"cron_expr" binding:"required"`
-	TimeoutSec  int    `json:"timeout_sec"`
-	Concurrency int    `json:"concurrency"`
-	Enabled     *bool  `json:"enabled"`
+	Name         string `json:"name" binding:"required"`
+	Type         string `json:"type" binding:"required"` // command / script
+	Command      string `json:"command"`
+	ScriptID     *uint  `json:"script_id"`
+	ScriptArgs   string `json:"script_args"`
+	HostIDs      []uint `json:"host_ids"`
+	GroupID      *uint  `json:"group_id"`
+	IPs          string `json:"ips"`
+	CredentialID *uint  `json:"credential_id"`
+	CronExpr     string `json:"cron_expr" binding:"required"`
+	TimeoutSec   int    `json:"timeout_sec"`
+	Concurrency  int    `json:"concurrency"`
+	Enabled      *bool  `json:"enabled"`
 }
 
 func (r *cronJobReq) validate() error {
@@ -112,7 +112,7 @@ func ListCrons(c *gin.Context) {
 			"credential_id": j.CredentialID, "timeout_sec": j.TimeoutSec, "concurrency": j.Concurrency,
 			"next_run_at": next, "last_run_at": j.LastRunAt,
 			"last_task_id": j.LastTaskID,
-			"created_by": j.CreatedBy, "created_at": j.CreatedAt,
+			"created_by":   j.CreatedBy, "created_at": j.CreatedAt,
 		})
 	}
 	c.JSON(http.StatusOK, out)

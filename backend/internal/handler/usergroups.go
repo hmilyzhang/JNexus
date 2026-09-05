@@ -3,9 +3,9 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -112,11 +112,11 @@ func UpdateUserGroupLinks(c *gin.Context) {
 		return
 	}
 	var req struct {
-		MemberIDs    []uint `json:"member_ids"`
-		HostIDs      []uint `json:"host_ids"`
-		GroupIDs     []uint `json:"host_group_ids"`
+		MemberIDs     []uint `json:"member_ids"`
+		HostIDs       []uint `json:"host_ids"`
+		GroupIDs      []uint `json:"host_group_ids"`
 		CredentialIDs []uint `json:"credential_ids"`
-		Rules        []struct {
+		Rules         []struct {
 			HostGroupID *uint  `json:"host_group_id"`
 			Username    string `json:"username" binding:"required"`
 		} `json:"rules"`

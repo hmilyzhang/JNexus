@@ -227,12 +227,12 @@
               <div v-for="sec in tplSections" :key="sec.key"
                    class="tpl-item" :class="{ active: selectedTpl === sec.key }"
                    @click="selectedTpl = sec.key">
-                {{ $t('monitor.' + sec.labelKey) }}
+                {{ secLabel(sec) }}
               </div>
             </div>
             <div style="flex:1; min-width:0">
               <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px">
-                <span style="font-weight:600">{{ $t('monitor.' + currentSection.labelKey) }}</span>
+                <span style="font-weight:600">{{ secLabel(currentSection) }}</span>
                 <el-button size="small" link type="primary" @click="previewSection(selectedTpl)">{{ $t('monitor.tplPreview') }}</el-button>
               </div>
               <el-form label-width="90px">
@@ -526,6 +526,7 @@ const tplSections = [
   { key: 'cmd_recovery', labelKey: 'tplCmdRecovery', titleField: 'cmd_recovery_title', bodyField: 'cmd_recovery_body' },
 ]
 const selectedTpl = ref('monitor_alert')
+const secLabel = sec => t('monitor.' + sec.labelKey)
 const currentSection = computed(() => tplSections.find(x => x.key === selectedTpl.value) || tplSections[0])
 const previewVisible = ref(false)
 const previewData = reactive({ title: '', body: '' })

@@ -199,7 +199,79 @@
       </div>
     </el-card>
     </el-tab-pane>
+
+    <el-tab-pane :label="$t('system.apiKeys')" name="apikeys">
+    <el-card>
+      <template #header>
+        <div style="display:flex; align-items:center; gap:10px">
+          <span style="flex:1">{{ $t('system.apiKeysTitle') }}</span>
+          <el-button size="small" type="primary" @click="openApiKeyDlg">{{ $t('system.apiKeyCreate') }}</el-button>
+        </div>
+      </template>
+      <el-table :data="apiKeys" size="small" border>
+        <el-table-column prop="name" :label="$t('system.apiKeyName')" min-width="140" />
+        <el-table-column label="Key" width="150">
+          <template #default="{ row }"><span class="mono">aok_{{ row.key_id }}...</span></template>
+        </el-table-column>
+        <el-table-column prop="owner" :label="$t('system.apiKeyOwner')" width="110" />
+        <el-table-column :label="$t('system.apiKeyExpires')" width="160">
+          <template #default="{ row }">{{ fmtApiTime(row.expires_at) }}</template>
+        </el-table-column>
+        <el-table-column :label="$t('system.apiKeyLastUsed')" width="150">
+          <template #default="{ row }">{{ fmtApiTime(row.last_used_at) }}</template>
+        </el-table-column>
+        <el-table-column :label="$t('system.apiKeyEnabled')" width="90" align="center">
+          <template #default="{ row }">
+            <el-switch v-model="row.enabled" @change="toggleApiKey(row)" />
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('common.operation')" width="90" fixed="right">
+          <template #default="{ row }">
+            <el-popconfirm :title="$t('system.apiKeyDelConfirm')" @confirm="delApiKey(row)">
+              <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div style="color:#909399; font-size:12px; margin-top:10px">{{ $t('system.apiKeyTip') }}</div>
+    </el-card>
+    </el-tab-pane>
     </el-tabs>
+
+    <!-- API 密钥创建 -->
+    <el-dialog v-model="apiKeyDlgVisible" :title="$t('system.apiKeyCreate')" width="480px">
+      <el-form label-width="120px">
+        <el-form-item :label="$t('system.apiKeyName')"><el-input v-model="apiKeyForm.name" /></el-form-item>
+        <el-form-item :label="$t('system.apiKeyOwner')">
+          <el-select v-model="apiKeyForm.owner_user_id" style="width:100%" filterable>
+            <el-option v-for="u in users" :key="u.id" :label="u.username + ' (' + u.role + ')'" :value="u.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('system.apiKeyExpires')">
+          <el-date-picker v-model="apiKeyForm.expires_at" type="datetime"
+                          value-format="YYYY-MM-DDTHH:mm:ssZ" style="width:100%" placeholder="-" />
+        </el-form-item>
+        <el-form-item :label="$t('system.apiKeyIpList')">
+          <el-input v-model="apiKeyForm.ip_allowlist" class="mono" placeholder="10.0.0.8, 10.0.1.0/24" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="apiKeyDlgVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="createApiKey">{{ $t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 密钥一次性展示 -->
+    <el-dialog v-model="keyShownVisible" :title="$t('system.apiKeyCreatedTitle')" width="560px" :close-on-click-modal="false">
+      <el-alert type="warning" :title="$t('system.apiKeyOnceTip')" :closable="false" style="margin-bottom:12px" />
+      <div class="mono" style="background:#f5f7fa; padding:10px; border-radius:4px; word-break:break-all; font-size:13px">{{ createdKey }}</div>
+      <div style="margin-top:10px; text-align:right">
+        <el-button size="small" @click="copyKey">{{ $t('system.apiKeyCopy') }}</el-button>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="keyShownVisible = false">{{ $t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 菜单权限编辑 -->
     <el-dialog v-model="menuDlgVisible" :title="`${$t('system.menuPerms')}：${menuDlgRole?.label}`" width="420px">
@@ -245,6 +317,44 @@ const smtpSsl = ref(false)
 const smtpTestTo = ref('')
 const smtpTesting = ref(false)
 const ldapPort = ref(389)
+
+// ---- API 密钥 ----
+const apiKeys = ref([])
+const users = ref([])
+const apiKeyDlgVisible = ref(false)
+const keyShownVisible = ref(false)
+const createdKey = ref('')
+const apiKeyForm = reactive({ name: '', owner_user_id: null, expires_at: '', ip_allowlist: '' })
+
+const fmtApiTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
+const loadApiKeys = async () => {
+  apiKeys.value = await api.get('/api_keys')
+  users.value = await api.get('/users')
+}
+const openApiKeyDlg = async () => {
+  Object.assign(apiKeyForm, { name: '', owner_user_id: null, expires_at: '', ip_allowlist: '' })
+  if (!users.value.length) users.value = await api.get('/users')
+  apiKeyDlgVisible.value = true
+}
+const createApiKey = async () => {
+  const payload = { ...apiKeyForm }
+  if (!payload.expires_at) delete payload.expires_at
+  const r = await api.post('/api_keys', payload)
+  createdKey.value = r.key
+  apiKeyDlgVisible.value = false
+  keyShownVisible.value = true
+  loadApiKeys()
+}
+const copyKey = async () => {
+  try { await navigator.clipboard.writeText(createdKey.value); ElMessage.success(t('common.success')) } catch (e) { /* ignore */ }
+}
+const toggleApiKey = async row => {
+  await api.put('/api_keys/' + row.id, { enabled: row.enabled })
+}
+const delApiKey = async row => {
+  await api.delete('/api_keys/' + row.id)
+  loadApiKeys()
+}
 
 const roleRows = ref([])
 // 角色名/描述按语言包本地化显示（system.role<Cap> / layout.role<Cap>），保存的是显示值
@@ -322,6 +432,7 @@ onMounted(async () => {
     ldapPort.value = Number(form.ldap_port) || 389
     if (cfg.ldap_bind_password === '******') form.ldap_bind_password = '******'
     await loadRoles()
+    await loadApiKeys()
   } finally { loading.value = false }
 })
 

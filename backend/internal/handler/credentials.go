@@ -81,7 +81,7 @@ func ListAllCredentials(c *gin.Context) {
 			"host_name": h.Name, "host_ip": h.IP,
 			"username": cr.Username, "label": cr.Label,
 			"auth_type": cr.AuthType, "key_name": keyName,
-			"is_default": cr.IsDefault,
+			"is_default":     cr.IsDefault,
 			"rotate_enabled": cr.RotateEnabled, "rotate_days": cr.RotateDays,
 			"last_rotated_at": cr.LastRotatedAt, "last_rotation_result": cr.LastRotationResult,
 			"is_ldap": cr.IsLDAP, "created_at": cr.CreatedAt,
@@ -125,17 +125,17 @@ func ListPairedCredentials(c *gin.Context) {
 	var creds []model.HostCredential
 	model.DB.Preload("SSHKey").Where("auth_type = ?", "key").Order("id DESC").Find(&creds)
 	type pairRow struct {
-		ID         uint   `json:"id"`
-		HostID     uint   `json:"host_id"`
-		Name       string `json:"name"` // 主机名-账号
-		HostName   string `json:"host_name"`
-		HostIP     string `json:"host_ip"`
-		Username   string `json:"username"`
-		Label      string `json:"label"`
-		KeyName    string `json:"key_name"`
-		PublicKey  string `json:"public_key"`
-		IsDefault  bool   `json:"is_default"`
-		CreatedAt  string `json:"created_at"`
+		ID        uint   `json:"id"`
+		HostID    uint   `json:"host_id"`
+		Name      string `json:"name"` // 主机名-账号
+		HostName  string `json:"host_name"`
+		HostIP    string `json:"host_ip"`
+		Username  string `json:"username"`
+		Label     string `json:"label"`
+		KeyName   string `json:"key_name"`
+		PublicKey string `json:"public_key"`
+		IsDefault bool   `json:"is_default"`
+		CreatedAt string `json:"created_at"`
 	}
 	hostCache := map[uint]model.Host{}
 	out := make([]pairRow, 0, len(creds))

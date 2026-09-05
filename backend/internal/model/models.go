@@ -399,3 +399,20 @@ type MonitorChannel struct {
 	MonitorID uint `gorm:"primaryKey" json:"monitor_id"`
 	ChannelID uint `gorm:"primaryKey" json:"channel_id"`
 }
+
+// API 密钥（外部系统集成；仅存 SHA-256 哈希，完整密钥仅创建时展示一次）
+type ApiKey struct {
+	ID           uint       `gorm:"primaryKey" json:"id"`
+	Name         string     `gorm:"size:128" json:"name"`
+	KeyID        string     `gorm:"size:32;uniqueIndex" json:"key_id"` // 公开标识
+	KeyHash      string     `gorm:"size:64" json:"-"`                  // sha256(secret)
+	OwnerUserID  uint       `gorm:"index" json:"owner_user_id"`        // 以该用户身份执行
+	OwnerName    string     `gorm:"size:64" json:"owner_name"`
+	ExpiresAt    *time.Time `json:"expires_at"`            // 可选过期时间
+	IPAllowlist  string     `gorm:"size:512" json:"ip_allowlist"` // 逗号分隔 IP/CIDR，空=不限
+	Enabled      bool       `gorm:"default:true" json:"enabled"`
+	LastUsedAt   *time.Time `json:"last_used_at"`
+	LastUsedIP   string     `gorm:"size:64" json:"last_used_ip"`
+	CreatedAt    time.Time  `json:"created_at"`
+	CreatedBy    string     `gorm:"size:64" json:"created_by"`
+}

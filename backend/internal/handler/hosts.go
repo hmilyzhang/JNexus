@@ -47,7 +47,7 @@ func ListGroups(c *gin.Context) {
 		out = append(out, gin.H{
 			"id": g.ID, "name": g.Name, "parent_id": g.ParentID,
 			"description": g.Description,
-			"host_count": total[g.ID], "created_at": g.CreatedAt,
+			"host_count":  total[g.ID], "created_at": g.CreatedAt,
 		})
 	}
 	c.JSON(http.StatusOK, out)
@@ -153,16 +153,16 @@ func ListHosts(c *gin.Context) {
 }
 
 type hostReq struct {
-	Name        string `json:"name"`
-	IP          string `json:"ip" binding:"required"`
-	Port        int    `json:"port"`
-	Username    string `json:"username" binding:"required"`
-	AuthType    string `json:"auth_type"`
-	SSHKeyID    *uint  `json:"ssh_key_id"`
-	Password    string `json:"password"`
-	GroupID     *uint  `json:"group_id"`
-	CredLabel   string `json:"credential_label"` // 生成 OS 账号的用途标签
-	AutoPair    bool   `json:"auto_pair"`        // 密码创建后自动配对密钥
+	Name      string `json:"name"`
+	IP        string `json:"ip" binding:"required"`
+	Port      int    `json:"port"`
+	Username  string `json:"username" binding:"required"`
+	AuthType  string `json:"auth_type"`
+	SSHKeyID  *uint  `json:"ssh_key_id"`
+	Password  string `json:"password"`
+	GroupID   *uint  `json:"group_id"`
+	CredLabel string `json:"credential_label"` // 生成 OS 账号的用途标签
+	AutoPair  bool   `json:"auto_pair"`        // 密码创建后自动配对密钥
 }
 
 func (r *hostReq) toHost(h *model.Host) error {
@@ -335,13 +335,14 @@ func createDefaultCred(hostID uint, username, authType string, sshKeyID *uint, e
 // 页面级统一密码放在请求字段中（不写入 CSV，JSON 传输不经 shell 转义），
 // 提供 password（统一或行内）且开启 auto_pair 时：自动生成密钥对并推送公钥，成功后切换密钥认证
 var ipv4Re = regexp.MustCompile(`^\d{1,3}(\.\d{1,3}){3}$`)
+
 func ImportHosts(c *gin.Context) {
 	var req struct {
 		Content   string `json:"content" binding:"required"`
 		SSHKeyID  *uint  `json:"ssh_key_id"`
 		AuthType  string `json:"auth_type"`
-		Username  string `json:"username"`  // 可作为默认用户名
-		Password  string `json:"password"`  // 页面统一密码（原样使用，不做 trim/转义）
+		Username  string `json:"username"`         // 可作为默认用户名
+		Password  string `json:"password"`         // 页面统一密码（原样使用，不做 trim/转义）
 		CredLabel string `json:"credential_label"` // 生成的 OS 账号标签
 		AutoPair  bool   `json:"auto_pair"`
 	}

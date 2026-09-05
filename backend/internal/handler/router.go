@@ -39,6 +39,15 @@ func SetupRouter() *gin.Engine {
 		}))
 	}
 
+	// 外部集成 API（仅 API 密钥认证；密码登录令牌不可用）
+	ext := api.Group("/ext", middleware.APIKeyAuth())
+	{
+		ext.GET("/hosts", ExtHosts)
+		ext.GET("/monitors", ExtMonitors)
+		ext.GET("/tasks/:id", ExtTask)
+		ext.POST("/exec", ExtExec)
+	}
+
 	auth := api.Group("", middleware.JWT())
 	{
 		auth.GET("/me", Me)
@@ -60,6 +69,14 @@ func SetupRouter() *gin.Engine {
 			arule.GET("", GetAlertRule)
 			arule.PUT("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateAlertRule)
 		}
+		apikeys := auth.Group("/api_keys", middleware.RequireRole())
+		{
+			apikeys.GET("", ListApiKeys)
+			apikeys.POST("", middleware.RequireRole(model.RoleAdmin), CreateApiKey)
+			apikeys.PUT("/:id", middleware.RequireRole(model.RoleAdmin), UpdateApiKey)
+			apikeys.DELETE("/:id", middleware.RequireRole(model.RoleAdmin), DeleteApiKey)
+		}
+
 		arule.GET("/cmd", GetCmdLevels)
 		arule.GET("/templates", GetAlertTemplates)
 		arule.POST("/templates/preview", PreviewAlertTemplates)
@@ -175,7 +192,7 @@ func SetupRouter() *gin.Engine {
 		{
 			exec.POST("", StartExec)
 		}
-				// 执行记录：管理员/审计员看全量，运维/发布员仅本人任务（handler 内过滤）
+		// 执行记录：管理员/审计员看全量，运维/发布员仅本人任务（handler 内过滤）
 		tasks := auth.Group("/tasks", middleware.RequireRole(model.RoleAuditor, model.RoleOps, model.RolePublisher, model.RoleViewer))
 		{
 			tasks.GET("", ListTasks)

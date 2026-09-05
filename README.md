@@ -30,6 +30,7 @@ Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 | Dangerous Commands | Regex rule library (rm -rf, mkfs, dd, shutdown, drop database… 11 built-in), blocks at exec/script/release entry points and writes audit; editable & testable by admin |
 | Email (SMTP) | SMTP settings (SSL / STARTTLS, auth, masked password), test send; task-completion notification emails with success/fail counts and per-host result table (failed tasks include output snippets) |
 | System Settings | Tabs: General (system name), LDAP auth (server, group-membership check, connection test), Email SMTP, **Password Rotation** (global switch, password length / complexity / default period), Role Settings (editable description / menu visibility / host permissions per role), Paired Keys |
+| **API Integration** | **API keys** (System Settings → API Keys) let external systems call `/api/ext/*`: hosts with live status/resources, monitors with status & 24h uptime, task results, and async batch exec (`wait` option). Keys are bound to a user and inherit its role & data permissions; SHA-256 hashed (shown once), optional expiry + IP allowlist, enable/disable, per-key rate limit (120/min), every call audited |
 | i18n | Chinese / English switcher (top right) |
 
 ## Quick Start (Local Development)
