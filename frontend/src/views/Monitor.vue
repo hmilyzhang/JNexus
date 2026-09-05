@@ -72,9 +72,9 @@
                 <el-tag size="small" type="info" style="margin-left:6px">{{ typeLabel(row.monitor.type) }}</el-tag>
                 <el-tag v-if="!row.monitor.enabled" size="small" type="warning" style="margin-left:6px">{{ $t('monitor.paused') }}</el-tag>
               </div>
-              <div style="color:#909399; font-size:12px; word-break:break-all">
-                {{ monitorTarget(row.monitor) }}
-                <span v-if="row.monitor.last_error" style="color:#f56c6c"> — {{ row.monitor.last_error }}</span>
+              <div style="color:#909399; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis"
+                   :title="row.monitor.last_error || ''">
+                {{ monitorTarget(row.monitor) }}<span v-if="row.monitor.last_error" style="color:#f56c6c"> — {{ row.monitor.last_error }}</span>
               </div>
             </div>
             <div class="hb">
@@ -689,17 +689,18 @@ onUnmounted(() => clearInterval(timer))
 <style scoped>
 .mon-row {
   display: flex; align-items: center; gap: 14px; padding: 10px 4px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid #ebeef5; min-height: 56px;
 }
 .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
 .dot-up { background: #67c23a; box-shadow: 0 0 0 3px rgba(103, 194, 58, .2); }
 .dot-down { background: #f56c6c; box-shadow: 0 0 0 3px rgba(245, 108, 108, .2); }
 .dot-paused { background: #c0c4cc; }
-.hb { display: flex; gap: 2px; align-items: flex-end; height: 26px; flex-shrink: 0; }
-.hb-bar { width: 5px; border-radius: 2px; display: inline-block; height: 100%; }
+.hb { display: flex; gap: 2px; align-items: flex-end; height: 26px; flex-shrink: 0; width: 220px; }
+.hb-bar { flex: 1; max-width: 5px; border-radius: 2px; display: inline-block; height: 100%; min-width: 2px; }
 .hb-up { background: #67c23a; }
 .hb-down { background: #f56c6c; height: 60%; }
-.mon-stats { display: flex; gap: 18px; text-align: center; flex-shrink: 0; }
+.mon-stats { display: flex; gap: 14px; text-align: center; flex-shrink: 0; }
+.stat { width: 62px; }
 .stat-val { font-weight: 600; }
 .stat-lbl { font-size: 11px; color: #909399; }
 /** 模板设置左侧条目 */
