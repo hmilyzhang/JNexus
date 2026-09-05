@@ -342,9 +342,7 @@ type Monitor struct {
 	IntervalSec    int        `json:"interval_sec"`
 	TimeoutSec     int        `json:"timeout_sec"`
 	Enabled        bool       `gorm:"default:true" json:"enabled"`
-	AlertMode      string     `gorm:"size:16;default:grace" json:"alert_mode"` // grace: 持续故障满阈值才告警 / immediate: 立即触发（重启类）
-	AlertGraceSec  int        `json:"alert_grace_sec"`        // grace 模式阈值（秒），0 视为立即
-	NotifyRecovery bool       `gorm:"default:true" json:"notify_recovery"` // 恢复时是否发送通知
+	Immediate      bool       `gorm:"default:false" json:"immediate"` // 重启类：无视全局阈值，首次故障立即告警
 	DownSince      *time.Time `json:"down_since"`             // 当前故障开始时间（恢复后清空）
 	AlertFired     bool       `json:"alert_fired"`            // 本次故障周期内是否已发送告警
 	LastStatus     string     `gorm:"size:8" json:"last_status"` // up / down / 空=未检查

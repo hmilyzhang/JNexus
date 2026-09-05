@@ -145,44 +145,54 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 4: 报警规则 -->
+      <!-- Tab 4: 报警规则（全局） -->
       <el-tab-pane :label="$t('monitor.tabRules')" name="rules">
         <el-card>
           <template #header>
             <div style="display:flex; align-items:center; gap:10px">
               <span style="flex:1">{{ $t('monitor.ruleTitle') }}</span>
+            </div>
+          </template>
+          <el-form label-width="150px" style="max-width:640px">
+            <el-form-item :label="$t('monitor.ruleMode')">
+              <el-radio-group v-model="alertRule.mode">
+                <el-radio value="grace">{{ $t('monitor.modeGrace') }}</el-radio>
+                <el-radio value="immediate">{{ $t('monitor.modeImmediate') }}</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item :label="$t('monitor.ruleThreshold')">
+              <el-input-number v-model="alertRule.grace_sec" :min="0" :max="86400" :disabled="alertRule.mode === 'immediate'" />
+              <div style="color:#909399; font-size:12px">{{ $t('monitor.ruleThresholdTip') }}</div>
+            </el-form-item>
+            <el-form-item :label="$t('monitor.ruleRecovery')">
+              <el-switch v-model="alertRule.notify_recovery" />
+              <div style="color:#909399; font-size:12px">{{ $t('monitor.ruleRecoveryTip') }}</div>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="ruleSaving" @click="saveAlertRule">{{ $t('common.save') }}</el-button>
+            </el-form-item>
+          </el-form>
+        </el-card>
+        <el-card style="margin-top:16px">
+          <template #header>
+            <div style="display:flex; align-items:center; gap:10px">
+              <span style="flex:1">{{ $t('monitor.ruleScope') }}</span>
               <el-button size="small" :loading="loading" @click="load">{{ $t('common.refresh') }}</el-button>
             </div>
           </template>
-          <div style="color:#909399; font-size:12px; margin-bottom:10px">{{ $t('monitor.ruleTip') }}</div>
-          <div v-if="!monitors.length" style="color:#909399; padding:8px 0">{{ $t('monitor.noData') }}</div>
           <el-table :data="monitors" size="small" border>
-            <el-table-column :label="$t('monitor.targetHost')" min-width="170">
+            <el-table-column :label="$t('monitor.targetHost')" min-width="200">
               <template #default="{ row }">
                 {{ row.monitor.name }}
                 <div style="color:#909399; font-size:12px">{{ monitorTarget(row.monitor) }}</div>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('monitor.ruleMode')" min-width="170">
+            <el-table-column :label="$t('monitor.ruleImmediateCol')" width="190" align="center">
               <template #default="{ row }">
-                <el-select v-model="row.monitor.alert_mode" size="small" style="width:100%" @change="saveRule(row)">
-                  <el-option value="grace" :label="$t('monitor.modeGrace')" />
-                  <el-option value="immediate" :label="$t('monitor.modeImmediate')" />
-                </el-select>
+                <el-checkbox v-model="row.monitor.immediate" @change="toggleImmediate(row)">{{ $t('monitor.ruleImmediate') }}</el-checkbox>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('monitor.ruleThreshold')" min-width="150">
-              <template #default="{ row }">
-                <el-input-number v-model="row.monitor.alert_grace_sec" size="small" :min="0" :max="86400"
-                                 :disabled="row.monitor.alert_mode === 'immediate'" @change="saveRule(row)" />
-              </template>
-            </el-table-column>
-            <el-table-column :label="$t('monitor.ruleRecovery')" width="100" align="center">
-              <template #default="{ row }">
-                <el-switch v-model="row.monitor.notify_recovery" @change="saveRule(row)" />
-              </template>
-            </el-table-column>
-            <el-table-column :label="$t('monitor.ruleDownFor')" min-width="130">
+            <el-table-column :label="$t('monitor.ruleDownFor')" min-width="150">
               <template #default="{ row }">
                 <template v-if="row.monitor.down_since">
                   <span style="color:#f56c6c">{{ downFor(row.monitor.down_since) }}</span>
@@ -420,18 +430,27 @@ const testNow = async row => {
   load()
 }
 
-// ---- 报警规则 ----
-const saveRule = async row => {
+// ---- 报警规则（全局） ----
+const alertRule = reactive({ mode: 'grace', grace_sec: 60, notify_recovery: true })
+const ruleSaving = ref(false)
+const loadAlertRule = async () => {
+  Object.assign(alertRule, await api.get('/alert_rules'))
+}
+const saveAlertRule = async () => {
+  ruleSaving.value = true
+  try {
+    Object.assign(alertRule, await api.put('/alert_rules', { ...alertRule }))
+    ElMessage.success(t('common.success'))
+  } finally { ruleSaving.value = false }
+}
+const toggleImmediate = async row => {
   try {
     await api.put(`/monitors/${row.monitor.id}`, {
-      ...row.monitor,
-      channel_ids: row.channel_ids || [],
-      alert_mode: row.monitor.alert_mode,
-      alert_grace_sec: row.monitor.alert_grace_sec || 0,
-      notify_recovery: !!row.monitor.notify_recovery,
+      ...row.monitor, channel_ids: row.channel_ids || [], immediate: !!row.monitor.immediate,
     })
-    ElMessage.success(t('common.success'))
-  } catch { /* 错误提示由拦截器展示 */ }
+  } catch {
+    row.monitor.immediate = !row.monitor.immediate
+  }
 }
 const downFor = since => {
   const sec = Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 1000))
@@ -480,6 +499,7 @@ const testChannel = async ch => {
 
 onMounted(() => {
   load()
+  loadAlertRule()
   timer = setInterval(load, 30000)
 })
 onUnmounted(() => clearInterval(timer))

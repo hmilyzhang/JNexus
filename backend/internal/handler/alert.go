@@ -92,3 +92,27 @@ func TestAlertChannel(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
+
+// GetAlertRule 全局报警规则
+func GetAlertRule(c *gin.Context) {
+	c.JSON(http.StatusOK, service.LoadAlertRule())
+}
+
+// UpdateAlertRule 保存全局报警规则（对所有监控项生效）
+func UpdateAlertRule(c *gin.Context) {
+	var req struct {
+		Mode           string `json:"mode"`
+		GraceSec       int    `json:"grace_sec"`
+		NotifyRecovery bool   `json:"notify_recovery"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	rule := service.AlertRule{Mode: req.Mode, GraceSec: req.GraceSec, NotifyRecovery: req.NotifyRecovery}
+	if err := service.SaveAlertRule(rule); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, service.LoadAlertRule())
+}

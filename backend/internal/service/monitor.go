@@ -186,25 +186,26 @@ func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 }
 
 // EvaluateAlertRules 报警规则引擎：
-//   - immediate 模式（重启类）：故障首次出现立即告警
-//   - grace 模式（默认）：故障持续满阈值秒后才告警，未满阈值即恢复则完全不打扰
-//   - 恢复通知仅在本次故障周期内实际发过告警时发送（可按监控项关闭）
+//   - immediate（重启类监控或全局立即模式）：故障首次出现立即告警
+//   - grace 模式（默认）：故障持续满全局阈值秒后才告警，未满阈值即恢复则完全不打扰
+//   - 恢复通知仅在本次故障周期内实际发过告警时发送（全局开关）
 func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errMsg string, now time.Time) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("[alert] rule evaluate panic:", r)
 		}
 	}()
+	rule := LoadAlertRule()
 	if status == "down" {
 		if m.DownSince == nil {
 			m.DownSince = &now
 			model.DB.Model(m).Update("down_since", now)
 		}
 		fire := false
-		if m.AlertMode == "immediate" {
+		if m.Immediate || rule.Mode == "immediate" {
 			fire = !m.AlertFired
 		} else {
-			grace := time.Duration(m.AlertGraceSec) * time.Second // 阈值 0 = 立即
+			grace := time.Duration(rule.GraceSec) * time.Second // 阈值 0 = 立即
 			fire = !m.AlertFired && now.Sub(*m.DownSince) >= grace
 		}
 		if fire {
@@ -214,13 +215,54 @@ func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errM
 		}
 		return
 	}
-	// 恢复：清空故障计时；若本次故障周期内实际发过告警，按开关发送恢复通知
-	if m.AlertFired && m.NotifyRecovery {
+	// 恢复：清空故障计时；若本次故障周期内实际发过告警，按全局开关发送恢复通知
+	if m.AlertFired && rule.NotifyRecovery {
 		SendMonitorAlert(m, "up", ms, errMsg)
 	}
 	m.AlertFired = false
 	m.DownSince = nil
 	model.DB.Model(m).Updates(map[string]any{"alert_fired": false, "down_since": nil})
+}
+
+// AlertRule 全局报警规则（存系统配置，对所有监控项生效）
+type AlertRule struct {
+	Mode           string `json:"mode"`            // grace / immediate
+	GraceSec       int    `json:"grace_sec"`       // 持续故障阈值（秒）
+	NotifyRecovery bool   `json:"notify_recovery"` // 恢复通知开关
+}
+
+// LoadAlertRule 读取全局报警规则
+func LoadAlertRule() AlertRule {
+	m := SystemConfigMap()
+	r := AlertRule{Mode: m["alert_rule_mode"], NotifyRecovery: m["alert_rule_notify_recovery"] != "false"}
+	if r.Mode != "immediate" && r.Mode != "grace" {
+		r.Mode = "grace"
+	}
+	fmt.Sscanf(m["alert_rule_grace_sec"], "%d", &r.GraceSec)
+	if r.GraceSec < 0 {
+		r.GraceSec = 60
+	}
+	return r
+}
+
+// SaveAlertRule 保存全局报警规则
+func SaveAlertRule(r AlertRule) error {
+	if r.Mode != "immediate" && r.Mode != "grace" {
+		return fmt.Errorf("模式必须是 grace / immediate")
+	}
+	if r.GraceSec < 0 || r.GraceSec > 86400 {
+		return fmt.Errorf("阈值超出范围（0-86400 秒）")
+	}
+	for _, kv := range [][2]string{
+		{"alert_rule_mode", r.Mode},
+		{"alert_rule_grace_sec", strconv.Itoa(r.GraceSec)},
+		{"alert_rule_notify_recovery", map[bool]string{true: "true", false: "false"}[r.NotifyRecovery]},
+	} {
+		if err := model.DB.Save(&model.SystemConfig{Key: kv[0], Value: kv[1]}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ScanDueMonitors 到期监控扫描（调度循环调用）
