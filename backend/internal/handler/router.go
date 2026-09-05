@@ -62,6 +62,7 @@ func SetupRouter() *gin.Engine {
 		}
 		arule.GET("/cmd", GetCmdLevels)
 		arule.GET("/templates", GetAlertTemplates)
+		arule.POST("/templates/preview", PreviewAlertTemplates)
 		arule.PUT("/templates", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateAlertTemplates)
 		arule.PUT("/cmd", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateCmdLevels)
 
@@ -95,6 +96,7 @@ func SetupRouter() *gin.Engine {
 			users.PUT("/:id/grants", SetUserGrants)
 			users.GET("/:id/grants", GetUserGrants)
 			users.POST("/:id/mfa_reset", AdminResetUserMFA)
+			users.POST("/ldap_sync_emails", SyncLdapEmails)
 		}
 
 		// 主机分组

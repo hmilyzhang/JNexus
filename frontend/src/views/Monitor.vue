@@ -226,19 +226,44 @@
             <span class="mono">{level} {host} {ip} {metric} {value} {threshold} {monitor} {type} {target} {status} {resp_ms} {error} {event} {time}</span>
           </div>
           <el-form label-width="150px">
-            <el-divider style="margin:0 0 14px" content-position="left">{{ $t('monitor.tplMonAlert') }}</el-divider>
+            <el-divider style="margin:0 0 14px" content-position="left">
+              <span style="display:inline-flex; align-items:center; gap:8px">
+                {{ $t('monitor.tplMonAlert') }}
+                <el-button size="small" link type="primary" @click="previewSection('tplMonAlert')">{{ $t('monitor.tplPreview') }}</el-button>
+              </span>
+            </el-divider>
             <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.monitor_alert_title" class="mono" /></el-form-item>
             <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.monitor_alert_body" type="textarea" :rows="4" class="mono" /></el-form-item>
-            <el-divider style="margin:0 0 14px" content-position="left">{{ $t('monitor.tplMonRecovery') }}</el-divider>
+            <el-divider style="margin:0 0 14px" content-position="left">
+              <span style="display:inline-flex; align-items:center; gap:8px">
+                {{ $t('monitor.tplMonRecovery') }}
+                <el-button size="small" link type="primary" @click="previewSection('tplMonRecovery')">{{ $t('monitor.tplPreview') }}</el-button>
+              </span>
+            </el-divider>
             <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.monitor_recovery_title" class="mono" /></el-form-item>
             <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.monitor_recovery_body" type="textarea" :rows="3" class="mono" /></el-form-item>
-            <el-divider style="margin:0 0 14px" content-position="left">{{ $t('monitor.tplReboot') }}</el-divider>
+            <el-divider style="margin:0 0 14px" content-position="left">
+              <span style="display:inline-flex; align-items:center; gap:8px">
+                {{ $t('monitor.tplReboot') }}
+                <el-button size="small" link type="primary" @click="previewSection('tplReboot')">{{ $t('monitor.tplPreview') }}</el-button>
+              </span>
+            </el-divider>
             <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.reboot_title" class="mono" /></el-form-item>
             <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.reboot_body" type="textarea" :rows="3" class="mono" /></el-form-item>
-            <el-divider style="margin:0 0 14px" content-position="left">{{ $t('monitor.tplCmdAlert') }}</el-divider>
+            <el-divider style="margin:0 0 14px" content-position="left">
+              <span style="display:inline-flex; align-items:center; gap:8px">
+                {{ $t('monitor.tplCmdAlert') }}
+                <el-button size="small" link type="primary" @click="previewSection('tplCmdAlert')">{{ $t('monitor.tplPreview') }}</el-button>
+              </span>
+            </el-divider>
             <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.cmd_alert_title" class="mono" /></el-form-item>
             <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.cmd_alert_body" type="textarea" :rows="3" class="mono" /></el-form-item>
-            <el-divider style="margin:0 0 14px" content-position="left">{{ $t('monitor.tplCmdRecovery') }}</el-divider>
+            <el-divider style="margin:0 0 14px" content-position="left">
+              <span style="display:inline-flex; align-items:center; gap:8px">
+                {{ $t('monitor.tplCmdRecovery') }}
+                <el-button size="small" link type="primary" @click="previewSection('tplCmdRecovery')">{{ $t('monitor.tplPreview') }}</el-button>
+              </span>
+            </el-divider>
             <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.cmd_recovery_title" class="mono" /></el-form-item>
             <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.cmd_recovery_body" type="textarea" :rows="3" class="mono" /></el-form-item>
             <el-form-item>
@@ -313,6 +338,17 @@
         <el-button @click="dlgVisible = false">{{ $t('common.cancel') }}</el-button>
         <el-button type="primary" @click="save">{{ $t('common.save') }}</el-button>
       </template>
+    </el-dialog>
+
+    <!-- 模板模拟发送预览 -->
+    <el-dialog v-model="previewVisible" :title="$t('monitor.tplPreviewTitle')" width="560px">
+      <div style="color:#909399; font-size:12px; margin-bottom:10px">{{ $t('monitor.tplPreviewNote') }}</div>
+      <el-descriptions :column="1" border size="small">
+        <el-descriptions-item :label="$t('monitor.chTplTitle')"><span class="mono">{{ previewData.title }}</span></el-descriptions-item>
+        <el-descriptions-item :label="$t('monitor.chTplBody')">
+          <pre class="mono" style="margin:0; white-space:pre-wrap; font-size:12px">{{ previewData.body }}</pre>
+        </el-descriptions-item>
+      </el-descriptions>
     </el-dialog>
 
     <!-- 新建/编辑通知通道 -->
@@ -486,6 +522,35 @@ const testNow = async row => {
   if (r.up) ElMessage.success(`${t('monitor.testUp')} · ${r.resp_ms}ms`)
   else ElMessage.error(`${t('monitor.testDown')}: ${r.error}`)
   load()
+}
+
+// ---- 模板模拟发送预览 ----
+const sampleVars = {
+  level: 'P2', host: 'demo-01', ip: '10.0.0.8',
+  metric: 'CPU', value: '91.5', threshold: '90',
+  monitor: 'demo-monitor', type: 'http', target: 'http://10.0.0.8/health',
+  status: 'DOWN', resp_ms: '233', error: '-',
+  event: 'system rebooted (boot_id changed)',
+  time: new Date().toLocaleString(),
+}
+const renderTplLocal = (tpl, vars) => {
+  let out = tpl || ''
+  for (const k of Object.keys(vars)) out = out.split('{' + k + '}').join(vars[k])
+  return out
+}
+const previewVisible = ref(false)
+const previewData = reactive({ title: '', body: '' })
+const previewSection = key => {
+  const pick = {
+    monitor_alert: ['monitor_alert_title', 'monitor_alert_body'],
+    monitor_recovery: ['monitor_recovery_title', 'monitor_recovery_body'],
+    reboot: ['reboot_title', 'reboot_body'],
+    cmd_alert: ['cmd_alert_title', 'cmd_alert_body'],
+    cmd_recovery: ['cmd_recovery_title', 'cmd_recovery_body'],
+  }[key] || ['', '']
+  previewData.title = renderTplLocal(tplForm[pick[0]], sampleVars)
+  previewData.body = renderTplLocal(tplForm[pick[1]], sampleVars)
+  previewVisible.value = true
 }
 
 // ---- 全局默认模板 ----

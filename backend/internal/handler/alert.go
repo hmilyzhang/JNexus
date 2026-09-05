@@ -143,6 +143,29 @@ func UpdateAlertTemplates(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadAlertTemplates())
 }
 
+// PreviewAlertTemplates 模拟发送：用示例数据渲染模板，返回标题与正文（不实际发送）
+func PreviewAlertTemplates(c *gin.Context) {
+	var req struct {
+		Title string `json:"title"`
+		Body  string `json:"body"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	sampleVars := map[string]string{
+		"level": "P2", "host": "demo-01", "ip": "10.0.0.8",
+		"metric": "CPU", "value": "91.5", "threshold": "90",
+		"monitor": "demo-monitor", "type": "http", "target": "http://10.0.0.8/health",
+		"status": "DOWN", "resp_ms": "233", "error": "-",
+		"event": "system rebooted (boot_id changed)", "time": time.Now().Format("2006-01-02 15:04:05"),
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"title": service.RenderTemplate(req.Title, sampleVars),
+		"body":  service.RenderTemplate(req.Body, sampleVars),
+	})
+}
+
 // GetCmdLevels CMD 分级阈值配置
 func GetCmdLevels(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadCmdLevels())

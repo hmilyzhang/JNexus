@@ -7,6 +7,7 @@
         <div style="margin-bottom:12px; display:flex; gap:8px">
           <el-button type="primary" @click="dlg()">{{ $t('users.create') }}</el-button>
           <el-button @click="load">{{ $t('common.refresh') }}</el-button>
+          <el-button type="warning" @click="syncLdapEmails">{{ $t('users.syncLdapEmail') }}</el-button>
         </div>
         <el-table :data="users" v-loading="loading" size="small" border>
           <el-table-column prop="id" label="ID" width="70" />
@@ -27,6 +28,13 @@
               <el-tag size="small" :type="row.auth_source === 'ldap' ? 'warning' : 'info'">
                 {{ row.auth_source === 'ldap' ? $t('users.authLdap') : $t('users.authLocal') }}
               </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('users.email')" min-width="160">
+            <template #default="{ row }">
+              <span v-if="row.email" :class="{ mono: row.auth_source === 'ldap' }">{{ row.email }}</span>
+              <span v-else style="color:#c0c4cc">-</span>
+              <el-tag v-if="row.auth_source === 'ldap' && row.email" size="small" type="warning" style="margin-left:4px">AD</el-tag>
             </template>
           </el-table-column>
           <el-table-column :label="$t('users.statusCol')" width="90">
@@ -111,6 +119,10 @@
   <el-dialog v-model="visible" :title="form.id ? $t('common.edit') : $t('users.create')" width="440px">
     <el-form label-width="110px">
       <el-form-item :label="$t('users.username')"><el-input v-model="form.username" :disabled="!!form.id" /></el-form-item>
+      <el-form-item :label="$t('users.email')">
+        <el-input v-model="form.email" :disabled="!!form.id && form.auth_source === 'ldap'"
+                  :placeholder="form.id && form.auth_source === 'ldap' ? $t('users.emailLdapHint') : ''" />
+      </el-form-item>
       <el-form-item :label="$t('users.password')" v-if="!form.id"><el-input v-model="form.password" type="password" show-password /></el-form-item>
       <el-form-item :label="$t('users.role')">
         <el-select v-model="form.role" style="width:100%">
@@ -277,13 +289,13 @@ onMounted(load)
 
 const dlg = row => {
   form.value = row
-    ? { ...row, user_group_ids: [...(row.member_of || [])] }
+    ? { ...row, email: row.email || '', user_group_ids: [...(row.member_of || [])] }
     : { username: '', password: '', role: 'viewer', status: 1, user_group_ids: [] }
   visible.value = true
 }
 const save = async () => {
   if (form.value.id) {
-    await api.put(`/users/${form.value.id}`, { role: form.value.role, status: form.value.status, user_group_ids: form.value.user_group_ids })
+    await api.put(`/users/${form.value.id}`, { role: form.value.role, status: form.value.status, email: form.value.email, user_group_ids: form.value.user_group_ids })
   } else {
     await api.post('/users', { ...form.value })
   }
@@ -292,6 +304,15 @@ const save = async () => {
   load()
 }
 const del = async row => { await api.delete(`/users/${row.id}`); load() }
+
+// 从 AD/LDAP 批量同步邮箱
+const syncLdapEmails = async () => {
+  try {
+    const r = await api.post('/users/ldap_sync_emails')
+    ElMessage.success(`${t('users.syncLdapEmail')}: ${r.updated} OK / ${r.missing} -`)
+    load()
+  } catch { /* 错误提示由拦截器展示 */ }
+}
 
 // 管理员重置用户 MFA（用户丢失验证器时解绑，重置后用户可重新绑定）
 const resetMfa = async row => {

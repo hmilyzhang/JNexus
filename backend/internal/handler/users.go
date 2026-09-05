@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"strings"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"autoops/internal/model"
+	"autoops/internal/service"
 )
 
 // ---- 用户管理 ----
@@ -40,6 +42,7 @@ func CreateUser(c *gin.Context) {
 		Username     string `json:"username" binding:"required,min=2"`
 		Password     string `json:"password" binding:"required,min=6"`
 		Role         string `json:"role" binding:"required"`
+		Email        string `json:"email"`
 		UserGroupIDs []uint `json:"user_group_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -52,7 +55,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 	hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	u := model.User{Username: req.Username, Password: string(hash), Role: req.Role, Status: 1,
+	u := model.User{Username: req.Username, Password: string(hash), Role: req.Role, Status: 1, Email: req.Email,
 		CreatedBy: currentUser(c).Username, UpdatedBy: currentUser(c).Username}
 	if err := model.DB.Create(&u).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名已存在"})
@@ -62,6 +65,32 @@ func CreateUser(c *gin.Context) {
 		model.DB.Create(&model.UserGroupMember{UserGroupID: gid, UserID: u.ID})
 	}
 	c.JSON(http.StatusOK, u)
+}
+
+// SyncLdapEmails 从 AD/LDAP 批量同步所有 LDAP 用户的邮箱（mail 属性）
+func SyncLdapEmails(c *gin.Context) {
+	settings := service.LoadLDAPSettings()
+	if !settings.Enabled {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "LDAP 认证未启用"})
+		return
+	}
+	emails, err := service.LDAPSyncEmails(settings)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	updated, missing := 0, 0
+	var users []model.User
+	model.DB.Where("auth_source = ?", "ldap").Find(&users)
+	for _, u := range users {
+		if mail, ok := emails[u.Username]; ok && mail != "" {
+			model.DB.Model(&u).Update("email", mail)
+			updated++
+		} else {
+			missing++
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"updated": updated, "missing": missing})
 }
 
 func UpdateUser(c *gin.Context) {
@@ -74,6 +103,7 @@ func UpdateUser(c *gin.Context) {
 	var req struct {
 		Role         *string `json:"role"`
 		Status       *int    `json:"status"`
+		Email        *string `json:"email"`
 		UserGroupIDs *[]uint `json:"user_group_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -82,6 +112,13 @@ func UpdateUser(c *gin.Context) {
 	}
 	op := currentUser(c).Username
 	updates := map[string]any{"updated_by": op, "updated_at": time.Now()}
+	if req.Email != nil {
+		if strings.EqualFold(u.AuthSource, "ldap") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "LDAP/AD 用户邮箱由系统自动同步，不可手动修改"})
+			return
+		}
+		updates["email"] = *req.Email
+	}
 	if req.Role != nil {
 		updates["role"] = *req.Role
 	}

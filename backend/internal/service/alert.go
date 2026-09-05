@@ -29,6 +29,9 @@ func postJSON(url string, payload any, timeout time.Duration) error {
 	return nil
 }
 
+// RenderTemplate 模板占位符渲染（导出供 handler 预览使用）
+func RenderTemplate(tpl string, vars map[string]string) string { return renderTpl(tpl, vars) }
+
 // renderTpl 模板占位符渲染：{key} 替换为 vars 值
 func renderTpl(tpl string, vars map[string]string) string {
 	out := tpl
