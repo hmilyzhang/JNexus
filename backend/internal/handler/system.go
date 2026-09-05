@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"autoops/internal/buildinfo"
 	"autoops/internal/model"
 	"autoops/internal/service"
 )
@@ -145,7 +146,7 @@ func SystemInfo(c *gin.Context) {
 	m := service.SystemConfigMap()
 	c.JSON(http.StatusOK, gin.H{
 		"system_name": m["system_name"],
-		"version":     "1.0",
+		"version":     buildinfo.Get(),
 		"author":      "JJ Zhang",
 	})
 }

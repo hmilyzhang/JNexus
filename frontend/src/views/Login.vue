@@ -3,7 +3,7 @@
   <div class="login-wrap">
     <el-card class="login-card">
       <h2 style="text-align:center">⚙️ {{ systemName }}</h2>
-      <div style="text-align:center; color:#909399; font-size:12px; margin-bottom:18px">By JJ Zhang · Version 1.0</div>
+      <div style="text-align:center; color:#909399; font-size:12px; margin-bottom:18px">By JJ Zhang · v{{ loginVersion }}</div>
 
       <!-- 第一步：账号密码 -->
       <el-form v-if="!mfaStep" @keyup.enter="doLogin">
@@ -50,12 +50,14 @@ const store = useUserStore()
 const form = ref({ username: '', password: '' })
 const loading = ref(false)
 const systemName = ref(localStorage.getItem('system_name') || 'AutoOps')
+const loginVersion = ref('')
 const mfaStep = ref(false)
 const mfaToken = ref('')
 const mfaCode = ref('')
 
 api.get('/system/info').then(info => {
   systemName.value = info.system_name || systemName.value
+  loginVersion.value = info.version || '1.0'
   localStorage.setItem('system_name', info.system_name || 'AutoOps')
   document.title = systemName.value
 }).catch(() => {})

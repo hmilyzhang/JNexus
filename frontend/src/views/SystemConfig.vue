@@ -9,7 +9,7 @@
           <el-input v-model="form.system_name" />
         </el-form-item>
         <el-form-item :label="$t('system.version')">
-          <el-tag>Version 1.0</el-tag>
+          <el-tag>v{{ appVersion }}</el-tag>
           <el-tag type="info" style="margin-left:8px">By JJ Zhang</el-tag>
         </el-form-item>
       </el-form>
@@ -301,6 +301,7 @@ const activeTab = ref('general')
 const loading = ref(true)
 const saving = ref(false)
 const testing = ref(false)
+const appVersion = ref('1.0')
 const form = reactive({
   system_name: '', ldap_enabled: 'false', ldap_host: '', ldap_port: '389', ldap_tls: 'false',
   ldap_bind_dn: '', ldap_bind_password: '', ldap_base_dn: '', ldap_user_filter: '(uid=%s)',
@@ -423,6 +424,7 @@ const saveRoles = async () => {
 
 onMounted(async () => {
   try {
+    api.get('/system/info').then(info => { appVersion.value = info.version || '1.0' }).catch(() => {})
     const cfg = await api.get('/system/config')
     for (const k of Object.keys(form)) {
       if (cfg[k] !== undefined && cfg[k] !== null) form[k] = cfg[k]
