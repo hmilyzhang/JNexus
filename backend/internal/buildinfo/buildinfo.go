@@ -33,9 +33,6 @@ func compute() string {
 		return v
 	}
 	if cnt, err := git("rev-list", "--count", "HEAD"); err == nil && cnt != "" {
-		if hash, err2 := git("rev-parse", "--short", "HEAD"); err2 == nil && hash != "" {
-			return fmt.Sprintf("1.%s+%s", cnt, hash)
-		}
 		return fmt.Sprintf("1.%s", cnt)
 	}
 	if b, err := os.ReadFile("VERSION"); err == nil && strings.TrimSpace(string(b)) != "" {
