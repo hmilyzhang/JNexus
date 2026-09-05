@@ -343,6 +343,7 @@ type Monitor struct {
 	IntervalSec    int        `json:"interval_sec"`
 	TimeoutSec     int        `json:"timeout_sec"`
 	Enabled        bool       `gorm:"default:true" json:"enabled"`
+	Maintenances   string     `gorm:"type:text" json:"maintenances"` // 维护窗口 JSON：[{days:[1-7 周一=1], start:"HH:MM", end:"HH:MM"}]
 	DownSince      *time.Time `json:"down_since"`                // 当前故障开始时间（恢复后清空）
 	AlertFired     bool       `json:"alert_fired"`               // 本次故障周期内是否已发送告警
 	LastStatus     string     `gorm:"size:8" json:"last_status"` // up / down / 空=未检查

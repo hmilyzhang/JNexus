@@ -167,7 +167,8 @@ func checkPing(m *model.Monitor, timeout time.Duration, start time.Time) (bool, 
 	return true, ms, ""
 }
 
-// RunMonitorOnce 执行监控项并落库（状态 + 心跳样本），再按报警规则评估是否推送
+// RunMonitorOnce 执行监控项并落库（状态 + 心跳样本），再按报警规则评估是否推送。
+// 维护窗口内：down 样本记为 maint（不计可用率、灰色心跳），不触发告警评估。
 func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 	up, ms, errMsg := CheckMonitor(m)
 	status := "down"
@@ -176,12 +177,19 @@ func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 	}
 	oldStatus := m.LastStatus
 	now := time.Now()
+	inMaint := InMaintenance(m, now)
+	sampleStatus := status
+	if inMaint && status == "down" {
+		sampleStatus = "maint"
+	}
 	updates := map[string]any{
 		"last_status": status, "last_resp_ms": ms, "last_error": errMsg, "last_checked_at": now,
 	}
 	model.DB.Model(m).Updates(updates)
-	model.DB.Create(&model.MonitorSample{MonitorID: m.ID, Status: status, RespMs: ms, Error: errMsg, CreatedAt: now})
-	EvaluateAlertRules(m, oldStatus, status, ms, errMsg, now)
+	model.DB.Create(&model.MonitorSample{MonitorID: m.ID, Status: sampleStatus, RespMs: ms, Error: errMsg, CreatedAt: now})
+	if !inMaint {
+		EvaluateAlertRules(m, oldStatus, status, ms, errMsg, now)
+	}
 	return up, ms, errMsg
 }
 
@@ -443,10 +451,10 @@ func CollectHostMetrics() {
 	wg.Wait()
 }
 
-// PruneMonitorData 清理过期采样（主机指标 24h、监控样本 7d）
+// PruneMonitorData 清理过期采样（主机指标与监控样本均保留 30 天）
 func PruneMonitorData() {
-	model.DB.Where("collected_at < ?", time.Now().Add(-24*time.Hour)).Delete(&model.HostMetric{})
-	model.DB.Where("created_at < ?", time.Now().Add(-7*24*time.Hour)).Delete(&model.MonitorSample{})
+	model.DB.Where("collected_at < ?", time.Now().Add(-30*24*time.Hour)).Delete(&model.HostMetric{})
+	model.DB.Where("created_at < ?", time.Now().Add(-30*24*time.Hour)).Delete(&model.MonitorSample{})
 }
 
 // StartMonitorLoop 监控调度循环（每 15 秒检查到期项）

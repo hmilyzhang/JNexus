@@ -161,7 +161,31 @@ func (*ldapDisabledError) Error() string { return "LDAP 认证未启用" }
 
 func Me(c *gin.Context) {
 	u := currentUser(c)
-	c.JSON(http.StatusOK, gin.H{"id": u.ID, "username": u.Username, "role": u.Role, "auth_source": u.AuthSource})
+	var lastLogin *time.Time
+	if u.LastLoginAt != nil {
+		t := *u.LastLoginAt
+		lastLogin = &t
+	}
+	c.JSON(http.StatusOK, gin.H{"id": u.ID, "username": u.Username, "role": u.Role,
+		"auth_source": u.AuthSource, "email": u.Email, "last_login_at": lastLogin})
+}
+
+// UpdateMe 当前用户自助维护基本信息（邮箱；LDAP/AD 用户由系统同步，不可改）
+func UpdateMe(c *gin.Context) {
+	u := currentUser(c)
+	if strings.EqualFold(u.AuthSource, "ldap") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "LDAP/AD 用户信息由系统自动同步，不可手动修改"})
+		return
+	}
+	var req struct {
+		Email *string `json:"email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Email == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	model.DB.Model(u).Update("email", *req.Email)
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 func ChangePassword(c *gin.Context) {

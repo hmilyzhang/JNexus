@@ -52,6 +52,7 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="password">{{ $t('layout.changePwd') }}</el-dropdown-item>
+                <el-dropdown-item command="profile">{{ $t('layout.profile') }}</el-dropdown-item>
                 <el-dropdown-item command="mfa">{{ $t('layout.mfaSecurity') }}</el-dropdown-item>
                 <el-dropdown-item command="logout" divided>{{ $t('layout.logout') }}</el-dropdown-item>
               </el-dropdown-menu>
@@ -202,6 +203,8 @@ const onCmd = cmd => {
     pwdVisible.value = true
   } else if (cmd === 'mfa') {
     mfaVisible.value = true
+  } else if (cmd === 'profile') {
+    router.push('/profile')
   }
 }
 

@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -15,18 +16,19 @@ import (
 )
 
 type monitorReq struct {
-	Name           string `json:"name" binding:"required"`
-	Type           string `json:"type" binding:"required"`
-	Target         string `json:"target" binding:"required"`
-	Port           int    `json:"port"`
-	Method         string `json:"method"`
-	AcceptedStatus string `json:"accepted_status"`
-	Keyword        string `json:"keyword"`
-	KeywordType    string `json:"keyword_type"`
-	IntervalSec    int    `json:"interval_sec"`
-	TimeoutSec     int    `json:"timeout_sec"`
-	Enabled        *bool  `json:"enabled"`
-	ChannelIDs     []uint `json:"channel_ids"` // 告警通知通道绑定
+	Name           string                      `json:"name" binding:"required"`
+	Type           string                      `json:"type" binding:"required"`
+	Target         string                      `json:"target" binding:"required"`
+	Port           int                         `json:"port"`
+	Method         string                      `json:"method"`
+	AcceptedStatus string                      `json:"accepted_status"`
+	Keyword        string                      `json:"keyword"`
+	KeywordType    string                      `json:"keyword_type"`
+	IntervalSec    int                         `json:"interval_sec"`
+	TimeoutSec     int                         `json:"timeout_sec"`
+	Enabled        *bool                       `json:"enabled"`
+	ChannelIDs     []uint                      `json:"channel_ids"`  // 告警通知通道绑定
+	Maintenances   []service.MaintenanceWindow `json:"maintenances"` // 维护窗口
 }
 
 // saveMonitorBindings 重写监控项的通知通道绑定
@@ -35,6 +37,22 @@ func saveMonitorBindings(monitorID uint, channelIDs []uint) {
 	for _, cid := range channelIDs {
 		model.DB.Create(&model.MonitorChannel{MonitorID: monitorID, ChannelID: cid})
 	}
+}
+
+// saveMaintenances 保存维护窗口（校验后落库）
+func mustJSON(v any) json.RawMessage {
+	b, _ := json.Marshal(v)
+	return b
+}
+
+func saveMaintenances(c *gin.Context, monitorID uint, wins []service.MaintenanceWindow) bool {
+	mw, err := service.ValidateMaintenances(mustJSON(wins))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return false
+	}
+	model.DB.Model(&model.Monitor{}).Where("id = ?", monitorID).Update("maintenances", mw)
+	return true
 }
 
 func applyMonitorReq(m *model.Monitor, req monitorReq) error {
@@ -68,16 +86,24 @@ func ListMonitors(c *gin.Context) {
 	model.DB.Order("id").Find(&monitors)
 
 	since24 := time.Now().Add(-24 * time.Hour)
+	since30 := time.Now().Add(-30 * 24 * time.Hour)
 	type uptimeRow struct {
 		MonitorID uint
 		Uptime    float64
 	}
 	var uptimes []uptimeRow
 	model.DB.Raw(`SELECT monitor_id, AVG(CASE WHEN status = 'up' THEN 100.0 ELSE 0 END) AS uptime
-		FROM monitor_samples WHERE created_at > ? GROUP BY monitor_id`, since24).Scan(&uptimes)
+		FROM monitor_samples WHERE created_at > ? AND status IN ('up','down') GROUP BY monitor_id`, since24).Scan(&uptimes)
 	uptimeMap := map[uint]float64{}
 	for _, u := range uptimes {
 		uptimeMap[u.MonitorID] = math.Round(u.Uptime*10) / 10
+	}
+	var uptimes30 []uptimeRow
+	model.DB.Raw(`SELECT monitor_id, AVG(CASE WHEN status = 'up' THEN 100.0 ELSE 0 END) AS uptime
+		FROM monitor_samples WHERE created_at > ? AND status IN ('up','down') GROUP BY monitor_id`, since30).Scan(&uptimes30)
+	uptimeMap30 := map[uint]float64{}
+	for _, u := range uptimes30 {
+		uptimeMap30[u.MonitorID] = math.Round(u.Uptime*10) / 10
 	}
 
 	type sampleRow struct {
@@ -109,9 +135,13 @@ func ListMonitors(c *gin.Context) {
 
 	out := []gin.H{}
 	for _, m := range monitors {
+		maint := []any{}
+		if m.Maintenances != "" {
+			_ = json.Unmarshal([]byte(m.Maintenances), &maint)
+		}
 		out = append(out, gin.H{
-			"monitor": m, "uptime24h": uptimeMap[m.ID], "recent": recentMap[m.ID],
-			"channel_ids": chMap[m.ID],
+			"monitor": m, "uptime24h": uptimeMap[m.ID], "uptime_30d": uptimeMap30[m.ID],
+			"recent": recentMap[m.ID], "channel_ids": chMap[m.ID], "maintenances": maint,
 		})
 	}
 	c.JSON(http.StatusOK, out)
@@ -134,6 +164,9 @@ func CreateMonitor(c *gin.Context) {
 		return
 	}
 	saveMonitorBindings(m.ID, req.ChannelIDs)
+	if !saveMaintenances(c, m.ID, req.Maintenances) {
+		return
+	}
 	c.JSON(http.StatusOK, m)
 }
 
@@ -167,6 +200,9 @@ func UpdateMonitor(c *gin.Context) {
 	}
 	model.DB.Model(&m).Updates(updates)
 	saveMonitorBindings(m.ID, req.ChannelIDs)
+	if !saveMaintenances(c, m.ID, req.Maintenances) {
+		return
+	}
 	c.JSON(http.StatusOK, m)
 }
 
@@ -190,16 +226,34 @@ func TestMonitor(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"up": up, "resp_ms": ms, "error": errMsg})
 }
 
-// MonitorHistory 单个监控项的采样历史（?hours=24）
+// MonitorHistory 单个监控项的采样历史（?hours=24，最大 720；超 48h 按小时聚合）
 func MonitorHistory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	hours := 24
-	if h, e := strconv.Atoi(c.Query("hours")); e == nil && h > 0 && h <= 24*7 {
+	if h, e := strconv.Atoi(c.Query("hours")); e == nil && h > 0 && h <= 24*30 {
 		hours = h
 	}
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
+	if hours > 48 {
+		type bucket struct {
+			Bucket time.Time `json:"at"`
+			Up     int       `json:"up"`
+			Down   int       `json:"down"`
+			Maint  int       `json:"maint"`
+		}
+		var rows []bucket
+		model.DB.Raw(`SELECT date_trunc('hour', created_at) AS bucket,
+				SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) AS up,
+				SUM(CASE WHEN status = 'down' THEN 1 ELSE 0 END) AS down,
+				SUM(CASE WHEN status = 'maint' THEN 1 ELSE 0 END) AS maint
+			FROM monitor_samples WHERE monitor_id = ? AND created_at > ?
+			GROUP BY bucket ORDER BY bucket`, id, since).Scan(&rows)
+		c.JSON(http.StatusOK, rows)
+		return
+	}
 	var samples []model.MonitorSample
-	model.DB.Where("monitor_id = ? AND created_at > ?", id, time.Now().Add(-time.Duration(hours)*time.Hour)).
-		Order("id").Limit(2000).Find(&samples)
+	model.DB.Where("monitor_id = ? AND created_at > ?", id, since).
+		Order("id").Limit(5000).Find(&samples)
 	c.JSON(http.StatusOK, samples)
 }
 
@@ -249,15 +303,31 @@ func HostMetricsList(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// HostMetricHistory 单台主机资源历史（?hours=6，供趋势图）
+// HostMetricHistory 单台主机资源历史（?hours=6，最大 720；超 48h 按小时聚合）
 func HostMetricHistory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	hours := 6
-	if h, e := strconv.Atoi(c.Query("hours")); e == nil && h > 0 && h <= 24 {
+	if h, e := strconv.Atoi(c.Query("hours")); e == nil && h > 0 && h <= 24*30 {
 		hours = h
 	}
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
+	if hours > 48 {
+		type bucket struct {
+			Bucket      time.Time `json:"collected_at"`
+			CPUPercent  float64   `json:"cpu_percent"`
+			MemPercent  float64   `json:"mem_percent"`
+			DiskPercent float64   `json:"disk_percent"`
+		}
+		var rows []bucket
+		model.DB.Raw(`SELECT date_trunc('hour', collected_at) AS bucket,
+				AVG(cpu_percent) AS cpu_percent, AVG(mem_percent) AS mem_percent, AVG(disk_percent) AS disk_percent
+			FROM host_metrics WHERE host_id = ? AND collected_at > ?
+			GROUP BY bucket ORDER BY bucket`, id, since).Scan(&rows)
+		c.JSON(http.StatusOK, rows)
+		return
+	}
 	var rows []model.HostMetric
-	model.DB.Where("host_id = ? AND collected_at > ?", id, time.Now().Add(-time.Duration(hours)*time.Hour)).
-		Order("collected_at").Limit(2000).Find(&rows)
+	model.DB.Where("host_id = ? AND collected_at > ?", id, since).
+		Order("collected_at").Limit(5000).Find(&rows)
 	c.JSON(http.StatusOK, rows)
 }

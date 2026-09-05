@@ -51,6 +51,7 @@ func SetupRouter() *gin.Engine {
 	auth := api.Group("", middleware.JWT())
 	{
 		auth.GET("/me", Me)
+		auth.PUT("/me", UpdateMe)
 		auth.POST("/change_password", ChangePassword)
 
 		// MFA（TOTP 两步验证）自助管理

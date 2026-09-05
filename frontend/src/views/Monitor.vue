@@ -78,7 +78,8 @@
               </div>
             </div>
             <div class="hb">
-              <span v-for="(s, i) in row.recent || []" :key="i" class="hb-bar" :class="s.status === 'up' ? 'hb-up' : 'hb-down'"
+              <span v-for="(s, i) in row.recent || []" :key="i" class="hb-bar"
+                    :class="s.status === 'up' ? 'hb-up' : s.status === 'maint' ? 'hb-maint' : 'hb-down'"
                     :title="`${fmtTime(s.at)} · ${s.resp_ms}ms`"></span>
               <span v-if="!(row.recent || []).length" style="color:#c0c4cc; font-size:12px">{{ $t('monitor.notYet') }}</span>
             </div>
@@ -92,6 +93,12 @@
                   {{ row.uptime24h != null ? row.uptime24h + '%' : '—' }}
                 </div>
                 <div class="stat-lbl">{{ $t('monitor.uptime24h') }}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-val" :style="{ color: (row.uptime_30d ?? 100) < 99 ? '#e6a23c' : '#67c23a' }">
+                  {{ row.uptime_30d != null ? row.uptime_30d + '%' : '—' }}
+                </div>
+                <div class="stat-lbl">{{ $t('monitor.uptime30d') }}</div>
               </div>
             </div>
             <div style="display:flex; gap:4px; align-items:center">
@@ -256,6 +263,14 @@
 
     <!-- 主机资源趋势 -->
     <el-drawer v-model="trendVisible" :title="`${trendHost?.name} — ${$t('monitor.trend')}`" size="640px">
+      <div style="display:flex; gap:6px; margin-bottom:14px">
+        <el-radio-group v-model="trendHours" size="small" @change="loadTrend">
+          <el-radio-button :value="6">6h</el-radio-button>
+          <el-radio-button :value="24">24h</el-radio-button>
+          <el-radio-button :value="168">7d</el-radio-button>
+          <el-radio-button :value="720">30d</el-radio-button>
+        </el-radio-group>
+      </div>
       <div v-if="trendRows.length === 0" style="color:#909399">{{ $t('monitor.noSamples') }}</div>
       <template v-else>
         <div v-for="k in ['cpu', 'mem', 'disk']" :key="k" style="margin-bottom:18px">
@@ -307,6 +322,21 @@
         </template>
         <el-form-item :label="$t('monitor.interval')"><el-input-number v-model="form.interval_sec" :min="15" :max="86400" /></el-form-item>
         <el-form-item :label="$t('monitor.timeout')"><el-input-number v-model="form.timeout_sec" :min="1" :max="120" /></el-form-item>
+        <el-form-item :label="$t('monitor.maintTitle')">
+          <div style="width:100%">
+            <div v-for="(w, i) in form.maintenances" :key="i" style="display:flex; gap:6px; align-items:center; margin-bottom:6px">
+              <el-select v-model="w.days" multiple size="small" style="width:220px" :placeholder="$t('monitor.maintDays')">
+                <el-option v-for="d in [1,2,3,4,5,6,7]" :key="d" :value="d" :label="dayLabel(d)" />
+              </el-select>
+              <el-time-select v-model="w.start" start="00:00" step="00:30" end="23:30" size="small" style="width:110px" :placeholder="$t('monitor.maintStart')" />
+              <span style="color:#909399">→</span>
+              <el-time-select v-model="w.end" start="00:00" step="00:30" end="23:59" size="small" style="width:110px" :placeholder="$t('monitor.maintEnd')" />
+              <el-button type="danger" link size="small" @click="form.maintenances.splice(i, 1)">{{ $t('apps.remove') }}</el-button>
+            </div>
+            <el-button size="small" @click="form.maintenances.push({ days: [1,2,3,4,5,6,7], start: '02:00', end: '04:00' })">{{ $t('monitor.maintAdd') }}</el-button>
+            <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('monitor.maintTip') }}</div>
+          </div>
+        </el-form-item>
         <el-form-item :label="$t('monitor.notif')">
           <el-select v-model="form.channel_ids" multiple style="width:100%" :placeholder="$t('monitor.chEmpty')">
             <el-option v-for="ch in channels" :key="ch.id" :label="`${ch.name}（${chTypeLabel(ch.type)}）`" :value="ch.id" />
@@ -464,9 +494,15 @@ const sparkPoints = arr => {
   if (!n) return ''
   return arr.map((v, i) => `${(i / Math.max(1, n - 1)) * 600},${80 - ((v || 0) / max) * 76}`).join(' ')
 }
+const trendHours = ref(6)
+const loadTrend = async () => {
+  if (!trendHost.value) return
+  trendRows.value = await api.get(`/monitoring/hosts/${trendHost.value.host_id}/history`, { params: { hours: trendHours.value } })
+}
 const openHostTrend = async row => {
   trendHost.value = row
-  trendRows.value = await api.get(`/monitoring/hosts/${row.host_id}/history`, { params: { hours: 6 } })
+  trendHours.value = 6
+  await loadTrend()
   trendVisible.value = true
 }
 
@@ -479,8 +515,16 @@ const openDlg = (m, channelIds) => {
     interval_sec: m?.interval_sec || 60, timeout_sec: m?.timeout_sec || 10,
     enabled: m ? !!m.enabled : true, port: m?.port || 80,
     channel_ids: [...(channelIds || [])],
+    maintenances: parseMaint(m?.maintenances),
   })
   dlgVisible.value = true
+}
+const dayLabel = d => ({ 1: t('profile.mon'), 2: t('profile.tue'), 3: t('profile.wed'), 4: t('profile.thu'), 5: t('profile.fri'), 6: t('profile.sat'), 7: t('profile.sun') }[d] || d)
+const parseMaint = raw => {
+  try {
+    const arr = typeof raw === 'string' ? JSON.parse(raw || '[]') : (raw || [])
+    return arr.map(w => ({ days: w.days || [1,2,3,4,5,6,7], start: w.start || '02:00', end: w.end || '04:00' }))
+  } catch { return [] }
 }
 const save = async () => {
   const payload = { ...form }
@@ -699,6 +743,7 @@ onUnmounted(() => clearInterval(timer))
 .hb-bar { flex: 1; max-width: 5px; border-radius: 2px; display: inline-block; height: 100%; min-width: 2px; }
 .hb-up { background: #67c23a; }
 .hb-down { background: #f56c6c; }
+.hb-maint { background: #909399; }
 .mon-stats { display: flex; gap: 14px; text-align: center; flex-shrink: 0; }
 .stat { width: 62px; }
 .stat-val { font-weight: 600; }
