@@ -213,7 +213,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 5: 模板设置 -->
+      <!-- Tab 5: 模板设置（左列表 + 右编辑） -->
       <el-tab-pane :label="$t('monitor.tabTpl')" name="templates">
         <el-card>
           <template #header>
@@ -222,54 +222,34 @@
               <el-button size="small" type="primary" :loading="tplSaving" @click="saveAlertTemplates">{{ $t('common.save') }}</el-button>
             </div>
           </template>
-          <div style="color:#909399; font-size:12px; margin-bottom:12px">{{ $t('monitor.tplVarsLabel') }}
-            <span class="mono">{level} {host} {ip} {metric} {value} {threshold} {monitor} {type} {target} {status} {resp_ms} {error} {event} {time}</span>
+          <div style="display:flex; gap:18px">
+            <div style="width:220px; flex-shrink:0">
+              <div v-for="sec in tplSections" :key="sec.key"
+                   class="tpl-item" :class="{ active: selectedTpl === sec.key }"
+                   @click="selectedTpl = sec.key">
+                {{ $t('monitor.' + sec.labelKey) }}
+              </div>
+            </div>
+            <div style="flex:1; min-width:0">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px">
+                <span style="font-weight:600">{{ $t('monitor.' + currentSection.labelKey) }}</span>
+                <el-button size="small" link type="primary" @click="previewSection(selectedTpl)">{{ $t('monitor.tplPreview') }}</el-button>
+              </div>
+              <el-form label-width="90px">
+                <el-form-item :label="$t('monitor.chTplTitle')">
+                  <el-input v-model="tplForm[currentSection.titleField]" class="mono" :placeholder="$t('monitor.chTplDefault')" />
+                </el-form-item>
+                <el-form-item :label="$t('monitor.chTplBody')">
+                  <el-input v-model="tplForm[currentSection.bodyField]" type="textarea" :rows="6" class="mono"
+                            :placeholder="$t('monitor.chTplDefault')" />
+                </el-form-item>
+              </el-form>
+              <div style="color:#909399; font-size:12px; line-height:1.8">
+                {{ $t('monitor.chTplVarsLabel') }}
+                <span class="mono">{level} {host} {ip} {metric} {value} {threshold} {monitor} {type} {target} {status} {resp_ms} {error} {event} {time}</span>
+              </div>
+            </div>
           </div>
-          <el-form label-width="150px">
-            <el-divider style="margin:0 0 14px" content-position="left">
-              <span style="display:inline-flex; align-items:center; gap:8px">
-                {{ $t('monitor.tplMonAlert') }}
-                <el-button size="small" link type="primary" @click="previewSection('tplMonAlert')">{{ $t('monitor.tplPreview') }}</el-button>
-              </span>
-            </el-divider>
-            <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.monitor_alert_title" class="mono" /></el-form-item>
-            <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.monitor_alert_body" type="textarea" :rows="4" class="mono" /></el-form-item>
-            <el-divider style="margin:0 0 14px" content-position="left">
-              <span style="display:inline-flex; align-items:center; gap:8px">
-                {{ $t('monitor.tplMonRecovery') }}
-                <el-button size="small" link type="primary" @click="previewSection('tplMonRecovery')">{{ $t('monitor.tplPreview') }}</el-button>
-              </span>
-            </el-divider>
-            <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.monitor_recovery_title" class="mono" /></el-form-item>
-            <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.monitor_recovery_body" type="textarea" :rows="3" class="mono" /></el-form-item>
-            <el-divider style="margin:0 0 14px" content-position="left">
-              <span style="display:inline-flex; align-items:center; gap:8px">
-                {{ $t('monitor.tplReboot') }}
-                <el-button size="small" link type="primary" @click="previewSection('tplReboot')">{{ $t('monitor.tplPreview') }}</el-button>
-              </span>
-            </el-divider>
-            <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.reboot_title" class="mono" /></el-form-item>
-            <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.reboot_body" type="textarea" :rows="3" class="mono" /></el-form-item>
-            <el-divider style="margin:0 0 14px" content-position="left">
-              <span style="display:inline-flex; align-items:center; gap:8px">
-                {{ $t('monitor.tplCmdAlert') }}
-                <el-button size="small" link type="primary" @click="previewSection('tplCmdAlert')">{{ $t('monitor.tplPreview') }}</el-button>
-              </span>
-            </el-divider>
-            <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.cmd_alert_title" class="mono" /></el-form-item>
-            <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.cmd_alert_body" type="textarea" :rows="3" class="mono" /></el-form-item>
-            <el-divider style="margin:0 0 14px" content-position="left">
-              <span style="display:inline-flex; align-items:center; gap:8px">
-                {{ $t('monitor.tplCmdRecovery') }}
-                <el-button size="small" link type="primary" @click="previewSection('tplCmdRecovery')">{{ $t('monitor.tplPreview') }}</el-button>
-              </span>
-            </el-divider>
-            <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.cmd_recovery_title" class="mono" /></el-form-item>
-            <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.cmd_recovery_body" type="textarea" :rows="3" class="mono" /></el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="tplSaving" @click="saveAlertTemplates">{{ $t('common.save') }}</el-button>
-            </el-form-item>
-          </el-form>
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -538,6 +518,15 @@ const renderTplLocal = (tpl, vars) => {
   for (const k of Object.keys(vars)) out = out.split('{' + k + '}').join(vars[k])
   return out
 }
+const tplSections = [
+  { key: 'monitor_alert', labelKey: 'tplMonAlert', titleField: 'monitor_alert_title', bodyField: 'monitor_alert_body' },
+  { key: 'monitor_recovery', labelKey: 'tplMonRecovery', titleField: 'monitor_recovery_title', bodyField: 'monitor_recovery_body' },
+  { key: 'reboot', labelKey: 'tplReboot', titleField: 'reboot_title', bodyField: 'reboot_body' },
+  { key: 'cmd_alert', labelKey: 'tplCmdAlert', titleField: 'cmd_alert_title', bodyField: 'cmd_alert_body' },
+  { key: 'cmd_recovery', labelKey: 'tplCmdRecovery', titleField: 'cmd_recovery_title', bodyField: 'cmd_recovery_body' },
+]
+const selectedTpl = ref('monitor_alert')
+const currentSection = computed(() => tplSections.find(x => x.key === selectedTpl.value) || tplSections[0])
 const previewVisible = ref(false)
 const previewData = reactive({ title: '', body: '' })
 const previewSection = key => {
@@ -665,5 +654,12 @@ onUnmounted(() => clearInterval(timer))
 .mon-stats { display: flex; gap: 18px; text-align: center; flex-shrink: 0; }
 .stat-val { font-weight: 600; }
 .stat-lbl { font-size: 11px; color: #909399; }
+/** 模板设置左侧条目 */
+.tpl-item {
+  padding: 10px 14px; cursor: pointer; border-radius: 4px; font-size: 14px;
+  border: 1px solid transparent;
+}
+.tpl-item:hover { background: #f5f7fa; }
+.tpl-item.active { background: #ecf5ff; color: #409eff; font-weight: 600; border-color: #d9ecff; }
 @media (max-width: 1100px) { .hb { display: none; } }
 </style>
