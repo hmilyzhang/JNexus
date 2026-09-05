@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,11 +29,30 @@ func postJSON(url string, payload any, timeout time.Duration) error {
 	return nil
 }
 
-// SendViaChannel 通过指定通道发送告警文本
-func SendViaChannel(ch *model.AlertChannel, subject, text string) error {
+// renderTpl 模板占位符渲染：{key} 替换为 vars 值
+func renderTpl(tpl string, vars map[string]string) string {
+	out := tpl
+	for k, v := range vars {
+		out = strings.ReplaceAll(out, "{"+k+"}", v)
+	}
+	return out
+}
+
+// SendViaChannel 通过指定通道发送通知。
+// vars 为模板占位符变量（各告警源提供）；通道配置里的 title_tpl / body_tpl
+// 非空时优先渲染，否则使用调用方给出的默认标题/正文。
+func SendViaChannel(ch *model.AlertChannel, vars map[string]string, defSubject, defBody string) error {
 	var cfg map[string]string
 	if err := json.Unmarshal([]byte(ch.Config), &cfg); err != nil {
 		return fmt.Errorf("通道配置不是合法 JSON: %v", err)
+	}
+	subject := defSubject
+	if t := strings.TrimSpace(cfg["title_tpl"]); t != "" {
+		subject = renderTpl(t, vars)
+	}
+	text := defBody
+	if t := strings.TrimSpace(cfg["body_tpl"]); t != "" {
+		text = renderTpl(t, vars)
 	}
 	timeout := 10 * time.Second
 	switch ch.Type {
@@ -133,12 +153,14 @@ func SendMonitorAlert(m *model.Monitor, status string, respMs int, errMsg string
 		emoji = "🔴"
 		event = "ALERT"
 	}
-	subject := fmt.Sprintf("%s [%s] %s", emoji, event, m.Name)
-	text := fmt.Sprintf("Monitor: %s\nType: %s\nTarget: %s\nStatus: %s\nResponse: %dms\nTime: %s",
-		m.Name, m.Type, monitorTargetText(m), strings.ToUpper(status), respMs, now)
-	if errMsg != "" {
-		text += "\nError: " + errMsg
+	vars := map[string]string{
+		"monitor": m.Name, "type": m.Type, "target": monitorTargetText(m),
+		"status": strings.ToUpper(status), "resp_ms": strconv.Itoa(respMs),
+		"error": errMsg, "time": now,
 	}
+	defSubject := fmt.Sprintf("%s [%s] %s", emoji, event, m.Name)
+	defBody := fmt.Sprintf("Monitor: %s\nType: %s\nTarget: %s\nStatus: %s\nResponse: %dms\nTime: %s",
+		m.Name, m.Type, monitorTargetText(m), strings.ToUpper(status), respMs, now)
 	for _, ch := range channels {
 		ch := ch
 		go func() {
@@ -147,7 +169,7 @@ func SendMonitorAlert(m *model.Monitor, status string, respMs int, errMsg string
 					fmt.Printf("[alert] channel %s send panic: %v\n", ch.Name, r)
 				}
 			}()
-			if err := SendViaChannel(&ch, subject, text); err != nil {
+			if err := SendViaChannel(&ch, vars, defSubject, defBody); err != nil {
 				fmt.Printf("[alert] channel %s(%s) send failed: %v\n", ch.Name, ch.Type, err)
 			}
 		}()
@@ -162,8 +184,11 @@ func SendHostRebootAlert(h *model.Host, newBootID string) {
 		return
 	}
 	now := time.Now().Format("2006-01-02 15:04:05")
-	subject := fmt.Sprintf("🔄 [REBOOT] %s", h.Name)
-	text := fmt.Sprintf("Host: %s\nIP: %s\nEvent: system rebooted (boot_id changed)\nDetected: %s",
+	vars := map[string]string{
+		"host": h.Name, "ip": h.IP, "event": "system rebooted (boot_id changed)", "time": now,
+	}
+	defSubject := fmt.Sprintf("🔄 [REBOOT] %s", h.Name)
+	defBody := fmt.Sprintf("Host: %s\nIP: %s\nEvent: system rebooted (boot_id changed)\nDetected: %s",
 		h.Name, h.IP, now)
 	for _, ch := range channels {
 		ch := ch
@@ -173,7 +198,7 @@ func SendHostRebootAlert(h *model.Host, newBootID string) {
 					fmt.Printf("[alert] channel %s send panic: %v\n", ch.Name, r)
 				}
 			}()
-			if err := SendViaChannel(&ch, subject, text); err != nil {
+			if err := SendViaChannel(&ch, vars, defSubject, defBody); err != nil {
 				fmt.Printf("[alert] channel %s(%s) send failed: %v\n", ch.Name, ch.Type, err)
 			}
 		}()

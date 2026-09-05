@@ -213,12 +213,6 @@
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('monitor.chTemplate')" min-width="240">
-              <template #default="{ row }">
-                <el-input v-model="row.template" type="textarea" :rows="2"
-                          :placeholder="$t('monitor.chTemplatePlaceholder')" />
-              </template>
-            </el-table-column>
           </el-table>
           <div style="color:#909399; font-size:12px; margin-top:8px">{{ $t('monitor.cmdLevelsTip') }}</div>
         </el-card>
@@ -313,6 +307,21 @@
           <el-form-item v-if="chForm.type !== 'email' && chForm.type !== 'telegram'" :label="$t('monitor.chUrl')">
             <el-input v-model="chForm.f_url" class="mono" :placeholder="$t('monitor.chUrlTip')" />
           </el-form-item>
+        </template>
+        <template v-if="chForm.type">
+          <el-divider style="margin:8px 0 16px" />
+          <el-form-item :label="$t('monitor.chTplTitle')" v-if="chForm.type === 'email'">
+            <el-input v-model="chForm.f_title_tpl" :placeholder="$t('monitor.chTplDefault')" />
+          </el-form-item>
+          <el-form-item :label="chForm.type === 'email' ? $t('monitor.chTplBody') : $t('monitor.chTplMsg')">
+            <el-input v-model="chForm.f_body_tpl" type="textarea" :rows="4"
+                      :placeholder="$t('monitor.chTplDefault')" />
+          </el-form-item>
+          <div style="color:#909399; font-size:12px; line-height:1.8">
+            {{ $t('monitor.chTplVarsLabel') }}
+            <span class="mono">{level} {host} {ip} {metric} {value} {threshold} {monitor} {type} {target} {status} {resp_ms} {error} {event} {time}</span>
+            <div>{{ $t('monitor.chTplTip') }}</div>
+          </div>
         </template>
         <el-form-item :label="$t('monitor.enabled')"><el-switch v-model="chForm.enabled" /></el-form-item>
       </el-form>
@@ -490,6 +499,7 @@ const openChDlg = ch => {
     id: ch?.id, name: ch?.name || '', type: ch?.type || '', enabled: ch ? !!ch.enabled : true,
     f_recipients: cfg.recipients || '', f_url: cfg.url || '',
     f_bot_token: cfg.bot_token || '', f_chat_id: cfg.chat_id || '',
+    f_title_tpl: cfg.title_tpl || '', f_body_tpl: cfg.body_tpl || '',
   })
   chDlgVisible.value = true
 }
@@ -498,6 +508,8 @@ const buildChConfig = () => {
   if (chForm.type === 'email') cfg.recipients = chForm.f_recipients
   else if (chForm.type === 'telegram') { cfg.bot_token = chForm.f_bot_token; cfg.chat_id = chForm.f_chat_id }
   else cfg.url = chForm.f_url
+  cfg.title_tpl = chForm.f_title_tpl || ''
+  cfg.body_tpl = chForm.f_body_tpl || ''
   return JSON.stringify(cfg)
 }
 const saveChannel = async () => {

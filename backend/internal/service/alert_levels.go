@@ -4,7 +4,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"autoops/internal/model"
@@ -18,13 +17,12 @@ const cmdLevelsKey = "cmd_alert_levels"
 
 // CmdLevel 单个告警级别配置
 type CmdLevel struct {
-	Level       string  `json:"level"`        // P1 / P2 / P3 / P4
-	CPU         float64 `json:"cpu"`          // 阈值 %，0 = 该指标不参与
+	Level       string  `json:"level"` // P1 / P2 / P3 / P4
+	CPU         float64 `json:"cpu"`   // 阈值 %，0 = 该指标不参与
 	Mem         float64 `json:"mem"`
 	Disk        float64 `json:"disk"`
 	DurationSec int     `json:"duration_sec"` // 持续时长（秒），0 = 立即
 	ChannelIDs  []uint  `json:"channel_ids"`
-	Template    string  `json:"template"` // 自定义通知模板（空=默认）
 }
 
 // DefaultCmdLevels P1 最严重 → P4 提示
@@ -86,14 +84,6 @@ func matchLevel(host *model.Host, s hostSample, levels []CmdLevel) (CmdLevel, st
 		}
 	}
 	return CmdLevel{}, "", 0, 0, false
-}
-
-func renderCmdTemplate(tpl string, vars map[string]string) string {
-	out := tpl
-	for k, v := range vars {
-		out = strings.ReplaceAll(out, "{"+k+"}", v)
-	}
-	return out
 }
 
 // EvaluateCmdAlerts 对一台主机的最新采样做分级评估（采集流程调用）
@@ -177,18 +167,15 @@ func SendCmdLevelAlert(h *model.Host, lv CmdLevel, metric string, value, th floa
 		"metric": metric, "value": fmt.Sprintf("%.1f", value), "threshold": fmt.Sprintf("%.0f", th),
 		"time": now,
 	}
-	var subject, body string
+	emoji := "🟢"
+	if !recovery {
+		emoji = "🔴"
+	}
+	defSubject := fmt.Sprintf("%s [%s][%s] %s", emoji, lv.Level, metric, h.Name)
+	defBody := fmt.Sprintf("[%s] %s (%s)\n%s: %.1f%%（阈值 %.0f%%）\n时间: %s",
+		lv.Level, h.Name, h.IP, metric, value, th, now)
 	if recovery {
-		subject = fmt.Sprintf("🟢 [%s 已恢复] %s", lv.Level, h.Name)
-		body = fmt.Sprintf("%s (%s)\n%s: %.1f%%\n时间: %s", h.Name, h.IP, metric, value, now)
-	} else {
-		subject = fmt.Sprintf("🔴 [%s][%s] %s", lv.Level, metric, h.Name)
-		if strings.TrimSpace(lv.Template) != "" {
-			body = renderCmdTemplate(lv.Template, vars)
-		} else {
-			body = fmt.Sprintf("[%s] %s (%s)\n%s: %.1f%%（阈值 %.0f%%）\n时间: %s",
-				lv.Level, h.Name, h.IP, metric, value, th, now)
-		}
+		defBody = fmt.Sprintf("%s (%s)\n%s: %.1f%%\n时间: %s", h.Name, h.IP, metric, value, now)
 	}
 	for _, ch := range channels {
 		ch := ch
@@ -198,7 +185,7 @@ func SendCmdLevelAlert(h *model.Host, lv CmdLevel, metric string, value, th floa
 					fmt.Printf("[alert] channel %s send panic: %v\n", ch.Name, r)
 				}
 			}()
-			if err := SendViaChannel(&ch, subject, body); err != nil {
+			if err := SendViaChannel(&ch, vars, defSubject, defBody); err != nil {
 				fmt.Printf("[alert] channel %s(%s) send failed: %v\n", ch.Name, ch.Type, err)
 			}
 		}()

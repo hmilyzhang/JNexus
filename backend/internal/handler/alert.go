@@ -4,6 +4,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -86,7 +87,14 @@ func TestAlertChannel(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "通道不存在"})
 		return
 	}
-	if err := service.SendViaChannel(&ch, "🟢 AutoOps 测试消息", "这是一条来自 AutoOps 监控中心的测试通知。"); err != nil {
+	sampleVars := map[string]string{
+		"level": "P2", "host": "demo-01", "ip": "10.0.0.8",
+		"metric": "CPU", "value": "91.5", "threshold": "90",
+		"monitor": "demo-monitor", "type": "http", "target": "http://10.0.0.8/health",
+		"status": "DOWN", "resp_ms": "233", "error": "-",
+		"event": "system rebooted (boot_id changed)", "time": time.Now().Format("2006-01-02 15:04:05"),
+	}
+	if err := service.SendViaChannel(&ch, sampleVars, "🟢 AutoOps 测试消息", "这是一条来自 AutoOps 监控中心的测试通知。"); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -129,7 +137,6 @@ type cmdLevelReq struct {
 	Disk        float64 `json:"disk"`
 	DurationSec int     `json:"duration_sec"`
 	ChannelIDs  []uint  `json:"channel_ids"`
-	Template    string  `json:"template"`
 }
 
 // UpdateCmdLevels 保存 CMD 分级阈值配置（4 级整体保存）
@@ -157,7 +164,7 @@ func UpdateCmdLevels(c *gin.Context) {
 		}
 		levels = append(levels, service.CmdLevel{
 			Level: r.Level, CPU: r.CPU, Mem: r.Mem, Disk: r.Disk,
-			DurationSec: r.DurationSec, ChannelIDs: r.ChannelIDs, Template: r.Template,
+			DurationSec: r.DurationSec, ChannelIDs: r.ChannelIDs,
 		})
 	}
 	if err := service.SaveCmdLevels(levels); err != nil {
