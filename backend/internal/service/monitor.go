@@ -227,47 +227,35 @@ func parseMetricOutput(out string) (hostSample, bool) {
 		return s, false
 	}
 	cpuLines := strings.Split(strings.TrimSpace(parts[0]), "\n")
-	if len(cpuLines) >= 2 {
-		f := func(line string) (user, sys, idle, total uint64) {
-			fl := strings.Fields(line)
-			if len(fl) < 5 || fl[0] != "cpu" {
+		if len(cpuLines) >= 2 {
+			// 标准 CPU 占用算法（与 top 一致）：100 - 空闲时间占比；iowait 计入空闲
+			f := func(line string) (idle, total uint64) {
+				fl := strings.Fields(line)
+				if len(fl) < 5 || fl[0] != "cpu" {
+					return
+				}
+				for i, x := range fl[1:] {
+					n, e := strconv.ParseUint(x, 10, 64)
+					if e != nil {
+						continue
+					}
+					total += n
+					if i == 3 || i == 4 { // idle + iowait
+						idle += n
+					}
+				}
 				return
 			}
-			nums := make([]uint64, 0, len(fl)-1)
-			for _, x := range fl[1:] {
-				n, e := strconv.ParseUint(x, 10, 64)
-				if e == nil {
-					nums = append(nums, n)
-				}
+			id1, t1 := f(cpuLines[0])
+			id2, t2 := f(cpuLines[1])
+			dt := float64(t2 - t1)
+			if dt > 0 {
+				s.CPU = round1(100 * (1 - float64(id2-id1)/dt))
 			}
-			for i, n := range nums {
-				total += n
-				if i == 3 {
-					idle = n
-				}
+			if s.CPU < 0 {
+				s.CPU = 0
 			}
-			// iowait 也计入空闲（位置 4）
-			if len(nums) > 4 {
-				idle += nums[4]
-			}
-			user = nums[0]
-			if len(nums) > 2 {
-				sys = nums[2]
-			}
-			return
 		}
-		u1, sy1, id1, t1 := f(cpuLines[0])
-		u2, sy2, id2, t2 := f(cpuLines[1])
-		dt := float64(t2 - t1)
-		if dt > 0 {
-			s.CPU = round1(100 * float64((u2-u1)+(sy2-sy1)) / dt)
-			_ = id1
-			_ = id2
-		}
-		if s.CPU < 0 {
-			s.CPU = 0
-		}
-	}
 	mem := parts[1]
 	if diskIdx := strings.Index(mem, "---DISK---"); diskIdx >= 0 {
 		mem = mem[:diskIdx]
@@ -310,6 +298,8 @@ func parseMetricOutput(out string) (hostSample, bool) {
 
 func round1(v float64) float64 { return float64(int(v*10+0.5)) / 10 }
 
+// lastMetricRun 记录每台主机上次采集时间（多协程并发访问，须持锁）
+var lastMetricMu sync.Mutex
 var lastMetricRun = map[uint]time.Time{}
 
 // CollectHostMetrics 采集全部主机的 CPU/内存/磁盘（按全局间隔节流）
@@ -321,12 +311,15 @@ func CollectHostMetrics() {
 	var hosts []model.Host
 	model.DB.Find(&hosts)
 	now := time.Now()
+	lastMetricMu.Lock()
 	due := hosts[:0]
 	for _, h := range hosts {
 		if last, ok := lastMetricRun[h.ID]; !ok || now.Sub(last) >= interval {
 			due = append(due, h)
+			lastMetricRun[h.ID] = now
 		}
 	}
+	lastMetricMu.Unlock()
 	if len(due) == 0 {
 		return
 	}
@@ -336,9 +329,9 @@ func CollectHostMetrics() {
 		wg.Add(1)
 		go func(h model.Host) {
 			defer wg.Done()
+			defer func() { recover() }() // 单台采集失败不影响进程与其余主机
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			lastMetricRun[h.ID] = time.Now()
 			cli, err := sshpool.ClientFor(&h)
 			if err != nil {
 				return // 连接失败（如主机关机）：本轮无数据，不写样本
