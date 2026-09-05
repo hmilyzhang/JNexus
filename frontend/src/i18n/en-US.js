@@ -661,6 +661,7 @@ export default {
     apiKeys: 'API Keys',
     apiKeysTitle: 'External integration keys',
     apiKeyCreate: 'Create key',
+    apiKeyDoc: 'API docs',
     apiKeyName: 'Name',
     apiKeyOwner: 'Owner user',
     apiKeyExpires: 'Expires at',

@@ -294,6 +294,12 @@ func SetupRouter() *gin.Engine {
 			continue
 		}
 		r.StaticFile("/favicon.ico", filepath.Join(abs, "favicon.ico"))
+		if apiDoc := filepath.Join(abs, "docs", "api.html"); fileExists(apiDoc) {
+			r.GET("/docs/api", func(c *gin.Context) {
+				c.Redirect(http.StatusMovedPermanently, "/docs/api.html")
+			})
+			r.StaticFile("/docs/api.html", apiDoc)
+		}
 		r.NoRoute(func(c *gin.Context) {
 			p := c.Request.URL.Path
 			// 未知 API 路径返回 404 JSON，不能兜底成 SPA 页面
@@ -315,4 +321,9 @@ func SetupRouter() *gin.Engine {
 	}
 
 	return r
+}
+
+func fileExists(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && !st.IsDir()
 }

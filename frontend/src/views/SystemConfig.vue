@@ -206,6 +206,7 @@
         <div style="display:flex; align-items:center; gap:10px">
           <span style="flex:1">{{ $t('system.apiKeysTitle') }}</span>
           <el-button size="small" type="primary" @click="openApiKeyDlg">{{ $t('system.apiKeyCreate') }}</el-button>
+          <el-button size="small" @click="openDoc">{{ $t('system.apiKeyDoc') }}</el-button>
         </div>
       </template>
       <el-table :data="apiKeys" size="small" border>
@@ -355,6 +356,8 @@ const delApiKey = async row => {
   await api.delete('/api_keys/' + row.id)
   loadApiKeys()
 }
+
+const openDoc = () => { window.open('/docs/api.html', '_blank') }
 
 const roleRows = ref([])
 // 角色名/描述按语言包本地化显示（system.role<Cap> / layout.role<Cap>），保存的是显示值

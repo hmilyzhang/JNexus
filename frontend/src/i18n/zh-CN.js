@@ -661,6 +661,7 @@ export default {
     apiKeys: 'API 密钥',
     apiKeysTitle: '外部系统集成密钥',
     apiKeyCreate: '创建密钥',
+    apiKeyDoc: '查看 API 文档',
     apiKeyName: '名称',
     apiKeyOwner: '属主用户',
     apiKeyExpires: '过期时间',

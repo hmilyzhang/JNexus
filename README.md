@@ -10,6 +10,8 @@ Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 
 **Docs:** [API reference](docs/API.md) — integrate external systems via API keys (`/api/ext/*`).
 
+**Online docs:** once deployed, open `http://<server>:8080/docs/api` (bilingual, no login required).
+
 ## Features
 
 | Module | Capabilities |

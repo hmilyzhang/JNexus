@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AutoOps API 文档 / API Reference</title>
+<style>
+  :root { --blue:#409eff; --border:#dcdfe6; --text:#303133; --muted:#909399; --bg:#f5f7fa; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; color: var(--text);
+         margin: 0; background: #fff; line-height: 1.7; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 80px; }
+  header { border-bottom: 2px solid var(--blue); padding: 18px 0 12px; margin-bottom: 24px;
+           display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header h1 { font-size: 24px; margin: 0; flex: 1; }
+  .toggle button { border: 1px solid var(--border); background: #fff; padding: 4px 14px; cursor: pointer; border-radius: 4px; }
+  .toggle button.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+  h2 { font-size: 19px; border-left: 4px solid var(--blue); padding-left: 10px; margin-top: 34px; }
+  code { background: var(--bg); padding: 1px 6px; border-radius: 3px; font-family: Consolas, Menlo, monospace; font-size: 13px; }
+  pre { background: #1e2a35; color: #d8e4f0; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+        font-family: Consolas, Menlo, monospace; font-size: 13px; line-height: 1.6; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 7px 12px; text-align: left; }
+  th { background: var(--bg); }
+  .muted { color: var(--muted); font-size: 13px; }
+  body.en .lang-zh { display: none; }
+  body.zh .lang-en { display: none; }
+</style>
+</head>
+<body class="zh">
+<div class="wrap">
+  <header>
+    <h1>AutoOps API 文档 / API Reference</h1>
+    <div class="toggle">
+      <button id="btn-zh" onclick="setLang('zh')">中文</button>
+      <button id="btn-en" onclick="setLang('en')">English</button>
+    </div>
+  </header>
+
+  <h2 class="lang-zh">认证</h2>
+  <h2 class="lang-en">Authentication</h2>
+  <p class="lang-zh">所有端点位于 <code>/api/ext/*</code>，需携带 API 密钥（格式 <code>aok_&lt;keyID&gt;.&lt;secret&gt;</code>）。密钥由管理员在 <b>系统设置 → API 密钥</b> 创建，以属主用户身份调用（继承其角色与数据权限），仅创建时展示一次。</p>
+  <p class="lang-en">All endpoints live under <code>/api/ext/*</code> and require an API key (<code>aok_&lt;keyID&gt;.&lt;secret&gt;</code>). Keys are created by an admin under <b>System Settings → API Keys</b> and calls run as the owner user (inheriting its role and data permissions). The full key is shown only once at creation.</p>
+  <pre>curl -H "Authorization: Bearer aok_xxx.yyy" http://server:8080/api/ext/hosts</pre>
+  <p class="lang-zh">安全限制：密钥仅存哈希、可选过期时间与 IP 白名单、每密钥限流 120 次/分钟（超限 429）、全部调用写入审计；密钥无法访问用户管理 / 系统设置 / 密钥管理接口。</p>
+  <p class="lang-en">Security: keys are stored as SHA-256 hashes only; optional expiry and IP allowlist; per-key rate limit 120 req/min (HTTP 429 beyond); every call is audited; keys cannot access user management, system settings or key management endpoints.</p>
+
+  <h2 class="lang-zh">响应格式</h2>
+  <h2 class="lang-en">Response envelope</h2>
+  <pre>{
+  "ok": true,
+  "data": { ... }
+}
+// 失败 / on failure (4xx):
+{ "ok": false, "error": "描述" }</pre>
+
+  <h2 class="lang-zh">GET /hosts — 主机清单</h2>
+  <h2 class="lang-en">GET /hosts — host inventory</h2>
+  <pre>GET /api/ext/hosts</pre>
+  <pre>{
+  "ok": true,
+  "data": [
+    {
+      "id": 7, "name": "web-01", "ip": "10.0.0.8", "port": 22,
+      "status": "online", "group": "prod",
+      "cpu": 23.9, "mem": 41.2, "disk": 63.5,
+      "metrics_at": "2026-09-05T13:30:00+08:00"
+    }
+  ]
+}</pre>
+  <p class="lang-zh muted">cpu/mem/disk 仅在 Linux 主机开启资源采集后返回；属主无权查看的主机不会出现。</p>
+  <p class="lang-en muted">cpu/mem/disk appear only for Linux hosts with resource collection enabled; hosts invisible to the owner are omitted.</p>
+
+  <h2 class="lang-zh">GET /monitors — 应用监控</h2>
+  <h2 class="lang-en">GET /monitors — application monitors</h2>
+  <pre>{
+  "ok": true,
+  "data": [
+    {
+      "id": 3, "name": "Portal", "type": "http",
+      "target": "https://portal.example.com",
+      "enabled": true, "status": "up", "resp_ms": 66,
+      "last_checked_at": "2026-09-05T13:31:20+08:00",
+      "uptime_24h": 99.8
+    }
+  ]
+}</pre>
+
+  <h2 class="lang-zh">GET /tasks/:id — 任务结果</h2>
+  <h2 class="lang-en">GET /tasks/:id — task result</h2>
+  <p class="lang-zh muted">admin/auditor 属主可查全部任务；其他属主仅能查自己创建的任务。</p>
+  <p class="lang-en muted">admin/auditor owners see every task; other owners only tasks they created.</p>
+  <pre>{
+  "ok": true,
+  "data": {
+    "id": 42, "type": "command", "operator": "ops1", "status": "done",
+    "results": [
+      { "host": "web-01", "ip": "10.0.0.8", "account": "root",
+        "status": "success", "exit_code": 0, "output": "..." }
+    ]
+  }
+}</pre>
+
+  <h2 class="lang-zh">POST /exec — 执行命令（异步）</h2>
+  <h2 class="lang-en">POST /exec — run a command (async)</h2>
+  <p class="lang-zh muted">属主需 admin/ops 角色；<code>wait: true</code> 最长等待 120 秒直接返回结果，否则仅返回任务 ID。</p>
+  <p class="lang-en muted">Owner must be admin/ops; <code>wait: true</code> blocks up to 120 s and returns results, otherwise only the task id.</p>
+  <pre>POST /api/ext/exec
+{
+  "host_ids": [7, 8],
+  "command": "df -hP /",
+  "timeout_sec": 60,
+  "wait": true
+}</pre>
+  <pre>{
+  "ok": true,
+  "data": {
+    "task_id": 43, "status": "done",
+    "results": [
+      { "host": "web-01", "ip": "10.0.0.8", "status": "success",
+        "exit_code": 0, "output": "..." }
+    ]
+  }
+}</pre>
+
+  <h2 class="lang-zh">错误码</h2>
+  <h2 class="lang-en">Errors</h2>
+  <table>
+    <tr><th>HTTP</th><th class="lang-zh">含义</th><th class="lang-en">Meaning</th></tr>
+    <tr><td>401</td><td class="lang-zh">密钥缺失/无效/停用/过期、IP 不在白名单，或误用登录令牌</td><td class="lang-en">Missing/invalid/disabled/expired key, IP not allowed, or a login JWT used instead of a key</td></tr>
+    <tr><td>403</td><td class="lang-zh">属主权限不足</td><td class="lang-en">Owner permissions insufficient</td></tr>
+    <tr><td>404</td><td class="lang-zh">资源不存在或不可见</td><td class="lang-en">Resource not found or not visible</td></tr>
+    <tr><td>429</td><td class="lang-zh">超过限流（120 次/分钟）</td><td class="lang-en">Rate limit exceeded (120 req/min)</td></tr>
+  </table>
+
+  <h2 class="lang-zh">Python 示例</h2>
+  <h2 class="lang-en">Python example</h2>
+  <pre>import requests
+
+BASE = "http://server:8080/api/ext"
+HDRS = {"Authorization": "Bearer aok_xxx.yyy"}
+
+hosts = requests.get(f"{BASE}/hosts", headers=HDRS).json()["data"]
+down = [m for m in requests.get(f"{BASE}/monitors", headers=HDRS).json()["data"]
+        if m["status"] == "down"]
+
+r = requests.post(f"{BASE}/exec", headers=HDRS,
+                  json={"host_ids": [h["id"] for h in hosts
+                                      if h["name"] == "web-01"],
+                        "command": "systemctl status nginx", "wait": True})
+print(r.json()["data"]["status"])</pre>
+</div>
+<script>
+function setLang(l) {
+  document.body.className = l;
+  document.getElementById('btn-zh').classList.toggle('on', l === 'zh');
+  document.getElementById('btn-en').classList.toggle('on', l === 'en');
+}
+setLang('zh');
+</script>
+</body>
+</html>
