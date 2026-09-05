@@ -98,7 +98,7 @@ const roleLabel = computed(() => ({
 const loadMe = async () => {
   const info = await api.get('/me')
   Object.assign(me, info)
-  me.last_login_at = me.last_login_at || ''
+  me.last_login_at = me.last_login_at ? String(me.last_login_at).replace('T', ' ').slice(0, 19) : ''
 }
 
 const saveEmail = async () => {
