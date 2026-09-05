@@ -78,6 +78,18 @@ func SetupRouter() *gin.Engine {
 			apikeys.DELETE("/:id", middleware.RequireRole(model.RoleAdmin), DeleteApiKey)
 		}
 
+		// K8S 集群管理（查看：所有登录用户中可见者；管理：角色权限/集群管理员）
+		k8sg := auth.Group("/k8s/clusters")
+		{
+			k8sg.GET("", ListK8sClusters)
+			k8sg.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), CreateK8sCluster)
+			k8sg.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateK8sCluster)
+			k8sg.DELETE("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), DeleteK8sCluster)
+			k8sg.POST("/:id/test", middleware.RequireRole(model.RoleAdmin, model.RoleOps), TestK8sCluster)
+			k8sg.GET("/:id/members", ListClusterMembers)
+			k8sg.PUT("/:id/members", middleware.RequireRole(model.RoleAdmin, model.RoleOps), SetClusterMembers)
+		}
+
 		mwin := auth.Group("/maintenance_windows", middleware.RequireRole())
 		{
 			mwin.GET("", GetMaintenances)

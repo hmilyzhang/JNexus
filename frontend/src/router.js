@@ -11,6 +11,7 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'dashboard', component: () => import('./views/Dashboard.vue'), meta: { title: 'menu.dashboard', icon: 'Odometer' } },
       { path: 'profile', name: 'profile', component: () => import('./views/Profile.vue'), meta: { title: 'layout.profile' } },
+      { path: 'k8s', name: 'k8s', component: () => import('./views/K8sClusters.vue'), meta: { title: 'k8s.title', icon: 'Grid' } },
       { path: 'shell', name: 'shell', component: () => import('./views/ShellWorkspace.vue'), meta: { title: 'shell.title', icon: 'Terminal' } },
       { path: 'hosts', name: 'hosts', component: () => import('./views/Hosts.vue'), meta: { title: 'menu.hosts', icon: 'Monitor' } },
       { path: 'os-accounts', name: 'os-accounts', component: () => import('./views/OsAccounts.vue'), meta: { title: 'menu.osaccounts', icon: 'Avatar' } },

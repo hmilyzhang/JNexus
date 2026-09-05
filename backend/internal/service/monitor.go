@@ -466,6 +466,7 @@ func StartMonitorLoop() {
 				defer func() { recover() }()
 				go ScanDueMonitors()
 				go CollectHostMetrics()
+				go CollectK8sClusters()
 				if time.Since(lastPrune) >= time.Hour {
 					PruneMonitorData()
 					lastPrune = time.Now()

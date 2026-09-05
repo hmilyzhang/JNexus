@@ -426,3 +426,37 @@ type MaintenanceLog struct {
 	Active    bool      `json:"active"`
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 }
+
+// K8S 集群（外部系统集成；凭据 AES-GCM 加密存储）
+type K8sCluster struct {
+	ID          uint       `gorm:"primaryKey" json:"id"`
+	Name        string     `gorm:"size:128;uniqueIndex" json:"name"`
+	ApiServer   string     `gorm:"size:256" json:"api_server"`
+	Support     string     `gorm:"size:128" json:"support"`       // 支持人/负责人
+	Description string     `gorm:"size:256" json:"description"`
+	CA          string     `gorm:"size:4096" json:"-"`            // PEM，加密存储
+	ClientCert  string     `gorm:"size:4096" json:"-"`
+	ClientKey   string     `gorm:"size:8192" json:"-"`
+	Kubeconfig  string     `gorm:"type:text" json:"-"`            // kubeconfig 全文，加密存储
+	Version     string     `gorm:"size:32" json:"version"`
+	NodeCount   int        `json:"node_count"`
+	Status      string     `gorm:"size:16" json:"status"`         // online / offline / unknown
+	CertExpiry  *time.Time `json:"cert_expiry"`                   // 客户端证书到期
+	CAExpiry    *time.Time `json:"ca_expiry"`                     // CA 到期
+	LastSeen    *time.Time `json:"last_seen"`
+	Warn30Sent  bool       `json:"-"`                              // 30 天提醒已发送
+	Warn7Sent   bool       `json:"-"`                              // 7 天提醒已发送
+	Enabled     bool       `gorm:"default:true" json:"enabled"`
+	CreatedBy   string     `gorm:"size:64" json:"created_by"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+// K8sClusterMember 集群成员（平台内角色：admin / user / viewer）
+type K8sClusterMember struct {
+	ID        uint   `gorm:"primaryKey" json:"id"`
+	ClusterID uint   `gorm:"uniqueIndex:uq_k8s_cluster_user" json:"cluster_id"`
+	UserID    uint   `gorm:"uniqueIndex:uq_k8s_cluster_user" json:"user_id"`
+	Role      string `gorm:"size:16" json:"role"` // admin / user / viewer
+	Username  string `gorm:"-" json:"username"`
+}

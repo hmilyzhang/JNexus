@@ -175,6 +175,12 @@
             <el-checkbox v-model="row.report" size="small" :disabled="row.role === 'admin'" />
           </template>
         </el-table-column>
+        <el-table-column :label="$t('system.k8sPerm')" min-width="90" align="center">
+          <template #default="{ row }">
+            <el-checkbox v-model="row.k8s_view" size="small" :disabled="row.role === 'admin'" />
+            <el-checkbox v-model="row.k8s_manage" size="small" :disabled="row.role === 'admin'" />
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('system.hostPerms')" min-width="190">
           <template #default="{ row }">
             <div style="display:flex; flex-wrap:wrap; row-gap:2px">
@@ -374,6 +380,7 @@ const menuKeys = [
   { key: 'cron', label: 'menu.cron' },
   { key: 'reports', label: 'menu.reports' },
   { key: 'monitor', label: 'menu.monitor' },
+  { key: 'k8s', label: 'k8s.title' },
   { key: 'files', label: 'menu.files' },
   { key: 'scripts', label: 'menu.scripts' },
   { key: 'apps', label: 'menu.apps' },
@@ -415,7 +422,7 @@ const saveRoles = async () => {
   try {
     const payload = {}
     for (const r of roleRows.value) {
-      payload[r.role] = { desc: r.desc, menus: r.menus, host: r.host, cred: r.cred, report: r.report }
+      payload[r.role] = { desc: r.desc, menus: r.menus, host: r.host, cred: r.cred, report: r.report, k8s_view: r.k8s_view, k8s_manage: r.k8s_manage }
     }
     await api.put('/system/roles', payload)
     ElMessage.success(t('system.saved'))

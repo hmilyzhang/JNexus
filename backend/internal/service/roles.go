@@ -21,6 +21,9 @@ type RolePerm struct {
 	Cred bool `json:"cred"` // OS 账号管理（新增/编辑/设默认；删除恒为 admin）
 
 	Report bool `json:"report"` // 报告模块（生成/查看/导出）
+
+	K8sView   bool `json:"k8s_view"`   // K8S 集群查看
+	K8sManage bool `json:"k8s_manage"` // K8S 集群管理
 }
 
 const roleSettingsKey = "role_settings"
@@ -36,13 +39,21 @@ func DefaultRoleSettings() map[string]RolePerm {
 		r.Cred, r.Report = cred, report
 		return r
 	}
-	return map[string]RolePerm{
+	out := map[string]RolePerm{
 		model.RoleAdmin:     mk("Full access incl. users & system", append([]string{}, allMenuKeys...), true, true, true, true, true, true),
 		model.RoleOps:       mk("主机、执行、文件、脚本、发布", []string{"dashboard", "hosts", "paired", "exec", "tasks", "cron", "files", "scripts", "apps", "releases", "reports"}, true, true, true, true, true, true),
 		model.RolePublisher: mk("执行与发布（需数据授权）", []string{"dashboard", "hosts", "exec", "tasks", "files", "apps", "releases"}, true, false, false, false, false, false),
 		model.RoleViewer:    mk("只读查看", []string{"dashboard", "hosts"}, true, false, false, false, false, false),
 		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit", "reports"}, true, false, false, false, false, true),
 	}
+	// K8S 权限：admin 查看+管理；ops 查看
+	a := out[model.RoleAdmin]
+	a.K8sView, a.K8sManage = true, true
+	out[model.RoleAdmin] = a
+	o := out[model.RoleOps]
+	o.K8sView, o.K8sManage = true, false
+	out[model.RoleOps] = o
+	return out
 }
 
 // GetRoleSettings 读取角色配置（无则落库默认值）
@@ -66,13 +77,22 @@ func GetRoleSettings() map[string]RolePerm {
 			continue
 		}
 		rp := out[role] // map 取出的结构体需复制后修改
+		if legacy || !strings.Contains(sc.Value, "\"k8s_view\"") {
+			// K8S 权限为后加字段：按角色默认回填（admin 管理，ops 查看）
+			switch role {
+			case model.RoleAdmin:
+				rp.K8sView, rp.K8sManage = true, true
+			case model.RoleOps:
+				rp.K8sView, rp.K8sManage = true, false
+			}
+		}
 		if legacy {
 			rp.Cred = d.Cred
 			rp.Report = d.Report
 		}
 		// 新增菜单自动补进 admin/ops/auditor（admin 恒见全部）
 		if role == model.RoleAdmin || role == model.RoleOps || role == model.RoleAuditor {
-			for _, nm := range []string{"cron", "osaccounts", "reports", "monitor"} {
+			for _, nm := range []string{"cron", "osaccounts", "reports", "monitor", "k8s"} {
 				has := false
 				for _, m := range rp.Menus {
 					if m == nm {
@@ -103,6 +123,21 @@ func GetRoleSettings() map[string]RolePerm {
 		out[role] = rp
 	}
 	return out
+}
+
+// HasK8sPerm K8S 权限检查（kind: view / manage；admin 恒通过）
+func HasK8sPerm(role, kind string) bool {
+	if role == model.RoleAdmin {
+		return true
+	}
+	r, ok := GetRoleSettings()[role]
+	if !ok {
+		return false
+	}
+	if kind == "manage" {
+		return r.K8sManage
+	}
+	return r.K8sView
 }
 
 // HasCredPerm 角色是否拥有 OS 账号管理权限（admin 恒通过）
