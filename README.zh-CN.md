@@ -10,6 +10,8 @@
 
 技术栈：Go（Gin + GORM）+ PostgreSQL + Vue3（Element Plus + xterm.js）。
 
+**文档：** [API 使用文档](docs/API.zh-CN.md) —— 通过 API 密钥集成外部系统（`/api/ext/*`）。
+
 ## 功能一览
 
 | 模块 | 能力 |
