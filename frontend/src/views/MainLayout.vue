@@ -25,7 +25,7 @@
           </el-menu-item>
         </template>
       </el-menu>
-      <div class="byline" v-if="!collapsed">{{ $t('layout.byline') }}</div>
+      <div class="byline" v-if="!collapsed">{{ $t('layout.byline', { version: appVersion }) }}</div>
     </el-aside>
     <el-container>
       <el-header class="header">
@@ -119,8 +119,10 @@ const router = useRouter()
 const { t } = i18n.global
 
 const systemName = ref(localStorage.getItem('system_name') || 'AutoOps')
+const appVersion = ref('1.0')
 api.get('/system/info').then(info => {
   systemName.value = info.system_name || 'AutoOps'
+  appVersion.value = info.version || '1.0'
   localStorage.setItem('system_name', info.system_name || 'AutoOps')
   document.title = info.system_name || 'AutoOps'
 }).catch(() => {})

@@ -86,7 +86,7 @@ export default {
     roleAuditor: '审计员',
     roleAuditor: '执行记录与审计日志查看',
     roleViewer: '只读',
-    byline: 'By JJ Zhang Version 1.0'
+    byline: 'By JJ Zhang v{version}'
   },
   dashboard: {
     title: '仪表盘',

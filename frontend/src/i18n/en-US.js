@@ -86,7 +86,7 @@ export default {
     roleAuditor: 'Auditor',
     roleAuditor: 'View tasks and audit logs',
     roleViewer: 'Viewer',
-    byline: 'By JJ Zhang Version 1.0'
+    byline: 'By JJ Zhang v{version}'
   },
   dashboard: {
     title: 'Dashboard',
