@@ -380,7 +380,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import api from '../api'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
@@ -546,24 +546,54 @@ const previewSection = key => {
 }
 
 // ---- 全局默认模板 ----
-const EMAIL_DFT_TITLE = 'AutoOps 告警通知 - {host}'
-const EMAIL_DFT_BODY = (
-  '<h3>AutoOps 告警通知</h3>\n'
-  + '<p>主机：<b>{host}</b>（{ip}）</p>\n'
-  + '<p>级别：{level}</p>\n'
-  + '<p>指标：{metric} = <b>{value}%</b>（阈值 {threshold}%）</p>\n'
-  + '<p>状态：{status}</p>\n'
-  + '<p style="color:#c0392b">错误：{error}</p>\n'
-  + '<p>时间：{time}</p>'
-)
+// 邮件专用模板的建议内容跟随界面语言
+const EMAIL_DFT = {
+  'zh-CN': {
+    title: 'AutoOps 告警通知 - {host}',
+    body: (
+      '<h3>AutoOps 告警通知</h3>\n'
+      + '<p>主机：<b>{host}</b>（{ip}）</p>\n'
+      + '<p>级别：{level}</p>\n'
+      + '<p>指标：{metric} = <b>{value}%</b>（阈值 {threshold}%）</p>\n'
+      + '<p>状态：{status}</p>\n'
+      + '<p style="color:#c0392b">错误：{error}</p>\n'
+      + '<p>时间：{time}</p>'
+    )
+  },
+  'en-US': {
+    title: 'AutoOps Alert Notification - {host}',
+    body: (
+      '<h3>AutoOps Alert Notification</h3>\n'
+      + '<p>Host: <b>{host}</b> ({ip})</p>\n'
+      + '<p>Level: {level}</p>\n'
+      + '<p>Metric: {metric} = <b>{value}%</b> (threshold {threshold}%)</p>\n'
+      + '<p>Status: {status}</p>\n'
+      + '<p style="color:#c0392b">Error: {error}</p>\n'
+      + '<p>Time: {time}</p>'
+    )
+  }
+}
 const tplForm = reactive({})
 const tplSaving = ref(false)
+// 空字段按当前界面语言预填充建议内容
+const prefillEmailTpl = () => {
+  const dft = EMAIL_DFT[i18n.global.locale.value] || EMAIL_DFT['en-US']
+  if (!tplForm.email_title) tplForm.email_title = dft.title
+  if (!tplForm.email_body) tplForm.email_body = dft.body
+}
 const loadAlertTemplates = async () => {
   Object.assign(tplForm, await api.get('/alert_rules/templates'))
-  // 邮件专用模板为空时预填充建议内容，方便直接修改
-  if (!tplForm.email_title) tplForm.email_title = EMAIL_DFT_TITLE
-  if (!tplForm.email_body) tplForm.email_body = EMAIL_DFT_BODY
+  prefillEmailTpl()
 }
+// 切换界面语言时，未被用户修改过的预填内容跟随切换
+watch(() => i18n.global.locale.value, () => {
+  const loc = i18n.global.locale.value
+  const other = loc === 'zh-CN' ? 'en-US' : 'zh-CN'
+  const d = EMAIL_DFT[loc] || EMAIL_DFT['en-US']
+  const o = EMAIL_DFT[other] || EMAIL_DFT['en-US']
+  if (tplForm.email_title === o.title) tplForm.email_title = d.title
+  if (tplForm.email_body === o.body) tplForm.email_body = d.body
+})
 const saveAlertTemplates = async () => {
   tplSaving.value = true
   try {
