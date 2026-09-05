@@ -4,7 +4,7 @@
 
 面向外部系统集成的 REST API。所有端点位于 `/api/ext/*`，需要 **API 密钥**。
 
-- 基础地址：`http://<服务器>:8080/api/ext`
+- 基础地址：`http://<服务器>/api/ext`
 - 认证头：`Authorization: Bearer aok_<keyID>.<secret>`
 - 内容类型：`application/json`
 - 响应格式：成功 `{"ok": true, "data": ...}`；失败 `{"ok": false, "error": "..."}`（4xx）
@@ -22,7 +22,7 @@
 ### GET /hosts — 主机清单
 
 ```bash
-curl -H "Authorization: Bearer aok_xxx.yyy" http://server:8080/api/ext/hosts
+curl -H "Authorization: Bearer aok_xxx.yyy" http://server/api/ext/hosts
 ```
 
 响应：
@@ -63,7 +63,7 @@ curl -H "Authorization: Bearer aok_xxx.yyy" http://server:8080/api/ext/hosts
 权限：admin/auditor 属主可查全部；其他属主仅能查自己创建的任务。
 
 ```bash
-curl -H "Authorization: Bearer aok_xxx.yyy" http://server:8080/api/ext/tasks/42
+curl -H "Authorization: Bearer aok_xxx.yyy" http://server/api/ext/tasks/42
 ```
 
 ```json
@@ -131,7 +131,7 @@ curl -H "Authorization: Bearer aok_xxx.yyy" http://server:8080/api/ext/tasks/42
 ```python
 import requests
 
-BASE = "http://server:8080/api/ext"
+BASE = "http://server/api/ext"
 HDRS = {"Authorization": "Bearer aok_xxx.yyy"}
 
 hosts = requests.get(f"{BASE}/hosts", headers=HDRS).json()["data"]

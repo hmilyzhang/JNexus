@@ -4,7 +4,7 @@
 
 REST API for external integrations. All endpoints live under `/api/ext/*` and require an **API key**.
 
-- Base URL: `http://<server>:8080/api/ext`
+- Base URL: `http://<server>/api/ext`
 - Auth header: `Authorization: Bearer aok_<keyID>.<secret>`
 - Content type: `application/json`
 - Response envelope: `{"ok": true, "data": ...}` on success; `{"ok": false, "error": "..."}` (4xx) on failure
@@ -22,7 +22,7 @@ Security model: keys are stored server-side as SHA-256 hashes only; they cannot 
 ### GET /hosts — host inventory
 
 ```bash
-curl -H "Authorization: Bearer aok_xxx.yyy" http://server:8080/api/ext/hosts
+curl -H "Authorization: Bearer aok_xxx.yyy" http://server/api/ext/hosts
 ```
 
 Response:
@@ -63,7 +63,7 @@ Response:
 Permission: admin/auditor owners see every task; other owners only tasks they created themselves.
 
 ```bash
-curl -H "Authorization: Bearer aok_xxx.yyy" http://server:8080/api/ext/tasks/42
+curl -H "Authorization: Bearer aok_xxx.yyy" http://server/api/ext/tasks/42
 ```
 
 ```json
@@ -131,7 +131,7 @@ Error body: `{"ok": false, "error": "描述"}` or `{"error": "描述"}` for auth
 ```python
 import requests
 
-BASE = "http://server:8080/api/ext"
+BASE = "http://server/api/ext"
 HDRS = {"Authorization": "Bearer aok_xxx.yyy"}
 
 hosts = requests.get(f"{BASE}/hosts", headers=HDRS).json()["data"]

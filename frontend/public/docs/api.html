@@ -59,7 +59,7 @@
       <a href="#python-zh" class="lang-zh">Python 示例</a><a href="#python-en" class="lang-en">Python example</a>
     </nav>
     <div class="side-tip">
-      Base URL: http://&lt;server&gt;:8080/api/ext<br /><br />
+      Base URL: http://&lt;server&gt;/api/ext<br /><br />
       <span class="lang-zh">密钥创建：系统设置 → API 密钥</span>
       <span class="lang-en">Create keys: System Settings → API Keys</span>
     </div>
@@ -78,7 +78,7 @@
     <h2 id="auth-en" class="lang-en">Authentication</h2>
     <p class="lang-zh">所有端点位于 <code>/api/ext/*</code>，需携带 API 密钥（格式 <code>aok_&lt;keyID&gt;.&lt;secret&gt;</code>）。密钥由管理员在 <b>系统设置 → API 密钥</b> 创建，以属主用户身份调用（继承其角色与数据权限），仅创建时展示一次。</p>
     <p class="lang-en">All endpoints live under <code>/api/ext/*</code> and require an API key (<code>aok_&lt;keyID&gt;.&lt;secret&gt;</code>). Keys are created by an admin under <b>System Settings → API Keys</b> and calls run as the owner user (inheriting its role and data permissions). The full key is shown only once at creation.</p>
-    <pre>curl -H "Authorization: Bearer aok_xxx.yyy" http://server:8080/api/ext/hosts</pre>
+    <pre>curl -H "Authorization: Bearer aok_xxx.yyy" http://server/api/ext/hosts</pre>
     <p class="lang-zh">安全限制：密钥仅存哈希、可选过期时间与 IP 白名单、每密钥限流 120 次/分钟（超限 429）、全部调用写入审计；密钥无法访问用户管理 / 系统设置 / 密钥管理接口。</p>
     <p class="lang-en">Security: keys are stored as SHA-256 hashes only; optional expiry and IP allowlist; per-key rate limit 120 req/min (HTTP 429 beyond); every call is audited; keys cannot access user management, system settings or key management endpoints.</p>
 
@@ -181,7 +181,7 @@
     <h2 id="python-en" class="lang-en">Python example</h2>
     <pre>import requests
 
-BASE = "http://server:8080/api/ext"
+BASE = "http://server/api/ext"
 HDRS = {"Authorization": "Bearer aok_xxx.yyy"}
 
 hosts = requests.get(f"{BASE}/hosts", headers=HDRS).json()["data"]
