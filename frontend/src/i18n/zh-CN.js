@@ -462,6 +462,8 @@ export default {
     maintAuditEmpty: '暂无变更记录',
     maintLogWindows: '窗口内容',
     maintLogStatus: '状态',
+    maintEmptyWarning: '尚未添加任何维护窗口',
+    maintFillDates: '存在未选择日期的维护窗口，请先补全或删除',
     maintActive: '生效中',
     maintInactive: '已失效',
     tabTpl: '模板设置',

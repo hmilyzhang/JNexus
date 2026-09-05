@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -181,6 +182,14 @@ func UpdateMaintenances(c *gin.Context) {
 	}
 	if _, err := service.ValidateMaintenances(req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// 与当前配置相同的提交视为无效操作：不落库、不留痕
+	cur := service.LoadMaintenances()
+	curJSON, _ := json.Marshal(cur)
+	newJSON, _ := json.Marshal(req)
+	if strings.TrimSpace(string(curJSON)) == strings.TrimSpace(string(newJSON)) {
+		c.JSON(http.StatusOK, gin.H{"unchanged": true})
 		return
 	}
 	if err := service.SaveMaintenances(req); err != nil {

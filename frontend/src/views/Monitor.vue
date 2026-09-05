@@ -692,15 +692,24 @@ const loadMaintWindows = async () => {
   }))
 }
 const saveMaintWindows = async () => {
+  if (!maintWins.value.length) {
+    ElMessage.warning(t('monitor.maintEmptyWarning'))
+    return
+  }
+  // 过滤日期未选择的空行
+  const rows = maintWins.value
+    .filter(w => Array.isArray(w.dates) && w.dates[0] && w.dates[1])
+    .map(w => ({
+      date_start: w.dates[0], date_end: w.dates[1],
+      start: w.start || '00:00', end: w.end || '00:00',
+    }))
+  if (!rows.length) {
+    ElMessage.warning(t('monitor.maintFillDates'))
+    return
+  }
   maintSaving.value = true
   try {
-    const payload = maintWins.value.map(w => ({
-      date_start: (w.dates && w.dates[0]) || '',
-      date_end: (w.dates && w.dates[1]) || (w.dates && w.dates[0]) || '',
-      start: w.start || '00:00',
-      end: w.end || '00:00',
-    }))
-    await api.put('/maintenance_windows', payload)
+    await api.put('/maintenance_windows', rows)
     ElMessage.success(t('common.success'))
     await loadMaintWindows()
     await loadMaintAudit()

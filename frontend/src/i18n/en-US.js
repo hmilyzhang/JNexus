@@ -462,6 +462,8 @@ export default {
     maintAuditEmpty: 'No changes yet',
     maintLogWindows: 'Windows',
     maintLogStatus: 'Status',
+    maintEmptyWarning: 'No maintenance windows to save',
+    maintFillDates: 'Some windows have no date range selected - complete or remove them first',
     maintActive: 'Active',
     maintInactive: 'Superseded',
     tabTpl: 'Template Settings',
