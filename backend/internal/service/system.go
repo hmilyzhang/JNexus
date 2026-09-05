@@ -38,19 +38,19 @@ func SetSystemConfigs(m map[string]string) error {
 
 // LDAPSettings 从系统配置提取 LDAP 设置
 type LDAPSettings struct {
-	Enabled       bool
-	Host          string
-	Port          int
-	TLS           bool
-	BindDN        string
-	BindPassword  string
-	BaseDN        string
-	UserFilter    string
-	AttrUsername  string
-	DefaultRole   string
-	GroupCheck    bool     // 启用用户组校验
-	GroupBaseDN   string   // 用户组搜索 Base DN
-	GroupFilter   string   // 组过滤器，%s 替换为用户 DN
+	Enabled        bool
+	Host           string
+	Port           int
+	TLS            bool
+	BindDN         string
+	BindPassword   string
+	BaseDN         string
+	UserFilter     string
+	AttrUsername   string
+	DefaultRole    string
+	GroupCheck     bool     // 启用用户组校验
+	GroupBaseDN    string   // 用户组搜索 Base DN
+	GroupFilter    string   // 组过滤器，%s 替换为用户 DN
 	RequiredGroups []string // 允许登录的用户组 DN/CN 列表
 }
 

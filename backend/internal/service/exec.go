@@ -20,15 +20,15 @@ const maxOutputSize = 512 * 1024 // 单主机输出上限 512KB
 
 // ExecRequest 批量执行请求
 type ExecRequest struct {
-	HostIDs     []uint   `json:"host_ids"`
-	GroupID     *uint    `json:"group_id"`
-	IPs         []string `json:"ips"` // 多 IP 逗号分隔输入
-	CredentialID *uint   `json:"credential_id"` // 指定 OS 账号（可选，默认取各主机默认可用账号）
-	Command     string   `json:"command"`
-	ScriptID    *uint    `json:"script_id"`
-	ScriptArgs  string   `json:"script_args"`
-	TimeoutSec  int      `json:"timeout_sec"`
-	Concurrency int      `json:"concurrency"`
+	HostIDs      []uint   `json:"host_ids"`
+	GroupID      *uint    `json:"group_id"`
+	IPs          []string `json:"ips"`           // 多 IP 逗号分隔输入
+	CredentialID *uint    `json:"credential_id"` // 指定 OS 账号（可选，默认取各主机默认可用账号）
+	Command      string   `json:"command"`
+	ScriptID     *uint    `json:"script_id"`
+	ScriptArgs   string   `json:"script_args"`
+	TimeoutSec   int      `json:"timeout_sec"`
+	Concurrency  int      `json:"concurrency"`
 }
 
 // StartBatchExec 创建任务并并发执行命令/脚本；返回 task id（或拦截原因）

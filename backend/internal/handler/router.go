@@ -61,6 +61,8 @@ func SetupRouter() *gin.Engine {
 			arule.PUT("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateAlertRule)
 		}
 		arule.GET("/cmd", GetCmdLevels)
+		arule.GET("/templates", GetAlertTemplates)
+		arule.PUT("/templates", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateAlertTemplates)
 		arule.PUT("/cmd", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateCmdLevels)
 
 		ach := auth.Group("/alert_channels", middleware.RequireRole())

@@ -154,12 +154,7 @@
             </div>
           </template>
           <el-form label-width="150px" style="max-width:640px">
-            <el-form-item :label="$t('monitor.ruleMode')">
-              <el-radio-group v-model="alertRule.mode">
-                <el-radio value="grace">{{ $t('monitor.modeGrace') }}</el-radio>
-                <el-radio value="immediate">{{ $t('monitor.modeImmediate') }}</el-radio>
-              </el-radio-group>
-            </el-form-item>
+
             <el-form-item :label="$t('monitor.ruleThreshold')">
               <el-input-number v-model="alertRule.grace_sec" :min="0" :max="86400" :disabled="alertRule.mode === 'immediate'" />
               <div style="color:#909399; font-size:12px">{{ $t('monitor.ruleThresholdTip') }}</div>
@@ -215,6 +210,41 @@
             </el-table-column>
           </el-table>
           <div style="color:#909399; font-size:12px; margin-top:8px">{{ $t('monitor.cmdLevelsTip') }}</div>
+        </el-card>
+      </el-tab-pane>
+
+      <!-- Tab 5: 模板设置 -->
+      <el-tab-pane :label="$t('monitor.tabTpl')" name="templates">
+        <el-card>
+          <template #header>
+            <div style="display:flex; align-items:center; gap:10px">
+              <span style="flex:1">{{ $t('monitor.tplTitle') }}</span>
+              <el-button size="small" type="primary" :loading="tplSaving" @click="saveAlertTemplates">{{ $t('common.save') }}</el-button>
+            </div>
+          </template>
+          <div style="color:#909399; font-size:12px; margin-bottom:12px">{{ $t('monitor.tplVarsLabel') }}
+            <span class="mono">{level} {host} {ip} {metric} {value} {threshold} {monitor} {type} {target} {status} {resp_ms} {error} {event} {time}</span>
+          </div>
+          <el-form label-width="150px">
+            <el-divider style="margin:0 0 14px" content-position="left">{{ $t('monitor.tplMonAlert') }}</el-divider>
+            <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.monitor_alert_title" class="mono" /></el-form-item>
+            <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.monitor_alert_body" type="textarea" :rows="4" class="mono" /></el-form-item>
+            <el-divider style="margin:0 0 14px" content-position="left">{{ $t('monitor.tplMonRecovery') }}</el-divider>
+            <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.monitor_recovery_title" class="mono" /></el-form-item>
+            <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.monitor_recovery_body" type="textarea" :rows="3" class="mono" /></el-form-item>
+            <el-divider style="margin:0 0 14px" content-position="left">{{ $t('monitor.tplReboot') }}</el-divider>
+            <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.reboot_title" class="mono" /></el-form-item>
+            <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.reboot_body" type="textarea" :rows="3" class="mono" /></el-form-item>
+            <el-divider style="margin:0 0 14px" content-position="left">{{ $t('monitor.tplCmdAlert') }}</el-divider>
+            <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.cmd_alert_title" class="mono" /></el-form-item>
+            <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.cmd_alert_body" type="textarea" :rows="3" class="mono" /></el-form-item>
+            <el-divider style="margin:0 0 14px" content-position="left">{{ $t('monitor.tplCmdRecovery') }}</el-divider>
+            <el-form-item :label="$t('monitor.chTplTitle')"><el-input v-model="tplForm.cmd_recovery_title" class="mono" /></el-form-item>
+            <el-form-item :label="$t('monitor.chTplBody')"><el-input v-model="tplForm.cmd_recovery_body" type="textarea" :rows="3" class="mono" /></el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="tplSaving" @click="saveAlertTemplates">{{ $t('common.save') }}</el-button>
+            </el-form-item>
+          </el-form>
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -458,6 +488,18 @@ const testNow = async row => {
   load()
 }
 
+// ---- 全局默认模板 ----
+const tplForm = reactive({})
+const tplSaving = ref(false)
+const loadAlertTemplates = async () => { Object.assign(tplForm, await api.get('/alert_rules/templates')) }
+const saveAlertTemplates = async () => {
+  tplSaving.value = true
+  try {
+    Object.assign(tplForm, await api.put('/alert_rules/templates', { ...tplForm }))
+    ElMessage.success(t('common.success'))
+  } finally { tplSaving.value = false }
+}
+
 // ---- CMD 分级阈值 ----
 const cmdLevels = ref([])
 const cmdSaving = ref(false)
@@ -535,6 +577,7 @@ const testChannel = async ch => {
 onMounted(() => {
   load()
   loadAlertRule()
+  loadAlertTemplates()
   loadCmdLevels()
   timer = setInterval(load, 30000)
 })

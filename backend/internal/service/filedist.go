@@ -21,13 +21,13 @@ import (
 
 // DistributeRequest 批量分发请求
 type DistributeRequest struct {
-	HostIDs    []uint   `json:"host_ids"`
-	GroupID    *uint    `json:"group_id"`
-	IPs        []string `json:"ips"` // 多 IP 逗号分隔输入
-	RemoteDir  string   `json:"remote_dir"`
-	RemoteName string   `json:"remote_name"` // 可选，重命名
-	LocalFile  string   `json:"local_file"`  // 已上传到服务端的文件名
-	CredentialID *uint  `json:"credential_id"` // 指定 OS 账号（可选）
+	HostIDs      []uint   `json:"host_ids"`
+	GroupID      *uint    `json:"group_id"`
+	IPs          []string `json:"ips"` // 多 IP 逗号分隔输入
+	RemoteDir    string   `json:"remote_dir"`
+	RemoteName   string   `json:"remote_name"`   // 可选，重命名
+	LocalFile    string   `json:"local_file"`    // 已上传到服务端的文件名
+	CredentialID *uint    `json:"credential_id"` // 指定 OS 账号（可选）
 }
 
 // DistributeFile 把已上传的本地文件并发 SFTP 分发到目标主机

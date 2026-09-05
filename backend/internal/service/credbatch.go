@@ -17,16 +17,16 @@ import (
 
 // BatchCredRequest 批量为存量主机添加 OS 账号
 type BatchCredRequest struct {
-	HostIDs     []uint `json:"host_ids"`
-	GroupID     *uint  `json:"group_id"`
+	HostIDs     []uint   `json:"host_ids"`
+	GroupID     *uint    `json:"group_id"`
 	IPs         []string `json:"ips"`
-	Username    string `json:"username" binding:"required"`
-	Label       string `json:"label"`
-	AuthType    string `json:"auth_type"` // key / password
-	SSHKeyID    *uint  `json:"ssh_key_id"`
-	Password    string `json:"password"` // 统一密码（自动配对或密码认证）
-	AutoPair    bool   `json:"auto_pair"`
-	Concurrency int    `json:"concurrency"`
+	Username    string   `json:"username" binding:"required"`
+	Label       string   `json:"label"`
+	AuthType    string   `json:"auth_type"` // key / password
+	SSHKeyID    *uint    `json:"ssh_key_id"`
+	Password    string   `json:"password"` // 统一密码（自动配对或密码认证）
+	AutoPair    bool     `json:"auto_pair"`
+	Concurrency int      `json:"concurrency"`
 }
 
 // BatchAddCredentials 批量添加：创建任务后异步并发执行，进度经 WS 与任务记录可见

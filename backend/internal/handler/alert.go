@@ -109,20 +109,38 @@ func GetAlertRule(c *gin.Context) {
 // UpdateAlertRule 保存全局报警规则（对所有监控项生效）
 func UpdateAlertRule(c *gin.Context) {
 	var req struct {
-		Mode           string `json:"mode"`
-		GraceSec       int    `json:"grace_sec"`
-		NotifyRecovery bool   `json:"notify_recovery"`
+		GraceSec       int  `json:"grace_sec"`
+		NotifyRecovery bool `json:"notify_recovery"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 		return
 	}
-	rule := service.AlertRule{Mode: req.Mode, GraceSec: req.GraceSec, NotifyRecovery: req.NotifyRecovery}
+	rule := service.AlertRule{GraceSec: req.GraceSec, NotifyRecovery: req.NotifyRecovery}
 	if err := service.SaveAlertRule(rule); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, service.LoadAlertRule())
+}
+
+// GetAlertTemplates 全局默认通知模板
+func GetAlertTemplates(c *gin.Context) {
+	c.JSON(http.StatusOK, service.LoadAlertTemplates())
+}
+
+// UpdateAlertTemplates 保存全局默认通知模板（字段留空 = 恢复内建默认）
+func UpdateAlertTemplates(c *gin.Context) {
+	var req service.AlertTemplates
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if err := service.SaveAlertTemplates(req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
+		return
+	}
+	c.JSON(http.StatusOK, service.LoadAlertTemplates())
 }
 
 // GetCmdLevels CMD 分级阈值配置

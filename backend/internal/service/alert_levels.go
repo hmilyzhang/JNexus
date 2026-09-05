@@ -162,20 +162,15 @@ func SendCmdLevelAlert(h *model.Host, lv CmdLevel, metric string, value, th floa
 		return
 	}
 	now := time.Now().Format("2006-01-02 15:04:05")
+	tpl := LoadAlertTemplates()
 	vars := map[string]string{
 		"level": lv.Level, "host": h.Name, "ip": h.IP,
 		"metric": metric, "value": fmt.Sprintf("%.1f", value), "threshold": fmt.Sprintf("%.0f", th),
 		"time": now,
 	}
-	emoji := "🟢"
-	if !recovery {
-		emoji = "🔴"
-	}
-	defSubject := fmt.Sprintf("%s [%s][%s] %s", emoji, lv.Level, metric, h.Name)
-	defBody := fmt.Sprintf("[%s] %s (%s)\n%s: %.1f%%（阈值 %.0f%%）\n时间: %s",
-		lv.Level, h.Name, h.IP, metric, value, th, now)
+	defSubject, defBody := renderTpl(tpl.CmdAlertTitle, vars), renderTpl(tpl.CmdAlertBody, vars)
 	if recovery {
-		defBody = fmt.Sprintf("%s (%s)\n%s: %.1f%%\n时间: %s", h.Name, h.IP, metric, value, now)
+		defSubject, defBody = renderTpl(tpl.CmdRecoveryTitle, vars), renderTpl(tpl.CmdRecoveryBody, vars)
 	}
 	for _, ch := range channels {
 		ch := ch

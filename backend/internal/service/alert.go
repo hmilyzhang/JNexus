@@ -161,6 +161,12 @@ func SendMonitorAlert(m *model.Monitor, status string, respMs int, errMsg string
 	defSubject := fmt.Sprintf("%s [%s] %s", emoji, event, m.Name)
 	defBody := fmt.Sprintf("Monitor: %s\nType: %s\nTarget: %s\nStatus: %s\nResponse: %dms\nTime: %s",
 		m.Name, m.Type, monitorTargetText(m), strings.ToUpper(status), respMs, now)
+	tpl := LoadAlertTemplates()
+	if down {
+		defSubject, defBody = renderTpl(tpl.MonitorAlertTitle, vars), renderTpl(tpl.MonitorAlertBody, vars)
+	} else {
+		defSubject, defBody = renderTpl(tpl.MonitorRecoveryTitle, vars), renderTpl(tpl.MonitorRecoveryBody, vars)
+	}
 	for _, ch := range channels {
 		ch := ch
 		go func() {
@@ -187,9 +193,8 @@ func SendHostRebootAlert(h *model.Host, newBootID string) {
 	vars := map[string]string{
 		"host": h.Name, "ip": h.IP, "event": "system rebooted (boot_id changed)", "time": now,
 	}
-	defSubject := fmt.Sprintf("🔄 [REBOOT] %s", h.Name)
-	defBody := fmt.Sprintf("Host: %s\nIP: %s\nEvent: system rebooted (boot_id changed)\nDetected: %s",
-		h.Name, h.IP, now)
+	tpl := LoadAlertTemplates()
+	defSubject, defBody := renderTpl(tpl.RebootTitle, vars), renderTpl(tpl.RebootBody, vars)
 	for _, ch := range channels {
 		ch := ch
 		go func() {

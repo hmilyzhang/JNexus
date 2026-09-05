@@ -186,10 +186,9 @@ func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 }
 
 // EvaluateAlertRules 报警规则引擎（全局规则，对所有监控项生效）：
-//   - immediate 全局模式：故障首次出现立即告警
-//   - grace 模式（默认）：故障持续满全局阈值秒后才告警，未满阈值即恢复则完全不打扰
+//   - 监控故障：持续满「阈值」秒仍未恢复才告警；阈值 0 = 首次故障立即告警
 //   - 恢复通知仅在本次故障周期内实际发过告警时发送（全局开关）
-//   - 主机系统重启由采集流程自动检测并独立推送，无需任何配置
+//   - 主机系统重启由采集流程自动检测并独立立即推送（与阈值告警并存，互不影响）
 func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errMsg string, now time.Time) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -202,13 +201,8 @@ func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errM
 			m.DownSince = &now
 			model.DB.Model(m).Update("down_since", now)
 		}
-		fire := false
-		if rule.Mode == "immediate" {
-			fire = !m.AlertFired
-		} else {
-			grace := time.Duration(rule.GraceSec) * time.Second // 阈值 0 = 立即
-			fire = !m.AlertFired && now.Sub(*m.DownSince) >= grace
-		}
+		grace := time.Duration(rule.GraceSec) * time.Second // 阈值 0 = 立即
+		fire := !m.AlertFired && now.Sub(*m.DownSince) >= grace
 		if fire {
 			m.AlertFired = true
 			model.DB.Model(m).Update("alert_fired", true)
@@ -227,18 +221,14 @@ func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errM
 
 // AlertRule 全局报警规则（存系统配置，对所有监控项生效）
 type AlertRule struct {
-	Mode           string `json:"mode"`            // grace / immediate
-	GraceSec       int    `json:"grace_sec"`       // 持续故障阈值（秒）
-	NotifyRecovery bool   `json:"notify_recovery"` // 恢复通知开关
+	GraceSec       int  `json:"grace_sec"`       // 持续故障阈值（秒），0 = 立即
+	NotifyRecovery bool `json:"notify_recovery"` // 恢复通知开关
 }
 
 // LoadAlertRule 读取全局报警规则
 func LoadAlertRule() AlertRule {
 	m := SystemConfigMap()
-	r := AlertRule{Mode: m["alert_rule_mode"], NotifyRecovery: m["alert_rule_notify_recovery"] != "false"}
-	if r.Mode != "immediate" && r.Mode != "grace" {
-		r.Mode = "grace"
-	}
+	r := AlertRule{NotifyRecovery: m["alert_rule_notify_recovery"] != "false"}
 	fmt.Sscanf(m["alert_rule_grace_sec"], "%d", &r.GraceSec)
 	if r.GraceSec < 0 {
 		r.GraceSec = 60
@@ -248,14 +238,10 @@ func LoadAlertRule() AlertRule {
 
 // SaveAlertRule 保存全局报警规则
 func SaveAlertRule(r AlertRule) error {
-	if r.Mode != "immediate" && r.Mode != "grace" {
-		return fmt.Errorf("模式必须是 grace / immediate")
-	}
 	if r.GraceSec < 0 || r.GraceSec > 86400 {
 		return fmt.Errorf("阈值超出范围（0-86400 秒）")
 	}
 	for _, kv := range [][2]string{
-		{"alert_rule_mode", r.Mode},
 		{"alert_rule_grace_sec", strconv.Itoa(r.GraceSec)},
 		{"alert_rule_notify_recovery", map[bool]string{true: "true", false: "false"}[r.NotifyRecovery]},
 	} {
