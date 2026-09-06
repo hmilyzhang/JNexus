@@ -381,10 +381,11 @@ const mergeMetrics = (list, metrics, keyFn) => {
 }
 const loaders = {
   nodes: async () => {
-    const [list, metrics] = await Promise.all([
+    const [r, metrics] = await Promise.all([
       api.get(`${P}/nodes`), api.get(`${P}/nodemetrics`).catch(() => []),
     ])
-    return mergeMetrics(list, metrics, x => x.name)
+    // 后端返回 {cluster, nodes} 包裹结构
+    return mergeMetrics(r.nodes || [], metrics, x => x.name)
   },
   namespaces: () => api.get(`${P}/namespaces`),
   pods: async () => {
