@@ -1,7 +1,7 @@
 # 后端
 backend/config.yaml
-backend/autoops-server
-backend/autoops-server.exe
+backend/jnexus-server
+backend/jnexus-server.exe
 backend/uploads/
 *.log
 
