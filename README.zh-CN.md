@@ -6,8 +6,6 @@
 脚本中心、发布流水线（支持回滚）、可配置 RBAC 权限、审计日志、危险命令拦截、LDAP 认证、
 按用户开启的 **MFA（TOTP 两步验证）**。数据存储于外部 PostgreSQL。
 
-**By JJ Zhang · Version 1.0**
-
 技术栈：Go（Gin + GORM）+ PostgreSQL + Vue3（Element Plus + xterm.js）。
 
 **文档：** [API 使用文档](docs/API.zh-CN.md) —— 通过 API 密钥集成外部系统（`/api/ext/*`）。

@@ -4,8 +4,6 @@
 
 A self-built, lightweight operations platform: host management (multi OS accounts per host), batch command execution with live output, file distribution, script center, release pipeline with rollback, RBAC with configurable roles, audit logging, dangerous-command blocking, LDAP authentication, and per-user **MFA (TOTP two-step verification)**. Data is stored in an external PostgreSQL.
 
-**By JJ Zhang · Version 1.0**
-
 Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 
 **Docs:** [API reference](docs/API.md) — integrate external systems via API keys (`/api/ext/*`).
