@@ -72,6 +72,8 @@
           <el-radio-button value="pods">Pods</el-radio-button>
           <el-radio-button value="deployments">Deployments</el-radio-button>
           <el-radio-button value="nodes">Nodes</el-radio-button>
+          <el-radio-button value="cronjobs">CronJobs</el-radio-button>
+          <el-radio-button value="sa">ServiceAccounts</el-radio-button>
         </el-radio-group>
         <span style="flex:1"></span>
         <el-tag size="small" :type="detailCluster?.status === 'online' ? 'success' : 'danger'">{{ detailCluster?.status }}</el-tag>
@@ -102,6 +104,7 @@
           <el-table-column :label="$t('common.operation')" width="150" fixed="right">
             <template #default="{ row }">
               <el-button size="small" link type="primary" @click="showLog(row)">{{ $t('k8s.logs') }}</el-button>
+              <el-button size="small" link type="success" @click="openShell(row)">Shell</el-button>
               <el-popconfirm v-if="myRole(row) !== 'viewer'" :title="$t('k8s.podDelConfirm')" @confirm="deletePodAction(row)">
                 <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
               </el-popconfirm>
@@ -163,11 +166,74 @@
           </el-table-column>
         </el-table>
       </div>
+      <div v-if="detailTab === 'cronjobs'">
+        <div style="margin-bottom:10px; display:flex; gap:8px; align-items:center">
+          <span style="flex:1"></span>
+          <el-button size="small" type="primary" @click="openCronDlg">{{ $t('k8s.cronAdd') }}</el-button>
+        </div>
+        <el-table :data="cronJobs" size="small" border v-loading="detailLoading">
+          <el-table-column prop="name" :label="$t('k8s.cronName')" min-width="160" />
+          <el-table-column prop="namespace" label="Namespace" width="120" />
+          <el-table-column prop="schedule" label="Schedule" min-width="130" class="mono" />
+          <el-table-column :label="$t('k8s.cronSuspend')" width="110" align="center">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.suspend ? 'warning' : 'success'">{{ row.suspend ? 'Suspended' : 'Active' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="active" :label="$t('k8s.cronActive')" width="80" align="center" />
+          <el-table-column :label="$t('common.operation')" width="180" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" link type="warning" @click="toggleCron(row)">{{ row.suspend ? 'Resume' : 'Suspend' }}</el-button>
+              <el-popconfirm :title="$t('k8s.cronDelConfirm')" @confirm="deleteCron(row)">
+                <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+              </el-popconfirm>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <div v-if="detailTab === 'sa'">
+        <div style="margin-bottom:10px; display:flex; gap:8px; align-items:center">
+          <span style="flex:1"></span>
+          <el-button size="small" type="primary" @click="saDlgVisible = true">{{ $t('k8s.saAdd') }}</el-button>
+        </div>
+        <el-table :data="serviceAccounts" size="small" border v-loading="detailLoading">
+          <el-table-column prop="name" :label="$t('k8s.saName')" min-width="200" />
+          <el-table-column prop="namespace" label="Namespace" width="140" />
+        </el-table>
+      </div>
     </el-drawer>
 
     <!-- Pod 日志 -->
     <el-dialog v-model="logVisible" :title="logTitle" width="820px">
       <pre class="mono" style="background:#1e2a35; color:#d8e4f0; padding:14px; border-radius:6px; max-height:480px; overflow:auto; font-size:12px; line-height:1.6">{{ logText }}</pre>
+    </el-dialog>
+
+    <!-- CronJob 创建 -->
+    <el-dialog v-model="cronDlgVisible" :title="$t('k8s.cronAdd')" width="520px">
+      <el-form label-width="110px">
+        <el-form-item :label="$t('k8s.cronName')"><el-input v-model="cronForm.name" /></el-form-item>
+        <el-form-item label="Namespace"><el-input v-model="cronForm.namespace" placeholder="default" /></el-form-item>
+        <el-form-item label="Schedule"><el-input v-model="cronForm.schedule" class="mono" placeholder="*/5 * * * *" /></el-form-item>
+        <el-form-item :label="$t('k8s.cronCommand')">
+          <el-input v-model="cronForm.command" type="textarea" :rows="2" class="mono" placeholder="echo hello" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="cronDlgVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="createCron">{{ $t('common.save') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- SA 创建 -->
+    <el-dialog v-model="saDlgVisible" :title="$t('k8s.saAdd')" width="460px">
+      <el-form label-width="110px">
+        <el-form-item :label="$t('k8s.saName')"><el-input v-model="saForm.name" /></el-form-item>
+        <el-form-item label="Namespace"><el-input v-model="saForm.namespace" placeholder="default" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="saDlgVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="createSa">{{ $t('common.save') }}</el-button>
+      </template>
     </el-dialog>
 
     <!-- 添加/编辑集群 -->
@@ -224,6 +290,7 @@ import api from '../api'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../store'
+import '@xterm/xterm/css/xterm.css'
 
 const { t } = i18n.global
 const store = useUserStore()
@@ -308,6 +375,10 @@ const openDetail = async row => {
   detailNs.value = ''
   detailVisible.value = true
   await loadDetail()
+}
+const openShell = row => {
+  const url = `/k8s/exec?clusterId=${detailCluster.value.id}&namespace=${row.namespace}&pod=${row.name}`
+  window.open(url, '_blank')
 }
 const loadDetail = async () => {
   if (!detailCluster.value) return

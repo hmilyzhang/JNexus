@@ -49,7 +49,7 @@ func CreateUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（用户名≥2位，密码≥6位）"})
 		return
 	}
-	validRoles := map[string]bool{model.RoleAdmin: true, model.RoleOps: true, model.RolePublisher: true, model.RoleViewer: true, model.RoleAuditor: true}
+	validRoles := map[string]bool{model.RoleAdmin: true, model.RoleOps: true, model.RolePublisher: true, model.RoleViewer: true, model.RoleAuditor: true, model.RoleK8s: true}
 	if !validRoles[req.Role] {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "非法角色"})
 		return

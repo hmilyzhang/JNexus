@@ -435,3 +435,157 @@ func (k *K8sAPI) NotReadyNodes() ([]string, error) {
 	}
 	return bad, nil
 }
+
+// K8sCronJobInfo 计划任务信息
+type K8sCronJobInfo struct {
+	Namespace    string `json:"namespace"`
+	Name         string `json:"name"`
+	Schedule     string `json:"schedule"`
+	Suspend      bool   `json:"suspend"`
+	Active       int    `json:"active"`
+	LastSchedule string `json:"last_schedule"`
+}
+
+// K8sCronJobs 计划任务列表
+func (k *K8sAPI) CronJobs(namespace string) ([]K8sCronJobInfo, error) {
+	path := "/apis/batch/v1/cronjobs"
+	if namespace != "" {
+		path = "/apis/batch/v1/namespaces/" + namespace + "/cronjobs"
+	}
+	var list struct {
+		Items []struct {
+			Metadata struct {
+				Name         string `json:"name"`
+				Namespace    string `json:"namespace"`
+				CreationTime string `json:"creationTimestamp"`
+			} `json:"metadata"`
+			Spec struct {
+				Schedule string `json:"schedule"`
+				Suspend  bool   `json:"suspend"`
+			} `json:"spec"`
+			Status struct {
+				Active       int    `json:"active"`
+				LastSchedule string `json:"lastScheduleTime"`
+			} `json:"status"`
+		} `json:"items"`
+	}
+	if err := k.do("GET", path, nil, &list); err != nil {
+		return nil, err
+	}
+	out := []K8sCronJobInfo{}
+	for _, it := range list.Items {
+		out = append(out, K8sCronJobInfo{
+			Namespace: it.Metadata.Namespace, Name: it.Metadata.Name,
+			Schedule: it.Spec.Schedule, Suspend: it.Spec.Suspend,
+			Active: it.Status.Active, LastSchedule: it.Status.LastSchedule,
+		})
+	}
+	return out, nil
+}
+
+// CreateCronJob 创建计划任务（busybox 执行 shell 命令）
+func (k *K8sAPI) CreateCronJob(namespace, name, schedule, command string) error {
+	manifest := map[string]any{
+		"apiVersion": "batch/v1",
+		"kind":       "CronJob",
+		"metadata":   map[string]any{"name": name, "namespace": namespace},
+		"spec": map[string]any{
+			"schedule": schedule,
+			"jobTemplate": map[string]any{
+				"spec": map[string]any{
+					"template": map[string]any{
+						"spec": map[string]any{
+							"restartPolicy": "OnFailure",
+							"containers": []map[string]any{{
+								"name":    name,
+								"image":   "busybox:1.36",
+								"command": []string{"sh", "-c", command},
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
+	b, _ := json.Marshal(manifest)
+	return k.do("POST", "/apis/batch/v1/namespaces/"+namespace+"/cronjobs", b, nil)
+}
+
+// SuspendCronJob 暂停/恢复计划任务
+func (k *K8sAPI) SuspendCronJob(namespace, name string, suspend bool) error {
+	b, _ := json.Marshal(map[string]any{"spec": map[string]any{"suspend": suspend}})
+	req, err := http.NewRequest("PATCH",
+		k.Server+"/apis/batch/v1/namespaces/"+namespace+"/cronjobs/"+name, bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/merge-patch+json")
+	resp, err := k.cli.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		return fmt.Errorf("K8S API %s: %s", resp.Status, strings.TrimSpace(string(b)))
+	}
+	return nil
+}
+
+// DeleteCronJob 删除计划任务
+func (k *K8sAPI) DeleteCronJob(namespace, name string) error {
+	return k.do("DELETE", "/apis/batch/v1/namespaces/"+namespace+"/cronjobs/"+name, nil, nil)
+}
+
+// K8sSAInfo 服务账号信息
+type K8sSAInfo struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Secrets   int    `json:"secrets"`
+	Age       string `json:"age"`
+}
+
+// K8sServiceAccounts 服务账号列表
+func (k *K8sAPI) ServiceAccounts(namespace string) ([]K8sSAInfo, error) {
+	path := "/api/v1/serviceaccounts"
+	if namespace != "" {
+		path = "/api/v1/namespaces/" + namespace + "/serviceaccounts"
+	}
+	var list struct {
+		Items []struct {
+			Metadata struct {
+				Name              string `json:"name"`
+				Namespace         string `json:"namespace"`
+				CreationTimestamp string `json:"creationTimestamp"`
+			} `json:"metadata"`
+			Secrets []any `json:"secrets"`
+		} `json:"items"`
+	}
+	if err := k.do("GET", path, nil, &list); err != nil {
+		return nil, err
+	}
+	out := []K8sSAInfo{}
+	for _, it := range list.Items {
+		out = append(out, K8sSAInfo{
+			Namespace: it.Metadata.Namespace, Name: it.Metadata.Name,
+			Secrets: len(it.Secrets), Age: it.Metadata.CreationTimestamp,
+		})
+	}
+	return out, nil
+}
+
+// CreateServiceAccount 创建服务账号
+func (k *K8sAPI) CreateServiceAccount(namespace, name string) error {
+	manifest := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ServiceAccount",
+		"metadata":   map[string]any{"name": name, "namespace": namespace},
+	}
+	b, _ := json.Marshal(manifest)
+	return k.do("POST", "/api/v1/namespaces/"+namespace+"/serviceaccounts", b, nil)
+}
+
+// DeleteServiceAccount 删除服务账号
+func (k *K8sAPI) DeleteServiceAccount(namespace, name string) error {
+	return k.do("DELETE", "/api/v1/namespaces/"+namespace+"/serviceaccounts/"+name, nil, nil)
+}

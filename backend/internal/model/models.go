@@ -14,6 +14,7 @@ const (
 	RolePublisher = "publisher" // 发布员
 	RoleViewer    = "viewer"    // 只读
 	RoleAuditor   = "auditor"   // 审计员：可查看执行记录与审计日志
+	RoleK8s       = "k8s"       // K8S 运维：集群查看与 Pod/计划任务/服务账号运维
 )
 
 type User struct {

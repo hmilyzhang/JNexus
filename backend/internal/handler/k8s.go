@@ -504,6 +504,167 @@ func K8sDeleteConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+
+// K8sCronJobs 计划任务列表（?namespace=）
+func K8sCronJobs(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	ns := c.Query("namespace")
+	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	list, err := api.CronJobs(ns)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+// K8sCreateCronJob 创建计划任务
+func K8sCreateCronJob(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req struct {
+		Namespace string `json:"namespace" binding:"required"`
+		Name      string `json:"name" binding:"required"`
+		Schedule  string `json:"schedule" binding:"required"`
+		Command   string `json:"command" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（namespace/name/schedule/command 必填）"})
+		return
+	}
+	cl, api, _, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	if err := api.CreateCronJob(req.Namespace, req.Name, req.Schedule, req.Command); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: "CREATE CRONJOB " + req.Namespace + "/" + req.Name + " (" + req.Schedule + ") @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// K8sSuspendCronJob 暂停/恢复计划任务
+func K8sSuspendCronJob(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	ns, name := c.Param("namespace"), c.Param("name")
+	var req struct {
+		Suspend bool `json:"suspend"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	cl, api, _, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	if err := api.SuspendCronJob(ns, name, req.Suspend); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	act := "RESUME"
+	if req.Suspend {
+		act = "SUSPEND"
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: act + " CRONJOB " + ns + "/" + name + " @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// K8sDeleteCronJob 删除计划任务
+func K8sDeleteCronJob(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	ns, name := c.Param("namespace"), c.Param("name")
+	cl, api, _, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	if err := api.DeleteCronJob(ns, name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: "DELETE CRONJOB " + ns + "/" + name + " @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// K8sServiceAccounts 服务账号列表（?namespace=）
+func K8sServiceAccounts(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	ns := c.Query("namespace")
+	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	list, err := api.ServiceAccounts(ns)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+// K8sCreateServiceAccount 创建服务账号
+func K8sCreateServiceAccount(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req struct {
+		Namespace string `json:"namespace" binding:"required"`
+		Name      string `json:"name" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace/name 必填"})
+		return
+	}
+	cl, api, _, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	if err := api.CreateServiceAccount(req.Namespace, req.Name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: "CREATE SA " + req.Namespace + "/" + req.Name + " @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// K8sDeleteServiceAccount 删除服务账号
+func K8sDeleteServiceAccount(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	ns, name := c.Param("namespace"), c.Param("name")
+	cl, api, _, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	if err := api.DeleteServiceAccount(ns, name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: "DELETE SA " + ns + "/" + name + " @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// ListClusterMembers 集群成员列表
 // ListClusterMembers 集群成员列表
 func ListClusterMembers(c *gin.Context) {
 	clusterID, _ := strconv.Atoi(c.Param("id"))

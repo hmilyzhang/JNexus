@@ -45,6 +45,7 @@ func DefaultRoleSettings() map[string]RolePerm {
 		model.RolePublisher: mk("执行与发布（需数据授权）", []string{"dashboard", "hosts", "exec", "tasks", "files", "apps", "releases"}, true, false, false, false, false, false),
 		model.RoleViewer:    mk("只读查看", []string{"dashboard", "hosts"}, true, false, false, false, false, false),
 		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit", "reports"}, true, false, false, false, false, true),
+		model.RoleK8s:       mk("K8S 集群运维（Pod/计划任务/服务账号）", []string{"dashboard", "k8s"}, true, false, false, false, false, false),
 	}
 	// K8S 权限：admin 查看+管理；ops 查看
 	a := out[model.RoleAdmin]
@@ -53,6 +54,9 @@ func DefaultRoleSettings() map[string]RolePerm {
 	o := out[model.RoleOps]
 	o.K8sView, o.K8sManage = true, false
 	out[model.RoleOps] = o
+	k := out[model.RoleK8s]
+	k.K8sView, k.K8sManage = true, false
+	out[model.RoleK8s] = k
 	return out
 }
 
@@ -83,6 +87,8 @@ func GetRoleSettings() map[string]RolePerm {
 			case model.RoleAdmin:
 				rp.K8sView, rp.K8sManage = true, true
 			case model.RoleOps:
+				rp.K8sView, rp.K8sManage = true, false
+			case model.RoleK8s:
 				rp.K8sView, rp.K8sManage = true, false
 			}
 		}

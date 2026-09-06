@@ -31,6 +31,7 @@ func SetupRouter() *gin.Engine {
 		api.GET("/system/info", SystemInfo)
 		// Web 终端（自带 token 鉴权，不走 hub）
 		api.GET("/ws/term/:hostId", WebTerminal)
+		api.GET("/ws/k8s/:clusterId", K8sExecWS)
 		api.GET("/ws/task/:id", ws.Handler(func(c *gin.Context) string {
 			return "task-" + c.Param("id")
 		}))
@@ -81,6 +82,7 @@ func SetupRouter() *gin.Engine {
 		// K8S 集群管理（查看：所有登录用户中可见者；管理：角色权限/集群管理员）
 		k8sg := auth.Group("/k8s/clusters")
 		{
+			_ = k8sg
 			k8sg.GET("", ListK8sClusters)
 			k8sg.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), CreateK8sCluster)
 			k8sg.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateK8sCluster)
@@ -96,6 +98,13 @@ func SetupRouter() *gin.Engine {
 			k8sg.DELETE("/:id/secrets/:namespace/:name", K8sDeleteConfig)
 			k8sg.GET("/:id/deployments", K8sDeployments)
 			k8sg.POST("/:id/deployments/:namespace/:name/restart", K8sRestartDeployment)
+			k8sg.GET("/:id/cronjobs", K8sCronJobs)
+			k8sg.POST("/:id/cronjobs", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sCreateCronJob)
+			k8sg.PUT("/:id/cronjobs/:namespace/:name/suspend", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sSuspendCronJob)
+			k8sg.DELETE("/:id/cronjobs/:namespace/:name", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sDeleteCronJob)
+			k8sg.GET("/:id/serviceaccounts", K8sServiceAccounts)
+			k8sg.POST("/:id/serviceaccounts/:namespace", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sCreateServiceAccount)
+			k8sg.DELETE("/:id/serviceaccounts/:namespace/:name", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sDeleteServiceAccount)
 			k8sg.GET("/:id/podlog", K8sPodLog)
 			k8sg.DELETE("/:id/pods/:namespace/:name", K8sDeletePod)
 			k8sg.GET("/:id/members", ListClusterMembers)

@@ -400,3 +400,30 @@ func CheckK8sNodeHealth(c *model.K8sCluster) {
 		fmt.Sprintf("集群: %s\nAPI Server: %s\n异常节点: %s\n数量: %d\n时间: %s",
 			c.Name, c.ApiServer, strings.Join(bad, ", "), len(bad), time.Now().Format("2006-01-02 15:04:05")), "nodehealth")
 }
+
+// DecryptK8sCredsPair 解密并返回 CA / 客户端证书 / 私钥 PEM
+func DecryptK8sCredsPair(c *model.K8sCluster) (ca, cert, key string) {
+	return decryptK8sCreds(c)
+}
+
+// K8sRootCAs 构造 CA 证书池
+func K8sRootCAs(caPEM string) *x509.CertPool {
+	pool := x509.NewCertPool()
+	if caPEM != "" {
+		pool.AppendCertsFromPEM([]byte(caPEM))
+	}
+	return pool
+}
+
+// K8sExecURL 构造 exec WebSocket 地址
+func K8sExecURL(server, namespace, pod, container, command string) string {
+	q := "stdin=true&stdout=true&stderr=true&command=" + urlQueryEscape(command)
+	if container != "" {
+		q += "&container=" + urlQueryEscape(container)
+	}
+	return strings.TrimRight(server, "/") + "/api/v1/namespaces/" + namespace + "/pods/" + pod + "/exec?" + q
+}
+
+func urlQueryEscape(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, " ", "%20"), "&", "%26")
+}
