@@ -83,7 +83,33 @@
               <div class="km-card-label">{{ card.label }}</div>
             </div>
           </div>
-          <h4 class="km-h4">{{ $t('k8s.recentEvents') }}</h4>
+          <h4 class="km-h4">{{ $t('k8s.clusterResources') }}</h4>
+          <div class="km-usage">
+            <div class="km-usage-card">
+              <div class="km-usage-head">{{ $t('k8s.clusterCPU') }}</div>
+              <el-progress :percentage="usagePercent.cpu" :stroke-width="14" :color="usageColor(usagePercent.cpu)" />
+              <div class="km-usage-sub mono">
+                {{ usage?.cpu_used_m || 0 }}m {{ $t('k8s.used') }} · {{ fmtCores(usage?.cpu_capacity_m) }}
+              </div>
+            </div>
+            <div class="km-usage-card">
+              <div class="km-usage-head">{{ $t('k8s.clusterMem') }}</div>
+              <el-progress :percentage="usagePercent.mem" :stroke-width="14" :color="usageColor(usagePercent.mem)" />
+              <div class="km-usage-sub mono">
+                {{ usage?.mem_used_mi || 0 }}Mi {{ $t('k8s.used') }} · {{ fmtGi(usage?.mem_capacity_mi) }}
+              </div>
+            </div>
+          </div>
+
+          <h4 class="km-h4">{{ $t('k8s.podUsage') }}</h4>
+          <el-table :data="usagePods" size="small" border v-loading="loading" :default-sort="{ prop: 'cpu', order: 'descending' }">
+            <el-table-column prop="namespace" label="Namespace" width="130" sortable />
+            <el-table-column prop="name" label="Pod" min-width="200" sortable />
+            <el-table-column prop="cpu" :label="$t('k8s.cpu')" width="120" align="center" sortable />
+            <el-table-column prop="memory" :label="$t('k8s.memory')" width="130" align="center" sortable />
+          </el-table>
+
+          <h4 class="km-h4" style="margin-top:18px">{{ $t('k8s.recentEvents') }}</h4>
           <el-table :data="events" size="small" border v-loading="loading">
             <el-table-column prop="namespace" label="Namespace" width="110" />
             <el-table-column :label="$t('monitor.evType')" width="90" align="center">
@@ -247,6 +273,8 @@ const P = `/k8s/clusters/${id}`
 
 const cluster = ref(null)
 const summary = ref(null)
+const usage = ref(null)
+const usagePods = ref([])
 const events = ref([])
 const rows = ref([])
 const namespaces = ref([])
@@ -373,6 +401,19 @@ const delConfirmKey = computed(() => ({
   configmaps: 'monitor.configDelConfirm', secrets: 'monitor.configDelConfirm', serviceaccounts: 'k8s.podDelConfirm',
 }[active.value] || ''))
 
+// ---- 集群资源概况 ----
+const usagePercent = computed(() => {
+  const u = usage.value
+  if (!u || !u.cpu_capacity_m || !u.mem_capacity_mi) return { cpu: 0, mem: 0 }
+  return {
+    cpu: Math.min(100, Math.round((u.cpu_used_m / u.cpu_capacity_m) * 100)),
+    mem: Math.min(100, Math.round((u.mem_used_mi / u.mem_capacity_mi) * 100)),
+  }
+})
+const usageColor = p => (p >= 90 ? '#f56c6c' : p >= 70 ? '#e6a23c' : '#67c23a')
+const fmtCores = m => (m ? `${(m / 1000).toFixed(1)} Core` : '-')
+const fmtGi = mi => (mi ? `${(mi / 1024).toFixed(1)} Gi` : '-')
+
 // ---- 概览卡片 ----
 const cards = computed(() => {
   const s = summary.value
@@ -442,9 +483,17 @@ const load = async () => {
   loading.value = true
   try {
     if (active.value === 'overview') {
-      const r = await api.get(`${P}/summary`)
+      const [r, usage, pods, metrics] = await Promise.all([
+        api.get(`${P}/summary`),
+        api.get(`${P}/usage`).catch(() => null),
+        api.get(`${P}/pods`).catch(() => []),
+        api.get(`${P}/podmetrics`).catch(() => []),
+      ])
       summary.value = r.summary
-      if (!events.value.length || !ns.value) events.value = await api.get(`${P}/events`)
+      usage.value = usage
+      usagePods.value = mergeMetrics(pods || [], metrics || [], x => `${x.namespace}/${x.name}`)
+        .sort((a, b) => (parseInt(b.cpu) || 0) - (parseInt(a.cpu) || 0))
+      events.value = await api.get(`${P}/events`)
     } else {
       rows.value = await loaders[active.value]()
     }
@@ -651,6 +700,10 @@ onMounted(async () => {
 .km-body { flex: 1; overflow: auto; padding: 16px; }
 .km-h4 { margin: 0 0 10px; color: #303133; }
 .km-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.km-usage { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.km-usage-card { background: #fff; border-radius: 6px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,21,41,.08); }
+.km-usage-head { font-size: 13px; font-weight: 600; color: #303133; margin-bottom: 10px; }
+.km-usage-sub { font-size: 12px; color: #909399; margin-top: 6px; }
 .km-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .km-card {
   background: #fff; border-radius: 6px; padding: 14px 16px; cursor: pointer;

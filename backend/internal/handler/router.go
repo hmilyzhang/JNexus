@@ -123,6 +123,7 @@ func SetupRouter() *gin.Engine {
 			k8sg.POST("/:id/deployments/:namespace/:name/scale", K8sScaleDeployment)
 			k8sg.POST("/:id/statefulsets/:namespace/:name/scale", K8sScaleStatefulSet)
 			k8sg.PUT("/:id/yaml", K8sUpdateYAML)
+			k8sg.GET("/:id/usage", K8sClusterUsage)
 			k8sg.GET("/:id/nodemetrics", K8sNodeMetrics)
 			k8sg.GET("/:id/podmetrics", K8sPodMetrics)
 			k8sg.GET("/:id/helmreleases", K8sHelmReleases)

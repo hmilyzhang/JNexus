@@ -77,6 +77,22 @@ func K8sUpdateYAML(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+
+// K8sClusterUsage 集群资源概况（容量 + 用量 + 全部 Pod 用量，viewer 即可）
+func K8sClusterUsage(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	u, err := api.ClusterUsage()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, u)
+}
+
 // K8sLogWS GET /api/ws/k8s/logs/:clusterId?namespace=&pod=&container=&tail=&token=
 // Pod 日志实时跟随：集群 API(follow=true) 流式中继到浏览器 WS（viewer 即可）
 func K8sLogWS(c *gin.Context) {
