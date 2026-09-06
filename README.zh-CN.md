@@ -79,6 +79,8 @@ cd frontend && npm install && npm run dev   # http://localhost:5173 代理到 80
 
 ```bash
 cd deploy
+# 版本号在构建时注入（容器内没有 .git）
+export AUTOOPS_VERSION="1.$(git rev-list --count HEAD)"
 docker compose up -d --build
 ```
 
@@ -90,6 +92,7 @@ export AUTOOPS_DB_PORT=5432
 export AUTOOPS_DB_USER=autoops
 export AUTOOPS_DB_PASSWORD=yourpass
 export AUTOOPS_DB_NAME=autoops        # 需先 CREATE DATABASE
+export AUTOOPS_VERSION="1.$(git rev-list --count HEAD)"   # 构建时注入版本号
 docker compose -f docker-compose.external.yml up -d --build
 # JWT/AES 密钥自动生成并持久化在 `data` 卷；如需指定，设置 AUTOOPS_JWT_SECRET / AUTOOPS_AES_KEY 覆盖
 ```

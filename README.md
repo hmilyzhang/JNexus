@@ -77,6 +77,8 @@ Bundled database (JWT/AES keys are auto-generated on first start and persisted i
 
 ```bash
 cd deploy
+# version is baked at build time (the container has no .git)
+export AUTOOPS_VERSION="1.$(git rev-list --count HEAD)"
 docker compose up -d --build
 ```
 
@@ -88,6 +90,7 @@ export AUTOOPS_DB_PORT=5432
 export AUTOOPS_DB_USER=autoops
 export AUTOOPS_DB_PASSWORD=yourpass
 export AUTOOPS_DB_NAME=autoops        # CREATE DATABASE first
+export AUTOOPS_VERSION="1.$(git rev-list --count HEAD)"   # bake version into the image
 docker compose -f docker-compose.external.yml up -d --build
 # JWT/AES keys are auto-generated and persisted in the `data` volume;
 # set AUTOOPS_JWT_SECRET / AUTOOPS_AES_KEY to override.

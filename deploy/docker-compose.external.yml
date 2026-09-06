@@ -19,6 +19,9 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+      args:
+        # 构建前 export AUTOOPS_VERSION="1.$(git rev-list --count HEAD)" 可注入版本号
+        APP_VERSION: ${AUTOOPS_VERSION:-}
     container_name: autoops-server
     environment:
       AUTOOPS_DB_HOST: ${AUTOOPS_DB_HOST:?请设置外部数据库地址}
