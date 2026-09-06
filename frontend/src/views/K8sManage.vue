@@ -13,6 +13,7 @@
         </el-menu-item>
         <el-sub-menu index="grp-cluster">
           <template #title><el-icon><OfficeBuilding /></el-icon><span>{{ $t('k8s.navCluster') }}</span></template>
+          <el-menu-item index="capacity">{{ $t('k8s.capacity') }}</el-menu-item>
           <el-menu-item index="nodes">Nodes</el-menu-item>
           <el-menu-item index="namespaces">{{ $t('k8s.namespaces') }}</el-menu-item>
         </el-sub-menu>
@@ -86,14 +87,18 @@
           <h4 class="km-h4">{{ $t('k8s.clusterResources') }}</h4>
           <div class="km-usage">
             <div class="km-usage-card">
-              <div class="km-usage-head">{{ $t('k8s.clusterCPU') }}</div>
+              <div class="km-usage-head">{{ $t('k8s.clusterCPU') }}
+                <el-link type="primary" style="float:right; font-size:12px" @click="active = 'capacity'; loadCapacity()">{{ $t('k8s.capViewTrend') }} →</el-link>
+              </div>
               <el-progress :percentage="usagePercent.cpu" :stroke-width="14" :color="usageColor(usagePercent.cpu)" />
               <div class="km-usage-sub mono">
                 {{ fmtCores(usage?.cpu_used_m) }} {{ $t('k8s.used') }} · {{ $t('k8s.podReq') }} {{ fmtCores(usage?.pod_req_cpu_m) }} · {{ fmtCores(usage?.cpu_capacity_m) }}
               </div>
             </div>
             <div class="km-usage-card">
-              <div class="km-usage-head">{{ $t('k8s.clusterMem') }}</div>
+              <div class="km-usage-head">{{ $t('k8s.clusterMem') }}
+                <el-link type="primary" style="float:right; font-size:12px" @click="active = 'capacity'; loadCapacity()">{{ $t('k8s.capViewTrend') }} →</el-link>
+              </div>
               <el-progress :percentage="usagePercent.mem" :stroke-width="14" :color="usageColor(usagePercent.mem)" />
               <div class="km-usage-sub mono">
                 {{ usage?.mem_used_mi || 0 }}Mi {{ $t('k8s.used') }} · {{ $t('k8s.podReq') }} {{ usage?.pod_req_mem_mi || 0 }}Mi · {{ fmtGi(usage?.mem_capacity_mi) }}
@@ -140,6 +145,68 @@
               <template #default="{ row }">{{ fmtTime(row.last_seen) }}</template>
             </el-table-column>
           </el-table>
+        </template>
+
+        <!-- 容量规划 -->
+        <template v-else-if="active === 'capacity'">
+          <div class="km-toolbar">
+            <h4 class="km-h4" style="margin:0">{{ $t('k8s.capacity') }}</h4>
+            <span style="flex:1"></span>
+            <el-radio-group v-model="capDays" size="small" @change="loadCapacity">
+              <el-radio-button :value="30">30d</el-radio-button>
+              <el-radio-button :value="180">180d</el-radio-button>
+              <el-radio-button :value="365">1y</el-radio-button>
+            </el-radio-group>
+          </div>
+          <el-alert v-if="cap?.degraded" :title="$t('k8s.capDegraded')" type="warning" :closable="false" style="margin-bottom:12px" />
+
+          <div class="km-usage">
+            <div class="km-usage-card">
+              <div class="km-usage-head">{{ $t('k8s.clusterCPU') }} · {{ $t('k8s.capForecast') }}</div>
+              <svg viewBox="0 0 600 140" class="cap-chart">
+                <line :x1="capXY.x0" :x2="capXY.x1" :y1="capY(cap.cpuCap, 'cpu')" :y2="capY(cap.cpuCap, 'cpu')"
+                      stroke="#909399" stroke-dasharray="4 3" stroke-width="1" />
+                <line :x1="capXY.x0" :x2="capXY.x1" :y1="capY(cap.cpuCap * 0.8, 'cpu')" :y2="capY(cap.cpuCap * 0.8, 'cpu')"
+                      stroke="#e6a23c" stroke-dasharray="2 4" stroke-width="1" opacity="0.7" />
+                <polyline :points="capPoly('cpu_used_m')" fill="none" stroke="#409eff" stroke-width="2" />
+                <polyline v-if="capForecastLine('cpu').length" :points="capForecastLine('cpu')"
+                          fill="none" stroke="#f56c6c" stroke-width="1.5" stroke-dasharray="5 4" />
+              </svg>
+              <div class="km-usage-sub mono">
+                {{ fmtCores(cap?.forecast?.cpu_current_m) }} / {{ fmtCores(cap?.forecast?.cpu_capacity_m) }} ·
+                {{ $t('k8s.capSlope') }} {{ capSlopeText(cap?.forecast?.cpu_slope_m_per_day, 'cpu') }}
+              </div>
+              <div class="km-usage-sub" :style="{ color: capDaysLeftColor(cap?.forecast?.cpu_days_left) }">
+                {{ capDaysLeftText(cap?.forecast?.cpu_days_left, 'cpu') }}
+              </div>
+            </div>
+            <div class="km-usage-card">
+              <div class="km-usage-head">{{ $t('k8s.clusterMem') }} · {{ $t('k8s.capForecast') }}</div>
+              <svg viewBox="0 0 600 140" class="cap-chart">
+                <line :x1="capXY.x0" :x2="capXY.x1" :y1="capY(cap.memCap, 'mem')" :y2="capY(cap.memCap, 'mem')"
+                      stroke="#909399" stroke-dasharray="4 3" stroke-width="1" />
+                <line :x1="capXY.x0" :x2="capXY.x1" :y1="capY(cap.memCap * 0.8, 'mem')" :y2="capY(cap.memCap * 0.8, 'mem')"
+                      stroke="#e6a23c" stroke-dasharray="2 4" stroke-width="1" opacity="0.7" />
+                <polyline :points="capPoly('mem_used_mi')" fill="none" stroke="#67c23a" stroke-width="2" />
+                <polyline v-if="capForecastLine('mem').length" :points="capForecastLine('mem')"
+                          fill="none" stroke="#f56c6c" stroke-width="1.5" stroke-dasharray="5 4" />
+              </svg>
+              <div class="km-usage-sub mono">
+                {{ fmtMem(cap?.forecast?.mem_current_mi) }} / {{ fmtMem(cap?.forecast?.mem_capacity_mi) }} ·
+                {{ $t('k8s.capSlope') }} {{ capSlopeText(cap?.forecast?.mem_slope_mi_per_day, 'mem') }}
+              </div>
+              <div class="km-usage-sub" :style="{ color: capDaysLeftColor(cap?.forecast?.mem_days_left) }">
+                {{ capDaysLeftText(cap?.forecast?.mem_days_left, 'mem') }}
+              </div>
+            </div>
+          </div>
+
+          <div class="km-usage-sub" style="display:flex; gap:16px; margin-bottom:12px">
+            <span><span class="cap-dot" style="background:#409eff"></span>{{ $t('k8s.capActual') }}</span>
+            <span><span class="cap-dot" style="background:#f56c6c"></span>{{ $t('k8s.capTrend') }} (+90d)</span>
+            <span><span class="cap-dot" style="background:#909399"></span>{{ $t('k8s.capCapacityLine') }}</span>
+            <span><span class="cap-dot" style="background:#e6a23c"></span>80%</span>
+          </div>
         </template>
 
         <!-- 资源列表（通用表格） -->
@@ -292,7 +359,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Odometer, OfficeBuilding, Box, Connection, Setting, Coin, Key, Back, ShoppingBag, Search as SearchIcon } from '@element-plus/icons-vue'
+import { Odometer, OfficeBuilding, Box, Connection, Setting, Coin, Key, Back, ShoppingBag, Search as SearchIcon, TrendCharts } from '@element-plus/icons-vue'
 import api from '../api'
 import i18n from '../i18n'
 import K8sShell from '../components/K8sShell.vue'
@@ -668,8 +735,70 @@ const usageColor = p => (p >= 90 ? '#f56c6c' : p >= 70 ? '#e6a23c' : '#67c23a')
 const fmtCoresV = m => (m ? (m / 1000).toFixed(m % 1000 === 0 ? 1 : 2) : '0')
 const fmtCores = m => (m ? `${fmtCoresV(m)} Core` : '-')
 const fmtReqLimC = (req, lim) => (lim ? `${fmtCoresV(req)} / ${fmtCoresV(lim)}` : fmtCoresV(req))
-const fmtMem = mi => (mi >= 1024 ? `${(mi / 1024).toFixed(1)}Gi` : `${mi || 0}Mi`)
+const fmtMem = mi => { const v = Number(mi) || 0; return v >= 1024 ? `${(v / 1024).toFixed(1)}Gi` : `${Math.round(v)}Mi` }
 const fmtReqLim = (req, lim) => (lim ? `${fmtMem(req)} / ${fmtMem(lim)}` : fmtMem(req))
+
+// ---- 容量规划 ----
+const cap = ref(null)
+const capDays = ref(30)
+const loadCapacity = async () => {
+  cap.value = await api.get(`${P}/capacity/history`, { params: { days: capDays.value } }).catch(() => null)
+}
+const capChart = { x0: 34, x1: 590, y0: 8, y1: 132 }
+const capXY = { x0: capChart.x0, x1: capChart.x1 }
+const capMax = computed(() => {
+  const pts = cap.value?.points || []
+  const fc = cap.value?.forecast
+  let max = 0
+  for (const p of pts) max = Math.max(max, p.cpu_used_m, p.mem_used_mi)
+  // 预测外推最高点也纳入
+  if (fc) max = Math.max(max, fc.cpu_current_m + Math.max(0, fc.cpu_slope_m_per_day) * 90,
+    fc.mem_current_mi + Math.max(0, fc.mem_slope_mi_per_day) * 90)
+  return max * 1.1 || 1
+})
+const capSpanMs = computed(() => (capDays.value + 90) * 86400000)
+const capY = (v, kind) => {
+  const scale = kind === 'cpu' ? capMax.value : capMax.value // 统一量纲由调用方保证
+  const val = kind === 'cpu' ? v : v
+  const y = capChart.y1 - (Number(val) / (scale || 1)) * (capChart.y1 - capChart.y0)
+  return Math.max(capChart.y0, Math.min(capChart.y1, y)).toFixed(1)
+}
+const capX = t => {
+  const start = Date.now() - capDays.value * 86400000
+  const x = capChart.x0 + ((new Date(t).getTime() - start) / capSpanMs.value) * (capChart.x1 - capChart.x0)
+  return Math.max(capChart.x0, Math.min(capChart.x1, x)).toFixed(1)
+}
+const capPoly = field => {
+  const pts = cap.value?.points || []
+  if (pts.length < 2) return ''
+  return pts.map(p => `${capX(p.t)},${capY(p[field], field.startsWith('cpu') ? 'cpu' : 'mem')}`).join(' ')
+}
+const capForecastLine = kind => {
+  const fc = cap.value?.forecast
+  const pts = cap.value?.points || []
+  if (!fc || !pts.length) return ''
+  const isCPU = kind === 'cpu'
+  const cur = isCPU ? fc.cpu_current_m : fc.mem_current_mi
+  const slope = isCPU ? fc.cpu_slope_m_per_day : fc.mem_slope_mi_per_day
+  if (slope <= 0) return ''
+  const last = pts[pts.length - 1]
+  const p1 = `${capX(last.t)},${capY(cur, isCPU ? 'cpu' : 'mem')}`
+  const future = new Date(Date.now() + 90 * 86400000).toISOString()
+  const p2 = `${capX(future)},${capY(cur + slope * 90, isCPU ? 'cpu' : 'mem')}`
+  return `${p1} ${p2}`
+}
+const capSlopeText = (slope, kind) => {
+  if (slope == null || slope <= 0) return t('k8s.capStable')
+  const perMonth = slope * 30
+  return kind === 'cpu' ? `+${(perMonth / 1000).toFixed(2)} Core/${t('k8s.capMonth')}` : `+${fmtMem(perMonth)}/${t('k8s.capMonth')}`
+}
+const capDaysLeftText = (days, kind) => {
+  if (days == null) return t('k8s.capNoExhaust')
+  if (days <= 0) return t('k8s.capExhausted')
+  const label = kind === 'cpu' ? 'CPU' : t('k8s.clusterMem')
+  return `${label} ~${days < 60 ? Math.round(days) + ' ' + t('k8s.capDays') : (days / 30).toFixed(1) + ' ' + t('k8s.capMonths')} ${t('k8s.capExhaustIn')}`
+}
+const capDaysLeftColor = d => (d == null ? '#67c23a' : d < 90 ? '#f56c6c' : d < 180 ? '#e6a23c' : '#67c23a')
 const fmtGi = mi => (mi ? `${(mi / 1024).toFixed(1)} Gi` : '-')
 
 // ---- 概览卡片 ----
@@ -740,6 +869,7 @@ const loaders = {
 const load = async () => {
   loading.value = true
   try {
+    if (active.value === 'capacity') { await loadCapacity(); return }
     if (active.value === 'overview') {
       const [r, usageData] = await Promise.all([
         api.get(`${P}/summary`),
@@ -959,6 +1089,8 @@ onMounted(async () => {
 .km-usage-card { background: #fff; border-radius: 6px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,21,41,.08); }
 .km-usage-head { font-size: 13px; font-weight: 600; color: #303133; margin-bottom: 10px; }
 .km-usage-sub { font-size: 12px; color: #909399; margin-top: 6px; }
+.cap-chart { width: 100%; height: 140px; background: #fafbfc; border-radius: 4px; }
+.cap-dot { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 4px; }
 .km-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .km-card {
   background: #fff; border-radius: 6px; padding: 14px 16px; cursor: pointer;

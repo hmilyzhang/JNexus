@@ -376,6 +376,19 @@ type HostMetric struct {
 	CollectedAt time.Time `gorm:"index" json:"collected_at"`
 }
 
+// K8sCapacitySample K8S 集群容量采样（容量规划：月/半年/年趋势与预测）
+type K8sCapacitySample struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	ClusterID     uint      `gorm:"index" json:"cluster_id"`
+	CPUCapacityM  int64     `json:"cpu_capacity_m"`
+	CPUUsedM      int64     `json:"cpu_used_m"`
+	MemCapacityMi int64     `json:"mem_capacity_mi"`
+	MemUsedMi     int64     `json:"mem_used_mi"`
+	PodReqCPUM    int64     `json:"pod_req_cpu_m"`
+	PodReqMemMi   int64     `json:"pod_req_mem_mi"`
+	CollectedAt   time.Time `gorm:"index" json:"collected_at"`
+}
+
 // 告警通知通道（参考 Uptime Kuma：邮件 / Webhook / 企业微信 / 钉钉 / 飞书 / Telegram）
 type AlertChannel struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`

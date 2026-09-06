@@ -455,6 +455,7 @@ func CollectHostMetrics() {
 func PruneMonitorData() {
 	model.DB.Where("collected_at < ?", time.Now().Add(-30*24*time.Hour)).Delete(&model.HostMetric{})
 	model.DB.Where("created_at < ?", time.Now().Add(-30*24*time.Hour)).Delete(&model.MonitorSample{})
+	PruneK8sCapacitySamples()
 }
 
 // StartMonitorLoop 监控调度循环（每 15 秒检查到期项）
@@ -467,6 +468,7 @@ func StartMonitorLoop() {
 				go ScanDueMonitors()
 				go CollectHostMetrics()
 				go CollectK8sClusters()
+		go CollectK8sUsage()
 				if time.Since(lastPrune) >= time.Hour {
 					PruneMonitorData()
 					lastPrune = time.Now()
