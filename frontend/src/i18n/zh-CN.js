@@ -681,6 +681,8 @@ export default {
     memory: '内存用量',
     chartVer: 'Chart 版本',
     revision: 'Revision',
+    yamlDownload: '下载 YAML',
+    logFollow: '实时日志',
   },
   report: {
     name: '报告名称',

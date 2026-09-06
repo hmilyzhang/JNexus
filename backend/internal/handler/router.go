@@ -32,6 +32,7 @@ func SetupRouter() *gin.Engine {
 		// Web 终端（自带 token 鉴权，不走 hub）
 		api.GET("/ws/term/:hostId", WebTerminal)
 		api.GET("/ws/k8s/:clusterId", K8sExecWS)
+		api.GET("/ws/k8s/logs/:clusterId", K8sLogWS)
 		api.GET("/ws/task/:id", ws.Handler(func(c *gin.Context) string {
 			return "task-" + c.Param("id")
 		}))
@@ -120,6 +121,8 @@ func SetupRouter() *gin.Engine {
 			// 二期：YAML 查看 / 伸缩 / 资源使用率 / Helm 发布
 			k8sg.GET("/:id/yaml", K8sResourceYAML)
 			k8sg.POST("/:id/deployments/:namespace/:name/scale", K8sScaleDeployment)
+			k8sg.POST("/:id/statefulsets/:namespace/:name/scale", K8sScaleStatefulSet)
+			k8sg.PUT("/:id/yaml", K8sUpdateYAML)
 			k8sg.GET("/:id/nodemetrics", K8sNodeMetrics)
 			k8sg.GET("/:id/podmetrics", K8sPodMetrics)
 			k8sg.GET("/:id/helmreleases", K8sHelmReleases)

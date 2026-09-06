@@ -681,6 +681,8 @@ export default {
     memory: 'Memory Usage',
     chartVer: 'Chart Version',
     revision: 'Revision',
+    yamlDownload: 'Download YAML',
+    logFollow: 'Live Logs',
   },
   report: {
     listTitle: 'Report list',

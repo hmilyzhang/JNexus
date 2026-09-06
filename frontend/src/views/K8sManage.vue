@@ -129,15 +129,16 @@
                 <!-- Pods -->
                 <template v-if="active === 'pods'">
                   <el-button size="small" link type="primary" @click="showLog(row)">{{ $t('k8s.logs') }}</el-button>
+                  <el-button size="small" link type="primary" @click="openFollow(row)">{{ $t('k8s.logFollow') }}</el-button>
                   <el-button size="small" link type="success" @click="openShell(row)">Shell</el-button>
                   <el-popconfirm v-if="canOp" :title="$t('k8s.podDelConfirm')" @confirm="deletePod(row)">
                     <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
                   </el-popconfirm>
                 </template>
-                <!-- Deployments -->
-                <template v-if="active === 'deployments' && canOp">
-                  <el-button size="small" link type="primary" @click="scaleDeployment(row)">{{ $t('k8s.scale') }}</el-button>
-                  <el-button size="small" link type="warning" @click="restartDeployment(row)">{{ $t('k8s.restart') }}</el-button>
+                <!-- Deployments / StatefulSets -->
+                <template v-if="(active === 'deployments' || active === 'statefulsets') && canOp">
+                  <el-button size="small" link type="primary" @click="scaleWorkload(row)">{{ $t('k8s.scale') }}</el-button>
+                  <el-button v-if="active === 'deployments'" size="small" link type="warning" @click="restartDeployment(row)">{{ $t('k8s.restart') }}</el-button>
                 </template>
                 <!-- CronJobs -->
                 <template v-if="active === 'cronjobs' && canOp">
@@ -159,10 +160,35 @@
       </section>
     </main>
 
-    <!-- YAML 查看 -->
+    <!-- YAML 查看 / 编辑 -->
     <el-dialog v-model="yamlVisible" :title="yamlTitle" width="780px" top="5vh">
-      <pre class="mono" style="background:#1e2a35; color:#d8e4f0; padding:14px; border-radius:6px; max-height:520px; overflow:auto; font-size:12px; line-height:1.6">{{ yamlText }}</pre>
+      <pre v-if="!yamlEditing" class="mono" style="background:#1e2a35; color:#d8e4f0; padding:14px; border-radius:6px; max-height:520px; overflow:auto; font-size:12px; line-height:1.6">{{ yamlText }}</pre>
+      <el-input v-else v-model="yamlEdit" type="textarea" :rows="24" class="mono"
+                style="font-size:12px" spellcheck="false" />
+      <template #footer>
+        <div style="display:flex; gap:8px">
+          <span style="flex:1"></span>
+          <el-button v-if="!yamlEditing" size="small" @click="downloadYAML">{{ $t('k8s.yamlDownload') }}</el-button>
+          <template v-if="yamlEditing">
+            <el-button size="small" @click="yamlEditing = false">{{ $t('common.cancel') }}</el-button>
+            <el-button size="small" type="primary" :loading="yamlSaving" @click="saveYAML">{{ $t('common.save') }}</el-button>
+          </template>
+          <el-button v-else-if="canOp" size="small" type="primary" @click="startYAMLEdit">{{ $t('common.edit') }}</el-button>
+        </div>
+      </template>
     </el-dialog>
+
+    <!-- 实时日志抽屉 -->
+    <el-drawer v-model="followVisible" size="58%" destroy-on-close :title="followTitle">
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px">
+        <el-tag size="small" :type="followStatus === 'connected' ? 'success' : followStatus === 'closed' ? 'info' : 'danger'">
+          {{ followStatus }}
+        </el-tag>
+        <span style="flex:1"></span>
+        <el-button size="small" @click="clearFollow">{{ $t('common.refresh') }}</el-button>
+      </div>
+      <div ref="followBox" class="follow-box mono"></div>
+    </el-drawer>
 
     <!-- Pod Shell（页内抽屉，不再新开窗口） -->
     <el-drawer v-model="shellDrawer" size="62%" :with-header="false" destroy-on-close>
@@ -205,7 +231,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Odometer, OfficeBuilding, Box, Connection, Setting, Coin, Key, Back, ShoppingBag } from '@element-plus/icons-vue'
 import api from '../api'
@@ -341,7 +367,7 @@ const kindOf = {
   ingresses: 'ingress', configmaps: 'configmap', secrets: 'secret', pvcs: 'pvc', pvs: 'pv',
   storageclasses: 'storageclass', serviceaccounts: 'serviceaccount',
 }
-const opWidth = computed(() => (active.value === 'pods' ? 200 : active.value === 'deployments' ? 160 : active.value === 'cronjobs' ? 150 : 90))
+const opWidth = computed(() => (active.value === 'pods' ? 270 : active.value === 'deployments' || active.value === 'statefulsets' ? 160 : active.value === 'cronjobs' ? 150 : 90))
 const delConfirmKey = computed(() => ({
   configmaps: 'monitor.configDelConfirm', secrets: 'monitor.configDelConfirm', serviceaccounts: 'k8s.podDelConfirm',
 }[active.value] || ''))
@@ -450,25 +476,93 @@ const deletePod = async row => {
   load()
 }
 
-// ---- YAML 查看 ----
+// ---- YAML 查看 / 编辑 / 下载 ----
 const yamlVisible = ref(false)
 const yamlTitle = ref('')
 const yamlText = ref('')
+const yamlEditing = ref(false)
+const yamlEdit = ref('')
+const yamlSaving = ref(false)
+const yamlYamlRow = ref({})
 const showYAML = async row => {
+  yamlYamlRow.value = row
   const r = await api.get(`${P}/yaml`, { params: { kind: kindOf[active.value], namespace: row.namespace || '', name: row.name } })
   yamlTitle.value = `YAML · ${row.namespace ? row.namespace + '/' : ''}${row.name}`
   yamlText.value = r.yaml || ''
+  yamlEditing.value = false
   yamlVisible.value = true
 }
+const startYAMLEdit = () => {
+  yamlEdit.value = yamlText.value
+  yamlEditing.value = true
+}
+const saveYAML = async () => {
+  yamlSaving.value = true
+  try {
+    await api.put(`${P}/yaml`, {
+      kind: kindOf[active.value], namespace: yamlYamlRow.value.namespace || '', name: yamlYamlRow.value.name, yaml: yamlEdit.value,
+    })
+    ElMessage.success(t('common.success'))
+    yamlEditing.value = false
+    yamlVisible.value = false
+    load()
+  } finally { yamlSaving.value = false }
+}
+const downloadYAML = () => {
+  const blob = new Blob([yamlText.value], { type: 'text/yaml' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = (yamlYamlRow.value.name || 'resource') + '.yaml'
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
 
-// ---- Deployment 伸缩 ----
-const scaleDeployment = async row => {
+// ---- 实时日志（WS 流式跟随） ----
+const followVisible = ref(false)
+const followTitle = ref('')
+const followStatus = ref('')
+const followBox = ref(null)
+let followWs = null
+let followRow = null
+const openFollow = row => {
+  followRow = row
+  followTitle.value = `Logs · ${row.namespace}/${row.name}`
+  followStatus.value = t('k8s.shellConnecting')
+  followVisible.value = true
+  nextTick(() => connectFollow())
+}
+const connectFollow = () => {
+  const box = followBox.value
+  if (!box || !followRow) return
+  if (followWs) { followWs.onclose = null; followWs.close() }
+  box.textContent = ''
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  const q = new URLSearchParams({
+    namespace: followRow.namespace, pod: followRow.name,
+    container: followRow.container || '', tail: '100',
+    token: localStorage.getItem('token') || '',
+  })
+  followWs = new WebSocket(`${proto}://${location.host}/api/ws/k8s/logs/${id}?` + q)
+  followWs.onopen = () => { followStatus.value = t('k8s.shellConnected') }
+  followWs.onmessage = ev => {
+    const data = typeof ev.data === 'string' ? ev.data : new TextDecoder().decode(new Uint8Array(ev.data))
+    box.appendChild(document.createTextNode(data))
+    box.scrollTop = box.scrollHeight
+  }
+  followWs.onclose = () => { followStatus.value = t('k8s.shellClosed') }
+  followWs.onerror = () => { followStatus.value = t('k8s.shellError') }
+}
+const clearFollow = () => connectFollow()
+onBeforeUnmount(() => { if (followWs) followWs.close() })
+
+// ---- Deployment / StatefulSet 伸缩 ----
+const scaleWorkload = async row => {
   try {
     const { value } = await ElMessageBox.prompt(t('k8s.scaleTip'), `${t('k8s.scale')} · ${row.namespace}/${row.name}`, {
       inputValue: String(row.replicas), inputPattern: /^\d+$/, inputErrorMessage: t('k8s.scaleTip'),
       confirmButtonText: t('common.save'), cancelButtonText: t('common.cancel'),
     })
-    await api.post(`${P}/deployments/${row.namespace}/${row.name}/scale`, { replicas: parseInt(value, 10) })
+    await api.post(`${P}/${active.value}/${row.namespace}/${row.name}/scale`, { replicas: parseInt(value, 10) })
     ElMessage.success(t('common.success'))
     load()
   } catch { /* 取消 */ }
@@ -564,4 +658,9 @@ onMounted(async () => {
 .km-card-num { font-size: 24px; font-weight: 700; color: var(--c); }
 .km-card-label { font-size: 12px; color: #909399; margin-top: 2px; }
 :deep(.el-drawer__body) { padding: 0; height: 100%; background: #1e2a35; }
+.follow-box {
+  background: #1e2a35; color: #d8e4f0; padding: 12px; border-radius: 6px;
+  height: calc(100vh - 140px); overflow: auto; font-size: 12px; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-all;
+}
 </style>
