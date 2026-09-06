@@ -158,11 +158,13 @@
     <el-card>
       <el-table :data="roleRows" size="small" border>
         <el-table-column :label="$t('users.role')" min-width="100">
-          <template #default="{ row }"><el-tag size="small">{{ row.label }}</el-tag></template>
+          <template #default="{ row }"><el-tag size="small">{{ row.labelKey ? $t(row.labelKey) : row.role }}</el-tag></template>
         </el-table-column>
         <el-table-column :label="$t('scripts.desc')" min-width="200">
           <template #default="{ row }">
-            <el-input v-model="row.desc" size="small" :disabled="row.role === 'admin'" />
+            <el-input :model-value="row.descKey ? $t(row.descKey) : row.desc" size="small"
+                      :disabled="row.role === 'admin'"
+                      @input="v => (row.desc = v)" />
           </template>
         </el-table-column>
         <el-table-column :label="$t('system.credPerm')" min-width="80" align="center">
@@ -368,7 +370,7 @@ const openDoc = () => { window.open('/docs/api.html', '_blank') }
 
 const roleRows = ref([])
 // 角色名/描述按语言包本地化显示（system.role<Cap> / layout.role<Cap>），保存的是显示值
-const roleCaps = { admin: 'Admin', ops: 'Ops', publisher: 'Publisher', viewer: 'Viewer', auditor: 'Auditor' }
+const roleCaps = { admin: 'Admin', ops: 'Ops', publisher: 'Publisher', viewer: 'Viewer', auditor: 'Auditor', k8s: 'K8s' }
 const menuKeys = [
   { key: 'dashboard', label: 'menu.dashboard' },
   { key: 'shell', label: 'shell.title' },
@@ -401,8 +403,9 @@ const loadRoles = async () => {
     const cap = roleCaps[role] || ''
     return {
       role,
-      label: cap ? t('layout.role' + cap) : role,
-      desc: cap && i18n.global.te('system.role' + cap) ? t('system.role' + cap) : v.desc,
+      labelKey: cap ? 'layout.role' + cap : '',
+      descKey: cap && i18n.global.te('system.role' + cap) ? 'system.role' + cap : '',
+      desc: v.desc || '',
       menus: [...(v.menus || [])],
       host: { ...v.host }, cred: !!v.cred, report: !!v.report,
       k8s_view: !!v.k8s_view, k8s_manage: !!v.k8s_manage,

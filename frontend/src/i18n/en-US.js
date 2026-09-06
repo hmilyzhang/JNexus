@@ -86,6 +86,7 @@ export default {
     rolePublisher: 'Publisher',
     roleViewer: 'Viewer',
     roleAuditor: 'Auditor',
+    roleK8s: 'K8S',
     byline: 'By JJ Zhang v{version}',
   },
   dashboard: {
@@ -828,6 +829,7 @@ export default {
     roleOps: 'Hosts, exec, files, scripts, releases',
     rolePublisher: 'Exec & release (grants required)',
     roleAuditor: 'View tasks and audit logs',
-    roleViewer: 'Read-only'
+    roleViewer: 'Read-only',
+    roleK8s: 'K8S cluster ops (Pods/CronJobs/ServiceAccounts)'
   }
 }
