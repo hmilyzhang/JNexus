@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -96,7 +96,7 @@ func TestAlertChannel(c *gin.Context) {
 		"status": "DOWN", "resp_ms": "233", "error": "-",
 		"event": "system rebooted (boot_id changed)", "time": time.Now().Format("2006-01-02 15:04:05"),
 	}
-	if err := service.SendViaChannel(&ch, sampleVars, "🟢 AutoOps 测试消息", "这是一条来自 AutoOps 监控中心的测试通知。"); err != nil {
+	if err := service.SendViaChannel(&ch, sampleVars, "🟢 JNexus 测试消息", "这是一条来自 JNexus 监控中心的测试通知。"); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -69,7 +69,7 @@ func ExportTask(c *gin.Context) {
 			runCnt++
 		}
 	}
-	sb.WriteString("================ AutoOps 任务 #" + strconv.Itoa(id) + " ================\n")
+	sb.WriteString("================ JNexus 任务 #" + strconv.Itoa(id) + " ================\n")
 	sb.WriteString("类型: " + taskTypeText(task.Type) + "    操作人: " + task.Operator + "    发起时间: " + task.CreatedAt.Format("2006-01-02 15:04:05") + "\n")
 	sb.WriteString("参数: " + task.Params + "\n")
 	sb.WriteString(fmt.Sprintf("目标: %d 台    成功: %d    失败: %d    进行中: %d\n", len(results), okCnt, failCnt, runCnt))

@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 import { createI18n } from 'vue-i18n'
 import zhCN from './zh-CN'
 import enUS from './en-US'

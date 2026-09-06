@@ -1,6 +1,6 @@
 <div align="right"><a href="README.zh-CN.md">中文文档</a></div>
 
-# AutoOps — Lightweight Ops Platform
+# JNexus — Lightweight Ops Platform
 
 A self-built, lightweight operations platform: host management (multi OS accounts per host), batch command execution with live output, file distribution, script center, release pipeline with rollback, RBAC with configurable roles, audit logging, dangerous-command blocking, LDAP authentication, and per-user **MFA (TOTP two-step verification)**. Data is stored in an external PostgreSQL.
 

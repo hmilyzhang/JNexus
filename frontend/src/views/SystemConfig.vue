@@ -1,4 +1,4 @@
-<!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <div v-loading="loading">
     <el-tabs v-model="activeTab">

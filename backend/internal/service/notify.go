@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -61,7 +61,7 @@ func NotifyTaskFinished(taskID uint) {
 					html.EscapeString(out)))
 			}
 		}
-		subject := fmt.Sprintf("[AutoOps] 任务 #%d %s — 成功 %d / 失败 %d", taskID, taskTypeText2(task.Type), okCnt, failCnt)
+		subject := fmt.Sprintf("[JNexus] 任务 #%d %s — 成功 %d / 失败 %d", taskID, taskTypeText2(task.Type), okCnt, failCnt)
 		body := fmt.Sprintf(`
 <h3>任务 #%d 已完成</h3>
 <p>类型: %s &nbsp; 操作人: %s &nbsp; 时间: %s<br/>
@@ -71,7 +71,7 @@ func NotifyTaskFinished(taskID uint) {
 <tr style="background:#f5f7fa"><th>主机</th><th>OS账号</th><th>状态</th><th>退出码</th><th>耗时</th></tr>
 %s
 </table>
-<p style="color:#909399;font-size:12px">由 AutoOps 自动发送 · By JJ Zhang Version 1.0</p>`,
+<p style="color:#909399;font-size:12px">由 JNexus 自动发送 · By JJ Zhang Version 1.0</p>`,
 			taskID, taskTypeText2(task.Type), html.EscapeString(task.Operator),
 			time.Now().Format("2006-01-02 15:04:05"), color, okCnt, failCnt, len(results),
 			html.EscapeString(task.Params), rows.String())

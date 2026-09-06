@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from './router'

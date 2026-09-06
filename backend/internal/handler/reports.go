@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -118,7 +118,7 @@ func ExportReport(c *gin.Context) {
 		tplName = tpl.Name
 	}
 	var sb strings.Builder
-	sb.WriteString("================ AutoOps Collection Report #" + strconv.Itoa(int(report.ID)) + " ================\n")
+	sb.WriteString("================ JNexus Collection Report #" + strconv.Itoa(int(report.ID)) + " ================\n")
 	sb.WriteString("Template: " + tplName + "    Operator: " + report.Operator + "    Time: " + report.CreatedAt.Format("2006-01-02 15:04:05") + "\n")
 	sb.WriteString(fmt.Sprintf("Targets: %d hosts\n\n", len(items)))
 	for _, it := range items {

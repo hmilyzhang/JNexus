@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 export default {
   menu: {
     dashboard: '仪表盘',
@@ -47,7 +47,7 @@ export default {
     items: '条'
   },
   login: {
-    title: 'AutoOps 运维平台',
+    title: 'JNexus 运维平台',
     username: '用户名',
     password: '密码',
     submit: '登 录',

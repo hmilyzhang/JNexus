@@ -1,6 +1,6 @@
 <div align="right"><a href="API.md">English</a></div>
 
-# AutoOps API 使用文档
+# JNexus API 使用文档
 
 面向外部系统集成的 REST API。所有端点位于 `/api/ext/*`，需要 **API 密钥**。
 

@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 
 package pkg
 
@@ -68,10 +68,10 @@ func VerifyTOTP(secret, code string) bool {
 
 // OTPAuthURL 生成验证器 App 扫码用的 otpauth:// 地址
 func OTPAuthURL(username, secret string) string {
-	label := url.PathEscape("AutoOps:" + username)
+	label := url.PathEscape("JNexus:" + username)
 	q := url.Values{}
 	q.Set("secret", secret)
-	q.Set("issuer", "AutoOps")
+	q.Set("issuer", "JNexus")
 	q.Set("digits", "6")
 	q.Set("period", "30")
 	return "otpauth://totp/" + label + "?" + q.Encode()

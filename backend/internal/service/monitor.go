@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -93,7 +93,7 @@ func checkHTTP(m *model.Monitor, timeout time.Duration, start time.Time) (bool, 
 	if err != nil {
 		return false, 0, "URL 非法: " + err.Error()
 	}
-	req.Header.Set("User-Agent", "AutoOps-Monitor/1.0")
+	req.Header.Set("User-Agent", "JNexus-Monitor/1.0")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return false, 0, err.Error()

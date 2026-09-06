@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 
 package model
 
@@ -62,7 +62,7 @@ func MigrateHostCredentials() error {
 // SeedConfig 初始化系统配置默认值
 func SeedConfig() error {
 	defaults := map[string]string{
-		"system_name":                "AutoOps 运维平台",
+		"system_name":                "JNexus 运维平台",
 		"ldap_enabled":               "false",
 		"ldap_host":                  "",
 		"ldap_port":                  "389",

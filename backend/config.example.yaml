@@ -1,4 +1,4 @@
-# AutoOps 配置示例。复制为 config.yaml 后修改。
+# JNexus 配置示例。复制为 config.yaml 后修改。
 # 生成主密钥: 运行 `autoops-server -genkey` 或使用 README 中的命令
 
 server:

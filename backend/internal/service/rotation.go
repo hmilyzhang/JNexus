@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -241,7 +241,7 @@ func notifyRotation(cred model.HostCredential, result string) {
 	if !smtp.Enabled || !smtp.Notify || len(smtp.Recipients) == 0 {
 		return
 	}
-	subject := fmt.Sprintf("[AutoOps] 密码轮换 %s — %s (%s)", result, cred.Username, cred.Label)
+	subject := fmt.Sprintf("[JNexus] 密码轮换 %s — %s (%s)", result, cred.Username, cred.Label)
 	body := fmt.Sprintf(`<p>OS 账号密码轮换结果：<b>%s</b></p>
 <p>主机 ID: %d &nbsp; 账号: %s &nbsp; 用途: %s<br/>时间: %s</p>
 <p style="color:#909399;font-size:12px">新密码已加密保存，不会通过邮件发送。By JJ Zhang Version 1.0</p>`,

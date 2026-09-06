@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from './store'
 

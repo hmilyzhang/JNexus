@@ -1,6 +1,6 @@
 <div align="right"><a href="API.zh-CN.md">中文文档</a></div>
 
-# AutoOps API Reference
+# JNexus API Reference
 
 REST API for external integrations. All endpoints live under `/api/ext/*` and require an **API key**.
 

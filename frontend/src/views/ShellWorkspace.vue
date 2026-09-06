@@ -1,4 +1,4 @@
-<!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <el-row :gutter="12" class="shell-row">
     <el-col :span="6">

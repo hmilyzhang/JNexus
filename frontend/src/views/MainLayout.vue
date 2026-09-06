@@ -1,9 +1,9 @@
-<!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <el-container style="height: 100vh">
     <el-aside :width="collapsed ? '64px' : '200px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
       <div class="logo" v-if="!collapsed">{{ systemName }}</div>
-      <div class="logo logo-mini" v-else title="AutoOps">A</div>
+      <div class="logo logo-mini" v-else title="JNexus">A</div>
       <el-menu ref="menuRef" :default-active="$route.path" router :collapse="collapsed" :collapse-transition="false"
                popper-class="sidebar-popper" background-color="#1d2935" text-color="#a7b1c2"
                active-text-color="#ffffff" style="border-right:none; flex:1; overflow-y:auto" :ellipsis="false"
@@ -33,7 +33,7 @@
           <el-button text @click="toggleCollapse" style="padding:6px">
             <el-icon :size="18"><component :is="collapsed ? 'Expand' : 'Fold'" /></el-icon>
           </el-button>
-          <div class="title">{{ $route.meta.title ? $t($route.meta.title) : 'AutoOps' }}</div>
+          <div class="title">{{ $route.meta.title ? $t($route.meta.title) : 'JNexus' }}</div>
         </div>
         <div style="display:flex; align-items:center; gap:16px">
           <el-dropdown @command="onLocale">
@@ -119,13 +119,13 @@ const store = useUserStore()
 const router = useRouter()
 const { t } = i18n.global
 
-const systemName = ref(localStorage.getItem('system_name') || 'AutoOps')
+const systemName = ref(localStorage.getItem('system_name') || 'JNexus')
 const appVersion = ref('1.0')
 api.get('/system/info').then(info => {
-  systemName.value = info.system_name || 'AutoOps'
+  systemName.value = info.system_name || 'JNexus'
   appVersion.value = info.version || '1.0'
-  localStorage.setItem('system_name', info.system_name || 'AutoOps')
-  document.title = info.system_name || 'AutoOps'
+  localStorage.setItem('system_name', info.system_name || 'JNexus')
+  document.title = info.system_name || 'JNexus'
 }).catch(() => {})
 
 const roleLabel = computed(() => ({

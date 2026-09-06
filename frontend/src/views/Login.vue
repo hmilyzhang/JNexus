@@ -1,4 +1,4 @@
-<!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <div class="login-wrap">
     <el-card class="login-card">
@@ -49,7 +49,7 @@ const router = useRouter()
 const store = useUserStore()
 const form = ref({ username: '', password: '' })
 const loading = ref(false)
-const systemName = ref(localStorage.getItem('system_name') || 'AutoOps')
+const systemName = ref(localStorage.getItem('system_name') || 'JNexus')
 const loginVersion = ref('')
 const mfaStep = ref(false)
 const mfaToken = ref('')
@@ -58,7 +58,7 @@ const mfaCode = ref('')
 api.get('/system/info').then(info => {
   systemName.value = info.system_name || systemName.value
   loginVersion.value = info.version || '1.0'
-  localStorage.setItem('system_name', info.system_name || 'AutoOps')
+  localStorage.setItem('system_name', info.system_name || 'JNexus')
   document.title = systemName.value
 }).catch(() => {})
 

@@ -1,6 +1,6 @@
 <div align="right"><a href="README.md">English</a></div>
 
-# AutoOps — 轻量级运维平台
+# JNexus — 轻量级运维平台
 
 自研轻量级运维平台：主机管理（一台主机多 OS 账号）、批量命令执行（实时输出）、文件分发、
 脚本中心、发布流水线（支持回滚）、可配置 RBAC 权限、审计日志、危险命令拦截、LDAP 认证、

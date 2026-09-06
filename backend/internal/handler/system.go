@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -123,8 +123,8 @@ func TestSMTPConfig(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请填写收件邮箱"})
 		return
 	}
-	subject := "[AutoOps] SMTP 配置测试邮件"
-	body := "<p>这是一封 AutoOps 测试邮件，收到即表示 SMTP 配置正确。</p><p style='color:#909399;font-size:12px'>By JJ Zhang Version 1.0</p>"
+	subject := "[JNexus] SMTP 配置测试邮件"
+	body := "<p>这是一封 JNexus 测试邮件，收到即表示 SMTP 配置正确。</p><p style='color:#909399;font-size:12px'>By JJ Zhang Version 1.0</p>"
 	if err := service.SendMail(smtpCfg, to, subject, body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

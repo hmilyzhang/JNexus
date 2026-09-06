@@ -1,4 +1,4 @@
-<!-- AutoOps 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <el-tabs v-model="activeTab">
@@ -621,9 +621,9 @@ const previewSection = key => {
 // 邮件专用模板的建议内容跟随界面语言
 const EMAIL_DFT = {
   'zh-CN': {
-    title: 'AutoOps 告警通知 - {host}',
+    title: 'JNexus 告警通知 - {host}',
     body: (
-      '<h3>AutoOps 告警通知</h3>\n'
+      '<h3>JNexus 告警通知</h3>\n'
       + '<p>主机：<b>{host}</b>（{ip}）</p>\n'
       + '<p>级别：{level}</p>\n'
       + '<p>指标：{metric} = <b>{value}%</b>（阈值 {threshold}%）</p>\n'
@@ -633,9 +633,9 @@ const EMAIL_DFT = {
     )
   },
   'en-US': {
-    title: 'AutoOps Alert Notification - {host}',
+    title: 'JNexus Alert Notification - {host}',
     body: (
-      '<h3>AutoOps Alert Notification</h3>\n'
+      '<h3>JNexus Alert Notification</h3>\n'
       + '<p>Host: <b>{host}</b> ({ip})</p>\n'
       + '<p>Level: {level}</p>\n'
       + '<p>Metric: {metric} = <b>{value}%</b> (threshold {threshold}%)</p>\n'

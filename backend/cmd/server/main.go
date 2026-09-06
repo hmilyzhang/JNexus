@@ -1,4 +1,4 @@
-// AutoOps 运维平台 — By JJ Zhang, Version 1.0
+// JNexus 运维平台 — By JJ Zhang, Version 1.0
 
 package main
 
@@ -59,7 +59,7 @@ func main() {
 
 	r := handler.SetupRouter()
 	addr := fmt.Sprintf(":%d", config.Cfg.Server.Port)
-	log.Printf("AutoOps 服务已启动: http://0.0.0.0%s", addr)
+	log.Printf("JNexus 服务已启动: http://0.0.0.0%s", addr)
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("启动失败: %v", err)
 	}
