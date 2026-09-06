@@ -3,7 +3,7 @@
   <el-container style="height: 100vh">
     <el-aside :width="collapsed ? '64px' : '200px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
       <div class="logo" v-if="!collapsed">{{ systemName }}</div>
-      <div class="logo logo-mini" v-else title="JNexus">A</div>
+      <div class="logo logo-mini" v-else :title="systemName">{{ systemName.charAt(0).toUpperCase() }}</div>
       <el-menu ref="menuRef" :default-active="$route.path" router :collapse="collapsed" :collapse-transition="false"
                popper-class="sidebar-popper" background-color="#1d2935" text-color="#a7b1c2"
                active-text-color="#ffffff" style="border-right:none; flex:1; overflow-y:auto" :ellipsis="false"
