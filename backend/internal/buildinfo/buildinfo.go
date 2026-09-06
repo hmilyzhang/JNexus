@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -26,19 +27,37 @@ func Get() string {
 }
 
 func compute() string {
-	if Version != "" {
-		return Version
+	if v := sanitize(Version); v != "" {
+		return v
 	}
-	if v := os.Getenv("JNEXUS_VERSION"); v != "" {
+	if v := sanitize(os.Getenv("JNEXUS_VERSION")); v != "" {
 		return v
 	}
 	if cnt, err := git("rev-list", "--count", "HEAD"); err == nil && cnt != "" {
 		return fmt.Sprintf("1.%s", cnt)
 	}
-	if b, err := os.ReadFile("VERSION"); err == nil && strings.TrimSpace(string(b)) != "" {
-		return strings.TrimSpace(string(b))
+	if b, err := os.ReadFile("VERSION"); err == nil {
+		if v := sanitize(strings.TrimSpace(string(b))); v != "" {
+			return v
+		}
 	}
 	return "1.0"
+}
+
+// sanitize 清洗版本值：必须是完整的 1.<数字>（拒绝部署机无 git 时导出的 "1." / "1"）
+func sanitize(v string) string {
+	v = strings.TrimSpace(v)
+	if !strings.HasPrefix(v, "1.") {
+		return ""
+	}
+	digits := strings.TrimPrefix(v, "1.")
+	if digits == "" {
+		return ""
+	}
+	if _, err := strconv.Atoi(digits); err != nil {
+		return ""
+	}
+	return v
 }
 
 func git(args ...string) (string, error) {

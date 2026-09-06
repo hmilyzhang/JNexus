@@ -27,6 +27,7 @@ WORKDIR /app
 COPY --from=be /jnexus-server /app/jnexus-server
 COPY --from=fe /fe/dist /app/frontend/dist
 COPY backend/config.example.yaml /app/config.example.yaml
+COPY VERSION /app/VERSION
 COPY deploy/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh && mkdir -p /app/data /app/uploads && chown jnexus /app/data /app/uploads
 ENV GIN_MODE=release
