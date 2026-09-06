@@ -44,6 +44,10 @@
           <template #title><el-icon><Key /></el-icon><span>{{ $t('k8s.navAccess') }}</span></template>
           <el-menu-item index="serviceaccounts">ServiceAccounts</el-menu-item>
         </el-sub-menu>
+        <el-sub-menu index="grp-apps">
+          <template #title><el-icon><ShoppingBag /></el-icon><span>{{ $t('k8s.navApps') }}</span></template>
+          <el-menu-item index="helmreleases">Helm Releases</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </aside>
 
@@ -118,8 +122,10 @@
                 <template v-else>{{ col.text ? col.text(row) : row[col.prop] }}</template>
               </template>
             </el-table-column>
-            <el-table-column v-if="hasOps" :label="$t('common.operation')" :width="opWidth" fixed="right">
+            <el-table-column :label="$t('common.operation')" :width="opWidth" fixed="right">
               <template #default="{ row }">
+                <!-- YAML 查看（Helm 行除外） -->
+                <el-button v-if="kindOf[active]" size="small" link type="info" @click="showYAML(row)">{{ $t('k8s.yaml') }}</el-button>
                 <!-- Pods -->
                 <template v-if="active === 'pods'">
                   <el-button size="small" link type="primary" @click="showLog(row)">{{ $t('k8s.logs') }}</el-button>
@@ -129,9 +135,10 @@
                   </el-popconfirm>
                 </template>
                 <!-- Deployments -->
-                <el-button v-if="active === 'deployments' && canOp" size="small" link type="warning" @click="restartDeployment(row)">
-                  {{ $t('k8s.restart') }}
-                </el-button>
+                <template v-if="active === 'deployments' && canOp">
+                  <el-button size="small" link type="primary" @click="scaleDeployment(row)">{{ $t('k8s.scale') }}</el-button>
+                  <el-button size="small" link type="warning" @click="restartDeployment(row)">{{ $t('k8s.restart') }}</el-button>
+                </template>
                 <!-- CronJobs -->
                 <template v-if="active === 'cronjobs' && canOp">
                   <el-button size="small" link type="warning" @click="toggleCron(row)">
@@ -151,6 +158,11 @@
         </template>
       </section>
     </main>
+
+    <!-- YAML 查看 -->
+    <el-dialog v-model="yamlVisible" :title="yamlTitle" width="780px" top="5vh">
+      <pre class="mono" style="background:#1e2a35; color:#d8e4f0; padding:14px; border-radius:6px; max-height:520px; overflow:auto; font-size:12px; line-height:1.6">{{ yamlText }}</pre>
+    </el-dialog>
 
     <!-- Pod Shell（页内抽屉，不再新开窗口） -->
     <el-drawer v-model="shellDrawer" size="62%" :with-header="false" destroy-on-close>
@@ -195,11 +207,11 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Odometer, OfficeBuilding, Box, Connection, Setting, Coin, Key, Back } from '@element-plus/icons-vue'
+import { Odometer, OfficeBuilding, Box, Connection, Setting, Coin, Key, Back, ShoppingBag } from '@element-plus/icons-vue'
 import api from '../api'
 import i18n from '../i18n'
 import K8sShell from '../components/K8sShell.vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const { t } = i18n.global
 const route = useRoute()
@@ -227,13 +239,22 @@ const colDefs = {
   nodes: [
     { prop: 'name', w: 160 }, { prop: 'roles', w: 140 }, { prop: 'internal_ip', label: 'IP', w: 130 },
     { prop: 'status', tag: row => statusTag(row.status), w: 100, align: 'center' }, { prop: 'version', w: 110 },
+    { prop: 'cpu', label: 'k8s.cpu', w: 90, align: 'center' }, { prop: 'memory', label: 'k8s.memory', w: 100, align: 'center' },
   ],
   namespaces: [{ prop: 'name', w: 200 }],
   pods: [
     { prop: 'name', w: 180 }, { prop: 'namespace', label: 'Namespace', w: 110 },
     { prop: 'status', tag: row => statusTag(row.status), w: 130 },
     { prop: 'node', w: 130 }, { prop: 'ip', label: 'IP', w: 120 },
+    { prop: 'cpu', label: 'k8s.cpu', w: 80, align: 'center' }, { prop: 'memory', label: 'k8s.memory', w: 90, align: 'center' },
     { prop: 'restarts', label: 'k8s.restarts', w: 90, align: 'center' },
+  ],
+  helmreleases: [
+    { prop: 'name', w: 150 }, { prop: 'namespace', label: 'Namespace', w: 110 },
+    { prop: 'chart', label: 'Chart', w: 150 }, { prop: 'version', label: 'k8s.chartVer', w: 100 },
+    { prop: 'revision', label: 'k8s.revision', w: 90, align: 'center' },
+    { prop: 'status', tag: row => (row.status === 'deployed' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'), w: 130, align: 'center' },
+    { prop: 'updated_at', label: 'k8s.age', w: 160 },
   ],
   deployments: [
     { prop: 'name', w: 180 }, { prop: 'namespace', label: 'Namespace', w: 110 },
@@ -309,11 +330,18 @@ const sectionTitle = computed(() => {
     daemonsets: 'DaemonSets', statefulsets: 'StatefulSets', jobs: 'Jobs', cronjobs: 'CronJobs',
     services: 'Services', ingresses: 'Ingresses', configmaps: 'ConfigMaps', secrets: 'Secrets',
     pvcs: 'PVCs', pvs: 'PVs', storageclasses: 'StorageClasses', serviceaccounts: 'ServiceAccounts',
+    helmreleases: 'Helm Releases',
   }
   return names[active.value] || active.value
 })
-const hasOps = computed(() => ['pods', 'deployments', 'cronjobs', 'configmaps', 'secrets', 'serviceaccounts'].includes(active.value))
-const opWidth = computed(() => (active.value === 'pods' ? 170 : active.value === 'cronjobs' ? 150 : 100))
+// 各区块对应的 YAML 查看资源类型（helmreleases 无对应单体路径，不提供）
+const kindOf = {
+  nodes: 'node', pods: 'pod', deployments: 'deployment', daemonsets: 'daemonset',
+  statefulsets: 'statefulset', jobs: 'job', cronjobs: 'cronjob', services: 'service',
+  ingresses: 'ingress', configmaps: 'configmap', secrets: 'secret', pvcs: 'pvc', pvs: 'pv',
+  storageclasses: 'storageclass', serviceaccounts: 'serviceaccount',
+}
+const opWidth = computed(() => (active.value === 'pods' ? 200 : active.value === 'deployments' ? 160 : active.value === 'cronjobs' ? 150 : 90))
 const delConfirmKey = computed(() => ({
   configmaps: 'monitor.configDelConfirm', secrets: 'monitor.configDelConfirm', serviceaccounts: 'k8s.podDelConfirm',
 }[active.value] || ''))
@@ -342,10 +370,30 @@ const cards = computed(() => {
 })
 
 // ---- 数据加载 ----
+// metrics-server 用量合并进列表；未安装 metrics-server 时列为 '-'
+const mergeMetrics = (list, metrics, keyFn) => {
+  const m = Object.fromEntries((metrics || []).map(x => [keyFn(x), x]))
+  return list.map(r => ({
+    ...r,
+    cpu: m[keyFn(r)] ? `${m[keyFn(r)].cpu_m}m` : '-',
+    memory: m[keyFn(r)] ? `${m[keyFn(r)].mem_mi}Mi` : '-',
+  }))
+}
 const loaders = {
-  nodes: () => api.get(`${P}/nodes`),
+  nodes: async () => {
+    const [list, metrics] = await Promise.all([
+      api.get(`${P}/nodes`), api.get(`${P}/nodemetrics`).catch(() => []),
+    ])
+    return mergeMetrics(list, metrics, x => x.name)
+  },
   namespaces: () => api.get(`${P}/namespaces`),
-  pods: () => api.get(`${P}/pods`, nsParams()),
+  pods: async () => {
+    const [list, metrics] = await Promise.all([
+      api.get(`${P}/pods`, nsParams()),
+      api.get(`${P}/podmetrics`, nsParams()).catch(() => []),
+    ])
+    return mergeMetrics(list, metrics, x => `${x.namespace}/${x.name}`)
+  },
   deployments: () => api.get(`${P}/deployments`, nsParams()),
   daemonsets: () => api.get(`${P}/daemonsets`, nsParams()),
   statefulsets: () => api.get(`${P}/statefulsets`, nsParams()),
@@ -359,6 +407,7 @@ const loaders = {
   pvs: () => api.get(`${P}/pvs`),
   storageclasses: () => api.get(`${P}/storageclasses`),
   serviceaccounts: () => api.get(`${P}/serviceaccounts`, nsParams()),
+  helmreleases: () => api.get(`${P}/helmreleases`, nsParams()),
 }
 
 const load = async () => {
@@ -398,6 +447,30 @@ const deletePod = async row => {
   await api.delete(`${P}/pods/${row.namespace}/${row.name}`)
   ElMessage.success(t('common.success'))
   load()
+}
+
+// ---- YAML 查看 ----
+const yamlVisible = ref(false)
+const yamlTitle = ref('')
+const yamlText = ref('')
+const showYAML = async row => {
+  const r = await api.get(`${P}/yaml`, { params: { kind: kindOf[active.value], namespace: row.namespace || '', name: row.name } })
+  yamlTitle.value = `YAML · ${row.namespace ? row.namespace + '/' : ''}${row.name}`
+  yamlText.value = r.yaml || ''
+  yamlVisible.value = true
+}
+
+// ---- Deployment 伸缩 ----
+const scaleDeployment = async row => {
+  try {
+    const { value } = await ElMessageBox.prompt(t('k8s.scaleTip'), `${t('k8s.scale')} · ${row.namespace}/${row.name}`, {
+      inputValue: String(row.replicas), inputPattern: /^\d+$/, inputErrorMessage: t('k8s.scaleTip'),
+      confirmButtonText: t('common.save'), cancelButtonText: t('common.cancel'),
+    })
+    await api.post(`${P}/deployments/${row.namespace}/${row.name}/scale`, { replicas: parseInt(value, 10) })
+    ElMessage.success(t('common.success'))
+    load()
+  } catch { /* 取消 */ }
 }
 
 // ---- Deployments ----

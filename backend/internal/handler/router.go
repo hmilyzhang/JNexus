@@ -117,6 +117,12 @@ func SetupRouter() *gin.Engine {
 			k8sg.GET("/:id/pvcs", K8sPVCs)
 			k8sg.GET("/:id/pvs", K8sPVs)
 			k8sg.GET("/:id/storageclasses", K8sStorageClasses)
+			// 二期：YAML 查看 / 伸缩 / 资源使用率 / Helm 发布
+			k8sg.GET("/:id/yaml", K8sResourceYAML)
+			k8sg.POST("/:id/deployments/:namespace/:name/scale", K8sScaleDeployment)
+			k8sg.GET("/:id/nodemetrics", K8sNodeMetrics)
+			k8sg.GET("/:id/podmetrics", K8sPodMetrics)
+			k8sg.GET("/:id/helmreleases", K8sHelmReleases)
 			k8sg.GET("/:id/members", ListClusterMembers)
 			k8sg.PUT("/:id/members", middleware.RequireRole(model.RoleAdmin, model.RoleOps), SetClusterMembers)
 		}
