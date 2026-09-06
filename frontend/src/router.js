@@ -4,6 +4,7 @@ import { useUserStore } from './store'
 
 const routes = [
   { path: '/login', name: 'login', component: () => import('./views/Login.vue'), meta: { public: true } },
+  { path: '/k8s/manage/:id', name: 'k8s-manage', component: () => import('./views/K8sManage.vue'), meta: { title: 'k8s.title' } },
   {
     path: '/',
     component: () => import('./views/MainLayout.vue'),

@@ -107,6 +107,16 @@ func SetupRouter() *gin.Engine {
 			k8sg.DELETE("/:id/serviceaccounts/:namespace/:name", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sDeleteServiceAccount)
 			k8sg.GET("/:id/podlog", K8sPodLog)
 			k8sg.DELETE("/:id/pods/:namespace/:name", K8sDeletePod)
+			// 管理页只读视图（概览 + 新增资源列表）
+			k8sg.GET("/:id/summary", K8sSummary)
+			k8sg.GET("/:id/daemonsets", K8sDaemonSets)
+			k8sg.GET("/:id/statefulsets", K8sStatefulSets)
+			k8sg.GET("/:id/jobs", K8sJobs)
+			k8sg.GET("/:id/services", K8sServices)
+			k8sg.GET("/:id/ingresses", K8sIngresses)
+			k8sg.GET("/:id/pvcs", K8sPVCs)
+			k8sg.GET("/:id/pvs", K8sPVs)
+			k8sg.GET("/:id/storageclasses", K8sStorageClasses)
 			k8sg.GET("/:id/members", ListClusterMembers)
 			k8sg.PUT("/:id/members", middleware.RequireRole(model.RoleAdmin, model.RoleOps), SetClusterMembers)
 		}
