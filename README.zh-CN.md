@@ -159,4 +159,9 @@ deploy/      docker-compose.yml（捆绑库）+ docker-compose.external.yml（�
 - 文件分发为单文件粒度（目录分发可循环调用或后续迭代）。
 - 任务无分布式调度（单实例执行）；多实例部署需引入任务队列。
 
+
+## 开源协议
+
+[MIT](LICENSE) © 2026 hmilyzhang
+
 <div align="right"><a href="README.md">English</a></div>

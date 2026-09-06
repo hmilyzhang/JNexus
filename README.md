@@ -136,4 +136,9 @@ deploy/      docker-compose.yml (bundled DB) + docker-compose.external.yml + Doc
 - File distribution is single-file granularity.
 - Single-instance execution; multi-instance deployment needs a task queue.
 
+
+## License
+
+[MIT](LICENSE) © 2026 hmilyzhang
+
 <div align="right"><a href="README.zh-CN.md">中文文档</a></div>
