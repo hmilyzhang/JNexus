@@ -124,13 +124,14 @@ func (k *K8sAPI) Nodes() ([]K8sNodeInfo, error) {
 
 // K8sPodInfo Pod 信息
 type K8sPodInfo struct {
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
-	Status    string `json:"status"`
-	Node      string `json:"node"`
-	IP        string `json:"ip"`
-	Restarts  int    `json:"restarts"`
-	StartedAt string `json:"started_at"`
+	Namespace  string   `json:"namespace"`
+	Name       string   `json:"name"`
+	Status     string   `json:"status"`
+	Node       string   `json:"node"`
+	IP         string   `json:"ip"`
+	Restarts   int      `json:"restarts"`
+	StartedAt  string   `json:"started_at"`
+	Containers []string `json:"containers"` // 容器名列表（多容器选择）
 }
 
 // K8sPods Pod 列表（namespace 为空 = 全部命名空间）
@@ -155,7 +156,10 @@ func (k *K8sAPI) Pods(namespace string) ([]K8sPodInfo, error) {
 				} `json:"containerStatuses"`
 			} `json:"status"`
 			Spec struct {
-				NodeName string `json:"nodeName"`
+				NodeName   string `json:"nodeName"`
+				Containers []struct {
+					Name string `json:"name"`
+				} `json:"containers"`
 			} `json:"spec"`
 		} `json:"items"`
 	}
@@ -174,6 +178,9 @@ func (k *K8sAPI) Pods(namespace string) ([]K8sPodInfo, error) {
 		}
 		for _, cs := range it.Status.ContainerStatuses {
 			p.Restarts += cs.RestartCount
+		}
+		for _, ct := range it.Spec.Containers {
+			p.Containers = append(p.Containers, ct.Name)
 		}
 		out = append(out, p)
 	}

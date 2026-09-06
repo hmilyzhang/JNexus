@@ -305,6 +305,7 @@ func CollectK8sClusters() {
 			CheckK8sCertExpiry(&c, res)
 			if err == nil {
 				CheckK8sNodeHealth(&c)
+				CheckK8sWarningEvents(&c)
 			}
 		}(c)
 	}
@@ -375,6 +376,38 @@ func K8sNotify(name, apiServer, title, text, eventKey string) {
 			}
 		}()
 	}
+}
+
+// CheckK8sWarningEvents 检查集群 Warning 事件，聚合告警（20h 冷却）
+func CheckK8sWarningEvents(c *model.K8sCluster) {
+	k8s, err := K8sClientFor(c)
+	if err != nil {
+		return
+	}
+	events, err := k8s.Events(50)
+	if err != nil {
+		return
+	}
+	warnings := []K8sEventInfo{}
+	for _, ev := range events {
+		if ev.Type == "Warning" && ev.Count > 0 {
+			warnings = append(warnings, ev)
+		}
+	}
+	if len(warnings) == 0 {
+		return
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "集群: %s\nWarning 事件: %d 条\n时间: %s\n",
+		c.Name, len(warnings), time.Now().Format("2006-01-02 15:04:05"))
+	for i, ev := range warnings {
+		if i >= 5 {
+			fmt.Fprintf(&b, "... 及另外 %d 条\n", len(warnings)-5)
+			break
+		}
+		fmt.Fprintf(&b, "- %s %s: %s (x%d)\n", ev.Object, ev.Reason, ev.Message, ev.Count)
+	}
+	K8sNotify(c.Name, c.ApiServer, "🟠 [K8S Warning 事件] "+c.Name, b.String(), "warnings")
 }
 
 // CheckK8sNodeHealth 节点健康检查：NotReady 节点告警（20h 冷却）
