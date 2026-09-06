@@ -89,18 +89,33 @@ func (k *K8sAPI) FollowPodLog(ctx context.Context, namespace, name, container st
 	return resp.Body, nil
 }
 
-// K8sClusterUsage 集群资源概况：容量/实际用量（来自 metrics-server）+ 全部 Pod 用量
+// K8sPodUsage 单个 Pod：requests/limits 申请量 + 实际用量
+type K8sPodUsage struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Phase     string `json:"phase"`
+	CPUReqM   int64  `json:"cpu_req_m"`  // requests 合计（毫核）
+	CPULimM   int64  `json:"cpu_lim_m"`  // limits 合计（毫核）
+	MemReqMi  int64  `json:"mem_req_mi"` // requests 合计（Mi）
+	MemLimMi  int64  `json:"mem_lim_mi"` // limits 合计（Mi）
+	CPUM      int64  `json:"cpu_m"`      // 实际用量（毫核）
+	MemMi     int64  `json:"mem_mi"`     // 实际用量（Mi）
+}
+
+// K8sClusterUsage 集群资源概况：容量/实际用量（来自 metrics-server）+ 全部 Pod 申请量与用量
 type K8sClusterUsage struct {
-	CPUCapacityM  int64           `json:"cpu_capacity_m"`  // 可分配 CPU 总量（毫核）
-	CPUUsedM      int64           `json:"cpu_used_m"`      // 节点实际 CPU 用量合计（毫核）
-	MemCapacityMi int64           `json:"mem_capacity_mi"` // 可分配内存总量（Mi）
-	MemUsedMi     int64           `json:"mem_used_mi"`     // 节点实际内存用量合计（Mi）
-	Pods          []K8sMetricInfo `json:"pods"`            // 全部 Pod 的实际用量
+	CPUCapacityM  int64          `json:"cpu_capacity_m"`  // 可分配 CPU 总量（毫核）
+	CPUUsedM      int64          `json:"cpu_used_m"`      // 节点实际 CPU 用量合计（毫核）
+	MemCapacityMi int64          `json:"mem_capacity_mi"` // 可分配内存总量（Mi）
+	MemUsedMi     int64          `json:"mem_used_mi"`     // 节点实际内存用量合计（Mi）
+	PodReqCPUM    int64          `json:"pod_req_cpu_m"`   // 全部 Pod requests CPU 合计
+	PodReqMemMi   int64          `json:"pod_req_mem_mi"`  // 全部 Pod requests 内存合计
+	Pods          []K8sPodUsage  `json:"pods"`
 }
 
 // ClusterUsage 并发拉取节点容量、节点用量与 Pod 用量（metrics-server 缺失时容量仍有值，用量为 0）
 func (k *K8sAPI) ClusterUsage() (*K8sClusterUsage, error) {
-	u := &K8sClusterUsage{Pods: []K8sMetricInfo{}}
+	u := &K8sClusterUsage{Pods: []K8sPodUsage{}}
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 4)
 	run := func(f func()) {
@@ -136,10 +151,55 @@ func (k *K8sAPI) ClusterUsage() (*K8sClusterUsage, error) {
 		}
 	})
 	run(func() {
-		if ps, err := k.PodMetrics(""); err == nil {
-			u.Pods = ps
+		// 全部 Pod 的 requests/limits 申请量
+		var list struct {
+			Items []struct {
+				Metadata struct {
+					Name      string `json:"name"`
+					Namespace string `json:"namespace"`
+				} `json:"metadata"`
+				Status struct {
+					Phase string `json:"phase"`
+				} `json:"status"`
+				Spec struct {
+					Containers []struct {
+						Resources struct {
+							Requests map[string]string `json:"requests"`
+							Limits   map[string]string `json:"limits"`
+						} `json:"resources"`
+					} `json:"containers"`
+				} `json:"spec"`
+			} `json:"items"`
+		}
+		if err := k.do("GET", "/api/v1/pods", nil, &list); err == nil {
+			for _, it := range list.Items {
+				pu := K8sPodUsage{Namespace: it.Metadata.Namespace, Name: it.Metadata.Name, Phase: it.Status.Phase}
+				for _, ct := range it.Spec.Containers {
+					pu.CPUReqM += k8sQuantityCPU(ct.Resources.Requests["cpu"])
+					pu.CPULimM += k8sQuantityCPU(ct.Resources.Limits["cpu"])
+					pu.MemReqMi += k8sQuantityMem(ct.Resources.Requests["memory"]) >> 20
+					pu.MemLimMi += k8sQuantityMem(ct.Resources.Limits["memory"]) >> 20
+				}
+				u.Pods = append(u.Pods, pu)
+				u.PodReqCPUM += pu.CPUReqM
+				u.PodReqMemMi += pu.MemReqMi
+			}
 		}
 	})
 	wg.Wait()
+
+	// 实际用量合并进 Pod 列表（按 namespace/name 匹配；须在 Pods 拉取完成后串行执行）
+	if ps, err := k.PodMetrics(""); err == nil {
+		idx := make(map[string]int, len(u.Pods))
+		for i := range u.Pods {
+			idx[u.Pods[i].Namespace+"/"+u.Pods[i].Name] = i
+		}
+		for _, m := range ps {
+			if i, ok := idx[m.Namespace+"/"+m.Name]; ok {
+				u.Pods[i].CPUM = m.CPUM
+				u.Pods[i].MemMi = m.MemMi
+			}
+		}
+	}
 	return u, nil
 }

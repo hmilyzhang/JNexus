@@ -681,6 +681,8 @@ export default {
     memory: 'Memory Usage',
     chartVer: 'Chart Version',
     revision: 'Revision',
+    reqLimit: 'req/limit',
+    podReq: 'pod requests total',
     clusterResources: 'Cluster Resources',
     clusterCPU: 'Cluster CPU',
     clusterMem: 'Cluster Memory',

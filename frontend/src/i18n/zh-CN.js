@@ -681,6 +681,8 @@ export default {
     memory: '内存用量',
     chartVer: 'Chart 版本',
     revision: 'Revision',
+    reqLimit: '申请/上限',
+    podReq: 'Pod 申请合计',
     clusterResources: '集群资源概况',
     clusterCPU: '集群 CPU',
     clusterMem: '集群内存',

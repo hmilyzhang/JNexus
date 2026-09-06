@@ -89,24 +89,39 @@
               <div class="km-usage-head">{{ $t('k8s.clusterCPU') }}</div>
               <el-progress :percentage="usagePercent.cpu" :stroke-width="14" :color="usageColor(usagePercent.cpu)" />
               <div class="km-usage-sub mono">
-                {{ usage?.cpu_used_m || 0 }}m {{ $t('k8s.used') }} · {{ fmtCores(usage?.cpu_capacity_m) }}
+                {{ usage?.cpu_used_m || 0 }}m {{ $t('k8s.used') }} · {{ $t('k8s.podReq') }} {{ usage?.pod_req_cpu_m || 0 }}m · {{ fmtCores(usage?.cpu_capacity_m) }}
               </div>
             </div>
             <div class="km-usage-card">
               <div class="km-usage-head">{{ $t('k8s.clusterMem') }}</div>
               <el-progress :percentage="usagePercent.mem" :stroke-width="14" :color="usageColor(usagePercent.mem)" />
               <div class="km-usage-sub mono">
-                {{ usage?.mem_used_mi || 0 }}Mi {{ $t('k8s.used') }} · {{ fmtGi(usage?.mem_capacity_mi) }}
+                {{ usage?.mem_used_mi || 0 }}Mi {{ $t('k8s.used') }} · {{ $t('k8s.podReq') }} {{ usage?.pod_req_mem_mi || 0 }}Mi · {{ fmtGi(usage?.mem_capacity_mi) }}
               </div>
             </div>
           </div>
 
           <h4 class="km-h4">{{ $t('k8s.podUsage') }}</h4>
-          <el-table :data="usagePods" size="small" border v-loading="loading" :default-sort="{ prop: 'cpu', order: 'descending' }">
-            <el-table-column prop="namespace" label="Namespace" width="130" sortable />
-            <el-table-column prop="name" label="Pod" min-width="200" sortable />
-            <el-table-column prop="cpu" :label="$t('k8s.cpu')" width="120" align="center" sortable />
-            <el-table-column prop="memory" :label="$t('k8s.memory')" width="130" align="center" sortable />
+          <el-table :data="usagePods" size="small" border v-loading="loading">
+            <el-table-column prop="namespace" label="Namespace" width="120" sortable />
+            <el-table-column prop="name" label="Pod" min-width="180" sortable />
+            <el-table-column prop="phase" :label="$t('k8s.status')" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.phase === 'Running' ? 'success' : 'warning'">{{ row.phase }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('k8s.cpu')" min-width="220" align="center">
+              <template #header>{{ $t('k8s.cpu') }}（{{ $t('k8s.reqLimit') }} / {{ $t('k8s.used') }}）</template>
+              <template #default="{ row }">
+                <span class="mono">{{ fmtReqLim(row.cpu_req_m, row.cpu_lim_m, 'm') }} / <b>{{ row.cpu_m }}m</b></span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('k8s.memory')" min-width="230" align="center">
+              <template #header>{{ $t('k8s.memory') }}（{{ $t('k8s.reqLimit') }} / {{ $t('k8s.used') }}）</template>
+              <template #default="{ row }">
+                <span class="mono">{{ fmtReqLim(row.mem_req_mi, row.mem_lim_mi, 'Mi') }} / <b>{{ row.mem_mi }}Mi</b></span>
+              </template>
+            </el-table-column>
           </el-table>
 
           <h4 class="km-h4" style="margin-top:18px">{{ $t('k8s.recentEvents') }}</h4>
@@ -412,6 +427,10 @@ const usagePercent = computed(() => {
 })
 const usageColor = p => (p >= 90 ? '#f56c6c' : p >= 70 ? '#e6a23c' : '#67c23a')
 const fmtCores = m => (m ? `${(m / 1000).toFixed(1)} Core` : '-')
+const fmtReqLim = (req, lim, unit) => {
+  const r = `${req || 0}${unit}`
+  return lim ? `${r} / ${lim}${unit}` : r
+}
 const fmtGi = mi => (mi ? `${(mi / 1024).toFixed(1)} Gi` : '-')
 
 // ---- 概览卡片 ----
@@ -483,16 +502,13 @@ const load = async () => {
   loading.value = true
   try {
     if (active.value === 'overview') {
-      const [r, usage, pods, metrics] = await Promise.all([
+      const [r, usage] = await Promise.all([
         api.get(`${P}/summary`),
         api.get(`${P}/usage`).catch(() => null),
-        api.get(`${P}/pods`).catch(() => []),
-        api.get(`${P}/podmetrics`).catch(() => []),
       ])
       summary.value = r.summary
       usage.value = usage
-      usagePods.value = mergeMetrics(pods || [], metrics || [], x => `${x.namespace}/${x.name}`)
-        .sort((a, b) => (parseInt(b.cpu) || 0) - (parseInt(a.cpu) || 0))
+      usagePods.value = (usage?.pods || []).slice().sort((a, b) => b.cpu_m - a.cpu_m)
       events.value = await api.get(`${P}/events`)
     } else {
       rows.value = await loaders[active.value]()
