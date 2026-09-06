@@ -387,7 +387,7 @@ const loaders = {
     // 后端返回 {cluster, nodes} 包裹结构
     return mergeMetrics(r.nodes || [], metrics, x => x.name)
   },
-  namespaces: () => api.get(`${P}/namespaces`),
+  namespaces: async () => (await api.get(`${P}/namespaces`)).map(n => ({ name: n })),
   pods: async () => {
     const [list, metrics] = await Promise.all([
       api.get(`${P}/pods`, nsParams()),
