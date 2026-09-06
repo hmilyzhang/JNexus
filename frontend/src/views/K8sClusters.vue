@@ -49,6 +49,7 @@
         </el-table-column>
         <el-table-column :label="$t('common.operation')" width="200" fixed="right">
           <template #default="{ row }">
+            <el-button size="small" link type="primary" @click="openDetail(row)">{{ $t('k8s.manage') }}</el-button>
             <el-button size="small" link type="primary" @click="testNow(row)">{{ $t('k8s.testNow') }}</el-button>
             <el-button v-if="row.my_role === 'admin'" size="small" link @click="openMembers(row)">{{ $t('k8s.members') }}</el-button>
             <el-button v-if="row.my_role === 'admin'" size="small" link @click="openDlg(row)">{{ $t('common.edit') }}</el-button>
@@ -60,6 +61,75 @@
       </el-table>
       <div style="color:#909399; font-size:12px; margin-top:10px">{{ $t('k8s.certTip') }}</div>
     </el-card>
+
+    <!-- 集群详情抽屉 -->
+    <el-drawer v-model="detailVisible" size="72%" :title="$t('k8s.clusterDetail') + '：' + (detailCluster?.name || '')">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:12px">
+        <el-select v-model="detailNs" size="small" style="width:200px" clearable :placeholder="$t('k8s.allNamespaces')">
+          <el-option v-for="ns in namespaces" :key="ns" :label="ns" :value="ns" />
+        </el-select>
+        <el-radio-group v-model="detailTab" size="small">
+          <el-radio-button value="pods">Pods</el-radio-button>
+          <el-radio-button value="deployments">Deployments</el-radio-button>
+          <el-radio-button value="nodes">Nodes</el-radio-button>
+        </el-radio-group>
+        <span style="flex:1"></span>
+        <el-tag size="small" :type="detailCluster?.status === 'online' ? 'success' : 'danger'">{{ detailCluster?.status }}</el-tag>
+      </div>
+      <div v-if="detailTab === 'nodes'">
+        <el-table :data="nodes" size="small" border v-loading="detailLoading">
+          <el-table-column prop="name" label="Node" min-width="140" />
+          <el-table-column prop="roles" label="Roles" min-width="120" />
+          <el-table-column prop="internal_ip" label="IP" width="130" />
+          <el-table-column prop="status" :label="$t('k8s.status')" width="90" align="center">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.status === 'Ready' ? 'success' : 'danger'">{{ row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="version" :label="$t('k8s.version')" width="110" />
+        </el-table>
+      </div>
+      <div v-if="detailTab === 'pods'">
+        <el-table :data="detailPods" size="small" border v-loading="detailLoading">
+          <el-table-column :label="$t('k8s.podName')" min-width="180">
+            <template #default="{ row }">{{ row.name }}</template>
+          </el-table-column>
+          <el-table-column prop="namespace" label="Namespace" width="120" />
+          <el-table-column prop="status" :label="$t('k8s.status')" width="130" />
+          <el-table-column prop="node" label="Node" min-width="110" />
+          <el-table-column prop="ip" label="IP" width="120" />
+          <el-table-column prop="restarts" :label="$t('k8s.restarts')" width="90" align="center" />
+          <el-table-column :label="$t('common.operation')" width="150" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" link type="primary" @click="showLog(row)">{{ $t('k8s.logs') }}</el-button>
+              <el-popconfirm v-if="myRole(row) !== 'viewer'" :title="$t('k8s.podDelConfirm')" @confirm="deletePodAction(row)">
+                <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+              </el-popconfirm>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <div v-if="detailTab === 'deployments'">
+        <el-table :data="detailDeps" size="small" border v-loading="detailLoading">
+          <el-table-column :label="$t('k8s.deployment')" min-width="180">
+            <template #default="{ row }">{{ row.name }}<div class="mono" style="color:#909399; font-size:12px">{{ row.namespace }}</div></template>
+          </el-table-column>
+          <el-table-column :label="$t('k8s.replicas')" width="120" align="center">
+            <template #default="{ row }">{{ row.ready }}/{{ row.replicas }}</template>
+          </el-table-column>
+          <el-table-column :label="$t('common.operation')" width="130" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" link type="warning" @click="restartDeployment(row)">{{ $t('k8s.restart') }}</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-drawer>
+
+    <!-- Pod 日志 -->
+    <el-dialog v-model="logVisible" :title="logTitle" width="820px">
+      <pre class="mono" style="background:#1e2a35; color:#d8e4f0; padding:14px; border-radius:6px; max-height:480px; overflow:auto; font-size:12px; line-height:1.6">{{ logText }}</pre>
+    </el-dialog>
 
     <!-- 添加/编辑集群 -->
     <el-dialog v-model="dlgVisible" :title="form.id ? $t('common.edit') : $t('k8s.addCluster')" width="560px">
@@ -110,7 +180,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import api from '../api'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
@@ -171,6 +241,69 @@ const testNow = async row => {
   const r = await api.post(`/k8s/clusters/${row.id}/test`)
   ElMessage.success(`${t('k8s.testOk')} · v${r.version || '?'} / ${r.node_count || 0} ${t('k8s.nodes')}`)
   load()
+}
+
+// ---- 集群详情（节点 / Pods / Deployments） ----
+const detailVisible = ref(false)
+const detailCluster = ref(null)
+const detailTab = ref('pods')
+const detailNs = ref('')
+const detailLoading = ref(false)
+const detailPods = ref([])
+const detailNodes = ref([])
+const detailDeps = ref([])
+const namespaces = ref([])
+const logVisible = ref(false)
+const logTitle = ref('')
+const logText = ref('')
+
+const myRole = row => (row.my_role === 'viewer' ? 'viewer' : 'user')
+
+const openDetail = async row => {
+  detailCluster.value = row
+  detailTab.value = 'pods'
+  detailNs.value = ''
+  detailVisible.value = true
+  await loadDetail()
+}
+const loadDetail = async () => {
+  if (!detailCluster.value) return
+  const id = detailCluster.value.id
+  detailLoading.value = true
+  try {
+    const q = detailNs.value ? { namespace: detailNs.value } : {}
+    const reqs = {
+      pods: api.get(`/k8s/clusters/${id}/pods`, { params: q }),
+      deps: api.get(`/k8s/clusters/${id}/deployments`, { params: q }),
+      nodes: api.get(`/k8s/clusters/${id}/nodes`),
+      nss: api.get(`/k8s/clusters/${id}/namespaces`),
+    }
+    const [pods, deps, nodes, nss] = await Promise.all([reqs.pods, reqs.deps, reqs.nodes, reqs.nss])
+    detailPods.value = pods
+    detailDeps.value = deps
+    detailNodes.value = nodes
+    namespaces.value = nss
+  } finally { detailLoading.value = false }
+}
+watch(detailNs, () => loadDetail())
+
+const showLog = async row => {
+  const q = { namespace: row.namespace, pod: row.name }
+  const r = await api.get(`/k8s/clusters/${detailCluster.value.id}/podlog`, { params: q })
+  logTitle.value = `${row.namespace}/${row.name}`
+  logText.value = r.log || t('k8s.noLog')
+  logVisible.value = true
+}
+const deletePodAction = async row => {
+  await api.delete(`/k8s/clusters/${detailCluster.value.id}/pods/${row.namespace}/${row.name}`)
+  ElMessage.success(t('common.success'))
+  loadDetail()
+}
+
+const restartDeployment = async row => {
+  await api.post(`/k8s/clusters/${detailCluster.value.id}/deployments/${row.namespace}/${row.name}/restart`)
+  ElMessage.success(t('common.success'))
+  loadDetail()
 }
 
 // ---- 成员管理 ----

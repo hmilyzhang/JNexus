@@ -318,6 +318,21 @@ func K8sNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"cluster": cl.Name, "nodes": nodes})
 }
 
+// K8sNamespaces 命名空间列表
+func K8sNamespaces(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	ns, err := api.Namespaces()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, ns)
+}
+
 // K8sPods Pod 列表（?namespace=）
 func K8sPods(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
