@@ -203,3 +203,70 @@ func (k *K8sAPI) ClusterUsage() (*K8sClusterUsage, error) {
 	}
 	return u, nil
 }
+
+// k8sCreatePaths 可创建资源的集合路径（%s = namespace）
+var k8sCreatePaths = map[string]string{
+	"deployment":     "/apis/apps/v1/namespaces/%s/deployments",
+	"daemonset":      "/apis/apps/v1/namespaces/%s/daemonsets",
+	"statefulset":    "/apis/apps/v1/namespaces/%s/statefulsets",
+	"job":            "/apis/batch/v1/namespaces/%s/jobs",
+	"cronjob":        "/apis/batch/v1/namespaces/%s/cronjobs",
+	"service":        "/api/v1/namespaces/%s/services",
+	"ingress":        "/apis/networking.k8s.io/v1/namespaces/%s/ingresses",
+	"pvc":            "/api/v1/namespaces/%s/persistentvolumeclaims",
+	"configmap":      "/api/v1/namespaces/%s/configmaps",
+	"secret":         "/api/v1/namespaces/%s/secrets",
+	"serviceaccount": "/api/v1/namespaces/%s/serviceaccounts",
+}
+
+// DeleteResource 通用资源删除（拒绝集群级资源，避免误删 PV/节点等）
+func (k *K8sAPI) DeleteResource(kind, namespace, name string) error {
+	switch kind {
+	case "node", "pv", "storageclass":
+		return fmt.Errorf("集群级资源 %s 不允许通过此接口删除", kind)
+	}
+	tpl, ok := k8sYAMLPaths[kind]
+	if !ok {
+		return fmt.Errorf("不支持的资源类型: %s", kind)
+	}
+	if namespace == "" {
+		return fmt.Errorf("namespace 必填")
+	}
+	return k.do("DELETE", fmt.Sprintf(tpl, namespace, name), nil, nil)
+}
+
+// CreateResourceYAML 用 YAML 创建资源，返回创建的资源名
+func (k *K8sAPI) CreateResourceYAML(kind, defaultNS, yamlText string) (string, error) {
+	tpl, ok := k8sCreatePaths[kind]
+	if !ok {
+		return "", fmt.Errorf("不支持的资源类型: %s", kind)
+	}
+	var obj map[string]any
+	if err := yaml.Unmarshal([]byte(yamlText), &obj); err != nil {
+		return "", fmt.Errorf("YAML 解析失败: %w", err)
+	}
+	md, _ := obj["metadata"].(map[string]any)
+	if md == nil {
+		return "", fmt.Errorf("YAML 缺少 metadata")
+	}
+	name, _ := md["name"].(string)
+	if name == "" {
+		return "", fmt.Errorf("YAML 缺少 metadata.name")
+	}
+	ns, _ := md["namespace"].(string)
+	if ns == "" {
+		ns = defaultNS
+	}
+	if ns == "" {
+		ns = "default"
+	}
+	md["namespace"] = ns
+	body, err := json.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+	if err := k.do("POST", fmt.Sprintf(tpl, ns), body, nil); err != nil {
+		return "", err
+	}
+	return ns + "/" + name, nil
+}

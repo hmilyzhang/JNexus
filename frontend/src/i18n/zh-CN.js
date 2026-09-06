@@ -690,6 +690,11 @@ export default {
     podUsage: 'Pod 资源占用',
     used: '已用',
     yamlDownload: '下载 YAML',
+    yamlCreate: '创建（YAML）',
+    batchDelete: '删除选中',
+    exportCsv: '导出 CSV',
+    searchTip: '搜索名称/命名空间…',
+    batchDelConfirm: '确认删除选中的 {n} 项资源？',
     logFollow: '实时日志',
   },
   report: {

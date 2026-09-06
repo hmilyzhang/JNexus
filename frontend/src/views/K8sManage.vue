@@ -147,14 +147,22 @@
           <div class="km-toolbar">
             <h4 class="km-h4" style="margin:0">{{ sectionTitle }}</h4>
             <span style="flex:1"></span>
-            <template v-if="active === 'cronjobs' && canOp">
-              <el-button size="small" type="primary" @click="openCronDlg">{{ $t('k8s.cronAdd') }}</el-button>
+            <el-input v-model="search" size="small" clearable style="width:190px"
+                      :prefix-icon="SearchIcon" :placeholder="$t('k8s.searchTip')" />
+            <template v-if="canOp">
+              <el-button v-if="creatable.has(active)" size="small" type="primary" @click="openCreateYAML">
+                {{ $t('k8s.yamlCreate') }}
+              </el-button>
+              <el-button v-if="deletable.has(active)" size="small" type="danger" plain
+                         :disabled="!selectedRows.length" @click="batchDelete">
+                {{ $t('k8s.batchDelete') }}{{ selectedRows.length ? ` (${selectedRows.length})` : '' }}
+              </el-button>
             </template>
-            <template v-if="active === 'serviceaccounts' && canOp">
-              <el-button size="small" type="primary" @click="openSaDlg">{{ $t('k8s.saAdd') }}</el-button>
-            </template>
+            <el-button size="small" @click="exportCSV">{{ $t('k8s.exportCsv') }}</el-button>
           </div>
-          <el-table :data="rows" size="small" border v-loading="loading">
+          <el-table :data="filteredRows" size="small" border v-loading="loading"
+                    @selection-change="s => (selectedRows = s)" :row-key="r => (r.namespace || '') + '/' + r.name">
+            <el-table-column v-if="canOp && deletable.has(active)" type="selection" width="38" />
             <el-table-column v-for="col in cols" :key="col.prop" :min-width="col.w || 120" :align="col.align">
               <template #header><span v-if="col.headerHtml" v-html="col.headerHtml"></span><span v-else>{{ colLabel(col) }}</span></template>
               <template #default="{ row }">
@@ -220,6 +228,15 @@
       </template>
     </el-dialog>
 
+    <!-- YAML 创建 -->
+    <el-dialog v-model="createVisible" :title="`${$t('k8s.yamlCreate')} · ${createKind}`" width="780px" top="5vh">
+      <el-input v-model="createText" type="textarea" :rows="22" class="mono" spellcheck="false" />
+      <template #footer>
+        <el-button @click="createVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="createSaving" @click="submitCreate">{{ $t('common.save') }}</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 实时日志抽屉 -->
     <el-drawer v-model="followVisible" size="58%" destroy-on-close :title="followTitle">
       <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px">
@@ -275,7 +292,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Odometer, OfficeBuilding, Box, Connection, Setting, Coin, Key, Back, ShoppingBag } from '@element-plus/icons-vue'
+import { Odometer, OfficeBuilding, Box, Connection, Setting, Coin, Key, Back, ShoppingBag, Search as SearchIcon } from '@element-plus/icons-vue'
 import api from '../api'
 import i18n from '../i18n'
 import K8sShell from '../components/K8sShell.vue'
@@ -415,6 +432,228 @@ const opWidth = computed(() => (active.value === 'pods' ? 270 : active.value ===
 const delConfirmKey = computed(() => ({
   configmaps: 'monitor.configDelConfirm', secrets: 'monitor.configDelConfirm', serviceaccounts: 'k8s.podDelConfirm',
 }[active.value] || ''))
+
+// ---- 工具栏：全文搜索 / 批量选择 / 导出 ----
+const search = ref('')
+const selectedRows = ref([])
+const creatable = new Set(['deployments', 'daemonsets', 'statefulsets', 'jobs', 'cronjobs',
+  'services', 'ingresses', 'pvcs', 'configmaps', 'secrets', 'serviceaccounts'])
+const deletable = new Set(['pods', 'deployments', 'daemonsets', 'statefulsets', 'jobs', 'cronjobs',
+  'services', 'ingresses', 'configmaps', 'secrets', 'pvcs', 'serviceaccounts'])
+const filteredRows = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return rows.value
+  return rows.value.filter(r => Object.values(r).some(v => v != null && String(v).toLowerCase().includes(q)))
+})
+
+const exportCSV = () => {
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const lines = [cols.value.map(c => esc(colLabel(c))).join(',')]
+  for (const r of filteredRows.value) {
+    lines.push(cols.value.map(c => esc(c.text ? c.text(r) : r[c.prop])).join(','))
+  }
+  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `${cluster.value?.name || 'cluster'}-${active.value}.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
+const batchDelete = async () => {
+  try {
+    await ElMessageBox.confirm(t('k8s.batchDelConfirm', { n: selectedRows.value.length }), t('k8s.batchDelete'), { type: 'warning' })
+  } catch { return }
+  for (const r of selectedRows.value) {
+    try {
+      await api.post(`${P}/delete`, { kind: kindOf[active.value], namespace: r.namespace || '', name: r.name })
+    } catch { /* 单个失败继续其余 */ }
+  }
+  ElMessage.success(t('common.success'))
+  selectedRows.value = []
+  load()
+}
+
+// ---- YAML 创建 ----
+const createVisible = ref(false)
+const createKind = ref('')
+const createText = ref('')
+const createSaving = ref(false)
+const yamlTpl = (kind, ns) => `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-app
+  namespace: ${ns || 'default'}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example-app
+  template:
+    metadata:
+      labels:
+        app: example-app
+    spec:
+      containers:
+        - name: example-app
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+`
+const YAML_TEMPLATES = {
+  deployments: yamlTpl,
+  daemonsets: ns => `apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: example-agent
+  namespace: ${ns || 'default'}
+spec:
+  selector:
+    matchLabels:
+      app: example-agent
+  template:
+    metadata:
+      labels:
+        app: example-agent
+    spec:
+      containers:
+        - name: example-agent
+          image: busybox:1.36
+          command: ["sleep", "3600"]
+`,
+  statefulsets: ns => `apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: example-db
+  namespace: ${ns || 'default'}
+spec:
+  serviceName: example-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example-db
+  template:
+    metadata:
+      labels:
+        app: example-db
+    spec:
+      containers:
+        - name: example-db
+          image: busybox:1.36
+          command: ["sleep", "3600"]
+`,
+  jobs: ns => `apiVersion: batch/v1
+kind: Job
+metadata:
+  name: example-job
+  namespace: ${ns || 'default'}
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: example-job
+          image: busybox:1.36
+          command: ["echo", "hello"]
+`,
+  cronjobs: ns => `apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: example-cron
+  namespace: ${ns || 'default'}
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: example-cron
+              image: busybox:1.36
+              command: ["echo", "hello"]
+`,
+  services: ns => `apiVersion: v1
+kind: Service
+metadata:
+  name: example-svc
+  namespace: ${ns || 'default'}
+spec:
+  type: ClusterIP
+  selector:
+    app: example-app
+  ports:
+    - port: 80
+      targetPort: 8080
+`,
+  ingresses: ns => `apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-ing
+  namespace: ${ns || 'default'}
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: example-svc
+                port:
+                  number: 80
+`,
+  pvcs: ns => `apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: example-pvc
+  namespace: ${ns || 'default'}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+`,
+  configmaps: ns => `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-cm
+  namespace: ${ns || 'default'}
+data:
+  key1: value1
+`,
+  secrets: ns => `apiVersion: v1
+kind: Secret
+metadata:
+  name: example-secret
+  namespace: ${ns || 'default'}
+type: Opaque
+stringData:
+  username: admin
+`,
+  serviceaccounts: ns => `apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: example-sa
+  namespace: ${ns || 'default'}
+`,
+}
+const openCreateYAML = () => {
+  createKind.value = active.value
+  createText.value = YAML_TEMPLATES[active.value](ns.value)
+  createVisible.value = true
+}
+const submitCreate = async () => {
+  createSaving.value = true
+  try {
+    await api.post(`${P}/yaml`, { kind: kindOf[active.value], namespace: ns.value || '', yaml: createText.value })
+    ElMessage.success(t('common.success'))
+    createVisible.value = false
+    load()
+  } finally { createSaving.value = false }
+}
 
 // ---- 集群资源概况 ----
 const usagePercent = computed(() => {

@@ -690,6 +690,11 @@ export default {
     podUsage: 'Pod Resource Usage',
     used: 'used',
     yamlDownload: 'Download YAML',
+    yamlCreate: 'Create (YAML)',
+    batchDelete: 'Delete selected',
+    exportCsv: 'Export CSV',
+    searchTip: 'Search name/namespace…',
+    batchDelConfirm: 'Delete {n} selected resources?',
     logFollow: 'Live Logs',
   },
   report: {
@@ -830,6 +835,6 @@ export default {
     rolePublisher: 'Exec & release (grants required)',
     roleAuditor: 'View tasks and audit logs',
     roleViewer: 'Read-only',
-    roleK8s: 'K8S cluster ops (Pods/CronJobs/ServiceAccounts)'
+    roleK8s: 'K8S cluster ops (Pods/CronJobs/ServiceAccounts)',
   }
 }

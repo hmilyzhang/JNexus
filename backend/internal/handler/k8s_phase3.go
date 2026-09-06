@@ -93,6 +93,64 @@ func K8sClusterUsage(c *gin.Context) {
 	c.JSON(http.StatusOK, u)
 }
 
+
+// K8sCreateYAML 用 YAML 创建资源（user 及以上，留痕）
+func K8sCreateYAML(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req struct {
+		Kind      string `json:"kind"`
+		Namespace string `json:"namespace"`
+		YAML      string `json:"yaml"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Kind == "" || req.YAML == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "kind/yaml 必填"})
+		return
+	}
+	cl, api, _, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	created, err := api.CreateResourceYAML(req.Kind, req.Namespace, req.YAML)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: "CREATE YAML " + req.Kind + " " + created + " @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true, "created": created})
+}
+
+// K8sDeleteResource 通用资源删除（user 及以上，留痕；集群级资源拒绝）
+func K8sDeleteResource(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req struct {
+		Kind      string `json:"kind"`
+		Namespace string `json:"namespace"`
+		Name      string `json:"name"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Kind == "" || req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "kind/name 必填"})
+		return
+	}
+	cl, api, _, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	if err := api.DeleteResource(req.Kind, req.Namespace, req.Name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: "DELETE " + req.Kind + " " + req.Namespace + "/" + req.Name + " @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 // K8sLogWS GET /api/ws/k8s/logs/:clusterId?namespace=&pod=&container=&tail=&token=
 // Pod 日志实时跟随：集群 API(follow=true) 流式中继到浏览器 WS（viewer 即可）
 func K8sLogWS(c *gin.Context) {
