@@ -502,13 +502,13 @@ const load = async () => {
   loading.value = true
   try {
     if (active.value === 'overview') {
-      const [r, usage] = await Promise.all([
+      const [r, usageData] = await Promise.all([
         api.get(`${P}/summary`),
         api.get(`${P}/usage`).catch(() => null),
       ])
       summary.value = r.summary
-      usage.value = usage
-      usagePods.value = (usage?.pods || []).slice().sort((a, b) => b.cpu_m - a.cpu_m)
+      usage.value = usageData
+      usagePods.value = (usageData?.pods || []).slice().sort((a, b) => b.cpu_m - a.cpu_m)
       events.value = await api.get(`${P}/events`)
     } else {
       rows.value = await loaders[active.value]()
