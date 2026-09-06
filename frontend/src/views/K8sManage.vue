@@ -230,7 +230,7 @@ const loading = ref(false)
 const fmtTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 const roleText = r => ({ admin: t('k8s.roleAdmin'), user: t('k8s.roleUser'), viewer: t('k8s.roleViewer') }[r] || '-')
 const canOp = computed(() => !!cluster.value && cluster.value.my_role !== 'viewer')
-const namespacedActive = !['nodes', 'pvs', 'storageclasses', 'overview'].includes(active.value)
+const namespacedActive = computed(() => !['nodes', 'pvs', 'storageclasses', 'overview'].includes(active.value))
 const nsParams = () => (ns.value ? { params: { namespace: ns.value } } : {})
 
 // ---- 各区块表格列定义（label 为 i18n key 或字面量） ----
