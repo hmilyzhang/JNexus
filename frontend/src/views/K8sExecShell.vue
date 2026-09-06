@@ -10,7 +10,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, reactive } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
@@ -18,7 +18,7 @@ import '@xterm/xterm/css/xterm.css'
 
 const route = useRoute()
 const pod = reactive({
-  cluster: route.query.cluster || '', namespace: route.query.namespace || '',
+  cluster: route.query.clusterId || '', namespace: route.query.namespace || '',
   name: route.query.pod || '', container: route.query.container || '',
 })
 const termEl = ref(null)
