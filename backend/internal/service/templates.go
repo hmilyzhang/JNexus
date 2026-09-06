@@ -4,7 +4,7 @@ package service
 import (
 	"encoding/json"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // 全局默认通知模板（占位符渲染；通道级 title_tpl/body_tpl 优先级更高）。

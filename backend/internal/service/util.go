@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/sftp"
 	gossh "golang.org/x/crypto/ssh"
 
-	"autoops/internal/config"
+	"jnexus/internal/config"
 )
 
 var httpTimeoutClient = &http.Client{Timeout: 10 * time.Second}

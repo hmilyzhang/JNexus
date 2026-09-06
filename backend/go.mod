@@ -1,4 +1,4 @@
-module autoops
+module jnexus
 
 go 1.25
 

@@ -14,8 +14,8 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
 )
 
 // ClientFor 根据主机记录建立 SSH 连接（使用主机默认凭据；无凭据时回退主机自带账号）

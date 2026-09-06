@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
 )
 
 // JWT 解析 token 并把用户信息写入 context

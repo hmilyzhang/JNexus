@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	qrcode "github.com/skip2/go-qrcode"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
 )
 
 // MFAStatus 当前账号 MFA 状态

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"autoops/internal/model"
-	"autoops/internal/sshpool"
-	"autoops/internal/ws"
+	"jnexus/internal/model"
+	"jnexus/internal/sshpool"
+	"jnexus/internal/ws"
 )
 
 // CreateReleaseRequest 创建发布单

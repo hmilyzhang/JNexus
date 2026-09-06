@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // CMD 资源（CPU/内存/磁盘）P1-P4 分级阈值告警：

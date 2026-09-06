@@ -1,5 +1,5 @@
 # JNexus 配置示例。复制为 config.yaml 后修改。
-# 生成主密钥: 运行 `autoops-server -genkey` 或使用 README 中的命令
+# 生成主密钥: 运行 `jnexus-server -genkey` 或使用 README 中的命令
 
 server:
   port: 8080
@@ -7,7 +7,7 @@ server:
 
 database:
   # 外部 PostgreSQL
-  dsn: "host=127.0.0.1 port=5432 user=autoops password=autoops123 dbname=autoops sslmode=disable"
+  dsn: "host=127.0.0.1 port=5432 user=jnexus password=jnexus123 dbname=jnexus sslmode=disable"
 
 auth:
   jwt_secret: "change-me-to-a-long-random-string"
@@ -18,7 +18,7 @@ auth:
 storage:
   upload_dir: "./uploads"
 
-# 环境变量可覆盖以上配置（优先级：AUTOOPS_DSN > AUTOOPS_DB_* > 本文件）：
-#   AUTOOPS_DSN / AUTOOPS_DB_HOST / AUTOOPS_DB_PORT / AUTOOPS_DB_USER /
-#   AUTOOPS_DB_PASSWORD / AUTOOPS_DB_NAME / AUTOOPS_JWT_SECRET / AUTOOPS_AES_KEY
+# 环境变量可覆盖以上配置（优先级：JNEXUS_DSN > JNEXUS_DB_* > 本文件）：
+#   JNEXUS_DSN / JNEXUS_DB_HOST / JNEXUS_DB_PORT / JNEXUS_DB_USER /
+#   JNEXUS_DB_PASSWORD / JNEXUS_DB_NAME / JNEXUS_JWT_SECRET / JNEXUS_AES_KEY
 # Docker 外部数据库部署见 deploy/docker-compose.external.yml

@@ -8,7 +8,7 @@ import (
 
 	cronlib "github.com/robfig/cron/v3"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // ValidateCronExpr 校验 cron 表达式（5 段标准格式）

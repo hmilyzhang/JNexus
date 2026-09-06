@@ -10,9 +10,9 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
-	"autoops/internal/ws"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
+	"jnexus/internal/ws"
 )
 
 // BatchCredRequest 批量为存量主机添加 OS 账号

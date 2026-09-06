@@ -4,7 +4,7 @@ package service
 import (
 	"fmt"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // UsableCredentials 用户在某主机上可用的 OS 账号列表：

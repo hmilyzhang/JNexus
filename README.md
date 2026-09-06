@@ -43,8 +43,8 @@ Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 Any external PostgreSQL works, e.g. via Docker:
 
 ```bash
-docker run -d --name autoops-pg -e POSTGRES_USER=autoops -e POSTGRES_PASSWORD=autoops123 \
-  -e POSTGRES_DB=autoops -p 5432:5432 postgres:16-alpine
+docker run -d --name jnexus-pg -e POSTGRES_USER=jnexus -e POSTGRES_PASSWORD=jnexus123 \
+  -e POSTGRES_DB=jnexus -p 5432:5432 postgres:16-alpine
 ```
 
 ### 2. Configure the backend
@@ -53,7 +53,7 @@ docker run -d --name autoops-pg -e POSTGRES_USER=autoops -e POSTGRES_PASSWORD=au
 cd backend
 cp config.example.yaml config.yaml
 # Generate the AES master key (encrypts SSH keys at rest)
-./autoops-server -genkey   # or: openssl rand -base64 32
+./jnexus-server -genkey   # or: openssl rand -base64 32
 # Edit config.yaml: dsn / jwt_secret / aes_key
 ```
 
@@ -61,7 +61,7 @@ cp config.example.yaml config.yaml
 
 ```bash
 # Build & start (auto-creates all tables + seed data)
-cd backend && go build -o autoops-server ./cmd/server && ./autoops-server -config config.yaml
+cd backend && go build -o jnexus-server ./cmd/server && ./jnexus-server -config config.yaml
 
 # Or dev mode with hot frontend
 cd frontend && npm install && npm run dev   # http://localhost:5173 proxies to :8080
@@ -73,30 +73,30 @@ Open http://localhost:8080 — the built frontend (`frontend/dist`) is served by
 
 ### 4. Production (Docker Compose)
 
-Bundled database (JWT/AES keys are auto-generated on first start and persisted in the `data` volume; set `AUTOOPS_JWT_SECRET` / `AUTOOPS_AES_KEY` env vars to override):
+Bundled database (JWT/AES keys are auto-generated on first start and persisted in the `data` volume; set `JNEXUS_JWT_SECRET` / `JNEXUS_AES_KEY` env vars to override):
 
 ```bash
 cd deploy
 # version is baked at build time (the container has no .git)
-export AUTOOPS_VERSION="1.$(git rev-list --count HEAD)"
+export JNEXUS_VERSION="1.$(git rev-list --count HEAD)"
 docker compose up -d --build
 ```
 
 External PostgreSQL — tables are created automatically on startup (only the database itself must exist):
 
 ```bash
-export AUTOOPS_DB_HOST=10.3.0.100
-export AUTOOPS_DB_PORT=5432
-export AUTOOPS_DB_USER=autoops
-export AUTOOPS_DB_PASSWORD=yourpass
-export AUTOOPS_DB_NAME=autoops        # CREATE DATABASE first
-export AUTOOPS_VERSION="1.$(git rev-list --count HEAD)"   # bake version into the image
+export JNEXUS_DB_HOST=10.3.0.100
+export JNEXUS_DB_PORT=5432
+export JNEXUS_DB_USER=jnexus
+export JNEXUS_DB_PASSWORD=yourpass
+export JNEXUS_DB_NAME=jnexus        # CREATE DATABASE first
+export JNEXUS_VERSION="1.$(git rev-list --count HEAD)"   # bake version into the image
 docker compose -f docker-compose.external.yml up -d --build
 # JWT/AES keys are auto-generated and persisted in the `data` volume;
-# set AUTOOPS_JWT_SECRET / AUTOOPS_AES_KEY to override.
+# set JNEXUS_JWT_SECRET / JNEXUS_AES_KEY to override.
 ```
 
-Env precedence: `AUTOOPS_DSN` > `AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME` > `config.yaml` (same for the plain binary).
+Env precedence: `JNEXUS_DSN` > `JNEXUS_DB_HOST/PORT/USER/PASSWORD/NAME` > `config.yaml` (same for the plain binary).
 
 ## Usage Guide
 

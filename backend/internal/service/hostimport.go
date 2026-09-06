@@ -11,8 +11,8 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
 )
 
 // GenerateKeyPairRaw 生成密钥对并落库，返回（可安装公钥行、密钥记录）

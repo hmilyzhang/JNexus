@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // 告警通知通道分发：邮件 / Webhook / 企业微信 / 钉钉 / 飞书 / Telegram（参考 Uptime Kuma）

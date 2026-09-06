@@ -12,8 +12,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"autoops/internal/model"
-	"autoops/internal/service"
+	"jnexus/internal/model"
+	"jnexus/internal/service"
 )
 
 // ---- 用户管理 ----

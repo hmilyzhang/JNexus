@@ -6,10 +6,10 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
-const platformKeyName = "autoops-platform"
+const platformKeyName = "jnexus-platform"
 
 // EnsurePlatformKey 平台配对密钥（全局唯一、惰性创建）。
 // 所有自动配对共用此密钥：系统配置可查看其公钥，管理员亦可手动预装到目标机。
@@ -18,7 +18,7 @@ func EnsurePlatformKey() (*model.SSHKey, error) {
 	if err := model.DB.Where("name = ?", platformKeyName).First(&k).Error; err == nil {
 		return &k, nil
 	}
-	if _, err := GenerateAndStoreKeyPair(platformKeyName, "autoops-platform"); err != nil {
+	if _, err := GenerateAndStoreKeyPair(platformKeyName, "jnexus-platform"); err != nil {
 		return nil, err
 	}
 	// 并发下重名则取已有记录

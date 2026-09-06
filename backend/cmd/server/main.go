@@ -10,10 +10,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/config"
-	"autoops/internal/handler"
-	"autoops/internal/model"
-	"autoops/internal/service"
+	"jnexus/internal/config"
+	"jnexus/internal/handler"
+	"jnexus/internal/model"
+	"jnexus/internal/service"
 )
 
 func main() {

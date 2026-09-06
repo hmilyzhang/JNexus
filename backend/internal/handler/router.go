@@ -10,10 +10,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/config"
-	"autoops/internal/middleware"
-	"autoops/internal/model"
-	"autoops/internal/ws"
+	"jnexus/internal/config"
+	"jnexus/internal/middleware"
+	"jnexus/internal/model"
+	"jnexus/internal/ws"
 )
 
 func SetupRouter() *gin.Engine {

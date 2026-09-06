@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/buildinfo"
-	"autoops/internal/model"
-	"autoops/internal/service"
+	"jnexus/internal/buildinfo"
+	"jnexus/internal/model"
+	"jnexus/internal/service"
 )
 
 // 系统配置键

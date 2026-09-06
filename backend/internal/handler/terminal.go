@@ -12,10 +12,10 @@ import (
 	"github.com/gorilla/websocket"
 	gossh "golang.org/x/crypto/ssh"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
-	"autoops/internal/service"
-	"autoops/internal/sshpool"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
+	"jnexus/internal/service"
+	"jnexus/internal/sshpool"
 )
 
 // compileCheck 校验正则合法性

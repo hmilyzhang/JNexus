@@ -2,8 +2,8 @@
 package service
 
 import (
-	"autoops/internal/model"
-	"autoops/internal/pkg"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"

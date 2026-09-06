@@ -10,8 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/model"
-	"autoops/internal/service"
+	"jnexus/internal/model"
+	"jnexus/internal/service"
 )
 
 type monitorReq struct {

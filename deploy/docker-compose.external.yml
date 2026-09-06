@@ -2,36 +2,36 @@
 #
 # 用法：
 #   1. 先在外部 PostgreSQL 上创建数据库（表不用建，程序自动迁移）：
-#        CREATE DATABASE autoops;
-#        CREATE USER autoops WITH PASSWORD 'yourpass';
-#        GRANT ALL PRIVILEGES ON DATABASE autoops TO autoops;
+#        CREATE DATABASE jnexus;
+#        CREATE USER jnexus WITH PASSWORD 'yourpass';
+#        GRANT ALL PRIVILEGES ON DATABASE jnexus TO jnexus;
 #   2. 设置环境变量后启动：
-#        export AUTOOPS_DB_HOST=10.3.0.100
-#        export AUTOOPS_DB_PORT=5432
-#        export AUTOOPS_DB_USER=autoops
-#        export AUTOOPS_DB_PASSWORD=yourpass
-#        export AUTOOPS_DB_NAME=autoops
-#        export AUTOOPS_JWT_SECRET=<随机长字符串>
-#        export AUTOOPS_AES_KEY=<openssl rand -base64 32 生成>
+#        export JNEXUS_DB_HOST=10.3.0.100
+#        export JNEXUS_DB_PORT=5432
+#        export JNEXUS_DB_USER=jnexus
+#        export JNEXUS_DB_PASSWORD=yourpass
+#        export JNEXUS_DB_NAME=jnexus
+#        export JNEXUS_JWT_SECRET=<随机长字符串>
+#        export JNEXUS_AES_KEY=<openssl rand -base64 32 生成>
 #        docker compose -f docker-compose.external.yml up -d --build
 services:
-  autoops:
+  jnexus:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
       args:
-        # 构建前 export AUTOOPS_VERSION="1.$(git rev-list --count HEAD)" 可注入版本号
-        APP_VERSION: ${AUTOOPS_VERSION:-}
-    container_name: autoops-server
+        # 构建前 export JNEXUS_VERSION="1.$(git rev-list --count HEAD)" 可注入版本号
+        APP_VERSION: ${JNEXUS_VERSION:-}
+    container_name: jnexus-server
     environment:
-      AUTOOPS_DB_HOST: ${AUTOOPS_DB_HOST:?请设置外部数据库地址}
-      AUTOOPS_DB_PORT: ${AUTOOPS_DB_PORT:-5432}
-      AUTOOPS_DB_USER: ${AUTOOPS_DB_USER:?请设置数据库用户}
-      AUTOOPS_DB_PASSWORD: ${AUTOOPS_DB_PASSWORD:?请设置数据库密码}
-      AUTOOPS_DB_NAME: ${AUTOOPS_DB_NAME:-autoops}
+      JNEXUS_DB_HOST: ${JNEXUS_DB_HOST:?请设置外部数据库地址}
+      JNEXUS_DB_PORT: ${JNEXUS_DB_PORT:-5432}
+      JNEXUS_DB_USER: ${JNEXUS_DB_USER:?请设置数据库用户}
+      JNEXUS_DB_PASSWORD: ${JNEXUS_DB_PASSWORD:?请设置数据库密码}
+      JNEXUS_DB_NAME: ${JNEXUS_DB_NAME:-jnexus}
       # JWT/AES 密钥：不设置时由容器入口首次启动自动生成并持久化到 data 卷
-      AUTOOPS_JWT_SECRET: ${AUTOOPS_JWT_SECRET:-}
-      AUTOOPS_AES_KEY: ${AUTOOPS_AES_KEY:-}
+      JNEXUS_JWT_SECRET: ${JNEXUS_JWT_SECRET:-}
+      JNEXUS_AES_KEY: ${JNEXUS_AES_KEY:-}
     ports:
       - "8080:8080"
     volumes:

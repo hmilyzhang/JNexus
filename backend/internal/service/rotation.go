@@ -11,8 +11,8 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
 )
 
 // chpasswd 安全字符集：不含单引号/反斜杠/$ 等 shell 敏感字符

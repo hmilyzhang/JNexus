@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // K8S 资源管理与日志：通过已存凭据代理调用集群 API

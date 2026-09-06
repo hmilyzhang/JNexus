@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/model"
-	"autoops/internal/service"
+	"jnexus/internal/model"
+	"jnexus/internal/service"
 )
 
 func ListApps(c *gin.Context) {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"autoops/internal/config"
+	"jnexus/internal/config"
 )
 
 type Claims struct {

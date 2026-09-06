@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // API 密钥：外部系统集成用。完整密钥仅创建时返回一次，服务端只保存 SHA-256 哈希。

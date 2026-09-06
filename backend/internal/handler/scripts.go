@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 func ListScripts(c *gin.Context) {

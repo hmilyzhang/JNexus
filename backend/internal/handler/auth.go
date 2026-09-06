@@ -11,9 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
-	"autoops/internal/service"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
+	"jnexus/internal/service"
 )
 
 type loginReq struct {

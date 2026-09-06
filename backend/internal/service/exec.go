@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"autoops/internal/model"
-	"autoops/internal/sshpool"
-	"autoops/internal/ws"
+	"jnexus/internal/model"
+	"jnexus/internal/sshpool"
+	"jnexus/internal/ws"
 )
 
 const maxOutputSize = 512 * 1024 // 单主机输出上限 512KB

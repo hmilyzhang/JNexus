@@ -45,8 +45,8 @@
 任意外部 PG 均可，例如 Docker 起一个：
 
 ```bash
-docker run -d --name autoops-pg -e POSTGRES_USER=autoops -e POSTGRES_PASSWORD=autoops123 \
-  -e POSTGRES_DB=autoops -p 5432:5432 postgres:16-alpine
+docker run -d --name jnexus-pg -e POSTGRES_USER=jnexus -e POSTGRES_PASSWORD=jnexus123 \
+  -e POSTGRES_DB=jnexus -p 5432:5432 postgres:16-alpine
 ```
 
 ### 2. 配置后端
@@ -55,7 +55,7 @@ docker run -d --name autoops-pg -e POSTGRES_USER=autoops -e POSTGRES_PASSWORD=au
 cd backend
 cp config.example.yaml config.yaml
 # 生成 AES 主密钥（用于加密落库的 SSH 私钥）
-./autoops-server -genkey   # 或 openssl rand -base64 32
+./jnexus-server -genkey   # 或 openssl rand -base64 32
 # 编辑 config.yaml：填入 dsn / jwt_secret / aes_key
 ```
 
@@ -63,7 +63,7 @@ cp config.example.yaml config.yaml
 
 ```bash
 # 编译启动（自动建全部表 + 种子数据）
-cd backend && go build -o autoops-server ./cmd/server && ./autoops-server -config config.yaml
+cd backend && go build -o jnexus-server ./cmd/server && ./jnexus-server -config config.yaml
 
 # 前端开发联调
 cd frontend && npm install && npm run dev   # http://localhost:5173 代理到 8080
@@ -75,29 +75,29 @@ cd frontend && npm install && npm run dev   # http://localhost:5173 代理到 80
 
 ### 4. 生产部署（Docker Compose）
 
-捆绑数据库（JWT/AES 密钥首次启动自动生成并持久化在 `data` 卷；如需指定，设置 `AUTOOPS_JWT_SECRET` / `AUTOOPS_AES_KEY` 环境变量覆盖）：
+捆绑数据库（JWT/AES 密钥首次启动自动生成并持久化在 `data` 卷；如需指定，设置 `JNEXUS_JWT_SECRET` / `JNEXUS_AES_KEY` 环境变量覆盖）：
 
 ```bash
 cd deploy
 # 版本号在构建时注入（容器内没有 .git）
-export AUTOOPS_VERSION="1.$(git rev-list --count HEAD)"
+export JNEXUS_VERSION="1.$(git rev-list --count HEAD)"
 docker compose up -d --build
 ```
 
 外部 PostgreSQL——启动时自动创建全部表结构（仅需预先建库）：
 
 ```bash
-export AUTOOPS_DB_HOST=10.3.0.100
-export AUTOOPS_DB_PORT=5432
-export AUTOOPS_DB_USER=autoops
-export AUTOOPS_DB_PASSWORD=yourpass
-export AUTOOPS_DB_NAME=autoops        # 需先 CREATE DATABASE
-export AUTOOPS_VERSION="1.$(git rev-list --count HEAD)"   # 构建时注入版本号
+export JNEXUS_DB_HOST=10.3.0.100
+export JNEXUS_DB_PORT=5432
+export JNEXUS_DB_USER=jnexus
+export JNEXUS_DB_PASSWORD=yourpass
+export JNEXUS_DB_NAME=jnexus        # 需先 CREATE DATABASE
+export JNEXUS_VERSION="1.$(git rev-list --count HEAD)"   # 构建时注入版本号
 docker compose -f docker-compose.external.yml up -d --build
-# JWT/AES 密钥自动生成并持久化在 `data` 卷；如需指定，设置 AUTOOPS_JWT_SECRET / AUTOOPS_AES_KEY 覆盖
+# JWT/AES 密钥自动生成并持久化在 `data` 卷；如需指定，设置 JNEXUS_JWT_SECRET / JNEXUS_AES_KEY 覆盖
 ```
 
-优先级：`AUTOOPS_DSN` > `AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME` > `config.yaml`（本地二进制同样支持）。
+优先级：`JNEXUS_DSN` > `JNEXUS_DB_HOST/PORT/USER/PASSWORD/NAME` > `config.yaml`（本地二进制同样支持）。
 
 ## 使用说明
 

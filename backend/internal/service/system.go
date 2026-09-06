@@ -10,7 +10,7 @@ import (
 
 	goldap "github.com/go-ldap/ldap/v3"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 const ldapTimeout = 10 * time.Second

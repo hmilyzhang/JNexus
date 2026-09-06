@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/service"
+	"jnexus/internal/service"
 )
 
 // RequireCredPerm 校验 OS 账号管理权限（角色设置可配；admin 恒通过）

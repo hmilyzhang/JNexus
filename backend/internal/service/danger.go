@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"sync"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 var (

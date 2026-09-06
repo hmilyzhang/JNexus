@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/service"
+	"jnexus/internal/service"
 )
 
 // StartExec 批量执行命令

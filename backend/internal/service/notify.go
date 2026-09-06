@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // NotifyTaskFinished 任务结束后按 SMTP 配置发送结果邮件（异步、失败静默）

@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // ExportTask 任务输出汇总导出：?format=log（汇总日志）| csv（表格）

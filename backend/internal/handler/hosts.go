@@ -11,9 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
-	"autoops/internal/service"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
+	"jnexus/internal/service"
 )
 
 // ---- 主机分组 ----

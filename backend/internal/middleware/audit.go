@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 type bodyWriter struct {

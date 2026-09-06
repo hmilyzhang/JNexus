@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	"autoops/internal/config"
+	"jnexus/internal/config"
 )
 
 // Encrypt 用主密钥 AES-GCM 加密，返回 base64

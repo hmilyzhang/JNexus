@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // ---- 用户组管理 ----

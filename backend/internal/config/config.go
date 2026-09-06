@@ -34,7 +34,7 @@ func Load(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		// 容器部署可不带配置文件：环境变量提供数据库连接即可启动
-		if os.IsNotExist(err) && (os.Getenv("AUTOOPS_DSN") != "" || os.Getenv("AUTOOPS_DB_HOST") != "") {
+		if os.IsNotExist(err) && (os.Getenv("JNEXUS_DSN") != "" || os.Getenv("JNEXUS_DB_HOST") != "") {
 			data = nil
 		} else {
 			return fmt.Errorf("读取配置文件失败: %w", err)
@@ -46,30 +46,30 @@ func Load(path string) error {
 		}
 	}
 	// 环境变量覆盖
-	if v := os.Getenv("AUTOOPS_DSN"); v != "" {
+	if v := os.Getenv("JNEXUS_DSN"); v != "" {
 		Cfg.Database.DSN = v
 	}
-	// 外部数据库分项配置：AUTOOPS_DB_HOST/PORT/USER/PASSWORD/NAME
-	// 设置了 AUTOOPS_DB_HOST 且未显式给 DSN 时，自动拼装 DSN
-	if Cfg.Database.DSN == "" && os.Getenv("AUTOOPS_DB_HOST") != "" {
-		host := os.Getenv("AUTOOPS_DB_HOST")
-		port := os.Getenv("AUTOOPS_DB_PORT")
-		user := os.Getenv("AUTOOPS_DB_USER")
-		pass := os.Getenv("AUTOOPS_DB_PASSWORD")
-		name := os.Getenv("AUTOOPS_DB_NAME")
+	// 外部数据库分项配置：JNEXUS_DB_HOST/PORT/USER/PASSWORD/NAME
+	// 设置了 JNEXUS_DB_HOST 且未显式给 DSN 时，自动拼装 DSN
+	if Cfg.Database.DSN == "" && os.Getenv("JNEXUS_DB_HOST") != "" {
+		host := os.Getenv("JNEXUS_DB_HOST")
+		port := os.Getenv("JNEXUS_DB_PORT")
+		user := os.Getenv("JNEXUS_DB_USER")
+		pass := os.Getenv("JNEXUS_DB_PASSWORD")
+		name := os.Getenv("JNEXUS_DB_NAME")
 		if port == "" {
 			port = "5432"
 		}
 		if name == "" {
-			name = "autoops"
+			name = "jnexus"
 		}
 		Cfg.Database.DSN = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 			host, port, user, pass, name)
 	}
-	if v := os.Getenv("AUTOOPS_JWT_SECRET"); v != "" {
+	if v := os.Getenv("JNEXUS_JWT_SECRET"); v != "" {
 		Cfg.Auth.JWTSecret = v
 	}
-	if v := os.Getenv("AUTOOPS_AES_KEY"); v != "" {
+	if v := os.Getenv("JNEXUS_AES_KEY"); v != "" {
 		Cfg.Auth.AESKey = v
 	}
 	if Cfg.Server.Port == 0 {

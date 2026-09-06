@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/middleware"
-	"autoops/internal/model"
-	"autoops/internal/service"
+	"jnexus/internal/middleware"
+	"jnexus/internal/model"
+	"jnexus/internal/service"
 )
 
 // 外部集成 API（/api/ext/*）：仅接受 API 密钥，以密钥属主用户身份执行，

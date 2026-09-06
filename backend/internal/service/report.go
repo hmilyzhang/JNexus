@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"autoops/internal/model"
-	"autoops/internal/sshpool"
+	"jnexus/internal/model"
+	"jnexus/internal/sshpool"
 )
 
 // 预设报告模板（命令为 POSIX sh，采集失败段落不影响其余输出）

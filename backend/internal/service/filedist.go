@@ -14,9 +14,9 @@ import (
 	"github.com/pkg/sftp"
 	gossh "golang.org/x/crypto/ssh"
 
-	"autoops/internal/model"
-	"autoops/internal/sshpool"
-	"autoops/internal/ws"
+	"jnexus/internal/model"
+	"jnexus/internal/sshpool"
+	"jnexus/internal/ws"
 )
 
 // DistributeRequest 批量分发请求

@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
-	"autoops/internal/pkg"
+	"jnexus/internal/pkg"
 )
 
 var upgrader = websocket.Upgrader{

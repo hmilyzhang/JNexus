@@ -2,7 +2,7 @@
 package service
 
 import (
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // GroupAndDescendants 返回指定分组及其全部后代分组的 ID（含自身）

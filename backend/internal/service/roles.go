@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // RolePerm 角色可配置权限：描述 + 可见菜单 + 主机细粒度权限 + OS 账号管理

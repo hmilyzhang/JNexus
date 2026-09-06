@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"autoops/internal/model"
-	"autoops/internal/sshpool"
+	"jnexus/internal/model"
+	"jnexus/internal/sshpool"
 )
 
 // 监控组件：应用监控（HTTP/TCP/Ping，Uptime Kuma 风格）+ 主机基础资源（CPU/内存/磁盘）

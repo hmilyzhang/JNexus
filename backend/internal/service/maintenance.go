@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // 全局维护窗口：窗口内的 downtime 不计入可用率、不触发告警。

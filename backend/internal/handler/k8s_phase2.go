@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/model"
+	"jnexus/internal/model"
 )
 
 // K8S 二期能力接口：YAML 查看 / Deployment 伸缩 / 资源使用率 / Helm 发布视图

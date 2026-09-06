@@ -9,13 +9,13 @@ import (
 	"sync"
 )
 
-// 动态版本号：优先级 ldflags 注入 > AUTOOPS_VERSION 环境变量 >
+// 动态版本号：优先级 ldflags 注入 > JNEXUS_VERSION 环境变量 >
 // git 提交次数（每次代码提交小版本自动 +1，如 1.88+ccab716）> VERSION 文件 > 1.0
 
 var (
 	once     sync.Once
 	cached   string
-	// Version 可在构建时通过 -ldflags "-X autoops/internal/buildinfo.Version=..." 覆盖
+	// Version 可在构建时通过 -ldflags "-X jnexus/internal/buildinfo.Version=..." 覆盖
 	Version string
 )
 
@@ -29,7 +29,7 @@ func compute() string {
 	if Version != "" {
 		return Version
 	}
-	if v := os.Getenv("AUTOOPS_VERSION"); v != "" {
+	if v := os.Getenv("JNEXUS_VERSION"); v != "" {
 		return v
 	}
 	if cnt, err := git("rev-list", "--count", "HEAD"); err == nil && cnt != "" {

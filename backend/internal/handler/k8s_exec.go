@@ -12,9 +12,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
-	"autoops/internal/service"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
+	"jnexus/internal/service"
 )
 
 // K8S Pod exec WebSocket 终端：浏览器 WS ↔ 集群 API WSS(v4.channel.k8s.io) 中继

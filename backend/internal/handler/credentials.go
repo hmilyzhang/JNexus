@@ -9,9 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"autoops/internal/model"
-	"autoops/internal/pkg"
-	"autoops/internal/service"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
+	"jnexus/internal/service"
 )
 
 // BatchAddCredentials 批量为存量主机添加 OS 账号（异步任务）
