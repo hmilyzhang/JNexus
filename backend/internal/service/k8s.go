@@ -2,20 +2,20 @@
 package service
 
 import (
+	"autoops/internal/model"
+	"autoops/internal/pkg"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
-
-	"gopkg.in/yaml.v3"
-
-	"autoops/internal/model"
-	"autoops/internal/pkg"
 )
 
 // K8S 集群集成：通过 API Server + 证书认证纳管集群，
@@ -68,13 +68,13 @@ func ParseKubeconfig(raw string) (server, ca, cert, key string, err error) {
 	for _, c := range kc.Clusters {
 		if c.Name == ctxCluster {
 			server = c.Cluster.Server
-			ca = c.Cluster.CertificateAuthorityData
+			ca = decodeBase64OrPlain(c.Cluster.CertificateAuthorityData)
 		}
 	}
 	for _, u := range kc.Users {
 		if u.Name == ctxUser {
-			cert = u.User.ClientCertificateData
-			key = u.User.ClientKeyData
+			cert = decodeBase64OrPlain(u.User.ClientCertificateData)
+			key = decodeBase64OrPlain(u.User.ClientKeyData)
 		}
 	}
 	if server == "" {
@@ -84,6 +84,21 @@ func ParseKubeconfig(raw string) (server, ca, cert, key string, err error) {
 }
 
 // k8sTLSClient 用集群凭据构造带客户端证书的 HTTP 客户端
+// decodeBase64OrPlain kubeconfig 中 -data 字段为 base64；兼容直接粘贴 PEM
+func decodeBase64OrPlain(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if strings.HasPrefix(s, "-----BEGIN") {
+		return s
+	}
+	if b, err := base64.StdEncoding.DecodeString(s); err == nil {
+		return string(b)
+	}
+	return s
+}
+
 func k8sTLSClient(caPEM, certPEM, keyPEM string, timeout time.Duration) (*http.Client, error) {
 	caPool := x509.NewCertPool()
 	if caPEM != "" && !caPool.AppendCertsFromPEM([]byte(caPEM)) {

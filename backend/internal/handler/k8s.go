@@ -86,7 +86,7 @@ func ListK8sClusters(c *gin.Context) {
 			"members": len(members), "my_role": myRole,
 		})
 	}
-	extOK(c, out)
+	c.JSON(http.StatusOK, out)
 }
 
 type k8sClusterReq struct {
