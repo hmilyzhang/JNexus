@@ -415,13 +415,16 @@ func K8sRootCAs(caPEM string) *x509.CertPool {
 	return pool
 }
 
-// K8sExecURL 构造 exec WebSocket 地址
+// K8sExecURL 构造 exec WebSocket 地址（https→wss / http→ws）
 func K8sExecURL(server, namespace, pod, container, command string) string {
+	base := strings.TrimRight(server, "/")
+	base = strings.Replace(base, "https://", "wss://", 1)
+	base = strings.Replace(base, "http://", "ws://", 1)
 	q := "stdin=true&stdout=true&stderr=true&command=" + urlQueryEscape(command)
 	if container != "" {
 		q += "&container=" + urlQueryEscape(container)
 	}
-	return strings.TrimRight(server, "/") + "/api/v1/namespaces/" + namespace + "/pods/" + pod + "/exec?" + q
+	return base + "/api/v1/namespaces/" + namespace + "/pods/" + pod + "/exec?" + q
 }
 
 func urlQueryEscape(s string) string {
