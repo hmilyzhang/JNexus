@@ -23,3 +23,4 @@ Thumbs.db
 # 会话/编辑器产物
 .zcode/
 *.exe~
+__pycache__/
