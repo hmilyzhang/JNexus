@@ -271,6 +271,145 @@ func TestK8sCluster(c *gin.Context) {
 		"cert_expiry": res.CertExp, "ca_expiry": res.CAExp})
 }
 
+// k8sClusterAccess 组合检查：返回 (集群, API 客户端, 成员角色, 是否允许)
+// role 需求：viewer 只读；user 运维操作；admin 集群管理
+func k8sClusterAccess(c *gin.Context, clusterID int, needRole string) (*model.K8sCluster, *service.K8sAPI, string, bool) {
+	user := currentUser(c)
+	var cl model.K8sCluster
+	if err := model.DB.First(&cl, clusterID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "集群不存在"})
+		return nil, nil, "", false
+	}
+	var m model.K8sClusterMember
+	model.DB.Where("cluster_id = ? AND user_id = ?", clusterID, user.ID).First(&m)
+	myRole := m.Role
+	roleRank := map[string]int{"viewer": 1, "user": 2, "admin": 3}
+	if user.IsAdmin() {
+		myRole = "admin"
+	} else if service.HasK8sPerm(user.Role, "manage") {
+		myRole = "admin"
+	} else if service.HasK8sPerm(user.Role, "view") && myRole == "" {
+		myRole = "viewer"
+	}
+	if myRole == "" || roleRank[myRole] < roleRank[needRole] {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无该集群 " + needRole + " 权限"})
+		return nil, nil, "", false
+	}
+	api, err := service.K8sClientFor(&cl)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return nil, nil, "", false
+	}
+	return &cl, api, myRole, true
+}
+
+// K8sNodes 集群节点列表
+func K8sNodes(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	cl, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	nodes, err := api.Nodes()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"cluster": cl.Name, "nodes": nodes})
+}
+
+// K8sPods Pod 列表（?namespace=）
+func K8sPods(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	pods, err := api.Pods(c.Query("namespace"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, pods)
+}
+
+// K8sPodLog Pod 日志
+func K8sPodLog(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	ns, name := c.Query("namespace"), c.Query("pod")
+	if ns == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace/pod 必填"})
+		return
+	}
+	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	text, err := api.PodLog(ns, name, c.Query("container"), 500)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"log": text})
+}
+
+// K8sDeletePod 删除 Pod（需要 user 及以上角色）
+func K8sDeletePod(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	ns, name := c.Param("namespace"), c.Param("name")
+	cl, api, myRole, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	if err := api.DeletePod(ns, name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: "DELETE POD " + ns + "/" + name + " @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	_ = myRole
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// K8sDeployments Deployment 列表（?namespace=）
+func K8sDeployments(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	deps, err := api.Deployments(c.Query("namespace"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, deps)
+}
+
+// K8sRestartDeployment 重启 Deployment（滚动重启，需要 user 及以上角色）
+func K8sRestartDeployment(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	ns, name := c.Param("namespace"), c.Param("name")
+	cl, api, myRole, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	if err := api.RestartDeployment(ns, name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: "RESTART DEPLOYMENT " + ns + "/" + name + " @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	_ = myRole
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 // ListClusterMembers 集群成员列表
 func ListClusterMembers(c *gin.Context) {
 	clusterID, _ := strconv.Atoi(c.Param("id"))

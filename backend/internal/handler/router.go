@@ -86,6 +86,12 @@ func SetupRouter() *gin.Engine {
 			k8sg.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateK8sCluster)
 			k8sg.DELETE("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), DeleteK8sCluster)
 			k8sg.POST("/:id/test", middleware.RequireRole(model.RoleAdmin, model.RoleOps), TestK8sCluster)
+			k8sg.GET("/:id/nodes", K8sNodes)
+			k8sg.GET("/:id/pods", K8sPods)
+			k8sg.GET("/:id/deployments", K8sDeployments)
+			k8sg.POST("/:id/deployments/:namespace/:name/restart", K8sRestartDeployment)
+			k8sg.GET("/:id/podlog", K8sPodLog)
+			k8sg.DELETE("/:id/pods/:namespace/:name", K8sDeletePod)
 			k8sg.GET("/:id/members", ListClusterMembers)
 			k8sg.PUT("/:id/members", middleware.RequireRole(model.RoleAdmin, model.RoleOps), SetClusterMembers)
 		}
