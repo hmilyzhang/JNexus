@@ -1,0 +1,23 @@
+# 版本库与本地开发产物不进构建上下文
+.git
+.github
+.zcode
+
+# 依赖目录：镜像内由 npm install 重新安装（避免拷入平台不兼容的二进制）
+node_modules
+**/node_modules
+
+# 敏感配置与本地构建产物，严禁打进镜像
+backend/config.yaml
+backend/config.yaml.*
+backend/autoops-server
+backend/autoops-server.exe
+*.exe
+
+# 本地产物与数据目录
+frontend/dist
+data
+uploads
+*.log
+.smoke
+docs
