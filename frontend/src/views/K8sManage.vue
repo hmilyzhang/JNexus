@@ -152,6 +152,11 @@
       </section>
     </main>
 
+    <!-- Pod Shell（页内抽屉，不再新开窗口） -->
+    <el-drawer v-model="shellDrawer" size="62%" :with-header="false" destroy-on-close>
+      <K8sShell v-if="shellDrawer" :cluster-id="id" :namespace="shellPod.namespace" :pod="shellPod.name" />
+    </el-drawer>
+
     <!-- Pod 日志 -->
     <el-dialog v-model="logVisible" :title="logTitle" width="820px">
       <pre class="mono" style="background:#1e2a35; color:#d8e4f0; padding:14px; border-radius:6px; max-height:480px; overflow:auto; font-size:12px; line-height:1.6">{{ logText }}</pre>
@@ -193,6 +198,7 @@ import { useRoute } from 'vue-router'
 import { Odometer, OfficeBuilding, Box, Connection, Setting, Coin, Key, Back } from '@element-plus/icons-vue'
 import api from '../api'
 import i18n from '../i18n'
+import K8sShell from '../components/K8sShell.vue'
 import { ElMessage } from 'element-plus'
 
 const { t } = i18n.global
@@ -381,8 +387,12 @@ const showLog = async row => {
   logText.value = r.log || t('k8s.noLog')
   logVisible.value = true
 }
+const shellDrawer = ref(false)
+const shellPod = reactive({ namespace: '', name: '' })
 const openShell = row => {
-  window.open(`/k8s/exec?clusterId=${id}&namespace=${row.namespace}&pod=${row.name}`, '_blank')
+  shellPod.namespace = row.namespace
+  shellPod.name = row.name
+  shellDrawer.value = true
 }
 const deletePod = async row => {
   await api.delete(`${P}/pods/${row.namespace}/${row.name}`)
@@ -479,4 +489,5 @@ onMounted(async () => {
 .km-card:hover { transform: translateY(-2px); }
 .km-card-num { font-size: 24px; font-weight: 700; color: var(--c); }
 .km-card-label { font-size: 12px; color: #909399; margin-top: 2px; }
+:deep(.el-drawer__body) { padding: 0; height: 100%; background: #1e2a35; }
 </style>
