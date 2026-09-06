@@ -89,7 +89,7 @@
               <div class="km-usage-head">{{ $t('k8s.clusterCPU') }}</div>
               <el-progress :percentage="usagePercent.cpu" :stroke-width="14" :color="usageColor(usagePercent.cpu)" />
               <div class="km-usage-sub mono">
-                {{ usage?.cpu_used_m || 0 }}m {{ $t('k8s.used') }} · {{ $t('k8s.podReq') }} {{ usage?.pod_req_cpu_m || 0 }}m · {{ fmtCores(usage?.cpu_capacity_m) }}
+                {{ fmtCores(usage?.cpu_used_m) }} {{ $t('k8s.used') }} · {{ $t('k8s.podReq') }} {{ fmtCores(usage?.pod_req_cpu_m) }} · {{ fmtCores(usage?.cpu_capacity_m) }}
               </div>
             </div>
             <div class="km-usage-card">
@@ -113,13 +113,13 @@
             <el-table-column :label="$t('k8s.cpu')" min-width="220" align="center">
               <template #header>{{ $t('k8s.cpu') }}（{{ $t('k8s.reqLimit') }} / {{ $t('k8s.used') }}）</template>
               <template #default="{ row }">
-                <span class="mono">{{ fmtReqLim(row.cpu_req_m, row.cpu_lim_m, 'm') }} / <b>{{ row.cpu_m }}m</b></span>
+                <span class="mono">{{ fmtReqLimC(row.cpu_req_m, row.cpu_lim_m) }} / <b>{{ fmtCoresV(row.cpu_m) }}</b></span>
               </template>
             </el-table-column>
             <el-table-column :label="$t('k8s.memory')" min-width="230" align="center">
               <template #header>{{ $t('k8s.memory') }}（{{ $t('k8s.reqLimit') }} / {{ $t('k8s.used') }}）</template>
               <template #default="{ row }">
-                <span class="mono">{{ fmtReqLim(row.mem_req_mi, row.mem_lim_mi, 'Mi') }} / <b>{{ row.mem_mi }}Mi</b></span>
+                <span class="mono">{{ fmtReqLim(row.mem_req_mi, row.mem_lim_mi) }} / <b>{{ fmtMem(row.mem_mi) }}</b></span>
               </template>
             </el-table-column>
           </el-table>
@@ -426,11 +426,11 @@ const usagePercent = computed(() => {
   }
 })
 const usageColor = p => (p >= 90 ? '#f56c6c' : p >= 70 ? '#e6a23c' : '#67c23a')
-const fmtCores = m => (m ? `${(m / 1000).toFixed(1)} Core` : '-')
-const fmtReqLim = (req, lim, unit) => {
-  const r = `${req || 0}${unit}`
-  return lim ? `${r} / ${lim}${unit}` : r
-}
+const fmtCoresV = m => (m ? (m / 1000).toFixed(m % 1000 === 0 ? 1 : 2) : '0')
+const fmtCores = m => (m ? `${fmtCoresV(m)} Core` : '-')
+const fmtReqLimC = (req, lim) => (lim ? `${fmtCoresV(req)} / ${fmtCoresV(lim)}` : fmtCoresV(req))
+const fmtMem = mi => (mi >= 1024 ? `${(mi / 1024).toFixed(1)}Gi` : `${mi || 0}Mi`)
+const fmtReqLim = (req, lim) => (lim ? `${fmtMem(req)} / ${fmtMem(lim)}` : fmtMem(req))
 const fmtGi = mi => (mi ? `${(mi / 1024).toFixed(1)} Gi` : '-')
 
 // ---- 概览卡片 ----
@@ -462,7 +462,7 @@ const mergeMetrics = (list, metrics, keyFn) => {
   const m = Object.fromEntries((metrics || []).map(x => [keyFn(x), x]))
   return list.map(r => ({
     ...r,
-    cpu: m[keyFn(r)] ? `${m[keyFn(r)].cpu_m}m` : '-',
+    cpu: m[keyFn(r)] ? `${fmtCoresV(m[keyFn(r)].cpu_m)} Core` : '-',
     memory: m[keyFn(r)] ? `${m[keyFn(r)].mem_mi}Mi` : '-',
   }))
 }
