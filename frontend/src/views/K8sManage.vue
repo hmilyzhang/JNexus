@@ -6,7 +6,8 @@
       <div class="km-brand">JNexus <span>K8S</span></div>
       <div class="km-cluster mono" v-if="cluster">{{ cluster.name }}</div>
       <el-menu :default-active="active" class="km-menu" background-color="transparent"
-               text-color="#a7b1c2" active-text-color="#ffffff" @select="k => (active = k)">
+               text-color="#a7b1c2" active-text-color="#ffffff" unique-opened :collapse-transition="false"
+               @select="k => (active = k)">
         <el-menu-item index="overview">
           <el-icon><Odometer /></el-icon><span>{{ $t('k8s.navOverview') }}</span>
         </el-menu-item>
@@ -547,6 +548,8 @@ const connectFollow = () => {
   followWs.onmessage = ev => {
     const data = typeof ev.data === 'string' ? ev.data : new TextDecoder().decode(new Uint8Array(ev.data))
     box.appendChild(document.createTextNode(data))
+    // 长时间跟随会无限堆积 DOM 节点：超过 500 个文本块时丢弃最早的
+    while (box.childNodes.length > 500) box.removeChild(box.firstChild)
     box.scrollTop = box.scrollHeight
   }
   followWs.onclose = () => { followStatus.value = t('k8s.shellClosed') }
