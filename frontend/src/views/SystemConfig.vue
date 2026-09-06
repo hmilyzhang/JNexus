@@ -404,7 +404,8 @@ const loadRoles = async () => {
       label: cap ? t('layout.role' + cap) : role,
       desc: cap && i18n.global.te('system.role' + cap) ? t('system.role' + cap) : v.desc,
       menus: [...(v.menus || [])],
-      host: { ...v.host }, cred: !!v.cred, report: !!v.report
+      host: { ...v.host }, cred: !!v.cred, report: !!v.report,
+      k8s_view: !!v.k8s_view, k8s_manage: !!v.k8s_manage,
     }
   })
 }
