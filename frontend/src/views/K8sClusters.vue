@@ -124,6 +124,45 @@
           </el-table-column>
         </el-table>
       </div>
+      <div v-if="detailTab === 'events'">
+        <el-table :data="detailEvents" size="small" border v-loading="detailLoading">
+          <el-table-column prop="namespace" label="Namespace" width="110" />
+          <el-table-column :label="$t('monitor.evType')" width="90" align="center">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.type === 'Warning' ? 'warning' : 'info'">{{ row.type }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="reason" label="Reason" width="140" />
+          <el-table-column label="Object" min-width="150" />
+          <el-table-column prop="message" :label="$t('audit.detail')" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="count" label="#" width="60" align="center" />
+          <el-table-column :label="$t('audit.time')" width="160">
+            <template #default="{ row }">{{ fmtTime(row.last_seen) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <div v-if="detailTab === 'config'">
+        <el-radio-group v-model="configKind" size="small" style="margin-bottom:10px">
+          <el-radio-button value="configmaps">ConfigMaps</el-radio-button>
+          <el-radio-button value="secrets">Secrets</el-radio-button>
+        </el-radio-group>
+        <el-table :data="configKind === 'configmaps' ? detailCms : detailSecrets" size="small" border v-loading="detailLoading">
+          <el-table-column :label="$t('monitor.configName')" min-width="200">
+            <template #default="{ row }">{{ row.name }}</template>
+          </el-table-column>
+          <el-table-column prop="namespace" label="Namespace" width="140" />
+          <el-table-column v-if="configKind === 'configmaps'" :label="$t('monitor.dataKeys')" width="110" align="center">
+            <template #default="{ row }">{{ row.data_keys }}</template>
+          </el-table-column>
+          <el-table-column :label="$t('common.operation')" width="110" fixed="right">
+            <template #default="{ row }">
+              <el-popconfirm :title="$t('monitor.configDelConfirm')" @confirm="deleteConfig(row)">
+                <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+              </el-popconfirm>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </el-drawer>
 
     <!-- Pod 日志 -->
@@ -243,7 +282,7 @@ const testNow = async row => {
   load()
 }
 
-// ---- 集群详情（节点 / Pods / Deployments） ----
+// ---- 集群详情（节点 / Pods / Deployments / Events / Config） ----
 const detailVisible = ref(false)
 const detailCluster = ref(null)
 const detailTab = ref('pods')
@@ -252,7 +291,11 @@ const detailLoading = ref(false)
 const detailPods = ref([])
 const detailNodes = ref([])
 const detailDeps = ref([])
+const detailEvents = ref([])
+const detailCms = ref([])
+const detailSecrets = ref([])
 const namespaces = ref([])
+const configKind = ref('configmaps')
 const logVisible = ref(false)
 const logTitle = ref('')
 const logText = ref('')
@@ -278,11 +321,19 @@ const loadDetail = async () => {
       nodes: api.get(`/k8s/clusters/${id}/nodes`),
       nss: api.get(`/k8s/clusters/${id}/namespaces`),
     }
-    const [pods, deps, nodes, nss] = await Promise.all([reqs.pods, reqs.deps, reqs.nodes, reqs.nss])
+    const [pods, deps, nodes, nss, events, cms, secrets] = await Promise.all([
+      reqs.pods, reqs.deps, reqs.nodes, reqs.nss,
+      api.get(`/k8s/clusters/${id}/events`),
+      api.get(`/k8s/clusters/${id}/configmaps`, { params: q }),
+      api.get(`/k8s/clusters/${id}/secrets`, { params: q }),
+    ])
     detailPods.value = pods
     detailDeps.value = deps
     detailNodes.value = nodes
     namespaces.value = nss
+    detailEvents.value = events
+    detailCms.value = cms
+    detailSecrets.value = secrets
   } finally { detailLoading.value = false }
 }
 watch(detailNs, () => loadDetail())
@@ -296,6 +347,13 @@ const showLog = async row => {
 }
 const deletePodAction = async row => {
   await api.delete(`/k8s/clusters/${detailCluster.value.id}/pods/${row.namespace}/${row.name}`)
+  ElMessage.success(t('common.success'))
+  loadDetail()
+}
+
+const deleteConfig = async row => {
+  const base = configKind.value === 'configmaps' ? 'configmaps' : 'secrets'
+  await api.delete(`/k8s/clusters/${detailCluster.value.id}/${base}/${row.namespace}/${row.name}`)
   ElMessage.success(t('common.success'))
   loadDetail()
 }

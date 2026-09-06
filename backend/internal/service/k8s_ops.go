@@ -302,3 +302,136 @@ func (k *K8sAPI) Namespaces() ([]string, error) {
 	}
 	return out, nil
 }
+
+// K8sEventInfo 事件
+type K8sEventInfo struct {
+	Namespace string `json:"namespace"`
+	Type      string `json:"type"`
+	Reason    string `json:"reason"`
+	Object    string `json:"object"`
+	Message   string `json:"message"`
+	Count     int    `json:"count"`
+	LastSeen  string `json:"last_seen"`
+}
+
+// K8sEvents 最近事件
+func (k *K8sAPI) Events(limit int) ([]K8sEventInfo, error) {
+	path := "/api/v1/events?limit=" + strconv.Itoa(limit)
+	var list struct {
+		Items []struct {
+			Metadata struct {
+				Namespace string `json:"namespace"`
+			} `json:"metadata"`
+			Reason         string `json:"reason"`
+			Type           string `json:"type"`
+			Count          int    `json:"count"`
+			LastTimestamp  string `json:"lastTimestamp"`
+			InvolvedObject struct {
+				Kind string `json:"kind"`
+				Name string `json:"name"`
+			} `json:"involvedObject"`
+			Message string `json:"message"`
+		} `json:"items"`
+	}
+	if err := k.do("GET", path, nil, &list); err != nil {
+		return nil, err
+	}
+	out := []K8sEventInfo{}
+	for _, it := range list.Items {
+		out = append(out, K8sEventInfo{
+			Namespace: it.Metadata.Namespace, Type: it.Type, Reason: it.Reason,
+			Object:  it.InvolvedObject.Kind + "/" + it.InvolvedObject.Name,
+			Message: it.Message, Count: it.Count, LastSeen: it.LastTimestamp,
+		})
+	}
+	return out, nil
+}
+
+// K8sConfigInfo ConfigMap / Secret 条目
+type K8sConfigInfo struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	DataKeys  int    `json:"data_keys"`
+	Age       string `json:"age"`
+}
+
+func (k *K8sAPI) ConfigMaps(namespace string) ([]K8sConfigInfo, error) {
+	path := "/api/v1/configmaps"
+	if namespace != "" {
+		path = "/api/v1/namespaces/" + namespace + "/configmaps"
+	}
+	var list struct {
+		Items []struct {
+			Metadata struct {
+				Name              string `json:"name"`
+				Namespace         string `json:"namespace"`
+				CreationTimestamp string `json:"creationTimestamp"`
+			} `json:"metadata"`
+			Data map[string]string `json:"data"`
+		} `json:"items"`
+	}
+	if err := k.do("GET", path, nil, &list); err != nil {
+		return nil, err
+	}
+	out := []K8sConfigInfo{}
+	for _, it := range list.Items {
+		out = append(out, K8sConfigInfo{
+			Namespace: it.Metadata.Namespace, Name: it.Metadata.Name,
+			DataKeys: len(it.Data), Age: it.Metadata.CreationTimestamp,
+		})
+	}
+	return out, nil
+}
+
+func (k *K8sAPI) Secrets(namespace string) ([]K8sConfigInfo, error) {
+	path := "/api/v1/secrets"
+	if namespace != "" {
+		path = "/api/v1/namespaces/" + namespace + "/secrets"
+	}
+	var list struct {
+		Items []struct {
+			Metadata struct {
+				Name              string `json:"name"`
+				Namespace         string `json:"namespace"`
+				CreationTimestamp string `json:"creationTimestamp"`
+			} `json:"metadata"`
+			Type string `json:"type"`
+		} `json:"items"`
+	}
+	if err := k.do("GET", path, nil, &list); err != nil {
+		return nil, err
+	}
+	out := []K8sConfigInfo{}
+	for _, it := range list.Items {
+		if strings.HasSuffix(it.Type, "helm.sh/release.v1") {
+			continue // Helm release secrets 噪音过大，默认隐藏
+		}
+		out = append(out, K8sConfigInfo{Namespace: it.Metadata.Namespace, Name: it.Metadata.Name, Age: it.Metadata.CreationTimestamp})
+	}
+	return out, nil
+}
+
+// DeleteConfigMap 删除 ConfigMap
+func (k *K8sAPI) DeleteConfigMap(namespace, name string) error {
+	return k.do("DELETE", "/api/v1/namespaces/"+namespace+"/configmaps/"+name, nil, nil)
+}
+
+// DeleteSecret 删除 Secret
+func (k *K8sAPI) DeleteSecret(namespace, name string) error {
+	return k.do("DELETE", "/api/v1/namespaces/"+namespace+"/secrets/"+name, nil, nil)
+}
+
+// K8sNodeAbnormal 返回 NotReady 节点名列表（在线集群）
+func (k *K8sAPI) NotReadyNodes() ([]string, error) {
+	nodes, err := k.Nodes()
+	if err != nil {
+		return nil, err
+	}
+	bad := []string{}
+	for _, n := range nodes {
+		if n.Status != "Ready" {
+			bad = append(bad, n.Name)
+		}
+	}
+	return bad, nil
+}

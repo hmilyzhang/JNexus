@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -419,6 +420,84 @@ func K8sRestartDeployment(c *gin.Context) {
 	model.DB.Create(&model.AuditLog{
 		UserID: currentUser(c).ID, Username: currentUser(c).Username,
 		Action: "K8S", Resource: "RESTART DEPLOYMENT " + ns + "/" + name + " @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	_ = myRole
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// K8sEvents 集群事件
+func K8sEvents(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	events, err := api.Events(100)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, events)
+}
+
+// K8sConfigMaps ConfigMap 列表
+func K8sConfigMaps(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	ns := c.Query("namespace")
+	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	list, err := api.ConfigMaps(ns)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+// K8sSecrets Secret 列表
+func K8sSecrets(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	ns := c.Query("namespace")
+	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
+	if !ok {
+		return
+	}
+	list, err := api.Secrets(ns)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+// K8sDeleteConfig 删除 ConfigMap / Secret（kind: configmap / secret）
+func K8sDeleteConfig(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	kind, ns, name := c.Param("kind"), c.Param("namespace"), c.Param("name")
+	if kind != "configmaps" && kind != "secrets" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "kind 必须是 configmaps / secrets"})
+		return
+	}
+	cl, api, myRole, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	var err error
+	if kind == "configmaps" {
+		err = api.DeleteConfigMap(ns, name)
+	} else {
+		err = api.DeleteSecret(ns, name)
+	}
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: "DELETE " + strings.ToUpper(kind[:len(kind)-1]) + " " + ns + "/" + name + " @ " + cl.Name,
 		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
 	})
 	_ = myRole

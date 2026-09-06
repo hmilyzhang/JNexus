@@ -214,17 +214,6 @@ func stringsTrimRightSlash(s string) string {
 
 // ---------- 凭据加解密 ----------
 
-func encryptK8sSecret(plain string) string {
-	if plain == "" {
-		return ""
-	}
-	enc, err := pkg.Encrypt(plain)
-	if err != nil {
-		return ""
-	}
-	return enc
-}
-
 // EncryptK8sSecret AES-GCM 加密集群凭据
 func EncryptK8sSecret(plain string) (string, error) {
 	if plain == "" {
@@ -282,7 +271,18 @@ func CollectK8sClusters() {
 			updates := map[string]any{"last_seen": now}
 			if err != nil {
 				updates["status"] = "offline"
+				// 集群离线告警（20h 冷却）
+				if c.Status == "online" {
+					K8sNotify(c.Name, c.ApiServer, "🔴 [集群离线] "+c.Name,
+						fmt.Sprintf("集群: %s\nAPI Server: %s\n状态: 离线\n时间: %s",
+							c.Name, c.ApiServer, now.Format("2006-01-02 15:04:05")), "offline")
+				}
 			} else {
+				// 集群恢复上线
+				if c.Status == "offline" {
+					K8sNotify(c.Name, c.ApiServer, "🟢 [集群恢复] "+c.Name,
+						fmt.Sprintf("集群: %s\n状态: 在线\n时间: %s", c.Name, now.Format("2006-01-02 15:04:05")), "backonline")
+				}
 				updates["status"] = "online"
 				if res.Version != "" {
 					updates["version"] = res.Version
@@ -303,6 +303,9 @@ func CollectK8sClusters() {
 			}
 			model.DB.Model(&model.K8sCluster{}).Where("id = ?", c.ID).Updates(updates)
 			CheckK8sCertExpiry(&c, res)
+			if err == nil {
+				CheckK8sNodeHealth(&c)
+			}
 		}(c)
 	}
 }
@@ -351,4 +354,49 @@ func CheckK8sCertExpiry(c *model.K8sCluster, res *K8sProbeResult) {
 	}
 }
 
-var _ = sync.Once{}
+// K8sNotify 向所有启用通道广播集群级通知（20h 冷却）
+func K8sNotify(name, apiServer, title, text, eventKey string) {
+	key := eventKey + ":" + apiServer
+	remindMu.Lock()
+	if last, ok := k8sLastRemind[key]; ok && time.Since(last) < 20*time.Hour {
+		remindMu.Unlock()
+		return
+	}
+	k8sLastRemind[key] = time.Now()
+	remindMu.Unlock()
+	var channels []model.AlertChannel
+	model.DB.Where("enabled = ?", true).Find(&channels)
+	for _, ch := range channels {
+		ch := ch
+		go func() {
+			defer func() { recover() }()
+			if err := SendViaChannel(&ch, map[string]string{"time": time.Now().Format("2006-01-02 15:04:05")}, title, text); err != nil {
+				fmt.Printf("[k8s] channel %s send failed: %v\n", ch.Name, err)
+			}
+		}()
+	}
+}
+
+// CheckK8sNodeHealth 节点健康检查：NotReady 节点告警（20h 冷却）
+func CheckK8sNodeHealth(c *model.K8sCluster) {
+	k8s, err := K8sClientFor(c)
+	if err != nil {
+		return
+	}
+	nodes, err := k8s.Nodes()
+	if err != nil {
+		return
+	}
+	bad := []string{}
+	for _, n := range nodes {
+		if n.Status != "Ready" {
+			bad = append(bad, n.Name+"("+n.Status+")")
+		}
+	}
+	if len(bad) == 0 {
+		return
+	}
+	K8sNotify(c.Name, c.ApiServer, "🔴 [节点异常] "+c.Name,
+		fmt.Sprintf("集群: %s\nAPI Server: %s\n异常节点: %s\n数量: %d\n时间: %s",
+			c.Name, c.ApiServer, strings.Join(bad, ", "), len(bad), time.Now().Format("2006-01-02 15:04:05")), "nodehealth")
+}
