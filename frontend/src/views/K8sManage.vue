@@ -207,6 +207,36 @@
             <span><span class="cap-dot" style="background:#909399"></span>{{ $t('k8s.capCapacityLine') }}</span>
             <span><span class="cap-dot" style="background:#e6a23c"></span>80%</span>
           </div>
+
+          <h4 class="km-h4" style="margin-top:6px">{{ $t('k8s.podCapTitle') }}</h4>
+          <div class="km-toolbar" style="margin-bottom:8px">
+            <el-select v-model="capPodSel" size="small" style="width:280px" :placeholder="$t('k8s.podCapPick')">
+              <el-option v-for="p in capPods" :key="p.namespace + '/' + p.name"
+                         :value="p.namespace + '/' + p.name"
+                         :label="p.namespace + '/' + p.name" />
+            </el-select>
+            <span v-if="capPodTrend" class="km-usage-sub mono" style="margin:0">
+              {{ $t('k8s.capSlope') }} {{ capPodSlopeText }}
+            </span>
+          </div>
+          <div v-if="capPodTrend" class="km-usage-card" style="max-width:720px">
+            <svg viewBox="0 0 600 140" class="cap-chart">
+              <polyline :points="podPoly('cpu_m')" fill="none" stroke="#409eff" stroke-width="2" />
+              <polyline v-if="podForecastLine('cpu_m', capPodTrend.slope_cpu_m_per_day)" :points="podForecastLine('cpu_m', capPodTrend.slope_cpu_m_per_day)"
+                        fill="none" stroke="#f56c6c" stroke-width="1.5" stroke-dasharray="5 4" />
+            </svg>
+            <div class="km-usage-sub mono" style="margin-top:8px">
+              <span><span class="cap-dot" style="background:#409eff"></span>CPU</span>
+              <span style="margin-left:16px"><span class="cap-dot" style="background:#67c23a"></span>{{ $t('k8s.memory') }}</span>
+              <span style="margin-left:16px"><span class="cap-dot" style="background:#f56c6c"></span>{{ $t('k8s.capTrend') }} (+90d)</span>
+            </div>
+            <svg viewBox="0 0 600 140" class="cap-chart" style="margin-top:8px">
+              <polyline :points="podPoly('mem_mi')" fill="none" stroke="#67c23a" stroke-width="2" />
+              <polyline v-if="podForecastLine('mem_mi', capPodTrend.slope_mem_mi_per_day)" :points="podForecastLine('mem_mi', capPodTrend.slope_mem_mi_per_day)"
+                        fill="none" stroke="#f56c6c" stroke-width="1.5" stroke-dasharray="5 4" />
+            </svg>
+          </div>
+          <el-empty v-else :description="$t('k8s.podCapEmpty')" :image-size="60" />
         </template>
 
         <!-- 资源列表（通用表格） -->
@@ -741,9 +771,7 @@ const fmtReqLim = (req, lim) => (lim ? `${fmtMem(req)} / ${fmtMem(lim)}` : fmtMe
 // ---- 容量规划 ----
 const cap = ref(null)
 const capDays = ref(30)
-const loadCapacity = async () => {
-  cap.value = await api.get(`${P}/capacity/history`, { params: { days: capDays.value } }).catch(() => null)
-}
+
 const capChart = { x0: 34, x1: 590, y0: 8, y1: 132 }
 const capXY = { x0: capChart.x0, x1: capChart.x1 }
 const capMax = computed(() => {
@@ -799,6 +827,60 @@ const capDaysLeftText = (days, kind) => {
   return `${label} ~${days < 60 ? Math.round(days) + ' ' + t('k8s.capDays') : (days / 30).toFixed(1) + ' ' + t('k8s.capMonths')} ${t('k8s.capExhaustIn')}`
 }
 const capDaysLeftColor = d => (d == null ? '#67c23a' : d < 90 ? '#f56c6c' : d < 180 ? '#e6a23c' : '#67c23a')
+
+// ---- Pod 级容量趋势 ----
+const capPods = ref([])
+const capPodSel = ref('')
+const capPodTrend = computed(() => capPods.value.find(p => p.namespace + '/' + p.name === capPodSel.value) || null)
+const loadCapacity = async () => {
+  cap.value = await api.get(`${P}/capacity/history`, { params: { days: capDays.value } }).catch(() => null)
+  const r = await api.get(`${P}/capacity/pods`, { params: { days: capDays.value } }).catch(() => null)
+  capPods.value = r?.pods || []
+  if (capPods.value.length && !capPods.value.find(p => p.namespace + '/' + p.name === capPodSel.value)) {
+    capPodSel.value = capPods.value[0].namespace + '/' + capPods.value[0].name
+  }
+}
+const podChart = { x0: 34, x1: 590, y0: 8, y1: 132 }
+const podMax = computed(() => {
+  const t = capPodTrend.value
+  if (!t) return 1
+  let m = 0
+  for (const p of t.points) m = Math.max(m, p.cpu_m, p.mem_mi)
+  if (t.slope_cpu_m_per_day > 0) m = Math.max(m, t.points[t.points.length - 1].cpu_m + t.slope_cpu_m_per_day * 90)
+  if (t.slope_mem_mi_per_day > 0) m = Math.max(m, t.points[t.points.length - 1].mem_mi + t.slope_mem_mi_per_day * 90)
+  return m * 1.1 || 1
+})
+const podSpanMs = computed(() => (capDays.value + 90) * 86400000)
+const podY = v => {
+  const y = podChart.y1 - (Number(v) / podMax.value) * (podChart.y1 - podChart.y0)
+  return Math.max(podChart.y0, Math.min(podChart.y1, y)).toFixed(1)
+}
+const podX = t => {
+  const start = Date.now() - capDays.value * 86400000
+  const x = podChart.x0 + ((new Date(t).getTime() - start) / podSpanMs.value) * (podChart.x1 - podChart.x0)
+  return Math.max(podChart.x0, Math.min(podChart.x1, x)).toFixed(1)
+}
+const podPoly = field => {
+  const t = capPodTrend.value
+  if (!t || t.points.length < 2) return ''
+  return t.points.map(p => `${podX(p.t)},${podY(p[field])}`).join(' ')
+}
+const podForecastLine = (field, slope) => {
+  const t = capPodTrend.value
+  if (!t || !t.points.length || !(slope > 0)) return ''
+  const last = t.points[t.points.length - 1]
+  const p1 = `${podX(last.t)},${podY(last[field])}`
+  const future = new Date(Date.now() + 90 * 86400000).toISOString()
+  const p2 = `${podX(future)},${podY(last[field] + slope * 90)}`
+  return `${p1} ${p2}`
+}
+const capPodSlopeText = computed(() => {
+  const t = capPodTrend.value
+  if (!t) return ''
+  const c = t.slope_cpu_m_per_day > 0 ? `CPU +${(t.slope_cpu_m_per_day * 30 / 1000).toFixed(2)} Core/${t('k8s.capMonth')}` : `CPU ${t('k8s.capStable')}`
+  const m = t.slope_mem_mi_per_day > 0 ? `${t('k8s.memory')} +${fmtMem(t.slope_mem_mi_per_day * 30)}/${t('k8s.capMonth')}` : `${t('k8s.memory')} ${t('k8s.capStable')}`
+  return `${c} · ${m}`
+})
 const fmtGi = mi => (mi ? `${(mi / 1024).toFixed(1)} Gi` : '-')
 
 // ---- 概览卡片 ----

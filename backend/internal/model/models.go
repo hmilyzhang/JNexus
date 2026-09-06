@@ -389,6 +389,27 @@ type K8sCapacitySample struct {
 	CollectedAt   time.Time `gorm:"index" json:"collected_at"`
 }
 
+// K8sPodSample Pod 级容量采样：每集群 CPU 用量 Top10（容量规划 Pod 维度）
+type K8sPodSample struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	ClusterID   uint      `gorm:"index:idx_kps_cluster_pod"`
+	Namespace   string    `gorm:"size:63;index:idx_kps_cluster_pod"`
+	Pod         string    `gorm:"size:253;index:idx_kps_cluster_pod"`
+	CPUM        int64     `json:"cpu_m"`
+	MemMi       int64     `json:"mem_mi"`
+	CollectedAt time.Time `gorm:"index" json:"collected_at"`
+}
+
+// HostMetricHourly 主机指标小时聚合（raw 30 天过期后支撑半年/一年趋势）
+type HostMetricHourly struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	HostID      uint      `gorm:"index:idx_hmh_host_bucket,unique"`
+	Bucket      time.Time `gorm:"index:idx_hmh_host_bucket,unique"`
+	CPUPercent  float64   `json:"cpu_percent"`
+	MemPercent  float64   `json:"mem_percent"`
+	DiskPercent float64   `json:"disk_percent"`
+}
+
 // 告警通知通道（参考 Uptime Kuma：邮件 / Webhook / 企业微信 / 钉钉 / 飞书 / Telegram）
 type AlertChannel struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`

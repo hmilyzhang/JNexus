@@ -60,6 +60,7 @@
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="terminal">{{ $t('hosts.terminal') }}</el-dropdown-item>
+                    <el-dropdown-item command="capacity">{{ $t('k8s.capacity') }}</el-dropdown-item>
                     <el-dropdown-item v-if="canManageCreds" command="cred">{{ $t('hosts.credMgmt') }}</el-dropdown-item>
                     <el-dropdown-item command="edit" divided>{{ $t('common.edit') }}</el-dropdown-item>
                     <el-dropdown-item command="delete" style="color:#f56c6c">{{ $t('common.delete') }}</el-dropdown-item>
@@ -218,6 +219,41 @@
     </template>
   </el-dialog>
 
+  <!-- 容量规划抽屉 -->
+  <el-drawer v-model="capVisible" size="56%" :title="`${$t('k8s.capacity')} · ${capHost?.name || ''}`" destroy-on-close>
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px">
+      <el-radio-group v-model="capDays" size="small" @change="loadCap">
+        <el-radio-button :value="30">30d</el-radio-button>
+        <el-radio-button :value="180">180d</el-radio-button>
+        <el-radio-button :value="365">1y</el-radio-button>
+      </el-radio-group>
+      <span style="flex:1"></span>
+      <span style="display:flex; gap:14px" class="km-usage-sub">
+        <span><span class="cap-dot" style="background:#409eff"></span>CPU</span>
+        <span><span class="cap-dot" style="background:#67c23a"></span>{{ $t('monitor.mem') }}</span>
+        <span><span class="cap-dot" style="background:#e6a23c"></span>{{ $t('monitor.disk') }}</span>
+        <span><span class="cap-dot" style="background:#f56c6c"></span>{{ $t('k8s.capTrend') }}</span>
+        <span><span class="cap-dot" style="background:#909399"></span>90%</span>
+      </span>
+    </div>
+    <el-alert v-if="cap?.degraded" :title="$t('k8s.capDegraded')" type="warning" :closable="false" style="margin-bottom:10px" />
+    <div v-for="m in ['cpu', 'mem', 'disk']" :key="m" class="km-usage-card" style="margin-bottom:10px">
+      <div class="km-usage-head">
+        {{ m === 'cpu' ? 'CPU' : m === 'mem' ? $t('monitor.mem') : $t('monitor.disk') }}
+        <span style="float:right; font-weight:400" class="mono">{{ capLast(m) }}%</span>
+      </div>
+      <svg viewBox="0 0 600 110" class="cap-chart">
+        <line x1="30" x2="590" :y1="pctY(90)" :y2="pctY(90)" stroke="#909399" stroke-dasharray="4 3" stroke-width="1" />
+        <polyline :points="pctPoly(m)" fill="none" :stroke="m === 'cpu' ? '#409eff' : m === 'mem' ? '#67c23a' : '#e6a23c'" stroke-width="2" />
+        <polyline v-if="pctForecastLine(m).length" :points="pctForecastLine(m)" fill="none" stroke="#f56c6c"
+                  stroke-width="1.5" stroke-dasharray="5 4" />
+      </svg>
+      <div class="km-usage-sub" :style="{ color: capDaysColor(cap?.forecast?.[capField(m)]) }">
+        {{ capDaysText(cap?.forecast?.[capField(m)]) }}
+      </div>
+    </div>
+  </el-drawer>
+
 </template>
 
 <script setup>
@@ -229,6 +265,63 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../store'
 
 const { t } = i18n.global
+
+// ---- 容量规划抽屉（30d raw / 180d·1y 小时聚合，线性预测到 90% 水位） ----
+const capVisible = ref(false)
+const capHost = ref(null)
+const capDays = ref(30)
+const cap = ref(null)
+const capField = m => ({ cpu: 'cpu_days_to_90', mem: 'mem_days_to_90', disk: 'disk_days_to_90' })[m]
+const openCapacity = row => {
+  capHost.value = row
+  capDays.value = 30
+  capVisible.value = true
+  loadCap()
+}
+const loadCap = async () => {
+  cap.value = await api.get(`/monitoring/hosts/${capHost.value.id}/capacity`, { params: { days: capDays.value } }).catch(() => null)
+}
+const CH = { x0: 30, x1: 590, y0: 6, y1: 104 }
+const capSpanMs = computed(() => (capDays.value + 90) * 86400000)
+const pctY = v => {
+  const y = CH.y1 - ((Number(v) || 0) / 100) * (CH.y1 - CH.y0)
+  return Math.max(CH.y0, Math.min(CH.y1, y)).toFixed(1)
+}
+const pctX = t => {
+  const start = Date.now() - capDays.value * 86400000
+  const x = CH.x0 + ((new Date(t).getTime() - start) / capSpanMs.value) * (CH.x1 - CH.x0)
+  return Math.max(CH.x0, Math.min(CH.x1, x)).toFixed(1)
+}
+const pctPoly = m => {
+  const pts = cap.value?.points || []
+  if (pts.length < 2) return ''
+  return pts.map(p => `${pctX(p.t)},${pctY(p[m + '_percent'])}`).join(' ')
+}
+const pctForecastLine = m => {
+  const fc = cap.value?.forecast
+  const pts = cap.value?.points || []
+  if (!fc || !pts.length) return ''
+  const slope = m === 'cpu' ? fc.cpu_slope_pct_per_day : m === 'mem' ? fc.mem_slope_pct_per_day : fc.disk_slope_pct_per_day
+  if (!(slope > 0)) return ''
+  const last = pts[pts.length - 1]
+  const cur = m === 'cpu' ? last.cpu_percent : m === 'mem' ? last.mem_percent : last.disk_percent
+  const p1 = `${pctX(last.t)},${pctY(cur)}`
+  const future = new Date(Date.now() + 90 * 86400000).toISOString()
+  const p2 = `${pctX(future)},${pctY(Math.min(100, cur + slope * 90))}`
+  return `${p1} ${p2}`
+}
+const capLast = m => {
+  const pts = cap.value?.points || []
+  if (!pts.length) return '0'
+  const last = pts[pts.length - 1]
+  return (m === 'cpu' ? last.cpu_percent : m === 'mem' ? last.mem_percent : last.disk_percent).toFixed(1)
+}
+const capDaysText = d => {
+  if (d == null) return t('k8s.capNoExhaust')
+  if (d <= 0) return t('k8s.capExhausted')
+  return d < 60 ? `${t('k8s.cap90In')} ~${Math.round(d)} ${t('k8s.capDays')}` : `${t('k8s.cap90In')} ~${(d / 30).toFixed(1)} ${t('k8s.capMonths')}`
+}
+const capDaysColor = d => (d == null ? '#67c23a' : d < 90 ? '#f56c6c' : d < 180 ? '#e6a23c' : '#67c23a')
 const router = useRouter()
 const store = useUserStore()
 const hosts = ref([])
@@ -334,6 +427,7 @@ const openTerminal = row => {
 // 行操作下拉分发
 const onRowCmd = async (cmd, row) => {
   if (cmd === 'terminal') openTerminal(row)
+  else if (cmd === 'capacity') openCapacity(row)
   else if (cmd === 'cred') router.push(`/os-accounts?host=${row.id}`)
   else if (cmd === 'edit') dlgHost(row)
   else if (cmd === 'delete') {
@@ -466,4 +560,6 @@ const delKey = async row => {
 
 <style scoped>
 .tree-node { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.cap-chart { width: 100%; height: 110px; background: #fafbfc; border-radius: 4px; }
+.cap-dot { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 4px; }
 </style>

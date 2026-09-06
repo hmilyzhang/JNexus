@@ -127,6 +127,7 @@ func SetupRouter() *gin.Engine {
 			k8sg.POST("/:id/delete", K8sDeleteResource)
 			k8sg.GET("/:id/usage", K8sClusterUsage)
 			k8sg.GET("/:id/capacity/history", K8sCapacityHistory)
+			k8sg.GET("/:id/capacity/pods", K8sPodCapacity)
 			k8sg.GET("/:id/nodemetrics", K8sNodeMetrics)
 			k8sg.GET("/:id/podmetrics", K8sPodMetrics)
 			k8sg.GET("/:id/helmreleases", K8sHelmReleases)
@@ -162,6 +163,7 @@ func SetupRouter() *gin.Engine {
 			mg.GET("/hosts/:id/history", HostMetricHistory)
 		}
 
+		auth.GET("/monitoring/hosts/:id/capacity", HostCapacityHistory)
 		auth.GET("/mfa/status", MFAStatus)
 		auth.POST("/mfa/setup", MFASetup)
 		auth.POST("/mfa/enable", MFAEnable)

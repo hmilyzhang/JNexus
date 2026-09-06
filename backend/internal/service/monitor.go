@@ -453,6 +453,7 @@ func CollectHostMetrics() {
 
 // PruneMonitorData 清理过期采样（主机指标与监控样本均保留 30 天）
 func PruneMonitorData() {
+	ArchiveHostMetrics()
 	model.DB.Where("collected_at < ?", time.Now().Add(-30*24*time.Hour)).Delete(&model.HostMetric{})
 	model.DB.Where("created_at < ?", time.Now().Add(-30*24*time.Hour)).Delete(&model.MonitorSample{})
 	PruneK8sCapacitySamples()
