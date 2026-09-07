@@ -31,9 +31,13 @@
           <el-button @click="dlgGroup">{{ $t('hosts.groupMgmt') }}</el-button>
           <el-button type="warning" plain @click="showKeys = true">{{ $t('hosts.keyMgmt') }}</el-button>
           <el-button type="info" plain @click="showTemplates = true">{{ $t('hosts.tplMgmt') }}</el-button>
+          <el-button v-if="store.isAdmin || canManageCreds" type="danger" plain :disabled="!selHosts.length"
+                     @click="batchDelHosts">{{ $t('k8s.batchDelete') }}{{ selHosts.length ? ` (${selHosts.length})` : '' }}</el-button>
         </div>
 
-        <el-table :data="hosts" v-loading="loading" size="small" border>
+        <el-table :data="hosts" v-loading="loading" size="small" border
+                  @selection-change="s => (selHosts = s)">
+          <el-table-column type="selection" width="38" :selectable="() => store.isAdmin || canManageCreds" />
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" :label="$t('hosts.name')" min-width="120" />
           <el-table-column prop="ip" :label="$t('hosts.ip')" width="140" />
@@ -520,6 +524,20 @@ const onTplPick = id => {
     hostForm.value.username = tp.username
     hostForm.value.auth_type = 'password'
   }
+}
+
+const selHosts = ref([])
+const batchDelHosts = async () => {
+  if (!selHosts.value.length) return
+  try {
+    await ElMessageBox.confirm(t('hosts.batchDelConfirm', { n: selHosts.value.length }), t('common.delete'), { type: 'warning' })
+  } catch { return }
+  const r = await api.post('/hosts/batch-delete', { ids: selHosts.value.map(h => h.id) })
+  const failed = Object.keys(r.failed || {}).length
+  if (failed) ElMessage.warning(t('hosts.batchDelDone', { ok: r.deleted.length, fail: failed }))
+  else ElMessage.success(t('common.success'))
+  selHosts.value = []
+  load()
 }
 
 const savingHost = ref(false)

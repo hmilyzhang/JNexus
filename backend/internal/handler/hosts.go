@@ -310,6 +310,32 @@ func DeleteHost(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// BatchDeleteHosts 批量删除主机：逐台复用单删的引用校验，返回失败明细
+func BatchDeleteHosts(c *gin.Context) {
+	var req struct {
+		IDs []uint `json:"ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids 必填"})
+		return
+	}
+	deleted, failed := []uint{}, map[string]string{}
+	for _, id := range req.IDs {
+		var cnt int64
+		model.DB.Model(&model.AppHost{}).Where("host_id = ?", id).Count(&cnt)
+		if cnt > 0 {
+			failed[fmt.Sprint(id)] = "被应用部署配置引用"
+			continue
+		}
+		if err := model.DB.Delete(&model.Host{}, id).Error; err != nil {
+			failed[fmt.Sprint(id)] = err.Error()
+			continue
+		}
+		deleted = append(deleted, id)
+	}
+	c.JSON(http.StatusOK, gin.H{"deleted": deleted, "failed": failed})
+}
+
 func sshKeyIDOf(k *model.SSHKey) *uint { id := k.ID; return &id }
 
 // ensureGroupPath 按 / 分隔的分组路径逐级创建分组（存在则复用），返回末级分组 ID

@@ -15,9 +15,14 @@
         <span style="flex:1"></span>
         <el-button v-if="canManageCreds" type="success" plain @click="batchVisible = true">{{ $t('hosts.credBatchBtn') }}</el-button>
         <el-button v-if="canManageCreds" type="primary" @click="dlgAdd()">{{ $t('hosts.credAdd') }}</el-button>
+
+        <el-button v-if="canManageCreds" type="danger" plain :disabled="!selRows.length"
+                   @click="batchDelCreds">{{ $t('k8s.batchDelete') }}{{ selRows.length ? ` (${selRows.length})` : '' }}</el-button>
       </div>
 
-      <el-table :data="filtered" v-loading="loading" size="small" border :row-class-name="rowClass">
+      <el-table :data="filtered" v-loading="loading" size="small" border :row-class-name="rowClass"
+                @selection-change="s => (selRows = s)">
+        <el-table-column type="selection" width="38" />
         <el-table-column :label="$t('menu.hosts')" min-width="150">
           <template #default="{ row }">{{ row.host_name }}（{{ row.host_ip }}）</template>
         </el-table-column>
@@ -254,6 +259,20 @@ const save = async () => {
   editVisible.value = false
   load()
 }
+const selRows = ref([])
+const batchDelCreds = async () => {
+  if (!selRows.value.length) return
+  try {
+    await ElMessageBox.confirm(t('hosts.batchDelConfirm', { n: selRows.value.length }), t('common.delete'), { type: 'warning' })
+  } catch { return }
+  const r = await api.post('/credentials/batch-delete', { ids: selRows.value.map(c => c.id) })
+  const failed = Object.keys(r.failed || {}).length
+  if (failed) ElMessage.warning(t('hosts.batchDelDone', { ok: r.deleted.length, fail: failed }))
+  else ElMessage.success(t('common.success'))
+  selRows.value = []
+  load()
+}
+
 const delCred = async row => {
   await api.delete(`/credentials/${row.id}`)
   ElMessage.success(t('hosts.deleted'))

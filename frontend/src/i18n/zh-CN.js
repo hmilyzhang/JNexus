@@ -115,6 +115,8 @@ export default {
     import: '批量导入',
     groupMgmt: '分组管理',
     keyMgmt: 'SSH 密钥管理',
+    batchDelConfirm: '确认删除选中的 {n} 条记录？',
+    batchDelDone: '已删除 {ok} 条，{fail} 条失败（被引用或错误）',
     tplMgmt: '账号模板',
     tplPick: '账号模板',
     tplPickTip: '选择已存账号（免输密码）',

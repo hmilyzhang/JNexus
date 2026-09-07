@@ -206,6 +206,7 @@ func SetupRouter() *gin.Engine {
 			hosts.POST("", middleware.RequireHostPerm("create"), CreateHost)
 			hosts.PUT("/:id", middleware.RequireHostPerm("edit"), UpdateHost)
 			hosts.DELETE("/:id", middleware.RequireHostPerm("delete"), DeleteHost)
+			hosts.POST("/batch-delete", middleware.RequireRole(model.RoleAdmin, model.RoleOps), BatchDeleteHosts)
 			hosts.POST("/import", ImportHosts)
 			hosts.POST("/probe", ProbeHostsHandler)
 			// OS 账号（凭据）管理
@@ -248,6 +249,7 @@ func SetupRouter() *gin.Engine {
 			creds.GET("/usable", UsableCredentialsHandler)
 			// OS 账号管理：需角色开启「账号管理」权限
 			creds.POST("/batch", middleware.RequireRole(model.RoleOps), middleware.RequireHostPerm("edit"), middleware.RequireCredPerm(), BatchAddCredentialsHandler)
+			creds.POST("/batch-delete", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), BatchDeleteCredentials)
 			creds.PUT("/:id", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), UpdateCredential)
 			creds.POST("/:id/default", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), SetDefaultCredential)
 			creds.POST("/:id/rotate", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), RotateCredentialNow)

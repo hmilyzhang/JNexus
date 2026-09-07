@@ -284,6 +284,33 @@ func UpdateCredential(c *gin.Context) {
 	c.JSON(http.StatusOK, cred)
 }
 
+// BatchDeleteCredentials 批量删除 OS 賩号：逐条复用单删的引用校验
+func BatchDeleteCredentials(c *gin.Context) {
+	var req struct {
+		IDs []uint `json:"ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids 必填"})
+		return
+	}
+	deleted, failed := []uint{}, map[string]string{}
+	for _, id := range req.IDs {
+		var cnt int64
+		model.DB.Model(&model.AppHost{}).Where("credential_id = ?", id).Count(&cnt)
+		if cnt > 0 {
+			failed[fmt.Sprint(id)] = "被应用发布配置引用"
+			continue
+		}
+		model.DB.Where("credential_id = ?", id).Delete(&model.UserGroupCredential{})
+		if err := model.DB.Delete(&model.HostCredential{}, id).Error; err != nil {
+			failed[fmt.Sprint(id)] = err.Error()
+			continue
+		}
+		deleted = append(deleted, id)
+	}
+	c.JSON(http.StatusOK, gin.H{"deleted": deleted, "failed": failed})
+}
+
 func DeleteCredential(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var cnt int64

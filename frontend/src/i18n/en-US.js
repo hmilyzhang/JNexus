@@ -115,6 +115,8 @@ export default {
     import: 'Import',
     groupMgmt: 'Groups',
     keyMgmt: 'SSH Keys',
+    batchDelConfirm: 'Delete the {n} selected records?',
+    batchDelDone: '{ok} deleted, {fail} failed (referenced or error)',
     tplMgmt: 'Account Templates',
     tplPick: 'Account template',
     tplPickTip: 'Pick a stored account (no password typing)',
