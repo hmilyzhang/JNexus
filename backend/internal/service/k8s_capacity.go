@@ -2,6 +2,7 @@
 package service
 
 import (
+	"log"
 	"sort"
 	"sync"
 	"time"
@@ -93,10 +94,12 @@ func PruneK8sCapacitySamples() {
 func ArchiveHostMetrics() {
 	defer func() { recover() }()
 	cut := time.Now().Add(-30 * 24 * time.Hour)
-	model.DB.Exec(`INSERT INTO host_metric_hourlies (host_id, bucket, cpu_percent, mem_percent, disk_percent, created_at)
-		SELECT host_id, date_trunc('hour', collected_at), AVG(cpu_percent), AVG(mem_percent), AVG(disk_percent), date_trunc('hour', collected_at)
+	if err := model.DB.Exec(`INSERT INTO host_metric_hourlies (host_id, bucket, cpu_percent, mem_percent, disk_percent)
+		SELECT host_id, date_trunc('hour', collected_at), AVG(cpu_percent), AVG(mem_percent), AVG(disk_percent)
 		FROM host_metrics WHERE collected_at < ?
 		GROUP BY host_id, date_trunc('hour', collected_at)
 		ON CONFLICT (host_id, bucket) DO UPDATE SET cpu_percent = EXCLUDED.cpu_percent,
-			mem_percent = EXCLUDED.mem_percent, disk_percent = EXCLUDED.disk_percent`, cut)
+			mem_percent = EXCLUDED.mem_percent, disk_percent = EXCLUDED.disk_percent`, cut).Error; err != nil {
+		log.Printf("[archive] host metrics hourly failed: %v", err)
+	}
 }
