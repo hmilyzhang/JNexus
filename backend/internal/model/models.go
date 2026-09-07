@@ -389,6 +389,18 @@ type K8sCapacitySample struct {
 	CollectedAt   time.Time `gorm:"index" json:"collected_at"`
 }
 
+// AlertEvent 告警事件历史（月报/告警统计的数据源；发出即落一条）
+type AlertEvent struct {
+	ID          uint       `gorm:"primaryKey" json:"id"`
+	Kind        string     `gorm:"size:32;index" json:"kind"`   // monitor_down / monitor_recovery / cmd_level / host_reboot / k8s_cluster_offline / k8s_cluster_recovery / k8s_node / k8s_cert / k8s_warning
+	Level       string     `gorm:"size:8;index" json:"level"`   // P1 / P2 / P3 / P4 / warn / info
+	Target      string     `gorm:"size:255;index" json:"target"`
+	Message     string     `gorm:"type:text" json:"message"`
+	FiredAt     time.Time  `gorm:"index" json:"fired_at"`
+	RecoveredAt *time.Time `json:"recovered_at"`
+	DurationSec *int       `json:"duration_sec"`
+}
+
 // K8sPodSample Pod 级容量采样：每集群 CPU 用量 Top10（容量规划 Pod 维度）
 type K8sPodSample struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`

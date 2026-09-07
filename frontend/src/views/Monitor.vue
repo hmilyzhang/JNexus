@@ -310,6 +310,148 @@
           </div>
         </el-card>
       </el-tab-pane>
+
+      <!-- Tab 7: 运维月报 -->
+      <el-tab-pane :label="$t('mreport.tab')" name="report">
+        <el-card>
+          <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px">
+            <el-date-picker v-model="repMonth" type="month" :clearable="false"
+                            :placeholder="$t('mreport.pickMonth')" style="width:160px" value-format="YYYY-MM" />
+            <el-button type="primary" size="small" :loading="repLoading" @click="loadReport">{{ $t('mreport.generate') }}</el-button>
+            <el-button size="small" :disabled="!rep" @click="printReport">{{ $t('mreport.print') }}</el-button>
+            <el-button size="small" :disabled="!rep" @click="exportAlertCsv">{{ $t('k8s.exportCsv') }}</el-button>
+          </div>
+
+          <div v-if="rep" id="monthly-report" class="rep-page">
+            <h2 style="text-align:center; margin:0 0 4px">{{ $t('mreport.title') }}</h2>
+            <p style="text-align:center; color:#909399; margin:0 0 18px">{{ rep.period.from }} ~ {{ rep.period.to }}</p>
+
+            <h3>{{ $t('mreport.secExec') }}</h3>
+            <div class="rep-grid">
+              <div class="rep-stat"><b>{{ rep.assets.hosts_total }}</b><span>{{ $t('mreport.hostsTotal') }}</span></div>
+              <div class="rep-stat"><b>{{ rep.assets.hosts_online }}</b><span>{{ $t('mreport.hostsOnline') }}</span></div>
+              <div class="rep-stat"><b>{{ rep.assets.k8s_clusters }}</b><span>{{ $t('mreport.k8sClusters') }}</span></div>
+              <div class="rep-stat"><b>{{ rep.assets.monitors }}</b><span>{{ $t('mreport.monitors') }}</span></div>
+              <div class="rep-stat"><b>{{ rep.alerts.total }}</b><span>{{ $t('mreport.alertsTotal') }}</span></div>
+            </div>
+            <h4>{{ $t('mreport.capRisk') }}</h4>
+            <el-table :data="capRiskRows" size="small" border>
+              <el-table-column :label="$t('mreport.target')" min-width="180">
+                <template #default="{ row }">{{ row.target }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.metric')" width="110">
+                <template #default="{ row }">{{ row.metric }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.currentUse')" width="150" align="center">
+                <template #default="{ row }">{{ row.current }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.capacity')" width="130" align="center">
+                <template #default="{ row }">{{ row.capacity }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.daysToLimit')" width="170" align="center">
+                <template #default="{ row }">
+                  <span :style="{ color: row.color, fontWeight: 600 }">{{ row.days }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.risk')" width="90" align="center">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="row.risk === 'red' ? 'danger' : row.risk === 'yellow' ? 'warning' : 'success'">
+                    {{ row.risk === 'red' ? $t('mreport.high') : row.risk === 'yellow' ? $t('mreport.medium') : $t('mreport.low') }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <h3>{{ $t('mreport.secHostCap') }}</h3>
+            <el-table :data="rep.hosts" size="small" border>
+              <el-table-column prop="name" :label="$t('hosts.name')" min-width="130" />
+              <el-table-column prop="ip" :label="$t('hosts.ip')" width="130" />
+              <el-table-column :label="$t('monitor.cpu') + ' ' + $t('mreport.avgPeak')" min-width="140" align="center">
+                <template #default="{ row }">{{ row.avg_cpu }}% / {{ row.peak_cpu }}%</template>
+              </el-table-column>
+              <el-table-column :label="$t('monitor.mem') + ' ' + $t('mreport.avgPeak')" min-width="140" align="center">
+                <template #default="{ row }">{{ row.avg_mem }}% / {{ row.peak_mem }}%</template>
+              </el-table-column>
+              <el-table-column :label="$t('monitor.disk')" width="100" align="center">
+                <template #default="{ row }">{{ row.disk }}%</template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.forecast90')" min-width="200" align="center">
+                <template #default="{ row }">{{ capDaysText(row.cpu_days_to_90) }}<br>{{ capDaysText(row.mem_days_to_90) }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.risk')" width="80" align="center">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="row.risk === 'red' ? 'danger' : row.risk === 'yellow' ? 'warning' : 'success'">
+                    {{ row.risk === 'red' ? $t('mreport.high') : row.risk === 'yellow' ? $t('mreport.medium') : $t('mreport.low') }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <h3>{{ $t('mreport.secK8sCap') }}</h3>
+            <el-table :data="rep.k8s" size="small" border>
+              <el-table-column prop="cluster" :label="$t('k8s.cluster')" min-width="120" />
+              <el-table-column prop="nodes" :label="$t('k8s.nodes')" width="70" align="center" />
+              <el-table-column :label="$t('mreport.cpuUsedEnd')" min-width="150" align="center">
+                <template #default="{ row }">{{ fmtCores2(row.cpu_used_end_m) }} / {{ fmtCores2(row.cpu_capacity_m) }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.memUsedEnd')" min-width="150" align="center">
+                <template #default="{ row }">{{ fmtMem(row.mem_used_end_mi) }} / {{ fmtMem(row.mem_capacity_mi) }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.slopeCol')" min-width="150" align="center">
+                <template #default="{ row }">+{{ (row.cpu_slope_m_day / 1000).toFixed(2) }} Core/{{ $t('k8s.capMonth') }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.daysToLimit')" min-width="170" align="center">
+                <template #default="{ row }">{{ capDaysText(row.cpu_days_to_full) }}<br>{{ capDaysText(row.mem_days_to_full) }}</template>
+              </el-table-column>
+            </el-table>
+            <h4>{{ $t('mreport.secTopPods') }}</h4>
+            <el-table :data="topPodRows" size="small" border>
+              <el-table-column prop="cluster" :label="$t('k8s.cluster')" width="120" />
+              <el-table-column prop="namespace" label="Namespace" width="120" />
+              <el-table-column prop="pod" label="Pod" min-width="200" />
+              <el-table-column :label="$t('mreport.avgCpuMonth')" width="150" align="center">
+                <template #default="{ row }">{{ (row.avg_cpu_m / 1000).toFixed(2) }} Core</template>
+              </el-table-column>
+              <el-table-column :label="$t('mreport.avgMemMonth')" width="150" align="center">
+                <template #default="{ row }">{{ fmtMem(row.avg_mem_mi) }}</template>
+              </el-table-column>
+            </el-table>
+
+            <h3>{{ $t('mreport.secAlerts') }}</h3>
+            <div class="rep-grid">
+              <div class="rep-stat" v-for="(v, k) in rep.alerts.by_level" :key="k"><b>{{ v }}</b><span>{{ k }}</span></div>
+            </div>
+            <h4>{{ $t('mreport.secTopAlerts') }}</h4>
+            <el-table :data="rep.alerts.top_targets" size="small" border>
+              <el-table-column prop="target" :label="$t('mreport.target')" min-width="200" />
+              <el-table-column prop="count" :label="$t('mreport.triggerCount')" width="140" align="center" />
+            </el-table>
+            <h4>{{ $t('mreport.secTimeline') }}</h4>
+            <el-table :data="rep.alerts.timeline" size="small" border>
+              <el-table-column :label="$t('audit.time')" width="160">
+                <template #default="{ row }">{{ fmtTime(row.fired_at) }}</template>
+              </el-table-column>
+              <el-table-column prop="level" :label="$t('mreport.level')" width="80" align="center" />
+              <el-table-column prop="target" :label="$t('mreport.target')" min-width="150" />
+              <el-table-column prop="message" :label="$t('audit.detail')" min-width="280" show-overflow-tooltip />
+              <el-table-column :label="$t('mreport.recoveryTime')" width="130" align="center">
+                <template #default="{ row }">
+                  <span v-if="row.duration_sec != null">{{ Math.round(row.duration_sec / 60) }} min</span>
+                  <span v-else style="color:#c0c4cc">-</span>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <h3>{{ $t('mreport.secChanges') }}</h3>
+            <div class="rep-grid">
+              <div class="rep-stat"><b>{{ rep.changes.hosts_added }}</b><span>{{ $t('mreport.hostsAdded') }}</span></div>
+              <div class="rep-stat"><b>{{ rep.changes.hosts_deleted }}</b><span>{{ $t('mreport.hostsDeleted') }}</span></div>
+              <div class="rep-stat"><b>{{ rep.changes.credentials_added }}</b><span>{{ $t('mreport.credsAdded') }}</span></div>
+            </div>
+          </div>
+          <el-empty v-else :description="$t('mreport.pickMonthFirst')" />
+        </el-card>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- 主机资源趋势 -->
@@ -805,6 +947,86 @@ onMounted(() => {
   loadMaintAudit()
   timer = setInterval(load, 30000)
 })
+// ---- 运维月报 ----
+const repMonth = ref(new Date().toISOString().slice(0, 7))
+const rep = ref(null)
+const repLoading = ref(false)
+const loadReport = async () => {
+  repLoading.value = true
+  try {
+    const [y, m] = (repMonth.value || '').split('-')
+    rep.value = await api.get('/report/monthly', { params: { year: y, month: m } })
+  } finally { repLoading.value = false }
+}
+const printReport = () => window.print()
+const fmtCores2 = m => `${((Number(m) || 0) / 1000).toFixed(2)} Core`
+const fmtMem = mi => { const v = Number(mi) || 0; return v >= 1024 ? `${(v / 1024).toFixed(1)}Gi` : `${Math.round(v)}Mi` }
+const capDaysText = d => {
+  if (d == null) return i18n.global.t('k8s.capNoExhaust')
+  if (d <= 0) return i18n.global.t('k8s.capExhausted')
+  return d < 60 ? `~${Math.round(d)} ${i18n.global.t('k8s.capDays')}` : `~${(d / 30).toFixed(1)} ${i18n.global.t('k8s.capMonths')}`
+}
+const capDaysColor = d => (d == null ? '#67c23a' : d < 90 ? '#f56c6c' : d < 180 ? '#e6a23c' : '#67c23a')
+// 容量风险红绿灯合并视图（主机 + K8S 集群）
+const capRiskRows = computed(() => {
+  const out = []
+  for (const h of rep.value?.hosts || []) {
+    for (const [metric, days, cur, cap, unit] of [
+      ['CPU', h.cpu_days_to_90, h.peak_cpu, 100, '%'],
+      ['MEM', h.mem_days_to_90, h.peak_mem, 100, '%'],
+    ]) {
+      if (days != null && days < 180) {
+        out.push({ target: `${h.name}（${h.ip}）`, metric, current: `${cur}${unit}`, capacity: '100' + unit,
+          days: `~${Math.round(days)}d`, color: capDaysColor(days), risk: days < 90 ? 'red' : 'yellow' })
+      } else if (days == null && cur >= 90) {
+        out.push({ target: `${h.name}（${h.ip}）`, metric, current: `${cur}${unit}`, capacity: '100' + unit,
+          days: i18n.global.t('k8s.capExhausted'), color: '#f56c6c', risk: 'red' })
+      }
+    }
+    if (h.disk >= 80) {
+      out.push({ target: `${h.name}（${h.ip}）`, metric: 'DISK', current: `${h.disk}%`, capacity: '100%',
+        days: h.disk >= 90 ? i18n.global.t('k8s.capExhausted') : `80%+`, color: h.disk >= 90 ? '#f56c6c' : '#e6a23c',
+        risk: h.disk >= 90 ? 'red' : 'yellow' })
+    }
+  }
+  for (const k of rep.value?.k8s || []) {
+    for (const [metric, days, cur, capTxt, slope] of [
+      ['CPU', k.cpu_days_to_full, k.cpu_used_end_m, k.cpu_capacity_m, k.cpu_slope_m_day],
+      ['MEM', k.mem_days_to_full, k.mem_used_end_mi, k.mem_capacity_mi, k.mem_slope_m_day === 0 ? k.cpu_slope_m_day : k.cpu_slope_m_day],
+    ]) {
+      const realDays = metric === 'MEM' ? k.mem_days_to_full : days
+      if (realDays != null && realDays < 180) {
+        out.push({ target: `${k.cluster}（K8S）`, metric, current: metric === 'CPU' ? fmtCores2(cur) : fmtMem(cur),
+          capacity: metric === 'CPU' ? fmtCores2(k.cpu_capacity_m) : fmtMem(k.mem_capacity_mi),
+          days: `~${Math.round(realDays)}d`, color: capDaysColor(realDays), risk: realDays < 90 ? 'red' : 'yellow' })
+      }
+    }
+  }
+  return out
+})
+const topPodRows = computed(() => {
+  const out = []
+  for (const k of rep.value?.k8s || []) {
+    for (const p of k.top_pods || []) out.push({ cluster: k.cluster, ...p })
+  }
+  return out
+})
+const exportAlertCsv = () => {
+  const rows = rep.value?.alerts?.details || []
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const lines = ['"time","level","kind","target","message","duration_sec"']
+  for (const e of rows) {
+    lines.push([esc(String(e.fired_at).replace('T', ' ').slice(0, 19)), esc(e.level), esc(e.kind),
+      esc(e.target), esc(e.message), esc(e.duration_sec ?? '')].join(','))
+  }
+  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `alerts-${repMonth.value}.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
 onUnmounted(() => clearInterval(timer))
 </script>
 
@@ -834,4 +1056,12 @@ onUnmounted(() => clearInterval(timer))
 .tpl-item:hover { background: #f5f7fa; }
 .tpl-item.active { background: #ecf5ff; color: #409eff; font-weight: 600; border-color: #d9ecff; }
 @media (max-width: 1100px) { .hb { display: none; } }
+</style>
+
+<style>
+@media print {
+  body * { visibility: hidden; }
+  #monthly-report, #monthly-report * { visibility: visible; }
+  #monthly-report { position: absolute; left: 0; top: 0; width: 100%; }
+}
 </style>

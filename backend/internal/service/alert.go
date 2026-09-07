@@ -164,6 +164,13 @@ func SendMonitorAlert(m *model.Monitor, status string, respMs int, errMsg string
 		emoji = "🔴"
 		event = "ALERT"
 	}
+	// 告警事件历史（月报数据源）
+	if down {
+		LogAlertEvent("monitor_down", "warn", m.Name,
+			fmt.Sprintf("监控项故障 %s（%s）：%s", m.Name, monitorTargetText(m), errMsg))
+	} else {
+		LogAlertRecovery("monitor_down", m.Name, time.Now())
+	}
 	vars := map[string]string{
 		"monitor": m.Name, "type": m.Type, "target": monitorTargetText(m),
 		"status": strings.ToUpper(status), "resp_ms": strconv.Itoa(respMs),

@@ -168,6 +168,13 @@ func SendCmdLevelAlert(h *model.Host, lv CmdLevel, metric string, value, th floa
 		"metric": metric, "value": fmt.Sprintf("%.1f", value), "threshold": fmt.Sprintf("%.0f", th),
 		"time": now,
 	}
+	// 告警事件历史
+	if recovery {
+		LogAlertRecovery("cmd_level", h.Name, time.Now())
+	} else {
+		LogAlertEvent("cmd_level", lv.Level, h.Name,
+			fmt.Sprintf("%s %s %.1f%% 超过阈值 %.0f%%", h.Name, metric, value, th))
+	}
 	defSubject, defBody := renderTpl(tpl.CmdAlertTitle, vars), renderTpl(tpl.CmdAlertBody, vars)
 	if recovery {
 		defSubject, defBody = renderTpl(tpl.CmdRecoveryTitle, vars), renderTpl(tpl.CmdRecoveryBody, vars)

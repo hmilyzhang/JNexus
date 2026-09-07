@@ -164,6 +164,10 @@ func SetupRouter() *gin.Engine {
 		}
 
 		auth.GET("/monitoring/hosts/:id/capacity", HostCapacityHistory)
+		rep := auth.Group("/report")
+		{
+			rep.GET("/monthly", MonthlyReport)
+		}
 		auth.GET("/mfa/status", MFAStatus)
 		auth.POST("/mfa/setup", MFASetup)
 		auth.POST("/mfa/enable", MFAEnable)

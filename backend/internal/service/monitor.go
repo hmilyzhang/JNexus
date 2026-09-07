@@ -439,6 +439,7 @@ func CollectHostMetrics() {
 				if s.BootID != "" {
 					if h.LastBootID != "" && s.BootID != h.LastBootID {
 						SendHostRebootAlert(&h, s.BootID)
+						LogAlertEvent("host_reboot", "warn", h.Name, "主机系统重启（boot_id 变化）")
 					}
 					if h.LastBootID != s.BootID {
 						model.DB.Model(&model.Host{}).Where("id = ?", h.ID).

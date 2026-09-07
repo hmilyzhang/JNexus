@@ -211,7 +211,6 @@ func CreateHost(c *gin.Context) {
 			req.AuthType = "password"
 		}
 		req.Password = tp
-		req.AutoPair = req.AutoPair // 保持页面选项
 		_ = isLDAP
 	}
 	if req.Username == "" {
