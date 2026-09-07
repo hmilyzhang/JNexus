@@ -113,11 +113,15 @@ func UpdateUser(c *gin.Context) {
 	op := currentUser(c).Username
 	updates := map[string]any{"updated_by": op, "updated_at": time.Now()}
 	if req.Email != nil {
-		if strings.EqualFold(u.AuthSource, "ldap") {
+		// LDAP 用户邮箱由系统同步：仅在值确实变化时才拦截（原样回传视为未修改，避免误伤角色更新）
+		changed := !strings.EqualFold(strings.TrimSpace(*req.Email), u.Email)
+		if changed && strings.EqualFold(u.AuthSource, "ldap") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "LDAP/AD 用户邮箱由系统自动同步，不可手动修改"})
 			return
 		}
-		updates["email"] = *req.Email
+		if changed {
+			updates["email"] = strings.TrimSpace(*req.Email)
+		}
 	}
 	if req.Role != nil {
 		updates["role"] = *req.Role

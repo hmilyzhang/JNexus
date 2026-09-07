@@ -295,7 +295,10 @@ const dlg = row => {
 }
 const save = async () => {
   if (form.value.id) {
-    await api.put(`/users/${form.value.id}`, { role: form.value.role, status: form.value.status, email: form.value.email, user_group_ids: form.value.user_group_ids })
+    // LDAP 用户邮箱由系统同步，编辑时不提交 email（避免触发后端 LDAP 邮箱保护）
+    const payload = { role: form.value.role, status: form.value.status, user_group_ids: form.value.user_group_ids }
+    if (form.value.auth_source !== 'ldap') payload.email = form.value.email
+    await api.put(`/users/${form.value.id}`, payload)
   } else {
     await api.post('/users', { ...form.value })
   }
