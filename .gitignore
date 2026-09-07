@@ -24,3 +24,4 @@ Thumbs.db
 .zcode/
 *.exe~
 __pycache__/
+frontend/i18n_audit.mjs
