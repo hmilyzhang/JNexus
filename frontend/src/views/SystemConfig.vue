@@ -167,7 +167,7 @@
         <el-table-column :label="$t('users.role')" min-width="100">
           <template #default="{ row }">
               <el-tag size="small" :type="row.custom ? 'primary' : ''" effect="plain">{{ row.labelKey ? $t(row.labelKey) : row.role }}</el-tag>
-              <el-tag v-if="row.custom" size="small" type="info">自定义</el-tag>
+              <el-tag v-if="row.custom" size="small" type="info">{{ $t('system.customTag') }}</el-tag>
             </template>
         </el-table-column>
         <el-table-column :label="$t('scripts.desc')" min-width="200">

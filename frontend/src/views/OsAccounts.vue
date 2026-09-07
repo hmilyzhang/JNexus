@@ -39,7 +39,7 @@
         </el-table-column>
         <el-table-column :label="$t('rot.enable')" width="70">
           <template #default="{ row }">
-            <el-tag v-if="row.rotate_enabled" size="small">90天</el-tag>
+            <el-tag v-if="row.rotate_enabled" size="small">90d</el-tag>
             <span v-else style="color:#c0c4cc">-</span>
           </template>
         </el-table-column>

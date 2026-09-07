@@ -793,6 +793,7 @@ export default {
   },
   system: {
     capMatrix: '模块权限',
+    customTag: '自定义',
     newRole: '新建角色',
     roleKey: '角色标识',
     roleDesc: '角色描述',

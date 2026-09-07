@@ -116,6 +116,7 @@ func UpdateUser(c *gin.Context) {
 		Role         *string `json:"role"`
 		Status       *int    `json:"status"`
 		Email        *string `json:"email"`
+		DisplayName  *string `json:"display_name"`
 		UserGroupIDs *[]uint `json:"user_group_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -134,6 +135,13 @@ func UpdateUser(c *gin.Context) {
 		if changed {
 			updates["email"] = strings.TrimSpace(*req.Email)
 		}
+	}
+	if req.DisplayName != nil {
+		if strings.EqualFold(u.AuthSource, "ldap") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "LDAP/AD 用户显示名由系统自动同步，不可手动修改"})
+			return
+		}
+		updates["display_name"] = strings.TrimSpace(*req.DisplayName)
 	}
 	if req.Role != nil {
 		updates["role"] = *req.Role

@@ -36,7 +36,7 @@
           <template #default="{ row }">
             <template v-if="row.cert_expiry">
               <el-tag size="small" :type="certTagType(row.cert_expiry)">
-                {{ fmtTime(row.cert_expiry) }}<span v-if="daysLeft(row.cert_expiry) <= 30">（{{ daysLeft(row.cert_expiry) }}天）</span>
+                {{ fmtTime(row.cert_expiry) }}<span v-if="daysLeft(row.cert_expiry) <= 30"> ({{ daysLeft(row.cert_expiry) }}d)</span>
               </el-tag>
             </template>
             <span v-else style="color:#c0c4cc">-</span>

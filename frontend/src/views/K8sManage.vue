@@ -561,11 +561,8 @@ const batchDelete = async () => {
   try {
     await ElMessageBox.confirm(t('k8s.batchDelConfirm', { n: selectedRows.value.length }), t('k8s.batchDelete'), { type: 'warning' })
   } catch { return }
-  for (const r of selectedRows.value) {
-    try {
-      await api.post(`${P}/delete`, { kind: kindOf[active.value], namespace: r.namespace || '', name: r.name })
-    } catch { /* 单个失败继续其余 */ }
-  }
+  await Promise.allSettled(selectedRows.value.map(r =>
+    api.post(`${P}/delete`, { kind: kindOf[active.value], namespace: r.namespace || '', name: r.name })))
   ElMessage.success(t('common.success'))
   selectedRows.value = []
   load()

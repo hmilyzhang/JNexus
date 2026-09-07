@@ -265,7 +265,7 @@ export default {
   },
   tasks: {
     mine: 'Showing only tasks you started',
-    runNow: '立即执行',
+    runNow: 'Run now',
     total: 'Total',
     onlyFailed: 'Failed only',
     searchOutput: 'Search output keyword',
@@ -793,6 +793,7 @@ export default {
   },
   system: {
     capMatrix: 'Module perms',
+    customTag: 'Custom',
     newRole: 'New role',
     roleKey: 'Role key',
     roleDesc: 'Description',

@@ -233,7 +233,7 @@
           <div style="color:#909399; font-size:12px; margin-bottom:10px">{{ $t('monitor.maintTip') }}</div>
           <div v-for="(w, i) in maintWins" :key="i" style="display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap">
             <el-date-picker v-model="w.dates" type="daterange" value-format="YYYY-MM-DD"
-                            range-separator="→" start-placeholder="开始日期" end-placeholder="结束日期"
+                            range-separator="→" start-placeholder="—" end-placeholder="—"
                             style="width:280px" :clearable="false" />
             <el-time-select v-model="w.start" start="00:00" step="00:30" end="23:30" style="width:120px" placeholder="开始" />
             <span style="color:#909399">→</span>
