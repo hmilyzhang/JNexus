@@ -153,16 +153,17 @@ func ListHosts(c *gin.Context) {
 }
 
 type hostReq struct {
-	Name      string `json:"name"`
-	IP        string `json:"ip" binding:"required"`
-	Port      int    `json:"port"`
-	Username  string `json:"username" binding:"required"`
-	AuthType  string `json:"auth_type"`
-	SSHKeyID  *uint  `json:"ssh_key_id"`
-	Password  string `json:"password"`
-	GroupID   *uint  `json:"group_id"`
-	CredLabel string `json:"credential_label"` // 生成 OS 账号的用途标签
-	AutoPair  bool   `json:"auto_pair"`        // 密码创建后自动配对密钥
+	Name       string `json:"name"`
+	IP         string `json:"ip" binding:"required"`
+	Port       int    `json:"port"`
+	Username   string `json:"username"` // 可由凭据模板提供，CreateHost 内统一校验
+	AuthType   string `json:"auth_type"`
+	SSHKeyID   *uint  `json:"ssh_key_id"`
+	Password   string `json:"password"`
+	GroupID    *uint  `json:"group_id"`
+	CredLabel  string `json:"credential_label"` // 生成 OS 账号的用途标签
+	AutoPair   bool   `json:"auto_pair"`        // 密码创建后自动配对密钥
+	TemplateID *uint  `json:"template_id"`      // 凭据模板：选用后忽略手输密码，取模板用户名/密码
 }
 
 func (r *hostReq) toHost(h *model.Host) error {
@@ -196,6 +197,25 @@ func CreateHost(c *gin.Context) {
 	var req hostReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（IP、用户名必填）"})
+		return
+	}
+	// 凭据模板：把模板的用户名/密码注入请求（优先于手输）
+	if req.TemplateID != nil && *req.TemplateID > 0 {
+		tu, tp, isLDAP, terr := resolveTemplatePassword(*req.TemplateID)
+		if terr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": terr.Error()})
+			return
+		}
+		req.Username = tu
+		if req.AuthType == "" {
+			req.AuthType = "password"
+		}
+		req.Password = tp
+		req.AutoPair = req.AutoPair // 保持页面选项
+		_ = isLDAP
+	}
+	if req.Username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "err.needUser"})
 		return
 	}
 	// 防重复添加：同 IP+端口+登录用户 已存在时拒绝（连点/重复提交兜底）
@@ -344,13 +364,14 @@ var ipv4Re = regexp.MustCompile(`^\d{1,3}(\.\d{1,3}){3}$`)
 
 func ImportHosts(c *gin.Context) {
 	var req struct {
-		Content   string `json:"content" binding:"required"`
-		SSHKeyID  *uint  `json:"ssh_key_id"`
-		AuthType  string `json:"auth_type"`
-		Username  string `json:"username"`         // 可作为默认用户名
-		Password  string `json:"password"`         // 页面统一密码（原样使用，不做 trim/转义）
-		CredLabel string `json:"credential_label"` // 生成的 OS 账号标签
-		AutoPair  bool   `json:"auto_pair"`
+		Content    string `json:"content" binding:"required"`
+		SSHKeyID   *uint  `json:"ssh_key_id"`
+		AuthType   string `json:"auth_type"`
+		Username   string `json:"username"`         // 可作为默认用户名
+		Password   string `json:"password"`         // 页面统一密码（原样使用，不做 trim/转义）
+		CredLabel  string `json:"credential_label"` // 生成的 OS 账号标签
+		AutoPair   bool   `json:"auto_pair"`
+		TemplateID *uint  `json:"template_id"` // 凭据模板：覆盖统一用户名/密码
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
@@ -361,6 +382,17 @@ func ImportHosts(c *gin.Context) {
 	}
 	if req.Username == "" {
 		req.Username = "root"
+	}
+	// 凭据模板：整批注入模板用户名/密码（优先于页面统一密码）
+	if req.TemplateID != nil && *req.TemplateID > 0 {
+		tu, tp, _, terr := resolveTemplatePassword(*req.TemplateID)
+		if terr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": terr.Error()})
+			return
+		}
+		req.Username = tu
+		req.Password = tp
+		req.AuthType = "password"
 	}
 
 	// 自动配对模式：整批共用一对密钥

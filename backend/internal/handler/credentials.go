@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -366,4 +367,103 @@ func SetDefaultCredential(c *gin.Context) {
 	}
 	makeDefault(cred.HostID, cred.ID)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// ---- 凭据模板（host_id = 0）：LDAP/域账号密码存一次，添加主机/批量导入时引用 ----
+
+// ListCredentialTemplates GET /api/credentials/templates
+func ListCredentialTemplates(c *gin.Context) {
+	var creds []model.HostCredential
+	model.DB.Where("host_id = 0").Order("id DESC").Find(&creds)
+	out := make([]gin.H, 0, len(creds))
+	for _, cr := range creds {
+		out = append(out, gin.H{
+			"id": cr.ID, "username": cr.Username, "label": cr.Label,
+			"is_ldap": cr.IsLDAP, "created_at": cr.CreatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+// SaveCredentialTemplate POST /api/credentials/templates（id 为空新建，否则更新密码）
+func SaveCredentialTemplate(c *gin.Context) {
+	var req struct {
+		ID       *uint  `json:"id"`
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password"`
+		Label    string `json:"label"`
+		IsLDAP   bool   `json:"is_ldap"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "err.param"})
+		return
+	}
+	if req.ID != nil {
+		var cr model.HostCredential
+		if err := model.DB.First(&cr, *req.ID).Error; err != nil || cr.HostID != 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "模板不存在"})
+			return
+		}
+		cr.Username = req.Username
+		cr.IsLDAP = req.IsLDAP
+		if req.Label != "" {
+			cr.Label = req.Label
+		}
+		if req.Password != "" {
+			enc, err := pkg.Encrypt(req.Password)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			cr.Password = enc
+		}
+		model.DB.Save(&cr)
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return
+	}
+	if req.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "err.param"})
+		return
+	}
+	enc, err := pkg.Encrypt(req.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	label := req.Label
+	if label == "" {
+		label = "模板"
+	}
+	cr := model.HostCredential{HostID: 0, Username: req.Username, AuthType: "password",
+		Password: enc, Label: label, IsDefault: false, IsLDAP: req.IsLDAP}
+	if err := model.DB.Create(&cr).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": cr.ID})
+}
+
+// DeleteCredentialTemplate DELETE /api/credentials/templates/:id
+func DeleteCredentialTemplate(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var cr model.HostCredential
+	if err := model.DB.First(&cr, id).Error; err != nil || cr.HostID != 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "模板不存在"})
+		return
+	}
+	model.DB.Delete(&cr)
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// resolveTemplatePassword 取模板的解密密码（模板必须存在且属于当前用户可用的范围）
+func resolveTemplatePassword(id uint) (username, password string, isLDAP bool, err error) {
+	var cr model.HostCredential
+	if e := model.DB.First(&cr, id).Error; e != nil || cr.HostID != 0 {
+		return "", "", false, fmt.Errorf("凭据模板不存在")
+	}
+	plain, e := pkg.Decrypt(cr.Password)
+	if e != nil {
+		return "", "", false, e
+	}
+	return cr.Username, plain, cr.IsLDAP, nil
 }

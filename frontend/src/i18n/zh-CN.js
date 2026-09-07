@@ -22,6 +22,7 @@ export default {
   },
   common: {
     confirm: '确认',
+    add: '添加',
     cancel: '取消',
     save: '保存',
     delete: '删除',
@@ -114,6 +115,12 @@ export default {
     import: '批量导入',
     groupMgmt: '分组管理',
     keyMgmt: 'SSH 密钥管理',
+    tplMgmt: '账号模板',
+    tplPick: '账号模板',
+    tplPickTip: '选择已存账号（免输密码）',
+    tplInUse: '使用模板密码',
+    tplLabel: '标签',
+    tplTip: '模板保存 LDAP/域账号密码（AES 加密）。添加主机与批量导入时选择模板即可，无需重复输入密码。',
     treeView: '主机视图',
     name: '名称',
     ip: 'IP',
@@ -865,5 +872,6 @@ export default {
     'err.noReportPerm': '权限不足：当前角色无报告模块权限',
     'err.noHostPerm': '权限不足：当前角色无主机{action}权限',
     'err.hostExists': '该主机（IP/端口/用户）已存在，请勿重复添加',
+    'err.needUser': '用户名必填',
   }
 }

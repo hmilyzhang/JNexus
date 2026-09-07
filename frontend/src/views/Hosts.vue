@@ -30,6 +30,7 @@
           <el-button type="info" plain @click="$router.push('/shell')">{{ $t('hosts.terminal') }}</el-button>
           <el-button @click="dlgGroup">{{ $t('hosts.groupMgmt') }}</el-button>
           <el-button type="warning" plain @click="showKeys = true">{{ $t('hosts.keyMgmt') }}</el-button>
+          <el-button type="info" plain @click="showTemplates = true">{{ $t('hosts.tplMgmt') }}</el-button>
         </div>
 
         <el-table :data="hosts" v-loading="loading" size="small" border>
@@ -92,8 +93,16 @@
           <el-option v-for="k in keys" :key="k.id" :label="k.name" :value="k.id" />
         </el-select>
       </el-form-item>
+      <el-form-item v-if="!hostForm.id" :label="$t('hosts.tplPick')">
+        <el-select v-model="hostForm.template_id" clearable style="width:100%" :placeholder="$t('hosts.tplPickTip')"
+                   @change="onTplPick">
+          <el-option v-for="tp in templates" :key="tp.id" :value="tp.id"
+                     :label="`${tp.username}${tp.is_ldap ? ' (AD)' : ''} · ${tp.label}`" />
+        </el-select>
+      </el-form-item>
       <el-form-item :label="$t('hosts.password')" v-else>
-        <el-input v-model="hostForm.password" type="password" show-password :placeholder="hostForm.id ? $t('hosts.passwordKeep') : ''" />
+        <el-input v-model="hostForm.password" type="password" show-password :disabled="!!hostForm.template_id"
+                  :placeholder="hostForm.id ? $t('hosts.passwordKeep') : (hostForm.template_id ? $t('hosts.tplInUse') : '')" />
         <el-checkbox v-if="!hostForm.id" v-model="hostForm.auto_pair" style="margin-top:4px">
           {{ $t('hosts.autoPair') }}
         </el-checkbox>
@@ -122,9 +131,16 @@
           <div style="color:#909399; font-size:12px; margin-top:2px">{{ $t('hosts.importFileTip') }}</div>
         </div>
       </el-form-item>
+      <el-form-item :label="$t('hosts.tplPick')">
+        <el-select v-model="importForm.template_id" clearable style="width:100%" :placeholder="$t('hosts.tplPickTip')">
+          <el-option v-for="tp in templates" :key="tp.id" :value="tp.id"
+                     :label="`${tp.username}${tp.is_ldap ? ' (AD)' : ''} · ${tp.label}`" />
+        </el-select>
+      </el-form-item>
       <el-form-item :label="$t('hosts.commonPassword')">
         <el-input v-model="importForm.password" type="password" show-password autocomplete="new-password"
-                  :placeholder="$t('hosts.commonPasswordPlaceholder')" />
+                  :disabled="!!importForm.template_id"
+                  :placeholder="importForm.template_id ? $t('hosts.tplInUse') : $t('hosts.commonPasswordPlaceholder')" />
       </el-form-item>
       <el-form-item :label="$t('hosts.credLabel')">
         <el-input v-model="importForm.credential_label" :placeholder="$t('hosts.credLabelPlaceholder')" />
@@ -218,6 +234,34 @@
       <el-button type="primary" @click="saveKey">{{ $t('common.save') }}</el-button>
     </template>
   </el-dialog>
+
+  <!-- 账号模板管理 -->
+  <el-drawer v-model="showTemplates" :title="$t('hosts.tplMgmt')" size="480px">
+    <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap">
+      <el-input v-model="tplForm.username" :placeholder="$t('users.username')" style="width:140px" />
+      <el-input v-model="tplForm.password" type="password" show-password :placeholder="$t('hosts.password')" style="width:150px" />
+      <el-input v-model="tplForm.label" :placeholder="$t('hosts.tplLabel')" style="width:110px" />
+      <el-checkbox v-model="tplForm.is_ldap" style="margin:0">AD/LDAP</el-checkbox>
+      <el-button type="primary" size="small" :loading="tplSaving" @click="saveTpl">{{ $t('common.add') }}</el-button>
+    </div>
+    <el-table :data="templates" size="small" border>
+      <el-table-column prop="username" label="User" min-width="120" />
+      <el-table-column prop="label" :label="$t('hosts.tplLabel')" min-width="90" />
+      <el-table-column :label="'AD/LDAP'" width="90" align="center">
+        <template #default="{ row }">
+          <el-tag size="small" :type="row.is_ldap ? 'warning' : 'info'">{{ row.is_ldap ? 'AD' : '-' }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column :label="$t('common.operation')" width="80">
+        <template #default="{ row }">
+          <el-popconfirm :title="$t('monitor.configDelConfirm')" @confirm="delTpl(row)">
+            <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+          </el-popconfirm>
+        </template>
+      </el-table-column>
+    </el-table>
+    <div style="margin-top:12px; color:#909399; font-size:12px">{{ $t('hosts.tplTip') }}</div>
+  </el-drawer>
 
   <!-- 容量规划抽屉 -->
   <el-drawer v-model="capVisible" size="56%" :title="`${$t('k8s.capacity')} · ${capHost?.name || ''}`" destroy-on-close>
@@ -337,7 +381,7 @@ const importing = ref(false)
 const hostVisible = ref(false)
 const hostForm = ref({})
 const importVisible = ref(false)
-const importForm = ref({ content: '', ssh_key_id: null, username: 'root', password: '', credential_label: '', auto_pair: true })
+const importForm = ref({ content: '', ssh_key_id: null, username: 'root', password: '', credential_label: '', auto_pair: true, template_id: null })
 const groupVisible = ref(false)
 const newGroup = ref('')
 const showKeys = ref(false)
@@ -417,6 +461,7 @@ const loadKeys = async () => { keys.value = await api.get('/ssh_keys') }
 onMounted(() => {
   load()
   loadKeys()
+  loadTemplates()
 })
 
 // 终端：跳转到 Web Shell 终端工作台，可带主机直接连接
@@ -439,7 +484,7 @@ const onRowCmd = async (cmd, row) => {
 }
 
 const dlgHost = row => {
-  hostForm.value = row ? { ...row, password: '' } : { name: '', ip: '', port: 22, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null, auto_pair: true }
+  hostForm.value = row ? { ...row, password: '', template_id: null } : { name: '', ip: '', port: 22, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null, auto_pair: true, template_id: null }
   hostVisible.value = true
 }
 // ---- OS 账号权限（下拉项显隐），管理功能在「OS 账号」页面 ----
@@ -449,6 +494,33 @@ const canManageCreds = computed(() => {
   return !!roleSettings.value[store.role]?.cred
 })
 api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
+
+// ---- 凭据模板（LDAP/域账号存一次，添加/导入引用） ----
+const showTemplates = ref(false)
+const templates = ref([])
+const tplForm = ref({ username: '', password: '', label: '', is_ldap: false })
+const tplSaving = ref(false)
+const loadTemplates = async () => { templates.value = await api.get('/credentials/templates').catch(() => []) }
+const saveTpl = async () => {
+  if (!tplForm.value.username || !tplForm.value.password) { ElMessage.warning(t('hosts.needNameIpUser')); return }
+  tplSaving.value = true
+  try {
+    await api.post('/credentials/templates', tplForm.value)
+    ElMessage.success(t('common.success'))
+    tplForm.value = { username: '', password: '', label: '', is_ldap: false }
+    loadTemplates()
+  } finally { tplSaving.value = false }
+}
+const delTpl = async row => { await api.delete(`/credentials/templates/${row.id}`); loadTemplates() }
+
+// 添加主机：选中模板后联动用户名/认证方式
+const onTplPick = id => {
+  const tp = templates.value.find(x => x.id === id)
+  if (tp) {
+    hostForm.value.username = tp.username
+    hostForm.value.auth_type = 'password'
+  }
+}
 
 const savingHost = ref(false)
 const saveHost = async () => {

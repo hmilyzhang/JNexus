@@ -22,6 +22,7 @@ export default {
   },
   common: {
     confirm: 'Confirm',
+    add: 'Add',
     cancel: 'Cancel',
     save: 'Save',
     delete: 'Delete',
@@ -114,6 +115,12 @@ export default {
     import: 'Import',
     groupMgmt: 'Groups',
     keyMgmt: 'SSH Keys',
+    tplMgmt: 'Account Templates',
+    tplPick: 'Account template',
+    tplPickTip: 'Pick a stored account (no password typing)',
+    tplInUse: 'Using template password',
+    tplLabel: 'Label',
+    tplTip: 'Templates store LDAP/AD account passwords (AES-encrypted). Pick one when adding hosts or importing to avoid retyping the password.',
     treeView: 'Hosts',
     name: 'Name',
     ip: 'IP',
@@ -865,5 +872,6 @@ export default {
     'err.noReportPerm': 'Permission denied: your role has no report access',
     'err.noHostPerm': 'Permission denied: your role has no host {action} access',
     'err.hostExists': 'This host (IP/port/user) already exists',
+    'err.needUser': 'Username is required',
   }
 }

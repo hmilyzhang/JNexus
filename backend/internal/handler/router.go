@@ -241,6 +241,10 @@ func SetupRouter() *gin.Engine {
 		creds := auth.Group("/credentials", middleware.RequireRole(model.RoleOps, model.RolePublisher))
 		{
 			creds.GET("", ListAllCredentials)
+			// 凭据模板（添加主机/批量导入引用，免重复输密码）
+			creds.GET("/templates", ListCredentialTemplates)
+			creds.POST("/templates", middleware.RequireRole(model.RoleOps), SaveCredentialTemplate)
+			creds.DELETE("/templates/:id", middleware.RequireRole(model.RoleOps), DeleteCredentialTemplate)
 			creds.GET("/usable", UsableCredentialsHandler)
 			// OS 账号管理：需角色开启「账号管理」权限
 			creds.POST("/batch", middleware.RequireRole(model.RoleOps), middleware.RequireHostPerm("edit"), middleware.RequireCredPerm(), BatchAddCredentialsHandler)
