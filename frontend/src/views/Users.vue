@@ -201,6 +201,16 @@
           <el-option v-for="h in hosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
         </el-select>
       </el-form-item>
+      <el-form-item :label="$t('users.boundApps')">
+        <el-select v-model="gform.app_ids" multiple filterable style="width:100%">
+          <el-option v-for="a in appOptions" :key="a.id" :label="a.name" :value="a.id" />
+        </el-select>
+        <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('users.boundAppsTip') }}</div>
+      </el-form-item>
+      <el-form-item :label="$t('users.restrictVis')">
+        <el-switch v-model="gform.restrict_visibility" />
+        <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('users.restrictVisTip') }}</div>
+      </el-form-item>
       <el-form-item :label="$t('users.credRules')">
         <div style="width:100%">
           <div v-for="(r, i) in gform.rules" :key="i" style="display:flex; gap:6px; margin-bottom:6px">
@@ -259,7 +269,7 @@ const grantForm = ref({ host_groups: [], apps: [] })
 const gVisible = ref(false)
 const allCreds = ref([])
 const credFilter = ref('')
-const gform = ref({ name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [], rules: [] })
+const gform = ref({ name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [], rules: [], app_ids: [], restrict_visibility: false })
 
 // 批量快选：全选搜索结果 / 按主机分组全选
 const selectFilteredCreds = () => {
@@ -291,6 +301,9 @@ api.get('/system/roles').then(rs => {
   customRoles.value = Object.keys(rs).filter(k => !builtin.includes(k))
 }).catch(() => {})
 const groupName = id => (ugroups.value.find(g => g.id === id) || {}).name || id
+
+const appOptions = ref([])
+api.get('/apps').then(r => { appOptions.value = r }).catch(() => {})
 
 const load = async () => {
   loading.value = true
@@ -370,10 +383,12 @@ const gDlg = async row => {
     gform.value = {
       id: d.id, name: d.name, description: d.description,
       member_ids: d.member_ids || [], host_ids: d.host_ids || [], host_group_ids: d.host_group_ids || [],
-      credential_ids: d.credential_ids || [], rules: (d.rules || []).map(r => ({ host_group_id: r.host_group_id, username: r.username }))
+      credential_ids: d.credential_ids || [], app_ids: d.app_ids || [],
+      restrict_visibility: !!d.restrict_visibility,
+      rules: (d.rules || []).map(r => ({ host_group_id: r.host_group_id, username: r.username }))
     }
   } else {
-    gform.value = { name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [], rules: [] }
+    gform.value = { name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [], rules: [], app_ids: [], restrict_visibility: false }
   }
   gVisible.value = true
 }
@@ -383,12 +398,15 @@ const gSave = async () => {
     await api.put(`/user_groups/${gform.value.id}`, { name: gform.value.name, description: gform.value.description })
     await api.put(`/user_groups/${gform.value.id}/links`, {
       member_ids: gform.value.member_ids, host_ids: gform.value.host_ids, host_group_ids: gform.value.host_group_ids, credential_ids: gform.value.credential_ids,
+      app_ids: gform.value.app_ids,
       rules: gform.value.rules.filter(r => r.username && r.username.trim())
     })
+    await api.put(`/user_groups/${gform.value.id}`, { name: gform.value.name, description: gform.value.description, restrict_visibility: gform.value.restrict_visibility })
   } else {
     const created = await api.post('/user_groups', { name: gform.value.name, description: gform.value.description })
     await api.put(`/user_groups/${created.id}/links`, {
       member_ids: gform.value.member_ids, host_ids: gform.value.host_ids, host_group_ids: gform.value.host_group_ids, credential_ids: gform.value.credential_ids,
+      app_ids: gform.value.app_ids,
       rules: gform.value.rules.filter(r => r.username && r.username.trim())
     })
   }

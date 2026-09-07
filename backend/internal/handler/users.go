@@ -49,10 +49,13 @@ func CreateUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（用户名≥2位，密码≥6位）"})
 		return
 	}
+	// 角色合法性：内置角色 或 已存在的自定义角色（角色设置中定义）
 	validRoles := map[string]bool{model.RoleAdmin: true, model.RoleOps: true, model.RolePublisher: true, model.RoleViewer: true, model.RoleAuditor: true, model.RoleK8s: true}
 	if !validRoles[req.Role] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "非法角色"})
-		return
+		if _, ok := service.GetRoleSettings()[req.Role]; !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "err.badRole"})
+			return
+		}
 	}
 	hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	u := model.User{Username: req.Username, Password: string(hash), Role: req.Role, Status: 1, Email: req.Email,

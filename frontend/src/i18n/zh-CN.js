@@ -398,6 +398,10 @@ export default {
     groupTip: '用户组可关联主机与主机分组：组成员自动获得这些主机的访问权限（与个人授权叠加）。',
     members: '成员数',
     linkedHosts: '关联主机',
+    boundApps: '绑定应用',
+    boundAppsTip: '组成员只能看到并对绑定的应用执行发布/回滚',
+    restrictVis: '限制主机可见性',
+    restrictVisTip: '开启后，组成员的主机列表仅显示本组绑定的主机分组内机器（admin/ops 不受限）',
     linkedGroups: '关联主机分组',
     grant: '授权',
     roleDesc: '角色说明：管理员=全部权限；运维=主机/执行/文件/脚本/发布；发布员=执行/发布（需授权）；只读=仅查看；审计员=执行记录与审计日志查看。\n「授权」控制用户可执行的主机分组与可发布的应用。',
@@ -963,5 +967,6 @@ export default {
     'err.noHostPerm': '权限不足：当前角色无主机{action}权限',
     'err.hostExists': '该主机（IP/端口/用户）已存在，请勿重复添加',
     'err.needUser': '用户名必填',
+    'err.badRole': '角色不存在或未定义',
   }
 }

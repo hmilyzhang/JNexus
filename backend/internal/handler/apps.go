@@ -15,6 +15,17 @@ import (
 func ListApps(c *gin.Context) {
 	var apps []model.Application
 	model.DB.Preload("AppHosts.Host").Order("id DESC").Find(&apps)
+	// 数据级过滤：非平台角色仅见所属用户组绑定的应用
+	ids, unrestricted := service.VisibleAppIDs(currentUser(c))
+	if !unrestricted {
+		filtered := make([]model.Application, 0, len(apps))
+		for _, a := range apps {
+			if ids[a.ID] {
+				filtered = append(filtered, a)
+			}
+		}
+		apps = filtered
+	}
 	c.JSON(http.StatusOK, apps)
 }
 
@@ -69,6 +80,10 @@ func CreateApp(c *gin.Context) {
 
 func UpdateApp(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
+	if !service.CanOperateApp(currentUser(c), uint(id)) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
+		return
+	}
 	var app model.Application
 	if err := model.DB.First(&app, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "应用不存在"})
@@ -105,6 +120,16 @@ func ListReleases(c *gin.Context) {
 		q = q.Where("app_id = ?", appID)
 	}
 	q.Order("id DESC").Limit(100).Find(&releases)
+	ids, unrestricted := service.VisibleAppIDs(currentUser(c))
+	if !unrestricted {
+		filtered := make([]model.Release, 0, len(releases))
+		for _, r := range releases {
+			if ids[r.AppID] {
+				filtered = append(filtered, r)
+			}
+		}
+		releases = filtered
+	}
 	c.JSON(http.StatusOK, releases)
 }
 
@@ -127,6 +152,10 @@ func CreateReleaseHandler(c *gin.Context) {
 		return
 	}
 	u := currentUser(c)
+	if !service.CanOperateApp(u, req.AppID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
+		return
+	}
 	relID, err := service.StartRelease(u, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -138,6 +167,15 @@ func CreateReleaseHandler(c *gin.Context) {
 func RollbackHandler(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	u := currentUser(c)
+	var rel model.Release
+	if err := model.DB.First(&rel, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "发布单不存在"})
+		return
+	}
+	if !service.CanOperateApp(u, rel.AppID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
+		return
+	}
 	newID, err := service.RollbackRelease(u, uint(id))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

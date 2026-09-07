@@ -216,7 +216,9 @@ type UserGroup struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	Name        string    `gorm:"uniqueIndex;size:128" json:"name"`
 	Description string    `json:"description"`
-	CreatedAt   time.Time `json:"created_at"`
+	// RestrictVisibility 开启后，组成员的主机列表仅显示本组绑定的主机/主机分组（admin/ops 不受限）
+	RestrictVisibility bool       `gorm:"default:false" json:"restrict_visibility"`
+	CreatedAt          time.Time  `json:"created_at"`
 }
 
 // 用户组 ↔ 主机（直接授权）
@@ -306,6 +308,13 @@ type HostCredential struct {
 	IsLDAP             bool       `gorm:"default:false" json:"is_ldap"` // 手动标记域账号，排除轮换
 
 	SSHKey *SSHKey `gorm:"foreignKey:SSHKeyID" json:"ssh_key,omitempty"`
+}
+
+// 用户组 ↔ 应用（应用团队授权：成员只能看到/发布绑定的应用）
+type UserGroupApp struct {
+	ID          uint `gorm:"primaryKey" json:"id"`
+	UserGroupID uint `gorm:"index" json:"user_group_id"`
+	AppID       uint `gorm:"index" json:"app_id"`
 }
 
 // 用户组 ↔ 凭据（把 OS 账号分配给团队）

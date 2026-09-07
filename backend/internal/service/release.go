@@ -355,13 +355,17 @@ func healthCheck(url string, retries int, interval time.Duration) bool {
 
 // UserCanDeployApp 用户是否可发布指定应用（admin / 被授权的运维、发布员）
 func UserCanDeployApp(user *model.User, appID uint) bool {
-	if user.IsAdmin() {
+	if PlatformRole(user.Role) {
 		return true
 	}
-	if user.Role != model.RolePublisher && user.Role != model.RoleOps {
-		return false
-	}
+	// 自定义角色：拥有 releases 能力位（路由层已校验）即视为可发布主体，
+	// 数据级由用户组应用绑定决定（见 CanOperateApp）
+	// 个人授权（旧机制）
 	var cnt int64
 	model.DB.Model(&model.UserApp{}).Where("user_id = ? AND app_id = ?", user.ID, appID).Count(&cnt)
-	return cnt > 0
+	if cnt > 0 {
+		return true
+	}
+	// 用户组应用绑定（团队授权）
+	return CanOperateApp(user, appID)
 }

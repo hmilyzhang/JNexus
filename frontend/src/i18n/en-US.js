@@ -398,6 +398,10 @@ export default {
     groupTip: 'Link hosts or host groups to a user group: members automatically gain access to those hosts (stacks with personal grants).',
     members: 'Members',
     linkedHosts: 'Linked hosts',
+    boundApps: 'Bound apps',
+    boundAppsTip: 'Members can only see and release the bound apps',
+    restrictVis: 'Restrict host visibility',
+    restrictVisTip: 'Members see only hosts of bound groups (admin/ops unrestricted)',
     linkedGroups: 'Linked host groups',
     grant: 'Grants',
     roleDesc: 'Roles: Admin = everything; Ops = hosts/exec/files/scripts/releases; Publisher = exec/release (grants required); Viewer = read-only; Auditor = view tasks & audit logs.\n"Grants" control which host groups a user can execute on and which apps they can release.',
@@ -963,5 +967,6 @@ export default {
     'err.noHostPerm': 'Permission denied: your role has no host {action} access',
     'err.hostExists': 'This host (IP/port/user) already exists',
     'err.needUser': 'Username is required',
+    'err.badRole': 'Role does not exist',
   }
 }

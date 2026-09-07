@@ -149,6 +149,8 @@ func ListHosts(c *gin.Context) {
 		q = q.Where("name ILIKE ? OR ip ILIKE ?", like, like)
 	}
 	q.Order("id").Find(&hosts)
+	// 数据级可见性：开启 restrict_visibility 的组成员仅见本组绑定的主机
+	hosts = service.HostVisibilityFilter(currentUser(c), hosts)
 	c.JSON(http.StatusOK, hosts)
 }
 

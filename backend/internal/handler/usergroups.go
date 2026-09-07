@@ -63,7 +63,7 @@ func UpdateUserGroup(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "用户组名不能为空"})
 		return
 	}
-	model.DB.Model(&g).Updates(map[string]any{"name": req.Name, "description": req.Description})
+	model.DB.Model(&g).Updates(map[string]any{"name": req.Name, "description": req.Description, "restrict_visibility": req.RestrictVisibility})
 	c.JSON(http.StatusOK, g)
 }
 
@@ -73,6 +73,7 @@ func DeleteUserGroup(c *gin.Context) {
 	model.DB.Where("user_group_id = ?", id).Delete(&model.UserGroupHost{})
 	model.DB.Where("user_group_id = ?", id).Delete(&model.UserGroupHostGroup{})
 	model.DB.Where("user_group_id = ?", id).Delete(&model.UserGroupCredRule{})
+	model.DB.Where("user_group_id = ?", id).Delete(&model.UserGroupApp{})
 	model.DB.Delete(&model.UserGroup{}, id)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
@@ -97,10 +98,13 @@ func GetUserGroup(c *gin.Context) {
 	var rules []ruleRow
 	model.DB.Model(&model.UserGroupCredRule{}).Select("host_group_id", "username").
 		Where("user_group_id = ?", id).Scan(&rules)
+	var appIDs []uint
+	model.DB.Model(&model.UserGroupApp{}).Where("user_group_id = ?", id).Pluck("app_id", &appIDs)
 	c.JSON(http.StatusOK, gin.H{
 		"id": g.ID, "name": g.Name, "description": g.Description,
-		"member_ids": memberIDs, "host_ids": hostIDs, "host_group_ids": groupIDs,
-		"credential_ids": credIDs, "rules": rules,
+		"restrict_visibility": g.RestrictVisibility,
+		"member_ids":          memberIDs, "host_ids": hostIDs, "host_group_ids": groupIDs,
+		"credential_ids": credIDs, "app_ids": appIDs, "rules": rules,
 	})
 }
 
@@ -116,6 +120,7 @@ func UpdateUserGroupLinks(c *gin.Context) {
 		HostIDs       []uint `json:"host_ids"`
 		GroupIDs      []uint `json:"host_group_ids"`
 		CredentialIDs []uint `json:"credential_ids"`
+		AppIDs        []uint `json:"app_ids"`
 		Rules         []struct {
 			HostGroupID *uint  `json:"host_group_id"`
 			Username    string `json:"username" binding:"required"`
@@ -161,6 +166,11 @@ func UpdateUserGroupLinks(c *gin.Context) {
 			continue
 		}
 		model.DB.Create(&model.UserGroupCredRule{UserGroupID: g.ID, HostGroupID: r.HostGroupID, Username: strings.TrimSpace(r.Username)})
+	}
+	// 应用绑定同步
+	model.DB.Where("user_group_id = ?", g.ID).Delete(&model.UserGroupApp{})
+	for _, v := range req.AppIDs {
+		model.DB.Create(&model.UserGroupApp{UserGroupID: g.ID, AppID: v})
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
