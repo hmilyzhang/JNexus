@@ -167,30 +167,11 @@
                       @input="v => (row.desc = v)" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('system.credPerm')" min-width="80" align="center">
+        <el-table-column :label="$t('system.capMatrix')" min-width="130" align="center">
           <template #default="{ row }">
-            <el-checkbox v-model="row.cred" size="small" :disabled="row.role === 'admin'" />
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('system.reportPerm')" min-width="80" align="center">
-          <template #default="{ row }">
-            <el-checkbox v-model="row.report" size="small" :disabled="row.role === 'admin'" />
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('system.k8sPerm')" min-width="90" align="center">
-          <template #default="{ row }">
-            <el-checkbox v-model="row.k8s_view" size="small" :disabled="row.role === 'admin'" />
-            <el-checkbox v-model="row.k8s_manage" size="small" :disabled="row.role === 'admin'" />
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('system.hostPerms')" min-width="190">
-          <template #default="{ row }">
-            <div style="display:flex; flex-wrap:wrap; row-gap:2px">
-              <el-checkbox v-model="row.host.view" size="small" style="width:50%; margin-right:0">{{ $t('system.permView') }}</el-checkbox>
-              <el-checkbox v-model="row.host.create" size="small" style="width:50%; margin-right:0" :disabled="row.role === 'admin'">{{ $t('system.permCreate') }}</el-checkbox>
-              <el-checkbox v-model="row.host.edit" size="small" style="width:50%; margin-right:0" :disabled="row.role === 'admin'">{{ $t('system.permEdit') }}</el-checkbox>
-              <el-checkbox v-model="row.host.delete" size="small" style="width:50%; margin-right:0" :disabled="row.role === 'admin'">{{ $t('system.permDelete') }}</el-checkbox>
-            </div>
+            <el-button size="small" :disabled="row.role === 'admin'" @click="openCapDlg(row)">
+              {{ capCount(row) }} · {{ $t('system.capEdit') }}
+            </el-button>
           </template>
         </el-table-column>
         <el-table-column :label="$t('system.menuPerms')" min-width="150">
@@ -295,6 +276,28 @@
       </template>
     </el-dialog>
   </div>
+
+    <!-- 模块权限矩阵 -->
+    <el-dialog v-model="capDlgVisible" :title="`${$t('system.capMatrix')}：${capRow?.label || ''}`" width="560px">
+      <el-table :data="capabilities" size="small" border>
+        <el-table-column prop="key" :label="$t('system.capModule')" width="160" />
+        <el-table-column :label="$t('system.capActions')">
+          <template #default="{ row }">
+            <el-checkbox v-for="a in row.actions" :key="a" style="margin-right:12px"
+                         :model-value="capHas(capRow, row.key, a)"
+                         @update:model-value="v => capSet(capRow, row.key, a, v)">
+              {{ $t('system.cap_' + row.key + '_' + a) }}
+            </el-checkbox>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div style="margin-top:10px; color:#909399; font-size:12px">{{ $t('system.capTip') }}</div>
+      <template #footer>
+        <el-button @click="capDlgVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="capDlgVisible = false">{{ $t('common.save') }}</el-button>
+      </template>
+    </el-dialog>
+
 </template>
 
 <script setup>
@@ -397,7 +400,21 @@ const menuDlgRole = ref(null)
 const menuDlgSelection = ref([])
 const savingRoles = ref(false)
 
+const capabilities = ref([])
+const capDlgVisible = ref(false)
+const capRow = ref(null)
+const capCount = row => Object.values(row.perms || {}).reduce((n, arr) => n + arr.length, 0)
+const capHas = (row, module, action) => (row.perms?.[module] || []).includes(action)
+const capSet = (row, module, action, on) => {
+  const arr = new Set(row.perms?.[module] || [])
+  if (on) arr.add(action)
+  else arr.delete(action)
+  row.perms = { ...row.perms, [module]: [...arr] }
+}
+const openCapDlg = row => { capRow.value = row; capDlgVisible.value = true }
+
 const loadRoles = async () => {
+  api.get('/system/capabilities').then(r => { capabilities.value = r }).catch(() => {})
   const rs = await api.get('/system/roles')
   roleRows.value = Object.entries(rs).map(([role, v]) => {
     const cap = roleCaps[role] || ''
@@ -407,8 +424,7 @@ const loadRoles = async () => {
       descKey: cap && i18n.global.te('system.role' + cap) ? 'system.role' + cap : '',
       desc: v.desc || '',
       menus: [...(v.menus || [])],
-      host: { ...v.host }, cred: !!v.cred, report: !!v.report,
-      k8s_view: !!v.k8s_view, k8s_manage: !!v.k8s_manage,
+      perms: { ...(v.perms || {}) },
     }
   })
 }
@@ -426,7 +442,7 @@ const saveRoles = async () => {
   try {
     const payload = {}
     for (const r of roleRows.value) {
-      payload[r.role] = { desc: r.desc, menus: r.menus, host: r.host, cred: r.cred, report: r.report, k8s_view: r.k8s_view, k8s_manage: r.k8s_manage }
+      payload[r.role] = { desc: r.desc, menus: r.menus, perms: r.perms }
     }
     await api.put('/system/roles', payload)
     ElMessage.success(t('system.saved'))

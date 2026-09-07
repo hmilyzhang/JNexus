@@ -73,6 +73,11 @@ func GetSystemRoles(c *gin.Context) {
 }
 
 // UpdateSystemRoles 保存角色设置（admin）
+// GetSystemCapabilities 角色设置矩阵的模块/操作声明（前端自动渲染）
+func GetSystemCapabilities(c *gin.Context) {
+	c.JSON(http.StatusOK, service.CapabilitiesForFront())
+}
+
 func UpdateSystemRoles(c *gin.Context) {
 	var req map[string]service.RolePerm
 	if err := c.ShouldBindJSON(&req); err != nil {

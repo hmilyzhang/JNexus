@@ -24,6 +24,10 @@ type RolePerm struct {
 
 	K8sView   bool `json:"k8s_view"`   // K8S 集群查看
 	K8sManage bool `json:"k8s_manage"` // K8S 集群管理
+
+	// 统一能力位（新）：模块 → 允许的操作。为空时从上面的旧字段迁移（见 legacyToPerms）。
+	// 新前端角色设置矩阵读写此字段；旧字段保留用于 JSON 兼容，最终废弃。
+	Perms map[string][]string `json:"perms,omitempty"`
 }
 
 const roleSettingsKey = "role_settings"
@@ -96,6 +100,10 @@ func GetRoleSettings() map[string]RolePerm {
 			rp.Cred = d.Cred
 			rp.Report = d.Report
 		}
+		// 统一能力位回填：存量配置无 Perms 时从旧字段迁移一次
+		if len(rp.Perms) == 0 {
+			rp.Perms = legacyToPerms(role, rp)
+		}
 		// 新增菜单自动补进 admin/ops/auditor（admin 恒见全部）
 		if role == model.RoleAdmin || role == model.RoleOps || role == model.RoleAuditor {
 			for _, nm := range []string{"cron", "osaccounts", "reports", "monitor", "k8s"} {
@@ -131,35 +139,19 @@ func GetRoleSettings() map[string]RolePerm {
 	return out
 }
 
-// HasK8sPerm K8S 权限检查（kind: view / manage；admin 恒通过）
+// HasK8sPerm K8S 权限检查（kind: view / manage；委托统一能力位）
 func HasK8sPerm(role, kind string) bool {
-	if role == model.RoleAdmin {
-		return true
-	}
-	r, ok := GetRoleSettings()[role]
-	if !ok {
-		return false
-	}
-	if kind == "manage" {
-		return r.K8sManage
-	}
-	return r.K8sView
+	return HasCap(role, "k8s", kind)
 }
 
-// HasCredPerm 角色是否拥有 OS 账号管理权限（admin 恒通过）
+// HasCredPerm 角色是否拥有 OS 账号管理权限（委托统一能力位）
 func HasCredPerm(role string) bool {
-	if role == model.RoleAdmin {
-		return true
-	}
-	return GetRoleSettings()[role].Cred
+	return HasCap(role, "credentials", "manage")
 }
 
-// HasReportPerm 角色是否可使用报告模块（admin 恒通过）
+// HasReportPerm 角色是否可使用报告模块（委托统一能力位）
 func HasReportPerm(role string) bool {
-	if role == model.RoleAdmin {
-		return true
-	}
-	return GetRoleSettings()[role].Report
+	return HasCap(role, "reports", "view")
 }
 
 // SetRoleSettings 保存角色配置
@@ -176,20 +168,5 @@ func HasHostPerm(role, action string) bool {
 	if role == model.RoleAdmin {
 		return true
 	}
-	settings := GetRoleSettings()
-	r, ok := settings[role]
-	if !ok {
-		return false
-	}
-	switch action {
-	case "view":
-		return r.Host.View
-	case "create":
-		return r.Host.Create
-	case "edit":
-		return r.Host.Edit
-	case "delete":
-		return r.Host.Delete
-	}
-	return false
+	return HasCap(role, "hosts", action)
 }

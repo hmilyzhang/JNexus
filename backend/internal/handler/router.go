@@ -58,19 +58,19 @@ func SetupRouter() *gin.Engine {
 
 		// MFA（TOTP 两步验证）自助管理
 		// 监控：应用监控项 + 主机资源
-		mon := auth.Group("/monitors", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
+		mon := auth.Group("/monitors", middleware.RequireCap("monitor", "view"))
 		{
 			mon.GET("", ListMonitors)
-			mon.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), CreateMonitor)
-			mon.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateMonitor)
-			mon.DELETE("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), DeleteMonitor)
-			mon.POST("/:id/test", middleware.RequireRole(model.RoleAdmin, model.RoleOps), TestMonitor)
+			mon.POST("", middleware.RequireCap("monitor", "manage"), CreateMonitor)
+			mon.PUT("/:id", middleware.RequireCap("monitor", "manage"), UpdateMonitor)
+			mon.DELETE("/:id", middleware.RequireCap("monitor", "manage"), DeleteMonitor)
+			mon.POST("/:id/test", middleware.RequireCap("monitor", "manage"), TestMonitor)
 			mon.GET("/:id/history", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), MonitorHistory)
 		}
 		arule := auth.Group("/alert_rules", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
 		{
 			arule.GET("", GetAlertRule)
-			arule.PUT("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateAlertRule)
+			arule.PUT("", middleware.RequireCap("monitor", "manage"), UpdateAlertRule)
 		}
 		apikeys := auth.Group("/api_keys", middleware.RequireRole())
 		{
@@ -85,10 +85,10 @@ func SetupRouter() *gin.Engine {
 		{
 			_ = k8sg
 			k8sg.GET("", ListK8sClusters)
-			k8sg.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), CreateK8sCluster)
-			k8sg.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateK8sCluster)
-			k8sg.DELETE("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), DeleteK8sCluster)
-			k8sg.POST("/:id/test", middleware.RequireRole(model.RoleAdmin, model.RoleOps), TestK8sCluster)
+			k8sg.POST("", middleware.RequireCap("k8s", "manage"), CreateK8sCluster)
+			k8sg.PUT("/:id", middleware.RequireCap("k8s", "manage"), UpdateK8sCluster)
+			k8sg.DELETE("/:id", middleware.RequireCap("k8s", "manage"), DeleteK8sCluster)
+			k8sg.POST("/:id/test", middleware.RequireCap("k8s", "manage"), TestK8sCluster)
 			k8sg.GET("/:id/nodes", K8sNodes)
 			k8sg.GET("/:id/namespaces", K8sNamespaces)
 			k8sg.GET("/:id/pods", K8sPods)
@@ -100,12 +100,12 @@ func SetupRouter() *gin.Engine {
 			k8sg.GET("/:id/deployments", K8sDeployments)
 			k8sg.POST("/:id/deployments/:namespace/:name/restart", K8sRestartDeployment)
 			k8sg.GET("/:id/cronjobs", K8sCronJobs)
-			k8sg.POST("/:id/cronjobs", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sCreateCronJob)
-			k8sg.PUT("/:id/cronjobs/:namespace/:name/suspend", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sSuspendCronJob)
-			k8sg.DELETE("/:id/cronjobs/:namespace/:name", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sDeleteCronJob)
+			k8sg.POST("/:id/cronjobs", middleware.RequireCap("k8s", "manage"), K8sCreateCronJob)
+			k8sg.PUT("/:id/cronjobs/:namespace/:name/suspend", middleware.RequireCap("k8s", "manage"), K8sSuspendCronJob)
+			k8sg.DELETE("/:id/cronjobs/:namespace/:name", middleware.RequireCap("k8s", "manage"), K8sDeleteCronJob)
 			k8sg.GET("/:id/serviceaccounts", K8sServiceAccounts)
-			k8sg.POST("/:id/serviceaccounts/:namespace", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sCreateServiceAccount)
-			k8sg.DELETE("/:id/serviceaccounts/:namespace/:name", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RoleK8s), K8sDeleteServiceAccount)
+			k8sg.POST("/:id/serviceaccounts/:namespace", middleware.RequireCap("k8s", "manage"), K8sCreateServiceAccount)
+			k8sg.DELETE("/:id/serviceaccounts/:namespace/:name", middleware.RequireCap("k8s", "manage"), K8sDeleteServiceAccount)
 			k8sg.GET("/:id/podlog", K8sPodLog)
 			k8sg.DELETE("/:id/pods/:namespace/:name", K8sDeletePod)
 			// 管理页只读视图（概览 + 新增资源列表）
@@ -132,32 +132,32 @@ func SetupRouter() *gin.Engine {
 			k8sg.GET("/:id/podmetrics", K8sPodMetrics)
 			k8sg.GET("/:id/helmreleases", K8sHelmReleases)
 			k8sg.GET("/:id/members", ListClusterMembers)
-			k8sg.PUT("/:id/members", middleware.RequireRole(model.RoleAdmin, model.RoleOps), SetClusterMembers)
+			k8sg.PUT("/:id/members", middleware.RequireCap("k8s", "manage"), SetClusterMembers)
 		}
 
 		mwin := auth.Group("/maintenance_windows", middleware.RequireRole())
 		{
 			mwin.GET("", GetMaintenances)
 			mwin.GET("/logs", GetMaintenanceLogs)
-			mwin.PUT("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateMaintenances)
+			mwin.PUT("", middleware.RequireCap("monitor", "manage"), UpdateMaintenances)
 		}
 
 		arule.GET("/cmd", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), GetCmdLevels)
 		arule.GET("/templates", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), GetAlertTemplates)
 		arule.POST("/templates/preview", PreviewAlertTemplates)
-		arule.PUT("/templates", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateAlertTemplates)
-		arule.PUT("/cmd", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateCmdLevels)
+		arule.PUT("/templates", middleware.RequireCap("monitor", "manage"), UpdateAlertTemplates)
+		arule.PUT("/cmd", middleware.RequireCap("monitor", "manage"), UpdateCmdLevels)
 
 		ach := auth.Group("/alert_channels", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
 		{
 			ach.GET("", ListAlertChannels)
-			ach.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), CreateAlertChannel)
-			ach.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateAlertChannel)
-			ach.DELETE("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), DeleteAlertChannel)
-			ach.POST("/:id/test", middleware.RequireRole(model.RoleAdmin, model.RoleOps), TestAlertChannel)
+			ach.POST("", middleware.RequireCap("monitor", "manage"), CreateAlertChannel)
+			ach.PUT("/:id", middleware.RequireCap("monitor", "manage"), UpdateAlertChannel)
+			ach.DELETE("/:id", middleware.RequireCap("monitor", "manage"), DeleteAlertChannel)
+			ach.POST("/:id/test", middleware.RequireCap("monitor", "manage"), TestAlertChannel)
 		}
 
-		mg := auth.Group("/monitoring", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
+		mg := auth.Group("/monitoring", middleware.RequireCap("monitor", "view"))
 		{
 			mg.GET("/hosts", HostMetricsList)
 			mg.GET("/hosts/:id/history", HostMetricHistory)
@@ -187,12 +187,12 @@ func SetupRouter() *gin.Engine {
 		}
 
 		// 主机分组
-		groups := auth.Group("/host_groups", middleware.RequireRole(model.RoleOps, model.RolePublisher))
+		groups := auth.Group("/host_groups", middleware.RequireCap("hosts", "view"))
 		{
 			groups.GET("", ListGroups)
-			groups.POST("", CreateGroup)
-			groups.PUT("/:id", UpdateGroup)
-			groups.DELETE("/:id", DeleteGroup)
+			groups.POST("", middleware.RequireCap("hosts", "create"), CreateGroup)
+			groups.PUT("/:id", middleware.RequireCap("hosts", "edit"), UpdateGroup)
+			groups.DELETE("/:id", middleware.RequireCap("hosts", "delete"), DeleteGroup)
 		}
 
 		// SSH 密钥（admin / ops）
@@ -204,17 +204,17 @@ func SetupRouter() *gin.Engine {
 		}
 
 		// 主机
-		hosts := auth.Group("/hosts", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer))
+		hosts := auth.Group("/hosts", middleware.RequireCap("hosts", "view"))
 		{
 			hosts.GET("", ListHosts)
-			hosts.POST("", middleware.RequireHostPerm("create"), CreateHost)
-			hosts.PUT("/:id", middleware.RequireHostPerm("edit"), UpdateHost)
-			hosts.DELETE("/:id", middleware.RequireHostPerm("delete"), DeleteHost)
-			hosts.POST("/batch-delete", middleware.RequireRole(model.RoleAdmin, model.RoleOps), BatchDeleteHosts)
+			hosts.POST("", middleware.RequireCap("hosts", "create"), CreateHost)
+			hosts.PUT("/:id", middleware.RequireCap("hosts", "edit"), UpdateHost)
+			hosts.DELETE("/:id", middleware.RequireCap("hosts", "delete"), DeleteHost)
+			hosts.POST("/batch-delete", middleware.RequireCap("hosts", "delete"), BatchDeleteHosts)
 			hosts.POST("/import", ImportHosts)
 			hosts.POST("/probe", ProbeHostsHandler)
 			// OS 账号（凭据）管理
-			hosts.GET("/:id/credentials", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer), ListHostCredentials)
+			hosts.GET("/:id/credentials", middleware.RequireCap("credentials", "view"), ListHostCredentials)
 			hosts.POST("/:id/credentials", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), CreateHostCredential)
 		}
 		// 配对密钥列表：管理员/运维可见
@@ -232,31 +232,31 @@ func SetupRouter() *gin.Engine {
 		}
 
 		// 计划任务：管理员/运维可管理
-		crons := auth.Group("/crons", middleware.RequireRole(model.RoleOps))
+		crons := auth.Group("/crons", middleware.RequireCap("crons", "view"))
 		{
 			crons.GET("", ListCrons)
-			crons.POST("", CreateCron)
-			crons.PUT("/:id", UpdateCron)
-			crons.DELETE("/:id", DeleteCron)
-			crons.POST("/:id/toggle", ToggleCron)
-			crons.POST("/:id/run", RunCronNow)
+			crons.POST("", middleware.RequireCap("crons", "manage"), CreateCron)
+			crons.PUT("/:id", middleware.RequireCap("crons", "manage"), UpdateCron)
+			crons.DELETE("/:id", middleware.RequireCap("crons", "manage"), DeleteCron)
+			crons.POST("/:id/toggle", middleware.RequireCap("crons", "manage"), ToggleCron)
+			crons.POST("/:id/run", middleware.RequireCap("crons", "manage"), RunCronNow)
 			crons.GET("/:id/history", CronHistory)
 		}
 
-		creds := auth.Group("/credentials", middleware.RequireRole(model.RoleOps, model.RolePublisher))
+		creds := auth.Group("/credentials", middleware.RequireCap("credentials", "view"))
 		{
 			creds.GET("", ListAllCredentials)
 			// 凭据模板（添加主机/批量导入引用，免重复输密码）
 			creds.GET("/templates", ListCredentialTemplates)
-			creds.POST("/templates", middleware.RequireRole(model.RoleOps), SaveCredentialTemplate)
-			creds.DELETE("/templates/:id", middleware.RequireRole(model.RoleOps), DeleteCredentialTemplate)
+			creds.POST("/templates", middleware.RequireCap("credentials", "manage"), SaveCredentialTemplate)
+			creds.DELETE("/templates/:id", middleware.RequireCap("credentials", "manage"), DeleteCredentialTemplate)
 			creds.GET("/usable", UsableCredentialsHandler)
 			// OS 账号管理：需角色开启「账号管理」权限
-			creds.POST("/batch", middleware.RequireRole(model.RoleOps), middleware.RequireHostPerm("edit"), middleware.RequireCredPerm(), BatchAddCredentialsHandler)
-			creds.POST("/batch-delete", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), BatchDeleteCredentials)
-			creds.PUT("/:id", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), UpdateCredential)
-			creds.POST("/:id/default", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), SetDefaultCredential)
-			creds.POST("/:id/rotate", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), RotateCredentialNow)
+			creds.POST("/batch", middleware.RequireCap("credentials", "manage"), BatchAddCredentialsHandler)
+			creds.POST("/batch-delete", middleware.RequireCap("credentials", "manage"), BatchDeleteCredentials)
+			creds.PUT("/:id", middleware.RequireCap("credentials", "manage"), UpdateCredential)
+			creds.POST("/:id/default", middleware.RequireCap("credentials", "manage"), SetDefaultCredential)
+			creds.POST("/:id/rotate", middleware.RequireCap("credentials", "manage"), RotateCredentialNow)
 			// 查看密码明文：仅系统管理员（记录审计）
 			creds.POST("/:id/reveal", middleware.RequireRole(), RevealCredentialPassword)
 			// 删除：仅系统管理员
@@ -294,19 +294,19 @@ func SetupRouter() *gin.Engine {
 		}
 
 		// 应用与发布
-		apps := auth.Group("/apps", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer))
+		apps := auth.Group("/apps", middleware.RequireCap("apps", "view"))
 		{
 			apps.GET("", ListApps)
-			apps.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RolePublisher), CreateApp)
-			apps.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RolePublisher), UpdateApp)
-			apps.DELETE("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), DeleteApp)
+			apps.POST("", middleware.RequireCap("apps", "create"), CreateApp)
+			apps.PUT("/:id", middleware.RequireCap("apps", "edit"), UpdateApp)
+			apps.DELETE("/:id", middleware.RequireCap("apps", "delete"), DeleteApp)
 		}
-		releases := auth.Group("/releases", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer))
+		releases := auth.Group("/releases", middleware.RequireCap("releases", "view"))
 		{
 			releases.GET("", ListReleases)
 			releases.GET("/:id", GetRelease)
-			releases.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RolePublisher), CreateReleaseHandler)
-			releases.POST("/:id/rollback", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RolePublisher), RollbackHandler)
+			releases.POST("", middleware.RequireCap("releases", "create"), CreateReleaseHandler)
+			releases.POST("/:id/rollback", middleware.RequireCap("releases", "rollback"), RollbackHandler)
 		}
 
 		// 审计日志：仅管理员/审计员
@@ -342,7 +342,8 @@ func SetupRouter() *gin.Engine {
 		auth.GET("/dashboard", Dashboard)
 
 		// 系统配置（admin）
-		auth.GET("/system/roles", GetSystemRoles) // 所有登录用户可读（前端菜单渲染依赖）
+		auth.GET("/system/roles", GetSystemRoles)
+		auth.GET("/system/capabilities", GetSystemCapabilities) // 所有登录用户可读（前端菜单渲染依赖）
 		sysCfg := auth.Group("/system", middleware.RequireRole())
 		{
 			sysCfg.GET("/config", GetSystemConfig)
