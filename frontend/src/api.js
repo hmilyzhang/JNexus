@@ -1,6 +1,7 @@
 // JNexus 运维平台 — By JJ Zhang, Version 1.0
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import i18n from './i18n'
 import router from './router'
 
 const api = axios.create({ baseURL: '/api', timeout: 60000 })
@@ -15,7 +16,9 @@ api.interceptors.response.use(
   resp => resp.data,
   err => {
     const status = err.response?.status
-    const msg = err.response?.data?.error || err.message
+    let msg = err.response?.data?.error || err.message
+    // 后端错误码按当前语言翻译
+    if (msg && msg.startsWith('err.')) msg = i18n.global.te(msg) ? i18n.global.t(msg) : msg
     if (status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')

@@ -73,7 +73,7 @@ func WebTerminal(c *gin.Context) {
 		return
 	}
 	if !user.IsAdmin() && user.Role != model.RoleOps && user.Role != model.RolePublisher {
-		c.JSON(http.StatusForbidden, gin.H{"error": "权限不足"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
 		return
 	}
 	// 数据级权限：主机级授权 或 拥有该主机的可用 OS 账号（用户组关联凭据）

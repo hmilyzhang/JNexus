@@ -858,5 +858,11 @@ export default {
     roleAuditor: 'View tasks and audit logs',
     roleViewer: 'Read-only',
     roleK8s: 'K8S cluster ops (Pods/CronJobs/ServiceAccounts)',
+  },
+  errors: {
+    'err.forbidden': 'Permission denied',
+    'err.noCredPerm': 'Permission denied: your role cannot manage OS accounts',
+    'err.noReportPerm': 'Permission denied: your role has no report access',
+    'err.noHostPerm': 'Permission denied: your role has no host {action} access',
   }
 }

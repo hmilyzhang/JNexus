@@ -858,5 +858,11 @@ export default {
     rolePublisher: '执行与发布（需数据授权）',
     roleAuditor: '执行记录与审计日志查看',
     roleViewer: '只读查看'
+  },
+  errors: {
+    'err.forbidden': '权限不足',
+    'err.noCredPerm': '权限不足：当前角色无 OS 账号管理权限',
+    'err.noReportPerm': '权限不足：当前角色无报告模块权限',
+    'err.noHostPerm': '权限不足：当前角色无主机{action}权限',
   }
 }

@@ -64,7 +64,7 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 				return
 			}
 		}
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "权限不足"})
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
 	}
 }
 

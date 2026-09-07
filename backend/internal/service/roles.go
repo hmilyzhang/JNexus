@@ -43,7 +43,7 @@ func DefaultRoleSettings() map[string]RolePerm {
 		model.RoleAdmin:     mk("Full access incl. users & system", append([]string{}, allMenuKeys...), true, true, true, true, true, true),
 		model.RoleOps:       mk("主机、执行、文件、脚本、发布", []string{"dashboard", "hosts", "paired", "exec", "tasks", "cron", "files", "scripts", "apps", "releases", "reports"}, true, true, true, true, true, true),
 		model.RolePublisher: mk("执行与发布（需数据授权）", []string{"dashboard", "hosts", "exec", "tasks", "files", "apps", "releases"}, true, false, false, false, false, false),
-		model.RoleViewer:    mk("只读查看", []string{"dashboard", "hosts"}, true, false, false, false, false, false),
+		model.RoleViewer:    mk("只读查看", []string{"dashboard"}, true, false, false, false, false, false),
 		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit", "reports"}, true, false, false, false, false, true),
 		model.RoleK8s:       mk("K8S 集群运维（Pod/计划任务/服务账号）", []string{"dashboard", "k8s"}, true, false, false, false, false, false),
 	}

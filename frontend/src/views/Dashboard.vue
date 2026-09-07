@@ -84,14 +84,21 @@ const statCards = computed(() => {
   })
 })
 
+// 快捷入口与主菜单同源：非 admin 按「角色设置」的可见菜单过滤
+const roleSettings = ref({})
+api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
 const quickNavs = computed(() => {
   const all = [
-    { path: '/exec', label: 'menu.exec', icon: 'Promotion' },
-    { path: '/releases', label: 'menu.releases', icon: 'UploadFilled' },
-    { path: '/hosts', label: 'menu.hosts', icon: 'Monitor' },
-    { path: '/audit', label: 'menu.audit', icon: 'Notebook' }
+    { path: '/exec', key: 'exec', label: 'menu.exec', icon: 'Promotion' },
+    { path: '/releases', key: 'releases', label: 'menu.releases', icon: 'UploadFilled' },
+    { path: '/hosts', key: 'hosts', label: 'menu.hosts', icon: 'Monitor' },
+    { path: '/audit', key: 'audit', label: 'menu.audit', icon: 'Notebook' }
   ]
-  return all.filter(q => q.path !== '/audit' || store.isAdmin || store.isAuditor)
+  if (store.isAdmin) return all.filter(q => q.path !== '/audit' || store.isAdmin || store.isAuditor)
+  const conf = roleSettings.value[store.role]
+  const allowed = new Set(conf?.menus || [])
+  // 快捷入口的目标页没在角色菜单里就不展示（viewer 默认只剩 dashboard 相关，列表为空）
+  return all.filter(q => q.key === 'audit' ? (store.isAdmin || store.isAuditor) : allowed.has(q.key))
 })
 
 const formatTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')

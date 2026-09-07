@@ -287,16 +287,16 @@ func SetupRouter() *gin.Engine {
 		apps := auth.Group("/apps", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer))
 		{
 			apps.GET("", ListApps)
-			apps.POST("", CreateApp)
-			apps.PUT("/:id", UpdateApp)
-			apps.DELETE("/:id", DeleteApp)
+			apps.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RolePublisher), CreateApp)
+			apps.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RolePublisher), UpdateApp)
+			apps.DELETE("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), DeleteApp)
 		}
 		releases := auth.Group("/releases", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer))
 		{
 			releases.GET("", ListReleases)
 			releases.GET("/:id", GetRelease)
-			releases.POST("", CreateReleaseHandler)
-			releases.POST("/:id/rollback", RollbackHandler)
+			releases.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RolePublisher), CreateReleaseHandler)
+			releases.POST("/:id/rollback", middleware.RequireRole(model.RoleAdmin, model.RoleOps, model.RolePublisher), RollbackHandler)
 		}
 
 		// 审计日志：仅管理员/审计员

@@ -3,7 +3,7 @@
   <div>
     <el-card>
       <div style="margin-bottom:12px">
-        <el-button type="primary" @click="dlg()">{{ $t('apps.create') }}</el-button>
+        <el-button v-if="canManage" type="primary" @click="dlg()">{{ $t('apps.create') }}</el-button>
         <el-button @click="load">{{ $t('common.refresh') }}</el-button>
       </div>
       <el-table :data="apps" v-loading="loading" size="small" border>
@@ -20,9 +20,9 @@
         </el-table-column>
         <el-table-column :label="$t('common.operation')" width="140" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" link @click="dlg(row)">{{ $t('common.edit') }}</el-button>
+            <el-button v-if="canManage" size="small" link @click="dlg(row)">{{ $t('common.edit') }}</el-button>
             <el-popconfirm :title="$t('apps.delConfirm')" @confirm="del(row)">
-              <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+              <template #reference><el-button v-if="canManage" size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
             </el-popconfirm>
           </template>
         </el-table-column>
@@ -67,11 +67,15 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import api from '../api'
+import { useUserStore } from '../store'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
 
 const { t } = i18n.global
+const store = useUserStore()
+const canManage = computed(() => ['admin', 'ops', 'publisher'].includes(store.role))
 const apps = ref([])
 const hosts = ref([])
 const usableCreds = ref([])

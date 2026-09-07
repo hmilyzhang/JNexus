@@ -21,7 +21,7 @@ func RequireCredPerm() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "权限不足：当前角色无 OS 账号管理权限"})
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "err.noCredPerm", "action": "os_accounts"})
 	}
 }
 
@@ -37,7 +37,7 @@ func RequireReportPerm() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "权限不足：当前角色无报告模块权限"})
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "err.noReportPerm", "action": "reports"})
 	}
 }
 
@@ -53,6 +53,6 @@ func RequireHostPerm(action string) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "权限不足：当前角色无主机" + action + "权限"})
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "err.noHostPerm", "action": action})
 	}
 }
