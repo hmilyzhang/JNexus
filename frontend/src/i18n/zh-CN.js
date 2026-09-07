@@ -364,6 +364,8 @@ export default {
     releaseOrder: '发布单'
   },
   users: {
+    displayName: '显示名',
+    displayNameLdapHint: '由 LDAP/AD 自动同步',
     builtinRoles: '内置角色',
     customRoles: '自定义角色',
     create: '新增用户',

@@ -86,7 +86,7 @@ func Login(c *gin.Context) {
 	model.DB.Model(&u).Update("last_login_at", time.Now())
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
-		"user":  gin.H{"id": u.ID, "username": u.Username, "role": u.Role, "auth_source": u.AuthSource},
+		"user":  gin.H{"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "role": u.Role, "auth_source": u.AuthSource},
 	})
 }
 
@@ -123,7 +123,7 @@ func LoginMFA(c *gin.Context) {
 	model.DB.Model(&u).Update("last_login_at", time.Now())
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
-		"user":  gin.H{"id": u.ID, "username": u.Username, "role": u.Role, "auth_source": u.AuthSource},
+		"user":  gin.H{"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "role": u.Role, "auth_source": u.AuthSource},
 	})
 }
 
@@ -133,7 +133,7 @@ func tryLDAPLogin(username, password string, autoCreate bool) (model.User, error
 	if !settings.Enabled {
 		return model.User{}, errLDAPDisabled
 	}
-	_, email, err := service.LDAPLogin(settings, username, password)
+	_, email, displayName, err := service.LDAPLogin(settings, username, password)
 	if err != nil {
 		return model.User{}, err
 	}
@@ -155,6 +155,10 @@ func tryLDAPLogin(username, password string, autoCreate bool) (model.User, error
 		model.DB.Model(&u).Update("email", email)
 		u.Email = email
 	}
+	if displayName != "" && u.DisplayName != displayName {
+		model.DB.Model(&u).Update("display_name", displayName)
+		u.DisplayName = displayName
+	}
 	return u, nil
 }
 
@@ -171,7 +175,7 @@ func Me(c *gin.Context) {
 		t := *u.LastLoginAt
 		lastLogin = &t
 	}
-	c.JSON(http.StatusOK, gin.H{"id": u.ID, "username": u.Username, "role": u.Role,
+	c.JSON(http.StatusOK, gin.H{"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "role": u.Role,
 		"auth_source": u.AuthSource, "email": u.Email, "last_login_at": lastLogin})
 }
 
@@ -183,13 +187,25 @@ func UpdateMe(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Email *string `json:"email"`
+		Email       *string `json:"email"`
+		DisplayName *string `json:"display_name"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || req.Email == nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 		return
 	}
-	model.DB.Model(u).Update("email", *req.Email)
+	updates := map[string]any{}
+	if req.Email != nil {
+		updates["email"] = *req.Email
+	}
+	if req.DisplayName != nil {
+		updates["display_name"] = strings.TrimSpace(*req.DisplayName)
+	}
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	model.DB.Model(u).Updates(updates)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 

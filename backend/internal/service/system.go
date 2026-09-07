@@ -95,7 +95,7 @@ func LoadLDAPSettings() LDAPSettings {
 }
 
 // LDAPLogin 用 LDAP 验证用户名密码，成功返回用户属性（DN、用户名、邮箱）
-func LDAPLogin(s LDAPSettings, username, password string) (dn, email string, err error) {
+func LDAPLogin(s LDAPSettings, username, password string) (dn, email, displayName string, err error) {
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
 	var conn *goldap.Conn
 	if s.TLS {
@@ -104,7 +104,7 @@ func LDAPLogin(s LDAPSettings, username, password string) (dn, email string, err
 		conn, err = goldap.Dial("tcp", addr)
 	}
 	if err != nil {
-		return "", "", fmt.Errorf("LDAP 连接失败: %w", err)
+		return "", "", "", fmt.Errorf("LDAP 连接失败: %w", err)
 	}
 	defer conn.Close()
 	conn.SetTimeout(ldapTimeout)
@@ -112,35 +112,39 @@ func LDAPLogin(s LDAPSettings, username, password string) (dn, email string, err
 	// 管理员绑定（可选；未配置则匿名搜索）
 	if s.BindDN != "" {
 		if err := conn.Bind(s.BindDN, s.BindPassword); err != nil {
-			return "", "", fmt.Errorf("LDAP 绑定账号失败: %w", err)
+			return "", "", "", fmt.Errorf("LDAP 绑定账号失败: %w", err)
 		}
 	}
 
 	filter := strings.ReplaceAll(s.UserFilter, "%s", goldap.EscapeFilter(username))
 	search := goldap.NewSearchRequest(
 		s.BaseDN, goldap.ScopeWholeSubtree, goldap.NeverDerefAliases, 1, 0, false,
-		filter, []string{s.AttrUsername, "mail", "cn"}, nil,
+		filter, []string{s.AttrUsername, "mail", "cn", "displayName"}, nil,
 	)
 	res, err := conn.Search(search)
 	if err != nil {
-		return "", "", fmt.Errorf("LDAP 搜索用户失败: %w", err)
+		return "", "", "", fmt.Errorf("LDAP 搜索用户失败: %w", err)
 	}
 	if len(res.Entries) != 1 {
-		return "", "", fmt.Errorf("LDAP 中未找到唯一用户 %s", username)
+		return "", "", "", fmt.Errorf("LDAP 中未找到唯一用户 %s", username)
 	}
 	entry := res.Entries[0]
 	// 用用户 DN 验证密码
 	if err := conn.Bind(entry.DN, password); err != nil {
-		return "", "", fmt.Errorf("LDAP 密码验证失败")
+		return "", "", "", fmt.Errorf("LDAP 密码验证失败")
 	}
 	// 用户组校验：必须属于允许登录的用户组之一
 	if s.GroupCheck {
 		if err := checkLDAPGroup(s, conn, entry.DN); err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 	}
 	email = entry.GetAttributeValue("mail")
-	return entry.DN, email, nil
+	displayName = entry.GetAttributeValue("displayName")
+	if displayName == "" {
+		displayName = entry.GetAttributeValue("cn")
+	}
+	return entry.DN, email, displayName, nil
 }
 
 // ErrLDAPGroupDenied 用户不在允许登录的 LDAP 用户组中
@@ -148,7 +152,7 @@ var ErrLDAPGroupDenied = fmt.Errorf("该账号不属于允许登录的 LDAP 用�
 
 // checkLDAPGroup 在组 Base DN 下用过滤器搜索用户的组，命中 RequiredGroups 之一（按 DN 或 CN 比对）才放行
 // LDAPSyncEmails 管理员凭据搜索全部含 mail 属性的用户，返回 用户名 -> 邮箱
-func LDAPSyncEmails(s LDAPSettings) (map[string]string, error) {
+func LDAPSyncEmails(s LDAPSettings) (map[string]LDAPOpts, error) {
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
 	var conn *goldap.Conn
 	var err error
@@ -170,21 +174,31 @@ func LDAPSyncEmails(s LDAPSettings) (map[string]string, error) {
 	// 搜索所有含 mail 属性的条目
 	search := goldap.NewSearchRequest(
 		s.BaseDN, goldap.ScopeWholeSubtree, goldap.NeverDerefAliases, 0, 0, false,
-		"(&(mail=*)("+s.AttrUsername+"=*))", []string{s.AttrUsername, "mail"}, nil,
+		"(&(mail=*)("+s.AttrUsername+"=*))", []string{s.AttrUsername, "mail", "displayName", "cn"}, nil,
 	)
 	res, err := conn.Search(search)
 	if err != nil {
 		return nil, fmt.Errorf("LDAP 搜索失败: %w", err)
 	}
-	out := map[string]string{}
+	out := map[string]LDAPOpts{}
 	for _, e := range res.Entries {
 		name := e.GetAttributeValue(s.AttrUsername)
 		mail := e.GetAttributeValue("mail")
+		dp := e.GetAttributeValue("displayName")
+		if dp == "" {
+			dp = e.GetAttributeValue("cn")
+		}
 		if name != "" && mail != "" {
-			out[name] = mail
+			out[name] = LDAPOpts{Email: mail, DisplayName: dp}
 		}
 	}
 	return out, nil
+}
+
+// LDAPOpts LDAP 同步拿到的用户属性
+type LDAPOpts struct {
+	Email       string
+	DisplayName string
 }
 
 func checkLDAPGroup(s LDAPSettings, conn *goldap.Conn, userDN string) error {

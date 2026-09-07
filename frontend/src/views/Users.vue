@@ -11,7 +11,12 @@
         </div>
         <el-table :data="users" v-loading="loading" size="small" border>
           <el-table-column prop="id" label="ID" width="70" />
-          <el-table-column prop="username" :label="$t('users.username')" width="140" />
+          <el-table-column :label="$t('users.username')" width="150">
+        <template #default="{ row }">
+          <div style="font-weight:600">{{ row.display_name || row.username }}</div>
+          <div class="mono" style="color:#909399; font-size:12px">{{ row.username }}</div>
+        </template>
+      </el-table-column>
           <el-table-column :label="$t('users.role')" width="110">
             <template #default="{ row }">
               <el-tag size="small">{{ roleLabel(row.role) }}</el-tag>

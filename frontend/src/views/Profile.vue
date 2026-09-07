@@ -10,6 +10,14 @@
             <el-form-item :label="$t('users.username')">
               <el-input :model-value="me.username" disabled />
             </el-form-item>
+            <el-form-item :label="$t('users.displayName')">
+              <el-input v-model="me.display_name" :disabled="me.auth_source === 'ldap'"
+                        :placeholder="me.auth_source === 'ldap' ? $t('users.displayNameLdapHint') : ''">
+                <template #append v-if="me.auth_source !== 'ldap'">
+                  <el-button @click="saveDisplayName">{{ $t('common.save') }}</el-button>
+                </template>
+              </el-input>
+            </el-form-item>
             <el-form-item :label="$t('users.role')">
               <el-input :model-value="roleLabel" disabled />
             </el-form-item>
@@ -103,6 +111,11 @@ const loadMe = async () => {
 
 const saveEmail = async () => {
   await api.put('/me', { email: me.email })
+  ElMessage.success(t('common.success'))
+}
+
+const saveDisplayName = async () => {
+  await api.put('/me', { display_name: me.display_name })
   ElMessage.success(t('common.success'))
 }
 

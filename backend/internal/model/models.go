@@ -20,6 +20,7 @@ const (
 type User struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`
 	Username    string     `gorm:"uniqueIndex;size:64" json:"username"`
+	DisplayName string     `gorm:"size:128" json:"display_name"` // 显示名（LDAP 同步 displayName/cn；本地用户可在个人中心设置）
 	Password    string     `json:"-"`
 	Role        string     `gorm:"size:32;index" json:"role"`
 	AuthSource  string     `gorm:"size:16;default:local" json:"auth_source"` // local / ldap

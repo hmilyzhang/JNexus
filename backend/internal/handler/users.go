@@ -26,7 +26,7 @@ func ListUsers(c *gin.Context) {
 		var memberOf []uint
 		model.DB.Model(&model.UserGroupMember{}).Where("user_id = ?", u.ID).Pluck("user_group_id", &memberOf)
 		out = append(out, gin.H{
-			"id": u.ID, "username": u.Username, "role": u.Role, "auth_source": u.AuthSource,
+			"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "role": u.Role, "auth_source": u.AuthSource,
 			"email": u.Email, "status": u.Status, "mfa_enabled": u.MFAEnabled, "last_login_at": u.LastLoginAt,
 			"created_at": u.CreatedAt, "created_by": u.CreatedBy,
 			"updated_by": u.UpdatedBy, "updated_at": u.UpdatedAt,
@@ -83,9 +83,18 @@ func SyncLdapEmails(c *gin.Context) {
 	var users []model.User
 	model.DB.Where("auth_source = ?", "ldap").Find(&users)
 	for _, u := range users {
-		if mail, ok := emails[u.Username]; ok && mail != "" {
-			model.DB.Model(&u).Update("email", mail)
-			updated++
+		if opts, ok := emails[u.Username]; ok {
+			updates := map[string]any{}
+			if opts.Email != "" && u.Email != opts.Email {
+				updates["email"] = opts.Email
+			}
+			if opts.DisplayName != "" && u.DisplayName != opts.DisplayName {
+				updates["display_name"] = opts.DisplayName
+			}
+			if len(updates) > 0 {
+				model.DB.Model(&u).Updates(updates)
+				updated++
+			}
 		} else {
 			missing++
 		}

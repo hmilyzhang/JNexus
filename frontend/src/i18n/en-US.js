@@ -364,6 +364,8 @@ export default {
     releaseOrder: 'Release'
   },
   users: {
+    displayName: 'Display name',
+    displayNameLdapHint: 'Synced from LDAP/AD',
     builtinRoles: 'Built-in roles',
     customRoles: 'Custom roles',
     create: 'New User',

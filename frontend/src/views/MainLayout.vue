@@ -48,7 +48,7 @@
           <el-dropdown @command="onCmd">
             <span class="user-info">
               <el-icon><User /></el-icon>
-              {{ store.user?.username }}（{{ roleLabel }}）
+              {{ store.user?.display_name || store.user?.username }}（{{ roleLabel }}）
             </span>
             <template #dropdown>
               <el-dropdown-menu>
