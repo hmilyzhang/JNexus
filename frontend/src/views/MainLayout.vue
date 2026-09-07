@@ -267,12 +267,12 @@ const mfaDisableNow = async () => {
 }
 </style>
 <style scoped>
-.logo-mini { text-align: center; padding-left: 0; padding-right: 0; font-size: 22px; }
+.logo-mini { text-align: center; padding-left: 0; padding-right: 0; padding-top: 10px; padding-bottom: 6px; font-size: 20px; }
 /* 紧凑菜单项：更长菜单在常规视口高度内不出现滚动条 */
 aside :deep(.el-menu-item),
 aside :deep(.el-sub-menu__title) {
-  height: 44px;
-  line-height: 44px;
+  height: 40px;
+  line-height: 40px;
 }
 /* 滚动条视觉隐藏（保留滚动能力，极矮窗口仍可滚动到底） */
 aside::-webkit-scrollbar {
@@ -285,10 +285,10 @@ aside {
 }
 .logo {
   color: #fff; font-size: 18px; font-weight: bold;
-  padding: 18px 20px 12px; letter-spacing: 1px;
+  padding: 12px 20px 8px; letter-spacing: 1px;
 }
 .byline {
-  color: #6b7a8d; font-size: 11px; text-align: center; padding: 10px 0 14px;
+  color: #6b7a8d; font-size: 11px; text-align: center; padding: 8px 0 10px;
   border-top: 1px solid #2a3947; letter-spacing: .5px;
 }
 .header {
