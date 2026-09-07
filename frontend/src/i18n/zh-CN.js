@@ -4,6 +4,7 @@ export default {
     dashboard: '仪表盘',
     paired: '配对密钥',
     osaccounts: '主机账号',
+    sysadmin: '系统管理',
     jobs: '任务执行',
     hosts: '主机管理',
     exec: '批量执行',

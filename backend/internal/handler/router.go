@@ -58,16 +58,16 @@ func SetupRouter() *gin.Engine {
 
 		// MFA（TOTP 两步验证）自助管理
 		// 监控：应用监控项 + 主机资源
-		mon := auth.Group("/monitors", middleware.RequireRole())
+		mon := auth.Group("/monitors", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
 		{
 			mon.GET("", ListMonitors)
 			mon.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), CreateMonitor)
 			mon.PUT("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateMonitor)
 			mon.DELETE("/:id", middleware.RequireRole(model.RoleAdmin, model.RoleOps), DeleteMonitor)
 			mon.POST("/:id/test", middleware.RequireRole(model.RoleAdmin, model.RoleOps), TestMonitor)
-			mon.GET("/:id/history", MonitorHistory)
+			mon.GET("/:id/history", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), MonitorHistory)
 		}
-		arule := auth.Group("/alert_rules", middleware.RequireRole())
+		arule := auth.Group("/alert_rules", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
 		{
 			arule.GET("", GetAlertRule)
 			arule.PUT("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateAlertRule)
@@ -142,13 +142,13 @@ func SetupRouter() *gin.Engine {
 			mwin.PUT("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateMaintenances)
 		}
 
-		arule.GET("/cmd", GetCmdLevels)
-		arule.GET("/templates", GetAlertTemplates)
+		arule.GET("/cmd", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), GetCmdLevels)
+		arule.GET("/templates", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), GetAlertTemplates)
 		arule.POST("/templates/preview", PreviewAlertTemplates)
 		arule.PUT("/templates", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateAlertTemplates)
 		arule.PUT("/cmd", middleware.RequireRole(model.RoleAdmin, model.RoleOps), UpdateCmdLevels)
 
-		ach := auth.Group("/alert_channels", middleware.RequireRole())
+		ach := auth.Group("/alert_channels", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
 		{
 			ach.GET("", ListAlertChannels)
 			ach.POST("", middleware.RequireRole(model.RoleAdmin, model.RoleOps), CreateAlertChannel)
@@ -157,14 +157,14 @@ func SetupRouter() *gin.Engine {
 			ach.POST("/:id/test", middleware.RequireRole(model.RoleAdmin, model.RoleOps), TestAlertChannel)
 		}
 
-		mg := auth.Group("/monitoring", middleware.RequireRole())
+		mg := auth.Group("/monitoring", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
 		{
 			mg.GET("/hosts", HostMetricsList)
 			mg.GET("/hosts/:id/history", HostMetricHistory)
 		}
 
-		auth.GET("/monitoring/hosts/:id/capacity", HostCapacityHistory)
-		rep := auth.Group("/report")
+		auth.GET("/monitoring/hosts/:id/capacity", middleware.RequireRole(model.RoleOps, model.RoleAuditor), HostCapacityHistory)
+		rep := auth.Group("/report", middleware.RequireRole(model.RoleOps, model.RoleAuditor))
 		{
 			rep.GET("/monthly", MonthlyReport)
 		}

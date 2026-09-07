@@ -4,6 +4,7 @@ export default {
     dashboard: 'Dashboard',
     paired: 'Paired Keys',
     osaccounts: 'Host Accounts',
+    sysadmin: 'System Admin',
     jobs: 'Job Execution',
     hosts: 'Hosts',
     exec: 'Batch Exec',

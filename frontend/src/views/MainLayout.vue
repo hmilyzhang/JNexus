@@ -7,6 +7,7 @@
       <el-menu ref="menuRef" :default-active="$route.path" router :collapse="collapsed" :collapse-transition="false"
                popper-class="sidebar-popper" background-color="#1d2935" text-color="#a7b1c2"
                active-text-color="#ffffff" style="border-right:none; flex:1; overflow-y:auto" :ellipsis="false"
+               unique-opened
                @select="onMenuSelect">
         <template v-for="m in menus" :key="m.key">
           <el-sub-menu v-if="m.children" :index="m.key">
@@ -151,10 +152,12 @@ const menuItems = [
   { key: 'k8s', path: '/k8s', title: 'k8s.title', icon: 'Grid' },
   { key: 'apps', path: '/apps', title: 'menu.apps', icon: 'Box' },
   { key: 'releases', path: '/releases', title: 'menu.releases', icon: 'UploadFilled' },
-  { key: 'users', path: '/users', title: 'menu.users', icon: 'User' },
-  { key: 'danger', path: '/danger', title: 'menu.danger', icon: 'Warning' },
-  { key: 'audit', path: '/audit', title: 'menu.audit', icon: 'Notebook' },
-  { key: 'system', path: '/system', title: 'menu.system', icon: 'Setting' }
+  { key: 'sysadmin', title: 'menu.sysadmin', icon: 'Setting', children: [
+    { key: 'users', path: '/users', title: 'menu.users', icon: 'User' },
+    { key: 'danger', path: '/danger', title: 'menu.danger', icon: 'Warning' },
+    { key: 'audit', path: '/audit', title: 'menu.audit', icon: 'Notebook' },
+    { key: 'system', path: '/system', title: 'menu.system', icon: 'Setting' }
+  ] }
 ]
 const roleSettings = ref({})
 api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
