@@ -198,6 +198,12 @@ func CreateHost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（IP、用户名必填）"})
 		return
 	}
+	// 防重复添加：同 IP+端口+登录用户 已存在时拒绝（连点/重复提交兜底）
+	var dup model.Host
+	if err := model.DB.Where("ip = ? AND port = ? AND username = ?", req.IP, req.Port, req.Username).First(&dup).Error; err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "err.hostExists", "host": gin.H{"id": dup.ID, "name": dup.Name}})
+		return
+	}
 	var h model.Host
 	if err := req.toHost(&h); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

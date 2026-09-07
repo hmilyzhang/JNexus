@@ -864,5 +864,6 @@ export default {
     'err.noCredPerm': '权限不足：当前角色无 OS 账号管理权限',
     'err.noReportPerm': '权限不足：当前角色无报告模块权限',
     'err.noHostPerm': '权限不足：当前角色无主机{action}权限',
+    'err.hostExists': '该主机（IP/端口/用户）已存在，请勿重复添加',
   }
 }

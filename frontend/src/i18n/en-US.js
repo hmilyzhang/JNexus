@@ -864,5 +864,6 @@ export default {
     'err.noCredPerm': 'Permission denied: your role cannot manage OS accounts',
     'err.noReportPerm': 'Permission denied: your role has no report access',
     'err.noHostPerm': 'Permission denied: your role has no host {action} access',
+    'err.hostExists': 'This host (IP/port/user) already exists',
   }
 }

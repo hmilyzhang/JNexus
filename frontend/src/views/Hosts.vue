@@ -109,7 +109,7 @@
     </el-form>
     <template #footer>
       <el-button @click="hostVisible = false">{{ $t('common.cancel') }}</el-button>
-      <el-button type="primary" @click="saveHost">{{ $t('common.save') }}</el-button>
+      <el-button type="primary" :loading="savingHost" @click="saveHost">{{ $t('common.save') }}</el-button>
     </template>
   </el-dialog>
 
@@ -450,9 +450,13 @@ const canManageCreds = computed(() => {
 })
 api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
 
+const savingHost = ref(false)
 const saveHost = async () => {
   if (!hostForm.value.name || !hostForm.value.ip || !hostForm.value.username) { ElMessage.warning(t('hosts.needNameIpUser')); return }
   if (hostForm.value.auth_type === 'key' && !hostForm.value.ssh_key_id) { ElMessage.warning(t('hosts.needKey')); return }
+  if (savingHost.value) return // 防连点：密码认证时后端要 SSH 配对，可能耗时数十秒
+  savingHost.value = true
+  try {
   if (hostForm.value.id) {
     await api.put(`/hosts/${hostForm.value.id}`, hostForm.value)
     ElMessage.success(t('hosts.saved'))
@@ -474,6 +478,7 @@ const saveHost = async () => {
   }
   hostVisible.value = false
   load()
+  } finally { savingHost.value = false }
 }
 const delHost = async row => { await api.delete(`/hosts/${row.id}`); ElMessage.success(t('hosts.deleted')); load() }
 
