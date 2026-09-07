@@ -125,12 +125,18 @@
       </el-form-item>
       <el-form-item :label="$t('users.password')" v-if="!form.id"><el-input v-model="form.password" type="password" show-password /></el-form-item>
       <el-form-item :label="$t('users.role')">
-        <el-select v-model="form.role" style="width:100%">
-          <el-option :label="$t('layout.roleAdmin')" value="admin" />
-          <el-option :label="$t('layout.roleOps')" value="ops" />
-          <el-option :label="$t('layout.rolePublisher')" value="publisher" />
-          <el-option :label="$t('layout.roleViewer')" value="viewer" />
+        <el-select v-model="form.role" style="width:100%" filterable>
+          <el-option-group :label="$t('users.builtinRoles')">
+            <el-option :label="$t('layout.roleAdmin')" value="admin" />
+            <el-option :label="$t('layout.roleOps')" value="ops" />
+            <el-option :label="$t('layout.rolePublisher')" value="publisher" />
+            <el-option :label="$t('layout.roleViewer')" value="viewer" />
             <el-option :label="$t('layout.roleAuditor')" value="auditor" />
+            <el-option :label="$t('layout.roleK8s')" value="k8s" />
+          </el-option-group>
+          <el-option-group v-if="customRoles.length" :label="$t('users.customRoles')">
+            <el-option v-for="r in customRoles" :key="r" :label="roleLabel(r)" :value="r" />
+          </el-option-group>
         </el-select>
       </el-form-item>
       <el-form-item :label="$t('users.userGroups')">
@@ -270,8 +276,15 @@ const fmtTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 const roleLabel = r => ({
   admin: t('layout.roleAdmin'), ops: t('layout.roleOps'),
   publisher: t('layout.rolePublisher'), viewer: t('layout.roleViewer'),
-  auditor: t('layout.roleAuditor')
+  auditor: t('layout.roleAuditor'), k8s: t('layout.roleK8s')
 }[r] || r)
+
+// 自定义角色（内置 6 角色之外的 key）
+const builtin = ['admin', 'ops', 'publisher', 'viewer', 'auditor', 'k8s']
+const customRoles = ref([])
+api.get('/system/roles').then(rs => {
+  customRoles.value = Object.keys(rs).filter(k => !builtin.includes(k))
+}).catch(() => {})
 const groupName = id => (ugroups.value.find(g => g.id === id) || {}).name || id
 
 const load = async () => {

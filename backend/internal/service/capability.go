@@ -25,6 +25,11 @@ var ModuleCapabilities = []CapModule{
 	{Key: "crons", Actions: []string{"view", "manage"}},
 	{Key: "apps", Actions: []string{"view", "create", "edit", "delete"}},
 	{Key: "releases", Actions: []string{"view", "create", "rollback"}},
+	{Key: "tasks", Actions: []string{"view", "export"}},
+	{Key: "exec", Actions: []string{"exec"}},
+	{Key: "files", Actions: []string{"distribute"}},
+	{Key: "scripts", Actions: []string{"view", "manage", "exec"}},
+	{Key: "keys", Actions: []string{"manage"}},
 }
 
 // CapabilitiesForFront 返回给前端角色设置矩阵
@@ -130,6 +135,39 @@ func legacyToPerms(role string, rp RolePerm) map[string][]string {
 		cv = append(cv, "manage")
 	}
 	p["crons"] = cv
+
+	// tasks：读跟菜单，导出=admin/auditor（旧路由语义）
+	tv := []string{}
+	if inMenus("tasks") {
+		tv = append(tv, "view")
+	}
+	if role == model.RoleAdmin || role == model.RoleAuditor {
+		tv = append(tv, "export")
+	}
+	p["tasks"] = tv
+
+	// exec / files / scripts / keys：admin/ops（scripts/publisher 也用），读跟菜单
+	isOps := role == model.RoleOps
+	isPub := role == model.RolePublisher
+	if inMenus("exec") || isOps || isPub {
+		p["exec"] = []string{"exec"}
+	}
+	if inMenus("files") || isOps || isPub {
+		p["files"] = []string{"distribute"}
+	}
+	sv := []string{}
+	if inMenus("scripts") {
+		sv = append(sv, "view")
+	}
+	if isOps {
+		sv = append(sv, "manage", "exec")
+	} else if isPub {
+		sv = append(sv, "exec")
+	}
+	p["scripts"] = sv
+	if isOps {
+		p["keys"] = []string{"manage"}
+	}
 
 	return p
 }

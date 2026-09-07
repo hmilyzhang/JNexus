@@ -76,10 +76,17 @@
             <el-input v-model="form.ldap_attr_username" placeholder="uid" class="mono" />
           </el-form-item>
           <el-form-item :label="$t('system.ldapDefaultRole')">
-            <el-select v-model="form.ldap_default_role">
-              <el-option label="Viewer" value="viewer" />
-              <el-option :label="$t('layout.roleOps')" value="ops" />
-              <el-option :label="$t('layout.rolePublisher')" value="publisher" />
+            <el-select v-model="form.ldap_default_role" filterable>
+              <el-option-group :label="$t('users.builtinRoles')">
+                <el-option label="Viewer" value="viewer" />
+                <el-option :label="$t('layout.roleOps')" value="ops" />
+                <el-option :label="$t('layout.rolePublisher')" value="publisher" />
+              </el-option-group>
+              <el-option-group v-if="allRoleKeys.filter(k => !['admin','ops','publisher','viewer','auditor','k8s'].includes(k)).length"
+                               :label="$t('users.customRoles')">
+                <el-option v-for="r in allRoleKeys.filter(k => !['admin','ops','publisher','viewer','auditor','k8s'].includes(k))"
+                           :key="r" :label="r" :value="r" />
+              </el-option-group>
             </el-select>
           </el-form-item>
           <el-divider style="margin:8px 0 16px" />
@@ -158,13 +165,23 @@
     <el-card>
       <el-table :data="roleRows" size="small" border>
         <el-table-column :label="$t('users.role')" min-width="100">
-          <template #default="{ row }"><el-tag size="small">{{ row.labelKey ? $t(row.labelKey) : row.role }}</el-tag></template>
+          <template #default="{ row }">
+              <el-tag size="small" :type="row.custom ? 'primary' : ''" effect="plain">{{ row.labelKey ? $t(row.labelKey) : row.role }}</el-tag>
+              <el-tag v-if="row.custom" size="small" type="info">自定义</el-tag>
+            </template>
         </el-table-column>
         <el-table-column :label="$t('scripts.desc')" min-width="200">
           <template #default="{ row }">
             <el-input :model-value="row.descKey ? $t(row.descKey) : row.desc" size="small"
                       :disabled="row.role === 'admin'"
                       @input="v => (row.desc = v)" />
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('common.operation')" width="90" align="center">
+          <template #default="{ row }">
+            <el-popconfirm v-if="row.custom" :title="$t('system.delRoleConfirm')" @confirm="delRole(row)">
+              <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+            </el-popconfirm>
           </template>
         </el-table-column>
         <el-table-column :label="$t('system.capMatrix')" min-width="130" align="center">
@@ -184,6 +201,7 @@
       </el-table>
       <div style="margin-top:12px">
         <el-button type="primary" :loading="savingRoles" @click="saveRoles">{{ $t('common.save') }}</el-button>
+        <el-button @click="openNewRole">{{ $t('system.newRole') }}</el-button>
         <span style="color:#909399; font-size:12px; margin-left:10px">{{ $t('system.rolesTip') }}</span>
       </div>
     </el-card>
@@ -276,6 +294,23 @@
       </template>
     </el-dialog>
   </div>
+
+    <!-- 新建自定义角色 -->
+    <el-dialog v-model="newRoleVisible" :title="$t('system.newRole')" width="480px">
+      <el-form label-width="110px">
+        <el-form-item :label="$t('system.roleKey')"><el-input v-model="newRoleForm.key" placeholder="sre" /></el-form-item>
+        <el-form-item :label="$t('system.roleDesc')"><el-input v-model="newRoleForm.desc" /></el-form-item>
+        <el-form-item :label="$t('system.copyFrom')">
+          <el-select v-model="newRoleForm.copy_of" clearable style="width:100%">
+            <el-option v-for="r in allRoleKeys" :key="r" :label="r" :value="r" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="newRoleVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="createRole">{{ $t('common.add') }}</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 模块权限矩阵 -->
     <el-dialog v-model="capDlgVisible" :title="`${$t('system.capMatrix')}：${capRow?.label || ''}`" width="560px">
@@ -413,13 +448,39 @@ const capSet = (row, module, action, on) => {
 }
 const openCapDlg = row => { capRow.value = row; capDlgVisible.value = true }
 
+// ---- 自定义角色 ----
+const newRoleVisible = ref(false)
+const newRoleForm = ref({ key: '', desc: '', copy_of: '' })
+const openNewRole = () => { newRoleForm.value = { key: '', desc: '', copy_of: 'viewer' }; newRoleVisible.value = true }
+const createRole = async () => {
+  if (!newRoleForm.value.key) { ElMessage.warning(t('users.role')); return }
+  try {
+    await api.post('/system/roles', newRoleForm.value)
+    ElMessage.success(t('common.success'))
+    newRoleVisible.value = false
+    await loadRoles()
+  } catch { /* 拦截器已提示 */ }
+}
+const delRole = async row => {
+  try {
+    await api.delete(`/system/roles/${row.role}`)
+    ElMessage.success(t('common.success'))
+    await loadRoles()
+  } catch { /* 拦截器已提示 */ }
+}
+
+const allRoleKeys = ref([])
+const roleMeta = ref({})
 const loadRoles = async () => {
   api.get('/system/capabilities').then(r => { capabilities.value = r }).catch(() => {})
   const rs = await api.get('/system/roles')
+  allRoleKeys.value = Object.keys(rs)
+  roleMeta.value = rs
   roleRows.value = Object.entries(rs).map(([role, v]) => {
     const cap = roleCaps[role] || ''
     return {
       role,
+      custom: !['admin', 'ops', 'publisher', 'viewer', 'auditor', 'k8s'].includes(role),
       labelKey: cap ? 'layout.role' + cap : '',
       descKey: cap && i18n.global.te('system.role' + cap) ? 'system.role' + cap : '',
       desc: v.desc || '',

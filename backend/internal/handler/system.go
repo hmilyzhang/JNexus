@@ -3,8 +3,10 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -73,6 +75,115 @@ func GetSystemRoles(c *gin.Context) {
 }
 
 // UpdateSystemRoles 保存角色设置（admin）
+// ---- 自定义角色管理 ----
+
+// builtinRoles 内置角色 key（禁止删除；admin 额外禁止一切写操作）
+var builtinRoles = map[string]bool{
+	"admin": true, "ops": true, "publisher": true,
+	"viewer": true, "auditor": true, "k8s": true,
+}
+
+// CreateRole POST /api/system/roles  创建自定义角色（可复制现有角色的权限）
+func CreateRole(c *gin.Context) {
+	var req struct {
+		Key    string              `json:"key" binding:"required"`
+		Desc   string              `json:"desc"`
+		CopyOf string              `json:"copy_of"`
+		Perms  map[string][]string `json:"perms"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "角色 key 必填"})
+		return
+	}
+	key := strings.TrimSpace(req.Key)
+	if len(key) < 2 || len(key) > 32 || strings.ContainsAny(key, " /\\") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "角色 key 须 2-32 位且不含空格或斜杠"})
+		return
+	}
+	if builtinRoles[key] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "与内置角色重名"})
+		return
+	}
+	settings := service.GetRoleSettings()
+	if _, exists := settings[key]; exists {
+		c.JSON(http.StatusConflict, gin.H{"error": "角色已存在"})
+		return
+	}
+
+	// 基础配置：复制源角色 或 空白（仅 dashboard 菜单）
+	rp := service.RolePerm{Desc: req.Desc, Menus: []string{"dashboard"}, Perms: map[string][]string{}}
+	if req.CopyOf != "" {
+		if src, ok := settings[req.CopyOf]; ok {
+			rp.Desc = req.Desc
+			rp.Menus = append([]string{}, src.Menus...)
+			rp.Perms = map[string][]string{}
+			for m, acts := range src.Perms {
+				rp.Perms[m] = append([]string{}, acts...)
+			}
+			rp.Host = src.Host
+			rp.Cred, rp.Report = src.Cred, src.Report
+			rp.K8sView, rp.K8sManage = src.K8sView, src.K8sManage
+		}
+	}
+	// 调用方显式提供的 perms 优先（前端矩阵可直接提交）
+	if len(req.Perms) > 0 {
+		rp.Perms = req.Perms
+	}
+	if rp.Perms == nil {
+		rp.Perms = map[string][]string{}
+	}
+	settings[key] = rp
+	if err := service.SetRoleSettings(settings); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "ROLE", Resource: "CREATE ROLE " + key,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true, "key": key})
+}
+
+// DeleteRole DELETE /api/system/roles/:key  删除自定义角色（内置禁止；被用户引用禁止）
+func DeleteRole(c *gin.Context) {
+	key := c.Param("key")
+	if builtinRoles[key] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "内置角色不可删除"})
+		return
+	}
+	var cnt int64
+	model.DB.Model(&model.User{}).Where("role = ?", key).Count(&cnt)
+	if cnt > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("该角色仍有 %d 个用户使用，请先改派角色", cnt), "count": cnt})
+		return
+	}
+	settings := service.GetRoleSettings()
+	if _, exists := settings[key]; !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "角色不存在"})
+		return
+	}
+	delete(settings, key)
+	if err := service.SetRoleSettings(settings); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "ROLE", Resource: "DELETE ROLE " + key,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// RoleUsers GET /api/system/roles/:key/users  该角色下的用户列表（删除前提示用）
+func RoleUsers(c *gin.Context) {
+	key := c.Param("key")
+	var users []model.User
+	model.DB.Where("role = ?", key).Select("id, username, status").Find(&users)
+	c.JSON(http.StatusOK, users)
+}
+
 // GetSystemCapabilities 角色设置矩阵的模块/操作声明（前端自动渲染）
 func GetSystemCapabilities(c *gin.Context) {
 	c.JSON(http.StatusOK, service.CapabilitiesForFront())

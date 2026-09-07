@@ -72,7 +72,7 @@ func WebTerminal(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "主机不存在"})
 		return
 	}
-	if !user.IsAdmin() && user.Role != model.RoleOps && user.Role != model.RolePublisher {
+	if !service.HasCap(user.Role, "exec", "exec") {
 		c.JSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
 		return
 	}

@@ -196,7 +196,7 @@ func SetupRouter() *gin.Engine {
 		}
 
 		// SSH 密钥（admin / ops）
-		keys := auth.Group("/ssh_keys", middleware.RequireRole(model.RoleOps))
+		keys := auth.Group("/ssh_keys", middleware.RequireCap("keys", "manage"))
 		{
 			keys.GET("", ListKeys)
 			keys.POST("", CreateKey)
@@ -264,33 +264,33 @@ func SetupRouter() *gin.Engine {
 		}
 
 		// 批量执行
-		exec := auth.Group("/exec", middleware.RequireRole(model.RoleOps, model.RolePublisher))
+		exec := auth.Group("/exec", middleware.RequireCap("exec", "exec"))
 		{
 			exec.POST("", StartExec)
 		}
 		// 执行记录：管理员/审计员看全量，运维/发布员仅本人任务（handler 内过滤）
-		tasks := auth.Group("/tasks", middleware.RequireRole(model.RoleAuditor, model.RoleOps, model.RolePublisher, model.RoleViewer))
+		tasks := auth.Group("/tasks", middleware.RequireCap("tasks", "view"))
 		{
 			tasks.GET("", ListTasks)
 			tasks.GET("/:id", GetTask)
-			tasks.GET("/:id/export", ExportTask)
+			tasks.GET("/:id/export", middleware.RequireCap("tasks", "export"), ExportTask)
 		}
 
 		// 文件分发
-		files := auth.Group("/files", middleware.RequireRole(model.RoleOps, model.RolePublisher))
+		files := auth.Group("/files", middleware.RequireCap("files", "distribute"))
 		{
 			files.POST("/upload", UploadFile)
 			files.POST("/distribute", Distribute)
 		}
 
 		// 脚本中心
-		scripts := auth.Group("/scripts", middleware.RequireRole(model.RoleOps, model.RolePublisher))
+		scripts := auth.Group("/scripts", middleware.RequireCap("scripts", "view"))
 		{
 			scripts.GET("", ListScripts)
-			scripts.POST("", CreateScript)
-			scripts.PUT("/:id", UpdateScript)
-			scripts.DELETE("/:id", DeleteScript)
-			scripts.POST("/:id/exec", ExecScript)
+			scripts.POST("", middleware.RequireCap("scripts", "manage"), CreateScript)
+			scripts.PUT("/:id", middleware.RequireCap("scripts", "manage"), UpdateScript)
+			scripts.DELETE("/:id", middleware.RequireCap("scripts", "manage"), DeleteScript)
+			scripts.POST("/:id/exec", middleware.RequireCap("scripts", "exec"), ExecScript)
 		}
 
 		// 应用与发布
@@ -343,7 +343,10 @@ func SetupRouter() *gin.Engine {
 
 		// 系统配置（admin）
 		auth.GET("/system/roles", GetSystemRoles)
-		auth.GET("/system/capabilities", GetSystemCapabilities) // 所有登录用户可读（前端菜单渲染依赖）
+		auth.GET("/system/capabilities", GetSystemCapabilities)
+		auth.POST("/system/roles", middleware.RequireRole(), CreateRole)
+		auth.DELETE("/system/roles/:key", middleware.RequireRole(), DeleteRole)
+		auth.GET("/system/roles/:key/users", RoleUsers) // 所有登录用户可读（前端菜单渲染依赖）
 		sysCfg := auth.Group("/system", middleware.RequireRole())
 		{
 			sysCfg.GET("/config", GetSystemConfig)
