@@ -617,6 +617,7 @@ export default {
   },
   k8s: {
     clusterDetail: '集群详情',
+    columns: '自定义列',
     allNamespaces: '全部命名空间',
     podName: 'Pod 名称',
     restarts: '重启次数',

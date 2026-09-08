@@ -5,34 +5,45 @@
       <template #header>
         <div style="display:flex; align-items:center; gap:10px">
           <span style="flex:1">{{ $t('k8s.title') }}</span>
+          <el-popover placement="bottom-end" :width="220" trigger="click">
+            <template #reference>
+              <el-button size="small" text>{{ $t('k8s.columns') }}</el-button>
+            </template>
+            <el-checkbox-group v-model="visibleCols" style="display:flex; flex-direction:column; gap:6px">
+              <el-checkbox v-for="c in colDefs" :key="c.key" :value="c.key">{{ $t(c.label) }}</el-checkbox>
+            </el-checkbox-group>
+          </el-popover>
           <el-button size="small" :loading="loading" @click="load">{{ $t('common.refresh') }}</el-button>
           <el-button v-if="canManage" size="small" type="primary" @click="openDlg()">{{ $t('k8s.addCluster') }}</el-button>
         </div>
       </template>
       <el-table :data="clusters" v-loading="loading" size="small" border>
-        <el-table-column :label="$t('k8s.cluster')" min-width="170">
+        <el-table-column v-if="colOn('cluster')" :label="$t('k8s.cluster')" min-width="170">
           <template #default="{ row }">
             <div style="font-weight:600">{{ row.name }}</div>
             <div class="mono" style="color:#909399; font-size:12px">{{ row.api_server }}</div>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('k8s.support')" width="110">
+        <el-table-column v-if="colOn('description')" :label="$t('scripts.desc')" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.description || '-' }}</template>
+        </el-table-column>
+        <el-table-column v-if="colOn('support')" :label="$t('k8s.support')" width="110">
           <template #default="{ row }">{{ row.support || '-' }}</template>
         </el-table-column>
-        <el-table-column :label="$t('k8s.status')" width="90" align="center">
+        <el-table-column v-if="colOn('status')" :label="$t('k8s.status')" width="90" align="center">
           <template #default="{ row }">
             <el-tag size="small" :type="row.status === 'online' ? 'success' : row.status === 'offline' ? 'danger' : 'info'">
               {{ row.status === 'online' ? $t('k8s.online') : row.status === 'offline' ? $t('k8s.offline') : '-' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('k8s.version')" width="110">
+        <el-table-column v-if="colOn('version')" :label="$t('k8s.version')" width="110">
           <template #default="{ row }">{{ row.version || '-' }}</template>
         </el-table-column>
-        <el-table-column :label="$t('k8s.nodes')" width="80" align="center">
+        <el-table-column v-if="colOn('nodes')" :label="$t('k8s.nodes')" width="80" align="center">
           <template #default="{ row }">{{ row.node_count || '-' }}</template>
         </el-table-column>
-        <el-table-column :label="$t('k8s.certExpiry')" min-width="150">
+        <el-table-column v-if="colOn('certExpiry')" :label="$t('k8s.certExpiry')" min-width="150">
           <template #default="{ row }">
             <template v-if="row.cert_expiry">
               <el-tag size="small" :type="certTagType(row.cert_expiry)">
@@ -42,7 +53,7 @@
             <span v-else style="color:#c0c4cc">-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('k8s.myRole')" width="100" align="center">
+        <el-table-column v-if="colOn('myRole')" :label="$t('k8s.myRole')" width="100" align="center">
           <template #default="{ row }">
             <el-tag size="small" :type="row.my_role === 'admin' ? 'warning' : 'info'">{{ roleText(row.my_role) }}</el-tag>
           </template>
@@ -111,7 +122,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import api from '../api'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
@@ -130,6 +141,22 @@ const memberRows = ref([])
 const form = reactive({})
 const canManage = computed(() => store.isAdmin)
 
+// ---- 列自定义（localStorage 持久化） ----
+const colDefs = [
+  { key: 'cluster', label: 'k8s.cluster' },
+  { key: 'description', label: 'scripts.desc' },
+  { key: 'support', label: 'k8s.support' },
+  { key: 'status', label: 'k8s.status' },
+  { key: 'version', label: 'k8s.version' },
+  { key: 'nodes', label: 'k8s.nodes' },
+  { key: 'certExpiry', label: 'k8s.certExpiry' },
+  { key: 'myRole', label: 'k8s.myRole' },
+]
+const COL_STORE = 'k8s_cluster_cols'
+const visibleCols = ref(JSON.parse(localStorage.getItem(COL_STORE) || 'null') ||
+  ['cluster', 'description', 'support', 'status', 'version', 'nodes', 'certExpiry', 'myRole'])
+const colOn = k => visibleCols.value.includes(k)
+
 const fmtTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 const daysLeft = v => {
   if (!v) return 9999
@@ -137,6 +164,8 @@ const daysLeft = v => {
 }
 const certTagType = v => (daysLeft(v) <= 7 ? 'danger' : daysLeft(v) <= 30 ? 'warning' : 'success')
 const roleText = r => ({ admin: t('k8s.roleAdmin'), user: t('k8s.roleUser'), viewer: t('k8s.roleViewer') }[r] || '-')
+
+watch(visibleCols, v => localStorage.setItem(COL_STORE, JSON.stringify(v)), { deep: true })
 
 const load = async () => {
   loading.value = true

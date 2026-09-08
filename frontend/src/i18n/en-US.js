@@ -617,6 +617,7 @@ export default {
   },
   k8s: {
     clusterDetail: 'Cluster detail',
+    columns: 'Columns',
     allNamespaces: 'All namespaces',
     podName: 'Pod',
     restarts: 'Restarts',
