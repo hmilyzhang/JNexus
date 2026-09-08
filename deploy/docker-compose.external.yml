@@ -56,10 +56,11 @@ services:
       GUACD_HOST: guacd
       GUACD_PORT: "4822"
       GW_PORT: "4823"
-      GW_SECRET: ${RDP_GW_SECRET:-JnexusRdpGatewaySecretKey-123456}
-      JNEXUS_API: http://jnexus-server:8080
+      # 密钥从共享 data 卷的 gw_secret 文件读取（与 jnexus-server 同卷），无需明文
     ports:
       - "4823:4823"
+    volumes:
+      - data:/data:ro
     depends_on:
       - jnexus
       - guacd

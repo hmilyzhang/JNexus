@@ -40,4 +40,21 @@ elif [ ! -f "$DATA_DIR/jwt_secret" ]; then
   echo "[entrypoint] 已将环境变量提供的 JWT 密钥持久化到 $DATA_DIR/jwt_secret"
 fi
 
+# RDP 网关密钥：写入数据卷，供 rdp-gateway 容器只读挂载（同 JWT/AES 的自动生成模式）
+if [ -z "$GW_SECRET" ] && [ -f "$DATA_DIR/gw_secret" ]; then
+  GW_SECRET="$(cat "$DATA_DIR/gw_secret")"
+  export GW_SECRET
+fi
+if [ -z "$GW_SECRET" ]; then
+  head -c 24 /dev/urandom | base64 > "$DATA_DIR/gw_secret"
+  chmod 600 "$DATA_DIR/gw_secret"
+  GW_SECRET="$(cat "$DATA_DIR/gw_secret")"
+  export GW_SECRET
+  echo "[entrypoint] 已生成 RDP 网关密钥并保存到 $DATA_DIR/gw_secret"
+elif [ ! -f "$DATA_DIR/gw_secret" ]; then
+  printf '%s' "$GW_SECRET" > "$DATA_DIR/gw_secret"
+  chmod 600 "$DATA_DIR/gw_secret"
+  echo "[entrypoint] 已将环境变量提供的 RDP 网关密钥持久化到 $DATA_DIR/gw_secret"
+fi
+
 exec /app/jnexus-server -config /app/config.yaml
