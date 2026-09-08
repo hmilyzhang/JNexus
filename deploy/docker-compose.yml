@@ -49,7 +49,7 @@ services:
 
   # RDP 图形桌面网关：浏览器 ←WS← guacamole-lite ← guacd ← Windows 3389
   guacd:
-    image: guacamole/guacd:1.5.5
+    image: guacamole/guacd:1.6.0
     container_name: jnexus-guacd
     restart: unless-stopped
 
