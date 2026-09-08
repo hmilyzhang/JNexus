@@ -158,7 +158,10 @@ type hostReq struct {
 	Name       string `json:"name"`
 	IP         string `json:"ip" binding:"required"`
 	Port       int    `json:"port"`
-	Username   string `json:"username"` // 可由凭据模板提供，CreateHost 内统一校验
+	OSType     string `json:"os_type"`     // linux / windows
+	WinRMPort  int    `json:"winrm_port"`  // Windows: 5985/5986
+	RDPPort    int    `json:"rdp_port"`    // Windows: 3389
+	Username   string `json:"username"`    // 可由凭据模板提供，CreateHost 内统一校验
 	AuthType   string `json:"auth_type"`
 	SSHKeyID   *uint  `json:"ssh_key_id"`
 	Password   string `json:"password"`
@@ -179,6 +182,18 @@ func (r *hostReq) toHost(h *model.Host) error {
 	}
 	h.Port = r.Port
 	h.Username = r.Username
+	if r.OSType == "" {
+		r.OSType = "linux"
+	}
+	h.OSType = r.OSType
+	if r.WinRMPort == 0 && r.OSType == "windows" {
+		r.WinRMPort = 5985
+	}
+	if r.RDPPort == 0 && r.OSType == "windows" {
+		r.RDPPort = 3389
+	}
+	h.WinRMPort = r.WinRMPort
+	h.RDPPort = r.RDPPort
 	h.AuthType = r.AuthType
 	if h.AuthType == "" {
 		h.AuthType = "key"

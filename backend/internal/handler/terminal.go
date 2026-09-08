@@ -3,10 +3,19 @@
 package handler
 
 import (
+	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"os"
 	"regexp"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -184,4 +193,166 @@ func WebTerminal(c *gin.Context) {
 			return
 		}
 	}
+}
+
+// RDPConnectToken POST /api/hosts/:id/rdp-token
+// 校验能力位与数据级权限后签发一次性连接令牌（5 分钟有效），
+// guacamole-lite 网关用该 token 换取真实 RDP 凭据（凭据不经过浏览器）
+func RDPConnectToken(c *gin.Context) {
+	u := currentUser(c)
+	hostID, ok := atoiParam(c.Param("id"))
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "hostId 非法"})
+		return
+	}
+	var host model.Host
+	if err := model.DB.First(&host, hostID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "主机不存在"})
+		return
+	}
+	if host.OSType != "windows" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "仅 Windows 主机支持远程桌面"})
+		return
+	}
+	if !service.HasCap(u.Role, "exec", "exec") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
+		return
+	}
+	if !service.CanExecHost(u, host.ID, host.GroupID) && len(service.UsableCredentials(u, &host)) == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无该主机的访问权限"})
+		return
+	}
+	// 取主机默认可用凭据
+	cred, err := service.ResolveCredential(u, &host, nil)
+	if err != nil || cred == nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无可用 OS 账号"})
+		return
+	}
+	pass, derr := pkg.Decrypt(cred.Password)
+	if derr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": derr.Error()})
+		return
+	}
+	// 生成 guacamole-lite 加密查询串（AES-256-CBC，GW_SECRET 共享密钥，短时有效）
+	qs, err := buildGuacQueryString(host.IP, rdpPortOf(&host), cred.Username, pass)
+	if derr != nil {
+		_ = derr
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"query": qs, "host": host.Name, "ip": host.IP,
+		"gateway": strings.TrimSuffix(strings.TrimPrefix(cfgGwURL(), "["), "]"),
+		"width":   1280, "height": 720, "dpi": 96,
+	})
+}
+
+// rdpTokens 连接令牌（进程内存储；单实例部署足够）
+type rdpTokenData struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	UserID   uint
+	Expires  time.Time
+}
+
+var (
+	rdpTokensMu sync.Mutex
+	rdpTokens   = map[string]rdpTokenData{}
+)
+
+// ConsumeRDPtoken guacamole-lite 回调：token 换凭据（一次性，取后即焚）
+func ConsumeRDPtoken(c *gin.Context) {
+	// 仅信任本地网关
+	if c.ClientIP() != "127.0.0.1" && c.ClientIP() != "::1" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
+		return
+	}
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token 必填"})
+		return
+	}
+	rdpTokensMu.Lock()
+	data, ok := rdpTokens[req.Token]
+	if ok {
+		delete(rdpTokens, req.Token)
+	}
+	rdpTokensMu.Unlock()
+	if !ok || time.Now().After(data.Expires) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token 无效或已过期"})
+		return
+	}
+	port := data.Port
+	if port == 0 {
+		port = 3389
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"hostname": data.Host, "port": port,
+		"username": data.Username, "password": data.Password,
+		"protocol": "rdp", "security": "nla",
+		"enable-drive": false, "enable-clipboard-integration": true,
+		"resize-method": "reconnect",
+	})
+}
+
+func randomHexToken() string {
+	b := make([]byte, 24)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+func rdpPortOf(h *model.Host) int {
+	if h.RDPPort > 0 {
+		return h.RDPPort
+	}
+	return 3389
+}
+
+// buildGuacQueryString 生成 guacamole-lite queryEncryption 兼容的加密连接串
+func buildGuacQueryString(ip string, port int, user, pass string) (string, error) {
+	key := os.Getenv("GW_SECRET")
+	if key == "" {
+		key = "jnexus-rdp-gateway-secret-key-32b"
+	}
+	if len(key) < 32 {
+		key = key + strings.Repeat("0", 32-len(key))
+	}
+	plaintext := strings.Join([]string{
+		"guac.hostname=" + ip,
+		"guac.port=" + strconv.Itoa(port),
+		"guac.username=" + user,
+		"guac.password=" + pass,
+		"guac.protocol=rdp",
+		"guac.ignore-cert=true",
+		"guac.resize-method=reconnect",
+		"guac.enable-drive=false",
+		"guac.enable-audio=false",
+	}, "\x00")
+	block, err := aes.NewCipher([]byte(key[:32]))
+	if err != nil {
+		return "", err
+	}
+	iv := make([]byte, aes.BlockSize)
+	if _, err := rand.Read(iv); err != nil {
+		return "", err
+	}
+	pad := aes.BlockSize - len(plaintext)%aes.BlockSize
+	padded := append([]byte(plaintext), bytes.Repeat([]byte{byte(pad)}, pad)...)
+	mode := cipher.NewCBCEncrypter(block, iv)
+	out := make([]byte, len(padded))
+	mode.CryptBlocks(out, padded)
+	return hex.EncodeToString(append(iv, out...)), nil
+}
+
+func cfgGwURL() string {
+	if v := os.Getenv("RDP_GATEWAY_URL"); v != "" {
+		return v
+	}
+	return "http://localhost:4823"
 }

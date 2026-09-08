@@ -134,6 +134,7 @@ export default {
     authPassword: '密码',
     group: '分组',
     terminal: '终端',
+    rdp: '远程桌面',
     uncategorized: '未分组',
     hostCount: '{n} 台主机',
     editHost: '编辑主机',

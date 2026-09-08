@@ -65,7 +65,10 @@ type Host struct {
 	ID         uint       `gorm:"primaryKey" json:"id"`
 	Name       string     `gorm:"size:128" json:"name"`
 	IP         string     `gorm:"size:64;index" json:"ip"`
-	Port       int        `gorm:"default:22" json:"port"`
+	Port       int        `json:"port"`
+	OSType     string     `gorm:"size:16;default:linux" json:"os_type"` // linux / windows
+	WinRMPort  int        `json:"winrm_port"`                           // Windows: 5985(HTTP) / 5986(HTTPS)
+	RDPPort    int        `json:"rdp_port"`                             // Windows: 3389
 	Username   string     `gorm:"size:64" json:"username"`
 	AuthType   string     `gorm:"size:16;default:key" json:"auth_type"` // key / password
 	SSHKeyID   *uint      `json:"ssh_key_id"`

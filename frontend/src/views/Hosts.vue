@@ -65,6 +65,7 @@
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="terminal">{{ $t('hosts.terminal') }}</el-dropdown-item>
+                    <el-dropdown-item v-if="row.os_type === 'windows'" command="rdp">RDP</el-dropdown-item>
                     <el-dropdown-item command="capacity">{{ $t('k8s.capacity') }}</el-dropdown-item>
                     <el-dropdown-item v-if="canManageCreds" command="cred">{{ $t('hosts.credMgmt') }}</el-dropdown-item>
                     <el-dropdown-item command="edit" divided>{{ $t('common.edit') }}</el-dropdown-item>
@@ -326,6 +327,19 @@ const openCapacity = row => {
   capVisible.value = true
   loadCap()
 }
+// ---- RDP 远程桌面（guacamole-lite 网关，加密连接串 5 分钟有效） ----
+const rdpWin = ref(null)
+const openRDP = async row => {
+  try {
+    const r = await api.post(`/hosts/${row.id}/rdp-token`, {})
+    const w = 1280, h = 720
+    const left = (screen.width - w) / 2
+    const top = Math.max(0, (screen.height - h) / 2 - 40)
+    window.open(`${r.gateway}/?width=${w}&height=${h}&dpi=${r.dpi || 96}`, '_blank',
+      `width=${w + 16},height=${h + 60},left=${left},top=${top}`)
+  } catch { /* 拦截器提示 */ }
+}
+
 const loadCap = async () => {
   cap.value = await api.get(`/monitoring/hosts/${capHost.value.id}/capacity`, { params: { days: capDays.value } }).catch(() => null)
 }
@@ -476,6 +490,7 @@ const openTerminal = row => {
 // 行操作下拉分发
 const onRowCmd = async (cmd, row) => {
   if (cmd === 'terminal') openTerminal(row)
+  else if (cmd === 'rdp') openRDP(row)
   else if (cmd === 'capacity') openCapacity(row)
   else if (cmd === 'cred') router.push(`/os-accounts?host=${row.id}`)
   else if (cmd === 'edit') dlgHost(row)

@@ -134,6 +134,7 @@ export default {
     authPassword: 'Password',
     group: 'Group',
     terminal: 'Terminal',
+    rdp: 'Remote Desktop',
     uncategorized: 'Uncategorized',
     hostCount: '{n} hosts',
     editHost: 'Edit Host',

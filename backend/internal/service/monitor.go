@@ -420,6 +420,11 @@ func CollectHostMetrics() {
 			defer func() { recover() }() // 单台采集失败不影响进程与其余主机
 			sem <- struct{}{}
 			defer func() { <-sem }()
+			// Windows 主机：WinRM 采集（无 SSH 通道）
+			if IsWindows(&h) {
+				collectWindowsMetrics(&h)
+				return
+			}
 			cli, err := sshpool.ClientFor(&h)
 			if err != nil {
 				return // 连接失败（如主机关机）：本轮无数据，不写样本

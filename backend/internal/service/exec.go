@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"jnexus/internal/model"
+	"jnexus/internal/pkg"
 	"jnexus/internal/sshpool"
 	"jnexus/internal/ws"
 )
@@ -250,6 +251,37 @@ func runTask(operator *model.User, reqCredID *uint, taskID uint, command string,
 				pushTaskStatus()
 				return
 			}
+			// Windows 主机：WinRM 执行（无流式输出，完成后一次性推送）
+			if IsWindows(&host) {
+				model.DB.Model(&model.TaskHostResult{}).Where("id = ?", res.ID).Update("os_user", cred.Username)
+				ws.H.Broadcast(taskTopic(taskID), map[string]any{"type": "os_user", "result_id": res.ID, "os_user": cred.Username})
+				pass := ""
+				if cred.AuthType == "password" {
+					p, derr := pkg.Decrypt(cred.Password)
+					if derr != nil {
+						finishResult(res.ID, -1, "凭据解密失败: "+derr.Error(), "failed")
+						pushTaskStatus()
+						return
+					}
+					pass = p
+				}
+				out, code, werr := WinRMRun(&host, cred.Username, pass, command, int(timeout.Seconds()))
+				status := "success"
+				if werr != nil {
+					out += "\n[错误] " + werr.Error()
+					status = "failed"
+					code = -1
+				} else if code != 0 {
+					status = "failed"
+				}
+				ws.H.Broadcast(taskTopic(taskID), map[string]any{
+					"type": "output", "result_id": res.ID, "host_id": res.HostID, "text": out,
+				})
+				finishResult(res.ID, code, out, status)
+				pushTaskStatus()
+				return
+			}
+
 			cli, err := sshpool.ClientForCredential(&host, cred)
 			if err != nil {
 				finishResult(res.ID, -1, "连接失败: "+err.Error(), "failed")
