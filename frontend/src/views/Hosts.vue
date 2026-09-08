@@ -92,11 +92,22 @@
     <el-form label-width="100px">
       <el-form-item :label="$t('hosts.name')"><el-input v-model="hostForm.name" :placeholder="$t('hosts.namePlaceholder')" /></el-form-item>
       <el-form-item :label="$t('hosts.ip')"><el-input v-model="hostForm.ip" /></el-form-item>
-      <el-form-item :label="$t('hosts.port')"><el-input-number v-model="hostForm.port" :min="1" :max="65535" /></el-form-item>
+      <el-form-item :label="$t('hosts.port')">
+        <el-input-number v-model="hostForm.port" :min="1" :max="65535" />
+        <el-radio-group v-model="hostForm.os_type" style="margin-left:16px" @change="onOsChange">
+          <el-radio value="linux">Linux</el-radio>
+          <el-radio value="windows">Windows</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item v-if="hostForm.os_type === 'windows'" :label="'WinRM'">
+        <el-input-number v-model="hostForm.winrm_port" :min="1" :max="65535" />
+        <span style="margin-left:16px">RDP</span>
+        <el-input-number v-model="hostForm.rdp_port" :min="1" :max="65535" />
+      </el-form-item>
       <el-form-item :label="$t('hosts.user')"><el-input v-model="hostForm.username" /></el-form-item>
       <el-form-item :label="$t('hosts.authType')">
         <el-radio-group v-model="hostForm.auth_type">
-          <el-radio value="key">{{ $t('hosts.key') }}</el-radio>
+          <el-radio value="key" :disabled="hostForm.os_type === 'windows'">{{ $t('hosts.key') }}</el-radio>
           <el-radio value="password">{{ $t('hosts.password') }}</el-radio>
         </el-radio-group>
       </el-form-item>
@@ -510,7 +521,7 @@ const onRowCmd = async (cmd, row) => {
 }
 
 const dlgHost = row => {
-  hostForm.value = row ? { ...row, password: '', template_id: null } : { name: '', ip: '', port: 22, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null, auto_pair: true, template_id: null }
+  hostForm.value = row ? { ...row, password: '', template_id: null } : { name: '', ip: '', port: 22, os_type: 'linux', winrm_port: 5985, rdp_port: 3389, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null, auto_pair: true, template_id: null }
   hostVisible.value = true
 }
 // ---- OS 账号权限（下拉项显隐），管理功能在「OS 账号」页面 ----
@@ -560,6 +571,17 @@ const batchDelHosts = async () => {
   else ElMessage.success(t('common.success'))
   selHosts.value = []
   load()
+}
+
+const onOsChange = t => {
+  if (t === 'windows') {
+    if (!hostForm.value.winrm_port) hostForm.value.winrm_port = 5985
+    if (!hostForm.value.rdp_port) hostForm.value.rdp_port = 3389
+    if (hostForm.value.port === 22) hostForm.value.port = 5985
+    hostForm.value.auth_type = 'password'
+  } else {
+    if (hostForm.value.port === 5985) hostForm.value.port = 22
+  }
 }
 
 const savingHost = ref(false)
