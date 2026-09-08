@@ -117,6 +117,17 @@ Env precedence: `JNEXUS_DSN` > `JNEXUS_DB_HOST/PORT/USER/PASSWORD/NAME` > `confi
 13. **Email notifications**: configure SMTP in System Settings (with a one-click test send). When enabled, exec / distribute / release / batch-account tasks send a result summary email to the recipients on completion — failed hosts with output snippets are highlighted.
 14. **Kubernetes**: add a cluster in **K8S Clusters** (paste a kubeconfig or the CA + client-cert + client-key trio — cert expiry is tracked automatically). Click **Manage** for the full-screen cluster console: overview cards, workloads (Pods / Deployments / CronJobs …), storage, config, Helm releases; pod Shell runs in an in-page drawer. Scale a Deployment or restart it from the row menu; every member only sees clusters they belong to.
 
+## Windows Access (WinRM + RDP)
+
+1. Add the host with **OS type = Windows** (WinRM port 5985, RDP 3389 by default) and a local or domain account (`DOMAIN\user` works).
+2. Command execution, metrics collection and alerting run over **WinRM**; the transport is auto-negotiated - HTTPS 5986 is preferred when reachable, otherwise HTTP 5985 (NTLM auth, works for local and domain accounts).
+3. **In-browser RDP**: requires the `guacd` + `rdp-gateway` sidecars (already in both compose files). Click **RDP** on a Windows host row - the platform signs a 5-minute encrypted connection string; credentials never reach the browser in plaintext.
+4. Target machine one-time setup (admin PowerShell):
+
+```powershell
+winrm quickconfig
+```
+
 ## Security Design
 
 - SSH private keys & passwords encrypted at rest with AES-256-GCM; master key injected via config (env overridable).

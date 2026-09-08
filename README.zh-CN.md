@@ -138,6 +138,17 @@ docker compose -f docker-compose.external.yml up -d --build
     点「管理」进入全屏集群控制台：概览卡片、工作负载（Pods / Deployments / CronJobs 等）、存储、配置、
     Helm 发布视图；Pod Shell 在页内抽屉打开。行内可对 Deployment 伸缩/滚动重启；成员只能看到自己所属的集群。
 
+## Windows 接入（WinRM + RDP）
+
+1. 添加主机时 **OS 类型选 Windows**（默认 WinRM 5985、RDP 3389），账号填本地或域账号（支持 `DOMAIN\user`）。
+2. 命令执行、指标采集与告警走 **WinRM**；传输自动协商——5986(HTTPS) 可达时优先加密，否则回退 HTTP 5985（NTLM 认证，本地/域账号皆可）。
+3. **浏览器内 RDP**：依赖 `guacd` + `rdp-gateway` 两个 sidecar 容器（compose 已内置）。点击 Windows 主机行的 **RDP** —— 平台签发 5 分钟有效的加密连接串，凭据全程不经过浏览器明文。
+4. 目标机一次性配置（管理员 PowerShell）：
+
+```powershell
+winrm quickconfig
+```
+
 ## 安全设计
 
 - SSH 私钥与密码使用 AES-256-GCM 加密落库，主密钥由配置注入（环境变量可覆盖）。
