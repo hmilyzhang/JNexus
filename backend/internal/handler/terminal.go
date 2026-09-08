@@ -10,10 +10,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -244,8 +244,7 @@ func RDPConnectToken(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"query": qs, "host": host.Name, "ip": host.IP,
-		"gateway": strings.TrimSuffix(strings.TrimPrefix(cfgGwURL(), "["), "]"),
-		"width":   1280, "height": 720, "dpi": 96,
+		"gateway": cfgGwURL(),
 	})
 }
 
@@ -318,23 +317,17 @@ func rdpPortOf(h *model.Host) int {
 func buildGuacQueryString(ip string, port int, user, pass string) (string, error) {
 	key := os.Getenv("GW_SECRET")
 	if key == "" {
-		key = "jnexus-rdp-gateway-secret-key-32b"
+		key = "JnexusRdpGatewaySecretKey32bytes!"
 	}
-	if len(key) < 32 {
-		key = key + strings.Repeat("0", 32-len(key))
-	}
-	plaintext := strings.Join([]string{
-		"guac.hostname=" + ip,
-		"guac.port=" + strconv.Itoa(port),
-		"guac.username=" + user,
-		"guac.password=" + pass,
-		"guac.protocol=rdp",
-		"guac.ignore-cert=true",
-		"guac.resize-method=reconnect",
-		"guac.enable-drive=false",
-		"guac.enable-audio=false",
-	}, "\x00")
-	block, err := aes.NewCipher([]byte(key[:32]))
+	key = key[:32]
+	plaintext := "guac.hostname=" + url.QueryEscape(ip) +
+		"&guac.port=" + strconv.Itoa(port) +
+		"&guac.username=" + url.QueryEscape(user) +
+		"&guac.password=" + url.QueryEscape(pass) +
+		"&guac.protocol=rdp&guac.ignore-cert=true" +
+		"&guac.resize-method=reconnect&guac.enable-drive=false&guac.enable-audio=false" +
+		"&width=1280&height=720&dpi=96"
+	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
 		return "", err
 	}

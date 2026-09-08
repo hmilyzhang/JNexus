@@ -3,6 +3,7 @@ package service
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -27,12 +28,13 @@ func WinRMPortOf(h *model.Host) int {
 	return 5985
 }
 
-// WinRMClientFor 构造目标主机的 WinRM 客户端（HTTP；HTTPS 5986 时跳过自签证书校验，与 LDAP TLS 同策略）
+// WinRMClientFor 构造目标主机的 WinRM 客户端：自动协商 HTTP/HTTPS。
+// 目标机 5986（HTTPS）可达时优先加密连接；否则回退 HTTP（5985 或主机记录的自定义端口）。
+// 两种传输均挂 NTLM 协商（域账号 DOMAIN/user 与本地账号皆可）。
 func WinRMClientFor(h *model.Host, username, password string) (*winrm.Client, error) {
 	if !IsWindows(h) {
 		return nil, fmt.Errorf("仅 Windows 主机支持 WinRM")
 	}
-	port := WinRMPortOf(h)
 	user := username
 	if user == "" {
 		user = h.Username
@@ -47,12 +49,28 @@ func WinRMClientFor(h *model.Host, username, password string) (*winrm.Client, er
 		}
 		pass = p
 	}
-	endpoint := winrm.NewEndpoint(h.IP, port, false, true, nil, nil, nil, 0)
-	c, err := winrm.NewClient(endpoint, user, pass)
-	if err != nil {
-		return nil, fmt.Errorf("WinRM 连接失败: %w", err)
+
+	params := winrm.DefaultParameters
+	// Windows 默认只开 Negotiate 认证：挂 NTLM 传输器自动完成握手（域账号 DOMAIN/user 亦可）
+	params.TransportDecorator = func() winrm.Transporter { return winrm.NewClientNTLMWithDial(params.Dial) }
+
+	// 自动协商：5986(HTTPS) 可达则优先加密；否则回退 HTTP
+	if tcpOpen(h.IP, 5986) {
+		return winrm.NewClientWithParameters(
+			winrm.NewEndpoint(h.IP, 5986, true, true, nil, nil, nil, 0), user, pass, params)
 	}
-	return c, nil
+	return winrm.NewClientWithParameters(
+		winrm.NewEndpoint(h.IP, WinRMPortOf(h), false, true, nil, nil, nil, 0), user, pass, params)
+}
+
+// tcpOpen 快速探测 TCP 端口可达（内网拒绝即时返回；被防火墙丢弃时最长 1.5s）
+func tcpOpen(host string, port int) bool {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, port), 1500*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 // WinRMRun 在 Windows 主机执行 PowerShell 命令（固定 InvariantCulture 输出，避免本地化解析差异）

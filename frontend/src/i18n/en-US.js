@@ -134,6 +134,7 @@ export default {
     authPassword: 'Password',
     group: 'Group',
     terminal: 'Terminal',
+    winrmAutoTip: 'Transport auto-negotiated: HTTPS 5986 preferred when reachable, falls back to HTTP',
     rdp: 'Remote Desktop',
     uncategorized: 'Uncategorized',
     hostCount: '{n} hosts',

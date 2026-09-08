@@ -39,6 +39,32 @@ services:
       - data:/app/data
     restart: unless-stopped
 
+  # RDP 图形桌面网关：浏览器 ←WS← guacamole-lite ← guacd ← Windows 3389
+  guacd:
+    image: guacamole/guacd:1.5.5
+    container_name: jnexus-guacd
+    restart: unless-stopped
+
+  rdp-gateway:
+    image: node:20-alpine
+    container_name: jnexus-rdp-gateway
+    working_dir: /gw
+    volumes:
+      - ../rdp-gateway:/gw
+    command: sh -c "npm install --omit=dev && node server.js"
+    environment:
+      GUACD_HOST: guacd
+      GUACD_PORT: "4822"
+      GW_PORT: "4823"
+      GW_SECRET: ${RDP_GW_SECRET:-JnexusRdpGatewaySecretKey32bytes!}
+      JNEXUS_API: http://jnexus-server:8080
+    ports:
+      - "4823:4823"
+    depends_on:
+      - jnexus
+      - guacd
+    restart: unless-stopped
+
 volumes:
   uploads:
   data:

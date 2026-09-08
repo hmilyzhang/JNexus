@@ -134,6 +134,7 @@ export default {
     authPassword: '密码',
     group: '分组',
     terminal: '终端',
+    winrmAutoTip: '平台自动协商传输：目标机 5986(HTTPS) 可达则加密，否则回退 HTTP 5985',
     rdp: '远程桌面',
     uncategorized: '未分组',
     hostCount: '{n} 台主机',

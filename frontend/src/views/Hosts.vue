@@ -100,9 +100,12 @@
         </el-radio-group>
       </el-form-item>
       <el-form-item v-if="hostForm.os_type === 'windows'" :label="'WinRM'">
-        <el-input-number v-model="hostForm.winrm_port" :min="1" :max="65535" />
-        <span style="margin-left:16px">RDP</span>
-        <el-input-number v-model="hostForm.rdp_port" :min="1" :max="65535" />
+        <div>
+          <el-input-number v-model="hostForm.winrm_port" :min="1" :max="65535" />
+          <span style="margin-left:16px">RDP</span>
+          <el-input-number v-model="hostForm.rdp_port" :min="1" :max="65535" />
+          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('hosts.winrmAutoTip') }}</div>
+        </div>
       </el-form-item>
       <el-form-item :label="$t('hosts.user')"><el-input v-model="hostForm.username" /></el-form-item>
       <el-form-item :label="$t('hosts.authType')">
@@ -350,11 +353,10 @@ const rdpWin = ref(null)
 const openRDP = async row => {
   try {
     const r = await api.post(`/hosts/${row.id}/rdp-token`, {})
-    const w = 1280, h = 720
-    const left = (screen.width - w) / 2
-    const top = Math.max(0, (screen.height - h) / 2 - 40)
-    window.open(`${r.gateway}/?width=${w}&height=${h}&dpi=${r.dpi || 96}`, '_blank',
-      `width=${w + 16},height=${h + 60},left=${left},top=${top}`)
+    const gw = encodeURIComponent(r.gateway)
+    const q = encodeURIComponent(r.query)
+    window.open(`${location.origin}/rdp?gw=${gw}&q=${q}&host=${encodeURIComponent(row.name)}&ip=${encodeURIComponent(row.ip)}`,
+      '_blank', `width=1300,height=780`)
   } catch { /* 拦截器提示 */ }
 }
 
