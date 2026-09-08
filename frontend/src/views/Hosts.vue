@@ -42,6 +42,13 @@
           <el-table-column prop="name" :label="$t('hosts.name')" min-width="120" />
           <el-table-column prop="ip" :label="$t('hosts.ip')" width="140" />
           <el-table-column prop="port" :label="$t('hosts.port')" width="70" />
+          <el-table-column :label="'OS'" width="90" align="center">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.os_type === 'windows' ? 'warning' : 'info'">
+                {{ row.os_type === 'windows' ? 'Windows' : 'Linux' }}
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="username" :label="$t('hosts.user')" width="100" />
           <el-table-column :label="$t('hosts.auth')" width="80">
             <template #default="{ row }">{{ row.auth_type === 'key' ? $t('hosts.authKey') : $t('hosts.authPassword') }}</template>
