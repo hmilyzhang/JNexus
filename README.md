@@ -16,7 +16,6 @@ Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 |--------|--------------|
 | Dashboard | Post-login home: managed/online hosts, groups, tasks, apps, releases, users, active rules + current user info and quick access |
 | Hosts | **Multi-level group tree**, import (`NAME,IP,port,user,group`, unified password on the page, auto SSH-key pairing), concurrent connectivity probe, per-host **multiple OS accounts** (labels, default flag), Web Shell; **Windows hosts**: WinRM (PowerShell) command execution, CIM metrics collection, SMB file distribution, password rotation via Set-LocalUser, and **in-browser RDP** via guacamole-lite + guacd gateway (one-click remote desktop, credentials never touch the browser) |
-
 | Batch Exec | Tree host selection / multi-IP input, **OS account selection**, concurrent execution, WebSocket live per-host output, success/fail counters & progress |
 | Task Console | Aggregate task view: host table (account, status, exit code, duration, failed-first), output panel, failed-only filter, cross-host output keyword search, **export summary `.log` / CSV** |
 | Scheduled Tasks | Cron-based execution of commands or scripts on selected hosts; enable/disable, run-now, run history, email notification |
