@@ -1,7 +1,7 @@
 <!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <el-container style="height: 100vh">
-    <el-aside :width="collapsed ? '64px' : '200px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
+    <el-aside :width="collapsed ? '64px' : '210px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s; overflow-x:hidden; background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
       <div class="logo" v-if="!collapsed">{{ systemName }}</div>
       <div class="logo logo-mini" v-else :title="systemName">{{ systemName.charAt(0).toUpperCase() }}</div>
       <el-menu ref="menuRef" :default-active="$route.path" router :collapse="collapsed" :collapse-transition="false"
@@ -276,6 +276,19 @@ aside :deep(.el-menu-item),
 aside :deep(.el-sub-menu__title) {
   height: 40px;
   line-height: 40px;
+  padding-left: 14px !important;
+  padding-right: 10px !important;
+}
+/* 英文长标签不换行、超出省略，杜绝横向滚动条 */
+aside :deep(.el-menu-item span),
+aside :deep(.el-sub-menu__title span) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+aside :deep(.el-menu) {
+  overflow-x: hidden;
 }
 /* 滚动条视觉隐藏（保留滚动能力，极矮窗口仍可滚动到底） */
 aside::-webkit-scrollbar {

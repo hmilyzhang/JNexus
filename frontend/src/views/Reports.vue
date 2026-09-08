@@ -54,25 +54,34 @@
     <el-drawer v-model="detailVisible" :title="detail ? reportLabel(detail.report) : $t('report.detail')" size="780px">
       <template v-if="detail">
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px">
+          <el-tag size="small" type="success">{{ okCount }} {{ $t('report.okShort') }}</el-tag>
+          <el-tag size="small" :type="failCount ? 'danger' : 'info'">{{ failCount }} {{ $t('report.failShort') }}</el-tag>
+          <el-checkbox v-model="onlyFailed" style="margin-left:8px">{{ $t('report.onlyFailedHosts') }}</el-checkbox>
           <span style="flex:1"></span>
           <el-button size="small" @click="download('log')">{{ $t('tasks.exportLog') }}</el-button>
           <el-button size="small" @click="download('csv')">{{ $t('tasks.exportCsv') }}</el-button>
         </div>
-        <div v-for="it in detail.items" :key="it.id" style="margin-bottom:14px">
-          <div style="font-size:13px; font-weight:600">
-            {{ it.host_name }}（{{ it.host_ip }}）
-            <el-tag size="small" :type="it.status === 'success' ? 'success' : 'danger'">{{ it.status }}</el-tag>
-          </div>
-          <div v-if="it.error" style="color:#f56c6c; font-size:12px; margin:4px 0">{{ it.error }}</div>
-          <div class="log-box" style="max-height:260px">{{ it.content || $t('report.noOutput') }}</div>
-        </div>
+        <el-collapse v-model="expandedHosts">
+          <el-collapse-item v-for="it in shownItems" :key="it.id" :name="it.id">
+            <template #title>
+              <el-tag size="small" :type="it.status === 'success' ? 'success' : 'danger'" style="margin-right:8px">
+                {{ it.status === 'success' ? 'OK' : 'FAIL' }}
+              </el-tag>
+              <span style="font-weight:600">{{ it.host_name }}</span>
+              <span class="mono" style="color:#909399; margin-left:8px">{{ it.host_ip }}</span>
+              <span v-if="it.error" style="color:#f56c6c; margin-left:8px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ it.error }}</span>
+            </template>
+            <div class="log-box" style="max-height:320px">{{ it.content || $t('report.noOutput') }}</div>
+          </el-collapse-item>
+        </el-collapse>
+        <el-empty v-if="!shownItems.length" :description="$t('report.allOk')" :image-size="60" />
       </template>
     </el-drawer>
   </div>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
 import i18n from '../i18n'
@@ -89,6 +98,18 @@ const loading = ref(false)
 const generating = ref(false)
 const detailVisible = ref(false)
 const detail = ref(null)
+const onlyFailed = ref(false)
+const expandedHosts = ref([])
+const okCount = computed(() => (detail.value?.items || []).filter(i => i.status === 'success').length)
+const failCount = computed(() => (detail.value?.items || []).length - okCount.value)
+const shownItems = computed(() => {
+  const items = detail.value?.items || []
+  return onlyFailed.value ? items.filter(i => i.status !== 'success') : items
+})
+const autoExpandFailures = () => {
+  const items = detail.value?.items || []
+  expandedHosts.value = items.filter(i => i.status !== 'success').map(i => i.id)
+}
 let pollTimer = null
 
 const generate = async () => {
@@ -121,6 +142,7 @@ const reportLabel = r => {
 }
 const openDetail = async row => {
   detail.value = await api.get(`/reports/${row.id}`)
+  autoExpandFailures()
   detailVisible.value = true
   pollDetail(row.id)
 }
@@ -130,6 +152,7 @@ const pollDetail = id => {
     try {
       const d = await api.get(`/reports/${id}`)
       detail.value = d
+      autoExpandFailures()
       if (d.report.status === 'done') clearInterval(pollTimer)
     } catch { clearInterval(pollTimer) }
   }, 2000)
