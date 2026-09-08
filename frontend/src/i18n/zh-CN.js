@@ -180,6 +180,11 @@ export default {
     needNameIpUser: '名称、IP 与用户名必填',
     credMgmt: '主机账号',
     credBatchBtn: '批量添加账号',
+    credBatchOne: '单账号（应用到多台）',
+    credBatchMulti: '多账号（挂到同一台/组服务器）',
+    accountList: '账号列表',
+    accountListTip: '逐行填写要挂到目标服务器的账号（密码 AES 加密存储）；AD/LDAP 账号勾选 AD 自动排除轮换',
+    accountListEmpty: '请至少填写一个账号（用户名+密码）',
     credBatchTip: '为选中的存量主机批量添加 OS 账号；密码+自动配对会推送平台公钥并切换为密钥认证',
     credBatch: '批量添加 OS 账号',
     credTitle: '主机账号管理',
@@ -209,6 +214,7 @@ export default {
     needKey: '请选择密钥'
   },
   exec: {
+    mode: '执行方式',
     targetHosts: '目标主机',
     selectAll: '全选',
     clearAll: '取消全选',
@@ -365,6 +371,7 @@ export default {
     releaseOrder: '发布单'
   },
   users: {
+    mode: '添加模式',
     displayName: '显示名',
     displayNameLdapHint: '由 LDAP/AD 自动同步',
     builtinRoles: '内置角色',

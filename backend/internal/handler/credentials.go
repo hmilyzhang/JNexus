@@ -18,7 +18,7 @@ import (
 // BatchAddCredentials 批量为存量主机添加 OS 账号（异步任务）
 func BatchAddCredentialsHandler(c *gin.Context) {
 	var req service.BatchCredRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil || (len(req.Accounts) == 0 && req.Username == "") {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（账号名必填）"})
 		return
 	}

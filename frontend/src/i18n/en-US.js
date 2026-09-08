@@ -180,6 +180,11 @@ export default {
     needNameIpUser: 'Name, IP and username are required',
     credMgmt: 'Host Accounts',
     credBatchBtn: 'Batch Add Accounts',
+    credBatchOne: 'Single account (to many hosts)',
+    credBatchMulti: 'Multi-account (to one/few servers)',
+    accountList: 'Account list',
+    accountListTip: 'Fill accounts to attach (passwords AES-encrypted); check AD for LDAP accounts to skip rotation',
+    accountListEmpty: 'Add at least one account (username + password)',
     credBatchTip: 'Batch-add an OS account to selected existing hosts; password + auto-pair pushes the platform key and switches to key auth',
     credBatch: 'Batch add OS account',
     credTitle: 'Host Account Management',
@@ -209,10 +214,10 @@ export default {
     needKey: 'Please select a key'
   },
   exec: {
+    mode: 'Mode',
     targetHosts: 'Target hosts',
     selectAll: 'Select all',
     clearAll: 'Clear',
-    mode: 'Mode',
     modeCommand: 'Command',
     modeScript: 'Script',
     command: 'Command',
@@ -365,6 +370,7 @@ export default {
     releaseOrder: 'Release'
   },
   users: {
+    mode: 'Mode',
     displayName: 'Display name',
     displayNameLdapHint: 'Synced from LDAP/AD',
     builtinRoles: 'Built-in roles',

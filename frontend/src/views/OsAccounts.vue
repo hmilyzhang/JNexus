@@ -138,18 +138,43 @@
     </el-dialog>
 
     <!-- 批量添加账号 -->
-    <el-dialog v-model="batchVisible" :title="$t('hosts.credBatch')" width="560px">
+    <el-dialog v-model="batchVisible" :title="$t('hosts.credBatch')" width="640px">
       <el-form label-width="110px">
         <el-form-item :label="$t('files.targetHosts')">
           <el-select v-model="batchForm.host_ids" multiple filterable style="width:100%" :max-collapse-tags="2" collapse-tags>
             <el-option v-for="h in hosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="$t('hosts.credUser')"><el-input v-model="batchForm.username" class="mono" /></el-form-item>
-        <el-form-item :label="$t('hosts.credLabel')"><el-input v-model="batchForm.label" :placeholder="$t('hosts.credLabelPlaceholder')" /></el-form-item>
-        <el-form-item :label="$t('hosts.commonPassword')">
-          <el-input v-model="batchForm.password" type="password" show-password autocomplete="new-password" />
+        <el-form-item :label="$t('users.mode')">
+          <el-radio-group v-model="batchMulti" @change="onBatchMode">
+            <el-radio :value="false">{{ $t('hosts.credBatchOne') }}</el-radio>
+            <el-radio :value="true">{{ $t('hosts.credBatchMulti') }}</el-radio>
+          </el-radio-group>
         </el-form-item>
+        <template v-if="!batchMulti">
+          <el-form-item :label="$t('hosts.credUser')"><el-input v-model="batchForm.username" class="mono" /></el-form-item>
+          <el-form-item :label="$t('hosts.credLabel')"><el-input v-model="batchForm.label" :placeholder="$t('hosts.credLabelPlaceholder')" /></el-form-item>
+          <el-form-item :label="$t('hosts.commonPassword')">
+            <el-input v-model="batchForm.password" type="password" show-password autocomplete="new-password" />
+          </el-form-item>
+        </template>
+        <template v-else>
+          <el-form-item :label="$t('hosts.accountList')">
+            <div style="width:100%">
+              <div v-for="(acc, i) in batchAccounts" :key="i"
+                   style="display:flex; gap:6px; margin-bottom:6px; align-items:center">
+                <el-input v-model="acc.username" class="mono" :placeholder="$t('users.username')" style="width:140px" />
+                <el-input v-model="acc.password" type="password" show-password :placeholder="$t('hosts.password')" style="width:150px" />
+                <el-input v-model="acc.label" :placeholder="$t('hosts.credLabel')" style="width:120px" />
+                <el-checkbox v-model="acc.is_ldap">AD</el-checkbox>
+                <el-button type="danger" link size="small" @click="batchAccounts.splice(i, 1)">{{ $t('apps.remove') }}</el-button>
+              </div>
+              <el-button size="small" @click="batchAccounts.push({ username: '', password: '', label: '', is_ldap: false })">{{ $t('system.newRole') === '' ? '' : $t('k8s.memberAdd') }}</el-button>
+              <el-button size="small" @click="batchAccounts.push({ username: '', password: '', label: '', is_ldap: true })">+ AD</el-button>
+              <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('hosts.accountListTip') }}</div>
+            </div>
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="batchVisible = false">{{ $t('common.cancel') }}</el-button>
