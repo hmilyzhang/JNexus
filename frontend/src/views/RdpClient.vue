@@ -28,11 +28,17 @@ let tunnel = null
 const setStatus = s => { status.value = s }
 
 const connect = () => {
-  const gw = route.query.gw || `ws://${location.hostname}:4823`
+  // 网关地址兜底：后端默认回 localhost，远程访问时替换为当前页面主机名
+  let gw = route.query.gw || `ws://${location.hostname}:4823`
+  try {
+    const u = new URL(gw.replace(/^ws/, 'http'))
+    if (['localhost', '127.0.0.1'].includes(u.hostname)) u.hostname = location.hostname
+    gw = u.href.replace(/^http/, 'ws').replace(/\/$/, '')
+  } catch { /* 保持原值 */ }
   const q = route.query.q || ''
   if (!q) { setStatus('missing query'); return }
 
-  const wsUrl = `${gw.replace(/^http/, 'ws')}/?${q}`
+  const wsUrl = `${gw}/?${q}`
   tunnel = new Guacamole.WebSocketTunnel(wsUrl)
   client = new Guacamole.Client(tunnel)
 

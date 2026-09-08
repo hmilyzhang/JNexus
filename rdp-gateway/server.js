@@ -17,7 +17,7 @@ const server = http.createServer((req, res) => {
 });
 
 new GuacamoleLite(server, { host: GUACD_HOST, port: GUACD_PORT }, {
-  crypt: { cypher: 'AES-256-CBC', key: process.env.GW_SECRET || 'JnexusRdpGatewaySecretKey32bytes!' },
+  crypt: { cypher: 'AES-256-CBC', key: process.env.GW_SECRET || 'JnexusRdpGatewaySecretKey-123456' },
 });
 
 server.listen(PORT, () => {

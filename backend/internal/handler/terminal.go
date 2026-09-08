@@ -317,7 +317,7 @@ func rdpPortOf(h *model.Host) int {
 func buildGuacQueryString(ip string, port int, user, pass string) (string, error) {
 	key := os.Getenv("GW_SECRET")
 	if key == "" {
-		key = "JnexusRdpGatewaySecretKey32bytes!"
+		key = "JnexusRdpGatewaySecretKey-123456"
 	}
 	key = key[:32]
 	plaintext := "guac.hostname=" + url.QueryEscape(ip) +
