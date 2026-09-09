@@ -471,7 +471,10 @@ func (k *K8sAPI) CronJobs(namespace string) ([]K8sCronJobInfo, error) {
 				Suspend  bool   `json:"suspend"`
 			} `json:"spec"`
 			Status struct {
-				Active       int    `json:"active"`
+				// batch/v1（K8S ≥1.21）的 active 是 ObjectReference 数组，取长度作为活跃 Job 数
+				Active       []struct {
+					Name string `json:"name"`
+				} `json:"active"`
 				LastSchedule string `json:"lastScheduleTime"`
 			} `json:"status"`
 		} `json:"items"`
@@ -484,7 +487,7 @@ func (k *K8sAPI) CronJobs(namespace string) ([]K8sCronJobInfo, error) {
 		out = append(out, K8sCronJobInfo{
 			Namespace: it.Metadata.Namespace, Name: it.Metadata.Name,
 			Schedule: it.Spec.Schedule, Suspend: it.Spec.Suspend,
-			Active: it.Status.Active, LastSchedule: it.Status.LastSchedule,
+			Active: len(it.Status.Active), LastSchedule: it.Status.LastSchedule,
 		})
 	}
 	return out, nil
