@@ -4,6 +4,7 @@ package handler
 import (
 	"crypto/tls"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -94,10 +95,12 @@ func K8sExecWS(c *gin.Context) {
 	apiURL := service.K8sExecURL(strings.TrimRight(cl.ApiServer, "/"), ns, pod, container, command)
 	kconn, _, err := dialer.Dial(apiURL, nil)
 	if err != nil {
+		log.Printf("[k8s-exec] cluster %d dial failed: %v", cl.ID, err)
 		bws.WriteMessage(websocket.TextMessage, []byte("exec 连接失败: "+err.Error()))
 		return
 	}
 	defer kconn.Close()
+	log.Printf("[k8s-exec] cluster %d exec open: %s/%s (tty)", cl.ID, ns, pod)
 
 	done := make(chan struct{})
 	// 集群 → 浏览器（v4 帧：[channel][data]，转发 stdout/stderr/error）
@@ -106,16 +109,23 @@ func K8sExecWS(c *gin.Context) {
 		for {
 			_, data, err := kconn.ReadMessage()
 			if err != nil {
+				// apiserver 关闭时带原因（如镜像无 shell），透传到终端
+				if ce, ok := err.(*websocket.CloseError); ok && ce.Text != "" {
+					log.Printf("[k8s-exec] cluster %d exec closed: %s", cl.ID, ce.Text)
+					bws.WriteMessage(websocket.TextMessage, []byte("[exec] "+ce.Text))
+				} else {
+					log.Printf("[k8s-exec] cluster %d stream error: %v", cl.ID, err)
+				}
 				return
 			}
 			if len(data) == 0 {
 				continue
 			}
 			ch := data[0]
-			// stdout/stderr 去掉通道字节后转发；error(3) 以文本透出便于排障
 			if ch == 1 || ch == 2 {
 				bws.WriteMessage(websocket.BinaryMessage, data[1:])
 			} else if ch == 3 {
+				// error 通道：apiserver 的失败原因（如 executable file not found）
 				bws.WriteMessage(websocket.TextMessage, data[1:])
 			}
 		}
