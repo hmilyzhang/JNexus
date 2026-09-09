@@ -451,7 +451,9 @@ export default {
     openTerms: 'Open Terminals',
     noTerm: 'No open terminals',
     empty: 'Click a host in the asset tree to open a shell connection',
-    tip: 'Click a host to open/switch its terminal'
+    tip: 'Click a host to open/switch its terminal',
+    fullScreen: 'Fullscreen',
+    exitFull: 'Exit fullscreen'
   },
   rot: {
     tab: 'Password Rotation',

@@ -30,14 +30,14 @@
     </el-col>
 
     <el-col :span="18">
-      <el-card class="term-card">
+      <el-card class="term-card" :class="{ 'term-fullscreen': fullScreen }" ref="termCardEl">
         <template #header>
           <div style="display:flex; align-items:center; gap:10px">
             <span style="flex:1; font-weight:600">{{ activeLabel || $t('shell.title') }}</span>
             <el-select v-model="themeName" size="small" style="width:150px" @change="applyTheme">
               <el-option v-for="(t, name) in termThemes" :key="name" :label="name" :value="name" />
             </el-select>
-            <el-button size="small" :icon="fullScreen ? 'CopyDocument' : 'FullScreen'" @click="toggleFull">
+            <el-button size="small" :icon="fullScreen ? 'Close' : 'FullScreen'" @click="toggleFull">
               {{ fullScreen ? $t('shell.exitFull') : $t('shell.fullScreen') }}
             </el-button>
           </div>
@@ -97,11 +97,19 @@ const fullScreen = ref(false)
 const termCardEl = ref(null)
 const toggleFull = () => {
   fullScreen.value = !fullScreen.value
-  const el = termCardEl.value
-  if (fullScreen.value && el && el.requestFullscreen) el.requestFullscreen()
-  else if (document.fullscreenElement) document.exitFullscreen()
+  // el-card 的 ref 是组件实例，实际 DOM 在 $el；浏览器全屏被拒绝时仍有 term-fullscreen 铺满视口
+  const root = termCardEl.value?.$el || termCardEl.value
+  if (fullScreen.value && root?.requestFullscreen) {
+    root.requestFullscreen().catch(() => {})
+  } else if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {})
+  }
   setTimeout(() => sessions.value.forEach(sx => { if (sx.fit) sx.fit.fit() }), 150)
 }
+// ESC 退出浏览器全屏时同步按钮状态
+const onFsChange = () => { if (!document.fullscreenElement) fullScreen.value = false }
+onMounted(() => document.addEventListener('fullscreenchange', onFsChange))
+onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFsChange))
 let seq = 0
 const encoder = new TextEncoder()
 

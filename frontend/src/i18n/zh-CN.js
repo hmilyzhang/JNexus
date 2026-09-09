@@ -452,7 +452,9 @@ export default {
     openTerms: '已打开的终端',
     noTerm: '暂无打开的终端',
     empty: '点击左侧主机树中的主机，打开 Shell 终端连接',
-    tip: '点击主机即可打开/切换终端'
+    tip: '点击主机即可打开/切换终端',
+    fullScreen: '全屏',
+    exitFull: '退出全屏'
   },
   rot: {
     tab: '密码轮换',
