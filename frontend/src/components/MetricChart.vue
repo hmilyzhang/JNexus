@@ -2,9 +2,9 @@
 <template>
   <div class="mc-wrap">
     <svg :viewBox="`0 0 ${W} ${H}`" class="mc-svg" @mousemove="onMove" @mouseleave="hover = null">
-      <!-- Y 轴百分比刻度 -->
+      <!-- Y 轴刻度（按 yMax 换算 + 单位后缀；yMax=100 且单位 % 时即百分比刻度） -->
       <text v-for="p in [0, 25, 50, 75, 100]" :key="'y' + p" x="2" :y="yPct(p) + 4"
-            class="mc-ylabel">{{ p }}%</text>
+            class="mc-ylabel">{{ tickLabel(p) }}</text>
       <line v-for="p in [25, 50, 75, 100]" :key="'gl' + p" :x1="PAD.l" :x2="W - 6"
             :y1="yPct(p)" :y2="yPct(p)" stroke="#f0f2f5" stroke-width="1" />
       <!-- 折线 -->
@@ -50,6 +50,7 @@ const line = computed(() => {
   ).join(' ')
 })
 const yPct = p => (H - 10 - (p / props.yMax) * (H - 20)).toFixed(1)
+const tickLabel = p => `${Math.round(((p / 100) * props.yMax) * 10) / 10}${props.unit}`
 
 const hover = ref(null)
 const tipLeft = computed(() => {

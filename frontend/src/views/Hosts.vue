@@ -330,6 +330,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import i18n from '../i18n'
+import MetricChart from '../components/MetricChart.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../store'
 
@@ -361,35 +362,6 @@ const openRDP = async row => {
 
 const loadCap = async () => {
   cap.value = await api.get(`/monitoring/hosts/${capHost.value.id}/capacity`, { params: { hours: capHours.value } }).catch(() => null)
-}
-const CH = { x0: 30, x1: 590, y0: 6, y1: 104 }
-const capSpanMs = computed(() => (capHours.value + 90) * 86400000)
-const pctY = v => {
-  const y = CH.y1 - ((Number(v) || 0) / 100) * (CH.y1 - CH.y0)
-  return Math.max(CH.y0, Math.min(CH.y1, y)).toFixed(1)
-}
-const pctX = t => {
-  const start = Date.now() - capDays.value * 86400000
-  const x = CH.x0 + ((new Date(t).getTime() - start) / capSpanMs.value) * (CH.x1 - CH.x0)
-  return Math.max(CH.x0, Math.min(CH.x1, x)).toFixed(1)
-}
-const pctPoly = m => {
-  const pts = cap.value?.points || []
-  if (pts.length < 2) return ''
-  return pts.map(p => `${pctX(p.t)},${pctY(p[m + '_percent'])}`).join(' ')
-}
-const pctForecastLine = m => {
-  const fc = cap.value?.forecast
-  const pts = cap.value?.points || []
-  if (!fc || !pts.length) return ''
-  const slope = m === 'cpu' ? fc.cpu_slope_pct_per_day : m === 'mem' ? fc.mem_slope_pct_per_day : fc.disk_slope_pct_per_day
-  if (!(slope > 0)) return ''
-  const last = pts[pts.length - 1]
-  const cur = m === 'cpu' ? last.cpu_percent : m === 'mem' ? last.mem_percent : last.disk_percent
-  const p1 = `${pctX(last.t)},${pctY(cur)}`
-  const future = new Date(Date.now() + 90 * 86400000).toISOString()
-  const p2 = `${pctX(future)},${pctY(Math.min(100, cur + slope * 90))}`
-  return `${p1} ${p2}`
 }
 const capLast = m => {
   const pts = cap.value?.points || []

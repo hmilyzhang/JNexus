@@ -162,16 +162,11 @@
 
           <div class="km-usage">
             <div class="km-usage-card">
-              <div class="km-usage-head">{{ $t('k8s.clusterCPU') }} · {{ $t('k8s.capForecast') }}</div>
-              <svg viewBox="0 0 600 140" class="cap-chart">
-                <line :x1="capXY.x0" :x2="capXY.x1" :y1="capY(cap.cpuCap, 'cpu')" :y2="capY(cap.cpuCap, 'cpu')"
-                      stroke="#909399" stroke-dasharray="4 3" stroke-width="1" />
-                <line :x1="capXY.x0" :x2="capXY.x1" :y1="capY(cap.cpuCap * 0.8, 'cpu')" :y2="capY(cap.cpuCap * 0.8, 'cpu')"
-                      stroke="#e6a23c" stroke-dasharray="2 4" stroke-width="1" opacity="0.7" />
-                <polyline :points="capPoly('cpu_used_m')" fill="none" stroke="#409eff" stroke-width="2" />
-                <polyline v-if="capForecastLine('cpu').length" :points="capForecastLine('cpu')"
-                          fill="none" stroke="#f56c6c" stroke-width="1.5" stroke-dasharray="5 4" />
-              </svg>
+              <div class="km-usage-head">
+                {{ $t('k8s.clusterCPU') }} · {{ $t('k8s.capForecast') }}
+                <span style="float:right; font-weight:400" class="mono">{{ capLastPct('cpu') }}%</span>
+              </div>
+              <MetricChart :points="capPctPoints('cpu')" color="#409eff" unit="%" :y-max="100" />
               <div class="km-usage-sub mono">
                 {{ fmtCores(cap?.forecast?.cpu_current_m) }} / {{ fmtCores(cap?.forecast?.cpu_capacity_m) }} ·
                 {{ $t('k8s.capSlope') }} {{ capSlopeText(cap?.forecast?.cpu_slope_m_per_day, 'cpu') }}
@@ -181,16 +176,11 @@
               </div>
             </div>
             <div class="km-usage-card">
-              <div class="km-usage-head">{{ $t('k8s.clusterMem') }} · {{ $t('k8s.capForecast') }}</div>
-              <svg viewBox="0 0 600 140" class="cap-chart">
-                <line :x1="capXY.x0" :x2="capXY.x1" :y1="capY(cap.memCap, 'mem')" :y2="capY(cap.memCap, 'mem')"
-                      stroke="#909399" stroke-dasharray="4 3" stroke-width="1" />
-                <line :x1="capXY.x0" :x2="capXY.x1" :y1="capY(cap.memCap * 0.8, 'mem')" :y2="capY(cap.memCap * 0.8, 'mem')"
-                      stroke="#e6a23c" stroke-dasharray="2 4" stroke-width="1" opacity="0.7" />
-                <polyline :points="capPoly('mem_used_mi')" fill="none" stroke="#67c23a" stroke-width="2" />
-                <polyline v-if="capForecastLine('mem').length" :points="capForecastLine('mem')"
-                          fill="none" stroke="#f56c6c" stroke-width="1.5" stroke-dasharray="5 4" />
-              </svg>
+              <div class="km-usage-head">
+                {{ $t('k8s.clusterMem') }} · {{ $t('k8s.capForecast') }}
+                <span style="float:right; font-weight:400" class="mono">{{ capLastPct('mem') }}%</span>
+              </div>
+              <MetricChart :points="capPctPoints('mem')" color="#67c23a" unit="%" :y-max="100" />
               <div class="km-usage-sub mono">
                 {{ fmtMem(cap?.forecast?.mem_current_mi) }} / {{ fmtMem(cap?.forecast?.mem_capacity_mi) }} ·
                 {{ $t('k8s.capSlope') }} {{ capSlopeText(cap?.forecast?.mem_slope_mi_per_day, 'mem') }}
@@ -202,10 +192,9 @@
           </div>
 
           <div class="km-usage-sub" style="display:flex; gap:16px; margin-bottom:12px">
-            <span><span class="cap-dot" style="background:#409eff"></span>{{ $t('k8s.capActual') }}</span>
-            <span><span class="cap-dot" style="background:#f56c6c"></span>{{ $t('k8s.capTrend') }} (+90d)</span>
-            <span><span class="cap-dot" style="background:#909399"></span>{{ $t('k8s.capCapacityLine') }}</span>
-            <span><span class="cap-dot" style="background:#e6a23c"></span>80%</span>
+            <span><span class="cap-dot" style="background:#409eff"></span>CPU</span>
+            <span><span class="cap-dot" style="background:#67c23a"></span>{{ $t('k8s.memory') }}</span>
+            <span>100% = {{ $t('k8s.capCapacityLine') }}</span>
           </div>
 
           <h4 class="km-h4" style="margin-top:6px">{{ $t('k8s.podCapTitle') }}</h4>
@@ -220,21 +209,14 @@
             </span>
           </div>
           <div v-if="capPodTrend" class="km-usage-card" style="max-width:720px">
-            <svg viewBox="0 0 600 140" class="cap-chart">
-              <polyline :points="podPoly('cpu_m')" fill="none" stroke="#409eff" stroke-width="2" />
-              <polyline v-if="podForecastLine('cpu_m', capPodTrend.slope_cpu_m_per_day)" :points="podForecastLine('cpu_m', capPodTrend.slope_cpu_m_per_day)"
-                        fill="none" stroke="#f56c6c" stroke-width="1.5" stroke-dasharray="5 4" />
-            </svg>
-            <div class="km-usage-sub mono" style="margin-top:8px">
+            <div class="km-usage-sub mono" style="margin:0 0 2px">
               <span><span class="cap-dot" style="background:#409eff"></span>CPU</span>
-              <span style="margin-left:16px"><span class="cap-dot" style="background:#67c23a"></span>{{ $t('k8s.memory') }}</span>
-              <span style="margin-left:16px"><span class="cap-dot" style="background:#f56c6c"></span>{{ $t('k8s.capTrend') }} (+90d)</span>
             </div>
-            <svg viewBox="0 0 600 140" class="cap-chart" style="margin-top:8px">
-              <polyline :points="podPoly('mem_mi')" fill="none" stroke="#67c23a" stroke-width="2" />
-              <polyline v-if="podForecastLine('mem_mi', capPodTrend.slope_mem_mi_per_day)" :points="podForecastLine('mem_mi', capPodTrend.slope_mem_mi_per_day)"
-                        fill="none" stroke="#f56c6c" stroke-width="1.5" stroke-dasharray="5 4" />
-            </svg>
+            <MetricChart :points="podPoints('cpu_m')" color="#409eff" unit="m" :y-max="podYMax('cpu_m')" />
+            <div class="km-usage-sub mono" style="margin:10px 0 2px">
+              <span><span class="cap-dot" style="background:#67c23a"></span>{{ $t('k8s.memory') }}</span>
+            </div>
+            <MetricChart :points="podPoints('mem_mi')" color="#67c23a" unit="Mi" :y-max="podYMax('mem_mi')" />
           </div>
           <el-empty v-else :description="$t('k8s.podCapEmpty')" :image-size="60" />
         </template>
@@ -393,6 +375,7 @@ import { Odometer, OfficeBuilding, Box, Connection, Setting, Coin, Key, Back, Sh
 import api from '../api'
 import i18n from '../i18n'
 import K8sShell from '../components/K8sShell.vue'
+import MetricChart from '../components/MetricChart.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const { t } = i18n.global
@@ -769,48 +752,19 @@ const fmtReqLim = (req, lim) => (lim ? `${fmtMem(req)} / ${fmtMem(lim)}` : fmtMe
 const cap = ref(null)
 const capDays = ref(30)
 
-const capChart = { x0: 34, x1: 590, y0: 8, y1: 132 }
-const capXY = { x0: capChart.x0, x1: capChart.x1 }
-const capMax = computed(() => {
+// 图表统一使用 MetricChart 组件：集群曲线以最新集群容量为 100% 的百分比量纲
+const capPctPoints = kind => {
   const pts = cap.value?.points || []
-  const fc = cap.value?.forecast
-  let max = 0
-  for (const p of pts) max = Math.max(max, p.cpu_used_m, p.mem_used_mi)
-  // 预测外推最高点也纳入
-  if (fc) max = Math.max(max, fc.cpu_current_m + Math.max(0, fc.cpu_slope_m_per_day) * 90,
-    fc.mem_current_mi + Math.max(0, fc.mem_slope_mi_per_day) * 90)
-  return max * 1.1 || 1
-})
-const capSpanMs = computed(() => (capDays.value + 90) * 86400000)
-const capY = (v, kind) => {
-  const scale = kind === 'cpu' ? capMax.value : capMax.value // 统一量纲由调用方保证
-  const val = kind === 'cpu' ? v : v
-  const y = capChart.y1 - (Number(val) / (scale || 1)) * (capChart.y1 - capChart.y0)
-  return Math.max(capChart.y0, Math.min(capChart.y1, y)).toFixed(1)
+  const denom = kind === 'cpu' ? cap.value?.forecast?.cpu_capacity_m : cap.value?.forecast?.mem_capacity_mi
+  if (!denom) return []
+  return pts.map(p => ({
+    t: p.t,
+    v: Math.min(100, ((kind === 'cpu' ? p.cpu_used_m : p.mem_used_mi) / denom) * 100),
+  }))
 }
-const capX = t => {
-  const start = Date.now() - capDays.value * 86400000
-  const x = capChart.x0 + ((new Date(t).getTime() - start) / capSpanMs.value) * (capChart.x1 - capChart.x0)
-  return Math.max(capChart.x0, Math.min(capChart.x1, x)).toFixed(1)
-}
-const capPoly = field => {
-  const pts = cap.value?.points || []
-  if (pts.length < 2) return ''
-  return pts.map(p => `${capX(p.t)},${capY(p[field], field.startsWith('cpu') ? 'cpu' : 'mem')}`).join(' ')
-}
-const capForecastLine = kind => {
-  const fc = cap.value?.forecast
-  const pts = cap.value?.points || []
-  if (!fc || !pts.length) return ''
-  const isCPU = kind === 'cpu'
-  const cur = isCPU ? fc.cpu_current_m : fc.mem_current_mi
-  const slope = isCPU ? fc.cpu_slope_m_per_day : fc.mem_slope_mi_per_day
-  if (slope <= 0) return ''
-  const last = pts[pts.length - 1]
-  const p1 = `${capX(last.t)},${capY(cur, isCPU ? 'cpu' : 'mem')}`
-  const future = new Date(Date.now() + 90 * 86400000).toISOString()
-  const p2 = `${capX(future)},${capY(cur + slope * 90, isCPU ? 'cpu' : 'mem')}`
-  return `${p1} ${p2}`
+const capLastPct = kind => {
+  const arr = capPctPoints(kind)
+  return arr.length ? arr[arr.length - 1].v.toFixed(1) : '0.0'
 }
 const capSlopeText = (slope, kind) => {
   if (slope == null || slope <= 0) return t('k8s.capStable')
@@ -837,39 +791,12 @@ const loadCapacity = async () => {
     capPodSel.value = capPods.value[0].namespace + '/' + capPods.value[0].name
   }
 }
-const podChart = { x0: 34, x1: 590, y0: 8, y1: 132 }
-const podMax = computed(() => {
-  const t = capPodTrend.value
-  if (!t) return 1
+// Pod 级趋势图（绝对量纲：CPU millicore / 内存 Mi，Y 轴按自身峰值缩放）
+const podPoints = field => (capPodTrend.value?.points || []).map(p => ({ t: p.t, v: p[field] }))
+const podYMax = field => {
   let m = 0
-  for (const p of t.points) m = Math.max(m, p.cpu_m, p.mem_mi)
-  if (t.slope_cpu_m_per_day > 0) m = Math.max(m, t.points[t.points.length - 1].cpu_m + t.slope_cpu_m_per_day * 90)
-  if (t.slope_mem_mi_per_day > 0) m = Math.max(m, t.points[t.points.length - 1].mem_mi + t.slope_mem_mi_per_day * 90)
+  for (const p of podPoints(field)) m = Math.max(m, Number(p.v) || 0)
   return m * 1.1 || 1
-})
-const podSpanMs = computed(() => (capDays.value + 90) * 86400000)
-const podY = v => {
-  const y = podChart.y1 - (Number(v) / podMax.value) * (podChart.y1 - podChart.y0)
-  return Math.max(podChart.y0, Math.min(podChart.y1, y)).toFixed(1)
-}
-const podX = t => {
-  const start = Date.now() - capDays.value * 86400000
-  const x = podChart.x0 + ((new Date(t).getTime() - start) / podSpanMs.value) * (podChart.x1 - podChart.x0)
-  return Math.max(podChart.x0, Math.min(podChart.x1, x)).toFixed(1)
-}
-const podPoly = field => {
-  const t = capPodTrend.value
-  if (!t || t.points.length < 2) return ''
-  return t.points.map(p => `${podX(p.t)},${podY(p[field])}`).join(' ')
-}
-const podForecastLine = (field, slope) => {
-  const t = capPodTrend.value
-  if (!t || !t.points.length || !(slope > 0)) return ''
-  const last = t.points[t.points.length - 1]
-  const p1 = `${podX(last.t)},${podY(last[field])}`
-  const future = new Date(Date.now() + 90 * 86400000).toISOString()
-  const p2 = `${podX(future)},${podY(last[field] + slope * 90)}`
-  return `${p1} ${p2}`
 }
 const capPodSlopeText = computed(() => {
   const t = capPodTrend.value
@@ -1168,7 +1095,6 @@ onMounted(async () => {
 .km-usage-card { background: #fff; border-radius: 6px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,21,41,.08); }
 .km-usage-head { font-size: 13px; font-weight: 600; color: #303133; margin-bottom: 10px; }
 .km-usage-sub { font-size: 12px; color: #909399; margin-top: 6px; }
-.cap-chart { width: 100%; height: 140px; background: #fafbfc; border-radius: 4px; }
 .cap-dot { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 4px; }
 .km-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .km-card {
