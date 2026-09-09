@@ -472,7 +472,9 @@ const treeData = computed(() => {
 const onTreeNode = node => {
   if (node.type === 'group') {
     groupFilter.value = node.groupId || undefined
+    keyword.value = '' // 切到分组时清掉残留的 IP 搜索词，否则过滤结果为空
   } else {
+    groupFilter.value = undefined
     keyword.value = node.host.ip
   }
   load()
