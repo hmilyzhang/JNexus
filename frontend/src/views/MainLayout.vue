@@ -36,6 +36,9 @@
           </el-button>
           <div class="title">{{ $route.meta.title ? $t($route.meta.title) : 'JNexus' }}</div>
         </div>
+        <div class="header-quote" :title="quote.text + '（点击换一条）'" @click="pickQuote">
+          <span class="q-icon">{{ quote.icon }}</span>{{ quote.text }}
+        </div>
         <div style="display:flex; align-items:center; gap:16px">
           <el-dropdown @command="onLocale">
             <span class="user-info"><el-icon><Clock /></el-icon>{{ localeLabel }}</span>
@@ -109,12 +112,13 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import i18n, { locales, setLocale } from '../i18n'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../store'
+import { jokes, soulSoups } from '../data/quotations'
 
 const store = useUserStore()
 const router = useRouter()
@@ -194,6 +198,24 @@ const menus = computed(() => {
 
 const localeLabel = computed(() => (locales.find(l => l.value === i18n.global.locale.value) || {}).label || '中文')
 const onLocale = v => setLocale(v)
+
+// ---- 顶栏随机一句话：笑话 / 心灵鸡汤（点击换一条，10 分钟自动轮换）----
+const QUOTE_POOLS = [
+  { icon: '😄', pool: jokes },
+  { icon: '☕', pool: soulSoups },
+]
+const quote = ref({ icon: '😄', text: '' })
+let lastQuote = ''
+const pickQuote = () => {
+  const g = QUOTE_POOLS[Math.random() < 0.5 ? 0 : 1]
+  let text = g.pool[Math.floor(Math.random() * g.pool.length)]
+  if (text === lastQuote) text = g.pool[(g.pool.indexOf(text) + 1) % g.pool.length]
+  lastQuote = text
+  quote.value = { icon: g.icon, text }
+}
+pickQuote()
+const quoteTimer = setInterval(pickQuote, 10 * 60 * 1000)
+onBeforeUnmount(() => clearInterval(quoteTimer))
 
 const pwdVisible = ref(false)
 const pwdForm = ref({ old_password: '', new_password: '' })
@@ -312,5 +334,13 @@ aside {
   box-shadow: 0 1px 4px rgba(0,21,41,.08);
 }
 .title { font-size: 16px; font-weight: 600; }
+.header-quote {
+  flex: 1; min-width: 0; margin: 0 24px; text-align: center;
+  font-size: 13px; color: #98a3b3; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  user-select: none;
+}
+.header-quote:hover { color: #66788f; }
+.header-quote .q-icon { margin-right: 6px; }
 .user-info { cursor: pointer; display: flex; align-items: center; gap: 6px; color: #333; font-size: 14px; }
 </style>
