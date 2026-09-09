@@ -134,28 +134,33 @@ type hostForecast struct {
 // 30d 走 raw 小时桶；更长走 hourly 表天桶；附达到 90% 水位预测
 func HostCapacityHistory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	days := 30
-	if d, e := strconv.Atoi(c.Query("days")); e == nil {
-		switch d {
-		case 180:
-			days = 180
-		case 365:
-			days = 365
+	// hours：6/24/168/720 走 raw 小时桶；4320/8760 走归档表天桶（对齐监控 6h/24h/7d/30d/180d/1y）
+	hours := 720
+	if h, e := strconv.Atoi(c.Query("hours")); e == nil {
+		switch h {
+		case 6, 24, 168, 720, 4320, 8760:
+			hours = h
 		}
 	}
-	since := time.Now().AddDate(0, 0, -days)
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
 	var points []hostCapacityPoint
 
-	if days <= 30 {
+	if hours <= 720 {
 		model.DB.Raw(`SELECT date_trunc('hour', collected_at) AS bucket,
 				AVG(cpu_percent) AS cpu_percent, AVG(mem_percent) AS mem_percent, AVG(disk_percent) AS disk_percent
 			FROM host_metrics WHERE host_id = ? AND collected_at > ?
 			GROUP BY bucket ORDER BY bucket`, id, since).Scan(&points)
 	} else {
-		model.DB.Raw(`SELECT date_trunc('day', bucket) AS bucket,
-				AVG(cpu_percent) AS cpu_percent, AVG(mem_percent) AS mem_percent, AVG(disk_percent) AS disk_percent
-			FROM host_metric_hourlies WHERE host_id = ? AND bucket > ?
-			GROUP BY date_trunc('day', bucket) ORDER BY bucket`, id, since).Scan(&points)
+		cutoff := time.Now().Add(-30 * 24 * time.Hour)
+		model.DB.Raw(`SELECT date_trunc('day', t.at) AS bucket,
+				AVG(t.cpu_percent) AS cpu_percent, AVG(t.mem_percent) AS mem_percent, AVG(t.disk_percent) AS disk_percent
+			FROM (
+				SELECT collected_at AS at, cpu_percent, mem_percent, disk_percent
+					FROM host_metrics WHERE host_id = ? AND collected_at > ?
+				UNION ALL
+				SELECT bucket AS at, cpu_percent, mem_percent, disk_percent
+					FROM host_metric_hourlies WHERE host_id = ? AND bucket > ? AND bucket <= ?
+			) t GROUP BY bucket ORDER BY bucket`, id, cutoff, id, cutoff, since).Scan(&points)
 	}
 	if points == nil {
 		points = []hostCapacityPoint{}
@@ -190,7 +195,7 @@ func HostCapacityHistory(c *gin.Context) {
 		fc.DiskDaysTo90 = daysToThreshold(last.DiskPercent, 90, fc.SlopeDiskPct)
 	}
 	degraded := len(points) < 2
-	c.JSON(http.StatusOK, gin.H{"days": days, "points": points, "forecast": fc, "degraded": degraded})
+	c.JSON(http.StatusOK, gin.H{"hours": hours, "points": points, "forecast": fc, "degraded": degraded})
 }
 
 // daysToThreshold 百分比指标到达阈值的天数；斜率非正返回 nil

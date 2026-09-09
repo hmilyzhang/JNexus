@@ -30,7 +30,18 @@
     </el-col>
 
     <el-col :span="18">
-      <el-card class="term-card" :header="activeLabel || $t('shell.title')">
+      <el-card class="term-card">
+        <template #header>
+          <div style="display:flex; align-items:center; gap:10px">
+            <span style="flex:1; font-weight:600">{{ activeLabel || $t('shell.title') }}</span>
+            <el-select v-model="themeName" size="small" style="width:150px" @change="applyTheme">
+              <el-option v-for="(t, name) in termThemes" :key="name" :label="name" :value="name" />
+            </el-select>
+            <el-button size="small" :icon="fullScreen ? 'CopyDocument' : 'FullScreen'" @click="toggleFull">
+              {{ fullScreen ? $t('shell.exitFull') : $t('shell.fullScreen') }}
+            </el-button>
+          </div>
+        </template>
         <div v-if="!sessions.length" class="term-empty">{{ $t('shell.empty') }}</div>
         <div v-for="s in sessions" :key="s.id" v-show="s.id === activeId"
              :ref="el => setTermEl(s.id, el)" class="term-container"></div>
@@ -55,6 +66,42 @@ const loading = ref(true)
 const sessions = ref([])
 const activeId = ref(null)
 const termEls = {}
+
+// ---- 终端主题（流行配色）与全屏 ----
+const termThemes = {
+  '默认 Dark': { background: '#1e1e1e', foreground: '#cccccc', cursor: '#ffffff' },
+  'Dracula': { background: '#282a36', foreground: '#f8f8f2', cursor: '#f8f8f0',
+    selectionBackground: '#44475a', red: '#ff5555', green: '#50fa7b',
+    yellow: '#f1fa8c', blue: '#bd93f9', magenta: '#ff79c6', cyan: '#8be9fd' },
+  'One Dark': { background: '#282c34', foreground: '#abb2bf', cursor: '#528bff',
+    selectionBackground: '#3e4451', red: '#e06c75', green: '#98c379', yellow: '#e5c07b',
+    blue: '#61afef', magenta: '#c678dd', cyan: '#56b6c2' },
+  'Solarized Dark': { background: '#002b36', foreground: '#839496', cursor: '#93a1a1',
+    selectionBackground: '#073642', red: '#dc322f', green: '#859900', yellow: '#b58900',
+    blue: '#268bd2', magenta: '#d33682', cyan: '#2aa198' },
+  'Solarized Light': { background: '#fdf6e3', foreground: '#657b83', cursor: '#586e75',
+    selectionBackground: '#eee8d5', red: '#dc322f', green: '#859900', yellow: '#b58900',
+    blue: '#268bd2', magenta: '#d33682', cyan: '#2aa198' },
+  'GitHub Light': { background: '#ffffff', foreground: '#24292f', cursor: '#0969da',
+    selectionBackground: '#0969da33', red: '#cf222e', green: '#116329', yellow: '#bf8700',
+    blue: '#0550ae', magenta: '#8250df', cyan: '#1b7c83' },
+}
+const themeName = ref(localStorage.getItem('term_theme') || '默认 Dark')
+const applyTheme = name => {
+  const th = termThemes[name]
+  if (!th) return
+  localStorage.setItem('term_theme', name)
+  sessions.value.forEach(sx => { if (sx.term) sx.term.options.theme = th })
+}
+const fullScreen = ref(false)
+const termCardEl = ref(null)
+const toggleFull = () => {
+  fullScreen.value = !fullScreen.value
+  const el = termCardEl.value
+  if (fullScreen.value && el && el.requestFullscreen) el.requestFullscreen()
+  else if (document.fullscreenElement) document.exitFullscreen()
+  setTimeout(() => sessions.value.forEach(sx => { if (sx.fit) sx.fit.fit() }), 150)
+}
 let seq = 0
 const encoder = new TextEncoder()
 
@@ -219,6 +266,7 @@ const closeSession = id => {
 .shell-row { height: calc(100vh - 110px); }
 .side-card { overflow: auto; }
 .term-card { height: 100%; }
+.term-card.term-fullscreen { position: fixed; inset: 0; z-index: 2000; height: 100vh; border-radius: 0; }
 .term-card :deep(.el-card__body) { height: calc(100% - 40px); padding: 8px; }
 .term-container { position: relative; overflow: hidden; width: 100%; height: 100%; background: #1e1e1e; border-radius: 6px; }
 .term-container :deep(.xterm) { height: 100%; }

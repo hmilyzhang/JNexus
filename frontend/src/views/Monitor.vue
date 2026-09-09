@@ -470,10 +470,8 @@
       <template v-else>
         <div v-for="k in ['cpu', 'mem', 'disk']" :key="k" style="margin-bottom:18px">
           <div style="font-weight:600; margin-bottom:4px">{{ metricLabel(k) }}</div>
-          <svg :viewBox="`0 0 600 80`" width="100%" height="80" style="background:#f5f7fa; border-radius:4px">
-            <polyline :points="sparkPoints(trendRows.map(r => r[k + '_percent']))" fill="none" stroke="#409eff" stroke-width="2" />
-          </svg>
-          <div style="font-size:12px; color:#909399">0% — {{ maxOf(trendRows.map(r => r[k + '_percent'])) }}%</div>
+          <MetricChart :points="trendRows.map(r => ({ t: r.collected_at, v: r[k + '_percent'] }))"
+                       :color="k === 'cpu' ? '#409eff' : k === 'mem' ? '#67c23a' : '#e6a23c'" unit="%" :y-max="100" />
         </div>
       </template>
     </el-drawer>
@@ -594,6 +592,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import api from '../api'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
+import MetricChart from '../components/MetricChart.vue'
 
 const { t } = i18n.global
 const activeTab = ref('cmd')

@@ -292,10 +292,13 @@
   <!-- 容量规划抽屉 -->
   <el-drawer v-model="capVisible" size="56%" :title="`${$t('k8s.capacity')} · ${capHost?.name || ''}`" destroy-on-close>
     <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px">
-      <el-radio-group v-model="capDays" size="small" @change="loadCap">
-        <el-radio-button :value="30">30d</el-radio-button>
-        <el-radio-button :value="180">180d</el-radio-button>
-        <el-radio-button :value="365">1y</el-radio-button>
+      <el-radio-group v-model="capHours" size="small" @change="loadCap">
+        <el-radio-button :value="6">6h</el-radio-button>
+        <el-radio-button :value="24">24h</el-radio-button>
+        <el-radio-button :value="168">7d</el-radio-button>
+        <el-radio-button :value="720">30d</el-radio-button>
+        <el-radio-button :value="4320">180d</el-radio-button>
+        <el-radio-button :value="8760">1y</el-radio-button>
       </el-radio-group>
       <span style="flex:1"></span>
       <span style="display:flex; gap:14px" class="km-usage-sub">
@@ -312,12 +315,8 @@
         {{ m === 'cpu' ? 'CPU' : m === 'mem' ? $t('monitor.mem') : $t('monitor.disk') }}
         <span style="float:right; font-weight:400" class="mono">{{ capLast(m) }}%</span>
       </div>
-      <svg viewBox="0 0 600 110" class="cap-chart">
-        <line x1="30" x2="590" :y1="pctY(90)" :y2="pctY(90)" stroke="#909399" stroke-dasharray="4 3" stroke-width="1" />
-        <polyline :points="pctPoly(m)" fill="none" :stroke="m === 'cpu' ? '#409eff' : m === 'mem' ? '#67c23a' : '#e6a23c'" stroke-width="2" />
-        <polyline v-if="pctForecastLine(m).length" :points="pctForecastLine(m)" fill="none" stroke="#f56c6c"
-                  stroke-width="1.5" stroke-dasharray="5 4" />
-      </svg>
+      <MetricChart :points="pctChartPoints(m)" :color="m === 'cpu' ? '#409eff' : m === 'mem' ? '#67c23a' : '#e6a23c'"
+                   unit="%" :y-max="100" />
       <div class="km-usage-sub" :style="{ color: capDaysColor(cap?.forecast?.[capField(m)]) }">
         {{ capDaysText(cap?.forecast?.[capField(m)]) }}
       </div>
@@ -339,12 +338,12 @@ const { t } = i18n.global
 // ---- 容量规划抽屉（30d raw / 180d·1y 小时聚合，线性预测到 90% 水位） ----
 const capVisible = ref(false)
 const capHost = ref(null)
-const capDays = ref(30)
+const capHours = ref(720)
 const cap = ref(null)
 const capField = m => ({ cpu: 'cpu_days_to_90', mem: 'mem_days_to_90', disk: 'disk_days_to_90' })[m]
 const openCapacity = row => {
   capHost.value = row
-  capDays.value = 30
+  capHours.value = 720
   capVisible.value = true
   loadCap()
 }
@@ -361,10 +360,10 @@ const openRDP = async row => {
 }
 
 const loadCap = async () => {
-  cap.value = await api.get(`/monitoring/hosts/${capHost.value.id}/capacity`, { params: { days: capDays.value } }).catch(() => null)
+  cap.value = await api.get(`/monitoring/hosts/${capHost.value.id}/capacity`, { params: { hours: capHours.value } }).catch(() => null)
 }
 const CH = { x0: 30, x1: 590, y0: 6, y1: 104 }
-const capSpanMs = computed(() => (capDays.value + 90) * 86400000)
+const capSpanMs = computed(() => (capHours.value + 90) * 86400000)
 const pctY = v => {
   const y = CH.y1 - ((Number(v) || 0) / 100) * (CH.y1 - CH.y0)
   return Math.max(CH.y0, Math.min(CH.y1, y)).toFixed(1)
@@ -397,6 +396,11 @@ const capLast = m => {
   if (!pts.length) return '0'
   const last = pts[pts.length - 1]
   return (m === 'cpu' ? last.cpu_percent : m === 'mem' ? last.mem_percent : last.disk_percent).toFixed(1)
+}
+const pctChartPoints = m => {
+  const pts = cap.value?.points || []
+  const key = m === 'cpu' ? 'cpu_percent' : m === 'mem' ? 'mem_percent' : 'disk_percent'
+  return pts.map(p => ({ t: p.t || p.collected_at, v: p[key] }))
 }
 const capDaysText = d => {
   if (d == null) return t('k8s.capNoExhaust')
