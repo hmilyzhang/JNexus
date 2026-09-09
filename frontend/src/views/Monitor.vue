@@ -466,14 +466,12 @@
           <el-radio-button :value="8760">1y</el-radio-button>
         </el-radio-group>
       </div>
-      <div v-if="trendRows.length === 0" style="color:#909399">{{ $t('monitor.noSamples') }}</div>
-      <template v-else>
-        <div v-for="k in ['cpu', 'mem', 'disk']" :key="k" style="margin-bottom:18px">
-          <div style="font-weight:600; margin-bottom:4px">{{ metricLabel(k) }}</div>
-          <MetricChart :points="trendRows.map(r => ({ t: r.collected_at, v: r[k + '_percent'] }))"
-                       :color="k === 'cpu' ? '#409eff' : k === 'mem' ? '#67c23a' : '#e6a23c'" unit="%" :y-max="100" />
-        </div>
-      </template>
+      <div v-for="k in ['cpu', 'mem', 'disk']" :key="k" style="margin-bottom:18px">
+        <div style="font-weight:600; margin-bottom:4px">{{ metricLabel(k) }}</div>
+        <MetricChart :points="trendRows.map(r => ({ t: r.collected_at, v: r[k + '_percent'] }))"
+                     :range="trendRange" :empty-text="$t('monitor.noData')"
+                     :color="k === 'cpu' ? '#409eff' : k === 'mem' ? '#67c23a' : '#e6a23c'" unit="%" :y-max="100" />
+      </div>
     </el-drawer>
 
     <!-- 新建/编辑监控项 -->
@@ -674,6 +672,7 @@ const sparkPoints = arr => {
   return arr.map((v, i) => `${(i / Math.max(1, n - 1)) * 600},${80 - ((v || 0) / max) * 76}`).join(' ')
 }
 const trendHours = ref(6)
+const trendRange = computed(() => [Date.now() - trendHours.value * 3600000, Date.now()])
 const loadTrend = async () => {
   if (!trendHost.value) return
   trendRows.value = await api.get(`/monitoring/hosts/${trendHost.value.host_id}/history`, { params: { hours: trendHours.value } })

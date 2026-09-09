@@ -315,7 +315,8 @@
         {{ m === 'cpu' ? 'CPU' : m === 'mem' ? $t('monitor.mem') : $t('monitor.disk') }}
         <span style="float:right; font-weight:400" class="mono">{{ capLast(m) }}%</span>
       </div>
-      <MetricChart :points="pctChartPoints(m)" :color="m === 'cpu' ? '#409eff' : m === 'mem' ? '#67c23a' : '#e6a23c'"
+      <MetricChart :points="pctChartPoints(m)" :range="capRange" :empty-text="$t('monitor.noData')"
+                   :color="m === 'cpu' ? '#409eff' : m === 'mem' ? '#67c23a' : '#e6a23c'"
                    unit="%" :y-max="100" />
       <div class="km-usage-sub" :style="{ color: capDaysColor(cap?.forecast?.[capField(m)]) }">
         {{ capDaysText(cap?.forecast?.[capField(m)]) }}
@@ -363,6 +364,7 @@ const openRDP = async row => {
 const loadCap = async () => {
   cap.value = await api.get(`/monitoring/hosts/${capHost.value.id}/capacity`, { params: { hours: capHours.value } }).catch(() => null)
 }
+const capRange = computed(() => [Date.now() - capHours.value * 3600000, Date.now()])
 const capLast = m => {
   const pts = cap.value?.points || []
   if (!pts.length) return '0'

@@ -166,7 +166,8 @@
                 {{ $t('k8s.clusterCPU') }} · {{ $t('k8s.capForecast') }}
                 <span style="float:right; font-weight:400" class="mono">{{ capLastPct('cpu') }}%</span>
               </div>
-              <MetricChart :points="capPctPoints('cpu')" color="#409eff" unit="%" :y-max="100" />
+              <MetricChart :points="capPctPoints('cpu')" :range="capRange" :empty-text="$t('monitor.noData')"
+                           color="#409eff" unit="%" :y-max="100" />
               <div class="km-usage-sub mono">
                 {{ fmtCores(cap?.forecast?.cpu_current_m) }} / {{ fmtCores(cap?.forecast?.cpu_capacity_m) }} ·
                 {{ $t('k8s.capSlope') }} {{ capSlopeText(cap?.forecast?.cpu_slope_m_per_day, 'cpu') }}
@@ -180,7 +181,8 @@
                 {{ $t('k8s.clusterMem') }} · {{ $t('k8s.capForecast') }}
                 <span style="float:right; font-weight:400" class="mono">{{ capLastPct('mem') }}%</span>
               </div>
-              <MetricChart :points="capPctPoints('mem')" color="#67c23a" unit="%" :y-max="100" />
+              <MetricChart :points="capPctPoints('mem')" :range="capRange" :empty-text="$t('monitor.noData')"
+                           color="#67c23a" unit="%" :y-max="100" />
               <div class="km-usage-sub mono">
                 {{ fmtMem(cap?.forecast?.mem_current_mi) }} / {{ fmtMem(cap?.forecast?.mem_capacity_mi) }} ·
                 {{ $t('k8s.capSlope') }} {{ capSlopeText(cap?.forecast?.mem_slope_mi_per_day, 'mem') }}
@@ -208,17 +210,18 @@
               {{ $t('k8s.capSlope') }} {{ capPodSlopeText }}
             </span>
           </div>
-          <div v-if="capPodTrend" class="km-usage-card" style="max-width:720px">
+          <div class="km-usage-card" style="max-width:720px">
             <div class="km-usage-sub mono" style="margin:0 0 2px">
               <span><span class="cap-dot" style="background:#409eff"></span>CPU</span>
             </div>
-            <MetricChart :points="podPoints('cpu_m')" color="#409eff" unit="m" :y-max="podYMax('cpu_m')" />
+            <MetricChart :points="podPoints('cpu_m')" :range="capRange" :empty-text="$t('monitor.noData')"
+                         color="#409eff" unit="m" :y-max="podYMax('cpu_m')" />
             <div class="km-usage-sub mono" style="margin:10px 0 2px">
               <span><span class="cap-dot" style="background:#67c23a"></span>{{ $t('k8s.memory') }}</span>
             </div>
-            <MetricChart :points="podPoints('mem_mi')" color="#67c23a" unit="Mi" :y-max="podYMax('mem_mi')" />
+            <MetricChart :points="podPoints('mem_mi')" :range="capRange" :empty-text="$t('monitor.noData')"
+                         color="#67c23a" unit="Mi" :y-max="podYMax('mem_mi')" />
           </div>
-          <el-empty v-else :description="$t('k8s.podCapEmpty')" :image-size="60" />
         </template>
 
         <!-- 资源列表（通用表格） -->
@@ -751,6 +754,7 @@ const fmtReqLim = (req, lim) => (lim ? `${fmtMem(req)} / ${fmtMem(lim)}` : fmtMe
 // ---- 容量规划 ----
 const cap = ref(null)
 const capDays = ref(30)
+const capRange = computed(() => [Date.now() - capDays.value * 86400000, Date.now()])
 
 // 图表统一使用 MetricChart 组件：集群曲线以最新集群容量为 100% 的百分比量纲
 const capPctPoints = kind => {
