@@ -28,27 +28,15 @@ type podTrendPoint struct {
 	MemMi  float64   `json:"mem_mi"`
 }
 
-// K8sPodCapacity GET /:id/capacity/pods?days=30|180|365
-// 逐 Pod 趋势（仅被 Top10 采样覆盖的 Pod），30d 小时桶 / 更长天桶
+// K8sPodCapacity GET /:id/capacity/pods?hours=6|24|168|720|4320|8760
+// 逐 Pod 趋势（仅被 Top10 采样覆盖的 Pod），≤48h 原始样本 / 7d·30d 小时桶 / 180d·1y 天桶
 func K8sPodCapacity(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	if _, _, _, ok := k8sClusterAccess(c, id, "viewer"); !ok {
 		return
 	}
-	days := 30
-	if d, e := strconv.Atoi(c.Query("days")); e == nil {
-		switch d {
-		case 180:
-			days = 180
-		case 365:
-			days = 365
-		}
-	}
-	since := time.Now().AddDate(0, 0, -days)
-	trunc := "'hour'"
-	if days > 60 {
-		trunc = "'day'"
-	}
+	hours := capacityHours(c)
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
 
 	var rows []struct {
 		Namespace string    `json:"namespace"`
@@ -57,10 +45,20 @@ func K8sPodCapacity(c *gin.Context) {
 		CPUM      float64   `json:"cpu_m"`
 		MemMi     float64   `json:"mem_mi"`
 	}
-	model.DB.Raw(`SELECT namespace, pod, date_trunc(`+trunc+`, collected_at) AS bucket,
-			AVG(cpu_m) AS cpu_m, AVG(mem_mi) AS mem_mi
-		FROM k8s_pod_samples WHERE cluster_id = ? AND collected_at > ?
-		GROUP BY namespace, pod, bucket ORDER BY namespace, pod, bucket`, id, since).Scan(&rows)
+	if hours <= 48 {
+		model.DB.Raw(`SELECT namespace, pod, collected_at AS bucket, cpu_m, mem_mi
+			FROM k8s_pod_samples WHERE cluster_id = ? AND collected_at > ?
+			ORDER BY namespace, pod, collected_at`, id, since).Scan(&rows)
+	} else {
+		trunc := "'hour'"
+		if hours > 720 {
+			trunc = "'day'"
+		}
+		model.DB.Raw(`SELECT namespace, pod, date_trunc(`+trunc+`, collected_at) AS bucket,
+				AVG(cpu_m) AS cpu_m, AVG(mem_mi) AS mem_mi
+			FROM k8s_pod_samples WHERE cluster_id = ? AND collected_at > ?
+			GROUP BY namespace, pod, bucket ORDER BY namespace, pod, bucket`, id, since).Scan(&rows)
+	}
 
 	byKey := map[string]*podTrend{}
 	order := []string{}
@@ -82,7 +80,7 @@ func K8sPodCapacity(c *gin.Context) {
 		}
 		out = append(out, *t)
 	}
-	c.JSON(http.StatusOK, gin.H{"days": days, "pods": out})
+	c.JSON(http.StatusOK, gin.H{"hours": hours, "pods": out})
 }
 
 // podSlopePerDay 每日均值最小二乘斜率

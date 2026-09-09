@@ -152,10 +152,13 @@
           <div class="km-toolbar">
             <h4 class="km-h4" style="margin:0">{{ $t('k8s.capacity') }}</h4>
             <span style="flex:1"></span>
-            <el-radio-group v-model="capDays" size="small" @change="loadCapacity">
-              <el-radio-button :value="30">30d</el-radio-button>
-              <el-radio-button :value="180">180d</el-radio-button>
-              <el-radio-button :value="365">1y</el-radio-button>
+            <el-radio-group v-model="capHours" size="small" @change="loadCapacity">
+              <el-radio-button :value="6">6h</el-radio-button>
+              <el-radio-button :value="24">24h</el-radio-button>
+              <el-radio-button :value="168">7d</el-radio-button>
+              <el-radio-button :value="720">30d</el-radio-button>
+              <el-radio-button :value="4320">180d</el-radio-button>
+              <el-radio-button :value="8760">1y</el-radio-button>
             </el-radio-group>
           </div>
           <el-alert v-if="cap?.degraded" :title="$t('k8s.capDegraded')" type="warning" :closable="false" style="margin-bottom:12px" />
@@ -753,8 +756,8 @@ const fmtReqLim = (req, lim) => (lim ? `${fmtMem(req)} / ${fmtMem(lim)}` : fmtMe
 
 // ---- 容量规划 ----
 const cap = ref(null)
-const capDays = ref(30)
-const capRange = computed(() => [Date.now() - capDays.value * 86400000, Date.now()])
+const capHours = ref(720)
+const capRange = computed(() => [Date.now() - capHours.value * 3600000, Date.now()])
 
 // 图表统一使用 MetricChart 组件：集群曲线以最新集群容量为 100% 的百分比量纲
 const capPctPoints = kind => {
@@ -788,8 +791,8 @@ const capPods = ref([])
 const capPodSel = ref('')
 const capPodTrend = computed(() => capPods.value.find(p => p.namespace + '/' + p.name === capPodSel.value) || null)
 const loadCapacity = async () => {
-  cap.value = await api.get(`${P}/capacity/history`, { params: { days: capDays.value } }).catch(() => null)
-  const r = await api.get(`${P}/capacity/pods`, { params: { days: capDays.value } }).catch(() => null)
+  cap.value = await api.get(`${P}/capacity/history`, { params: { hours: capHours.value } }).catch(() => null)
+  const r = await api.get(`${P}/capacity/pods`, { params: { hours: capHours.value } }).catch(() => null)
   capPods.value = r?.pods || []
   if (capPods.value.length && !capPods.value.find(p => p.namespace + '/' + p.name === capPodSel.value)) {
     capPodSel.value = capPods.value[0].namespace + '/' + capPods.value[0].name

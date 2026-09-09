@@ -33,34 +33,32 @@ type capacityForecast struct {
 	MemCurrentMi     float64  `json:"mem_current_mi"`
 }
 
-// K8sCapacityHistory GET /:id/capacity/history?days=30|180|365
-// 30d 按小时桶，180d/365d 按天桶；附最近 30 天线性回归预测
+// K8sCapacityHistory GET /:id/capacity/history?hours=6|24|168|720|4320|8760
+// ≤48h 原始样本；7d/30d 小时桶；180d/1y 天桶（时间维度对齐监控中心）；附线性回归预测
 func K8sCapacityHistory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	if _, _, _, ok := k8sClusterAccess(c, id, "viewer"); !ok {
 		return
 	}
-	days := 30
-	if d, e := strconv.Atoi(c.Query("days")); e == nil {
-		switch d {
-		case 180:
-			days = 180
-		case 365:
-			days = 365
-		}
-	}
-	since := time.Now().AddDate(0, 0, -days)
+	hours := capacityHours(c)
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
 
-	trunc := "'hour'"
-	if days > 60 {
-		trunc = "'day'"
-	}
 	var points []capacityPoint
-	model.DB.Raw(`SELECT date_trunc(`+trunc+`, collected_at) AS bucket,
-			AVG(cpu_used_m) AS cpu_used_m, AVG(mem_used_mi) AS mem_used_mi,
-			AVG(pod_req_cpu_m) AS pod_req_cpu_m, AVG(pod_req_mem_mi) AS pod_req_mem_mi
-		FROM k8s_capacity_samples WHERE cluster_id = ? AND collected_at > ?
-		GROUP BY bucket ORDER BY bucket`, id, since).Scan(&points)
+	if hours <= 48 {
+		model.DB.Raw(`SELECT collected_at AS bucket, cpu_used_m, mem_used_mi, pod_req_cpu_m, pod_req_mem_mi
+			FROM k8s_capacity_samples WHERE cluster_id = ? AND collected_at > ?
+			ORDER BY collected_at`, id, since).Scan(&points)
+	} else {
+		trunc := "'hour'"
+		if hours > 720 {
+			trunc = "'day'"
+		}
+		model.DB.Raw(`SELECT date_trunc(`+trunc+`, collected_at) AS bucket,
+				AVG(cpu_used_m) AS cpu_used_m, AVG(mem_used_mi) AS mem_used_mi,
+				AVG(pod_req_cpu_m) AS pod_req_cpu_m, AVG(pod_req_mem_mi) AS pod_req_mem_mi
+			FROM k8s_capacity_samples WHERE cluster_id = ? AND collected_at > ?
+			GROUP BY bucket ORDER BY bucket`, id, since).Scan(&points)
+	}
 	if points == nil {
 		points = []capacityPoint{}
 	}
@@ -86,11 +84,23 @@ func K8sCapacityHistory(c *gin.Context) {
 	// 数据是否足以做趋势判断（采样 15 分钟一次，2 小时至少 8 点）
 	degraded := len(points) < 2
 	c.JSON(http.StatusOK, gin.H{
-		"days":     days,
+		"hours":    hours,
 		"points":   points,
 		"forecast": fc,
 		"degraded": degraded, // true = 样本不足或 metrics-server 缺失
 	})
+}
+
+// capacityHours 时间范围参数（对齐监控中心：6h/24h/7d/30d/180d/1y）
+func capacityHours(c *gin.Context) int {
+	hours := 720
+	if h, e := strconv.Atoi(c.Query("hours")); e == nil {
+		switch h {
+		case 6, 24, 168, 720, 4320, 8760:
+			hours = h
+		}
+	}
+	return hours
 }
 
 // linearSlopePerDay 最小二乘斜率（单位/天）
