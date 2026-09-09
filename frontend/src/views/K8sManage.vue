@@ -65,6 +65,10 @@
           {{ cluster.status === 'online' ? $t('k8s.online') : $t('k8s.offline') }}
         </el-tag>
         <span style="flex:1"></span>
+        <el-button v-if="cluster && cluster.my_role !== 'viewer'" size="small" type="warning" plain
+                   :icon="'CaretRight'" :loading="shellStarting" @click="openClusterShell">
+          {{ $t('k8s.clusterShell') }}
+        </el-button>
         <el-select v-model="ns" size="small" clearable style="width:190px" :placeholder="$t('k8s.allNamespaces')"
                    :disabled="!namespacedActive">
           <el-option v-for="n in namespaces" :key="n" :label="n" :value="n" />
@@ -115,17 +119,27 @@
                 <el-tag size="small" :type="row.phase === 'Running' ? 'success' : 'warning'">{{ row.phase }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('k8s.cpu')" min-width="220" align="center">
-              <template #header>{{ $t('k8s.cpu') }}（{{ $t('k8s.reqLimit') }} / {{ $t('k8s.used') }}）</template>
-              <template #default="{ row }">
-                <span class="mono">{{ fmtReqLimC(row.cpu_req_m, row.cpu_lim_m) }} / <b>{{ fmtCoresV(row.cpu_m) }}</b></span>
-              </template>
+            <el-table-column :label="$t('k8s.cpu')" align="center">
+              <el-table-column :label="$t('k8s.req')" width="90" align="right">
+                <template #default="{ row }"><span class="mono">{{ fmtCoresV(row.cpu_req_m) }}</span></template>
+              </el-table-column>
+              <el-table-column :label="$t('k8s.lim')" width="90" align="right">
+                <template #default="{ row }"><span class="mono">{{ fmtCoresV(row.cpu_lim_m) }}</span></template>
+              </el-table-column>
+              <el-table-column :label="$t('k8s.used')" width="90" align="right">
+                <template #default="{ row }"><span class="mono"><b>{{ fmtCoresV(row.cpu_m) }}</b></span></template>
+              </el-table-column>
             </el-table-column>
-            <el-table-column :label="$t('k8s.memory')" min-width="230" align="center">
-              <template #header>{{ $t('k8s.memory') }}（{{ $t('k8s.reqLimit') }} / {{ $t('k8s.used') }}）</template>
-              <template #default="{ row }">
-                <span class="mono">{{ fmtReqLim(row.mem_req_mi, row.mem_lim_mi) }} / <b>{{ fmtMem(row.mem_mi) }}</b></span>
-              </template>
+            <el-table-column :label="$t('k8s.memory')" align="center">
+              <el-table-column :label="$t('k8s.req')" width="95" align="right">
+                <template #default="{ row }"><span class="mono">{{ fmtMem(row.mem_req_mi) }}</span></template>
+              </el-table-column>
+              <el-table-column :label="$t('k8s.lim')" width="95" align="right">
+                <template #default="{ row }"><span class="mono">{{ fmtMem(row.mem_lim_mi) }}</span></template>
+              </el-table-column>
+              <el-table-column :label="$t('k8s.used')" width="95" align="right">
+                <template #default="{ row }"><span class="mono"><b>{{ fmtMem(row.mem_mi) }}</b></span></template>
+              </el-table-column>
             </el-table-column>
           </el-table>
 
@@ -806,10 +820,10 @@ const podYMax = field => {
   return m * 1.1 || 1
 }
 const capPodSlopeText = computed(() => {
-  const t = capPodTrend.value
-  if (!t) return ''
-  const c = t.slope_cpu_m_per_day > 0 ? `CPU +${(t.slope_cpu_m_per_day * 30 / 1000).toFixed(2)} Core/${t('k8s.capMonth')}` : `CPU ${t('k8s.capStable')}`
-  const m = t.slope_mem_mi_per_day > 0 ? `${t('k8s.memory')} +${fmtMem(t.slope_mem_mi_per_day * 30)}/${t('k8s.capMonth')}` : `${t('k8s.memory')} ${t('k8s.capStable')}`
+  const tr = capPodTrend.value
+  if (!tr) return ''
+  const c = tr.slope_cpu_m_per_day > 0 ? `CPU +${(tr.slope_cpu_m_per_day * 30 / 1000).toFixed(2)} Core/${t('k8s.capMonth')}` : `CPU ${t('k8s.capStable')}`
+  const m = tr.slope_mem_mi_per_day > 0 ? `${t('k8s.memory')} +${fmtMem(tr.slope_mem_mi_per_day * 30)}/${t('k8s.capMonth')}` : `${t('k8s.memory')} ${t('k8s.capStable')}`
   return `${c} · ${m}`
 })
 const fmtGi = mi => (mi ? `${(mi / 1024).toFixed(1)} Gi` : '-')
@@ -918,6 +932,26 @@ const openShell = row => {
   shellPod.name = row.name
   shellDrawer.value = true
 }
+// ---- 集群 Shell：临时 busybox Pod，关闭终端自动清理 ----
+const shellStarting = ref(false)
+const clusterShellPod = reactive({ namespace: '', name: '' })
+const openClusterShell = async () => {
+  shellStarting.value = true
+  try {
+    const r = await api.post(`${P}/shell`)
+    clusterShellPod.namespace = r.namespace
+    clusterShellPod.name = r.name
+    shellPod.namespace = r.namespace
+    shellPod.name = r.name
+    shellDrawer.value = true
+  } catch { /* 错误提示由拦截器展示 */ } finally { shellStarting.value = false }
+}
+watch(shellDrawer, v => {
+  if (!v && clusterShellPod.name) {
+    api.delete(`${P}/pods/${clusterShellPod.namespace}/${clusterShellPod.name}`).catch(() => {})
+    clusterShellPod.name = ''
+  }
+})
 const deletePod = async row => {
   await api.delete(`${P}/pods/${row.namespace}/${row.name}`)
   ElMessage.success(t('common.success'))

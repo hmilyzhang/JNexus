@@ -108,6 +108,7 @@ func SetupRouter() *gin.Engine {
 			k8sg.DELETE("/:id/serviceaccounts/:namespace/:name", middleware.RequireCap("k8s", "manage"), K8sDeleteServiceAccount)
 			k8sg.GET("/:id/podlog", K8sPodLog)
 			k8sg.DELETE("/:id/pods/:namespace/:name", K8sDeletePod)
+			k8sg.POST("/:id/shell", K8sClusterShell)
 			// 管理页只读视图（概览 + 新增资源列表）
 			k8sg.GET("/:id/summary", K8sSummary)
 			k8sg.GET("/:id/daemonsets", K8sDaemonSets)

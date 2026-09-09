@@ -390,6 +390,49 @@ func K8sDeletePod(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// K8sClusterShell 创建临时 Shell Pod（busybox），等待 Running 后返回给前端打开终端；
+// 前端关闭终端时调用既有删除 Pod 接口清理
+func K8sClusterShell(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	cl, api, _, ok := k8sClusterAccess(c, id, "user")
+	if !ok {
+		return
+	}
+	ns := c.Query("namespace")
+	if ns == "" {
+		ns = "default"
+	}
+	name := fmt.Sprintf("jnexus-shell-%05d", time.Now().UnixNano()%100000)
+	if err := api.CreateShellPod(ns, name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// 等待 Pod Running（镜像拉取可能耗时），失败即清理并报错
+	ready := false
+	for i := 0; i < 15; i++ {
+		time.Sleep(2 * time.Second)
+		phase := api.GetPodPhase(ns, name)
+		if phase == "Running" {
+			ready = true
+			break
+		}
+		if phase == "Failed" {
+			break
+		}
+	}
+	if !ready {
+		_ = api.DeletePod(ns, name)
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": "Shell Pod 未就绪（镜像拉取慢或被 RBAC 拒绝？），请重试或检查 default 命名空间建 Pod 权限"})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "K8S", Resource: "CREATE SHELL POD " + ns + "/" + name + " @ " + cl.Name,
+		IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"namespace": ns, "name": name})
+}
+
 // K8sDeployments Deployment 列表（?namespace=）
 func K8sDeployments(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))

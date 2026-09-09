@@ -192,6 +192,42 @@ func (k *K8sAPI) DeletePod(namespace, name string) error {
 	return k.do("DELETE", "/api/v1/namespaces/"+namespace+"/pods/"+name, nil, nil)
 }
 
+// CreateShellPod 创建临时集群 Shell Pod（busybox sleep，供终端接入）
+func (k *K8sAPI) CreateShellPod(namespace, name string) error {
+	manifest := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]any{
+			"name":      name,
+			"namespace": namespace,
+			"labels":    map[string]any{"app.kubernetes.io/managed-by": "jnexus"},
+		},
+		"spec": map[string]any{
+			"restartPolicy": "OnFailure",
+			"containers": []map[string]any{{
+				"name":    "shell",
+				"image":   "busybox:1.36",
+				"command": []string{"sh", "-c", "sleep 86400"},
+			}},
+		},
+	}
+	b, _ := json.Marshal(manifest)
+	return k.do("POST", "/api/v1/namespaces/"+namespace+"/pods", b, nil)
+}
+
+// GetPodPhase 查询 Pod Phase（Pending/Running/Succeeded/Failed/Unknown）
+func (k *K8sAPI) GetPodPhase(namespace, name string) string {
+	var st struct {
+		Status struct {
+			Phase string `json:"phase"`
+		} `json:"status"`
+	}
+	if err := k.do("GET", "/api/v1/namespaces/"+namespace+"/pods/"+name, nil, &st); err != nil {
+		return ""
+	}
+	return st.Status.Phase
+}
+
 // RestartDeployment 重启 Deployment（kubectl rollout restart 语义）
 func (k *K8sAPI) RestartDeployment(namespace, name string) error {
 	patch := map[string]any{
