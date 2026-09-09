@@ -51,7 +51,7 @@ let ws2 = null
 let term2 = null
 let fit2 = null
 
-function makeTerm(el) {
+function makeTerm(el, getSock) {
   const t = new Terminal({
     fontFamily: 'Consolas, Menlo, monospace', fontSize: 14,
     theme: { background: '#1e2a35', foreground: '#d8e4f0' }, cursorBlink: true,
@@ -60,22 +60,23 @@ function makeTerm(el) {
   t.loadAddon(f)
   t.open(el)
   f.fit()
-  // PTY 尺寸同步：xterm 尺寸变化 → v4 通道 4 resize 帧
-  t.onResize(({ cols, rows }) => sendResize(cols, rows))
+  // PTY 尺寸同步：xterm 尺寸变化 → v4 通道 4 resize 帧（sock 取各自终端的连接）
+  t.onResize(({ cols, rows }) => sendResize(getSock(), cols, rows))
   return { term: t, fit: f }
 }
 
-const sendResize = (cols, rows) => {
-  if (ws && ws.readyState === 1) {
+const sendResize = (sock, cols, rows) => {
+  if (sock && sock.readyState === 1) {
     const payload = new TextEncoder().encode(JSON.stringify({ Width: cols, Height: rows }))
     const frame = new Uint8Array(payload.length + 1)
     frame[0] = 4
     frame.set(payload, 1)
-    ws.send(frame)
+    sock.send(frame)
   }
 }
 
-function connect(containerName, onMsg) {
+// onMsg：返回该连接的输出终端（分屏第二终端用）；t：用于打开后同步 PTY 初始尺寸
+function connect(containerName, onMsg, t) {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   const q = new URLSearchParams({
     namespace: props.namespace, pod: props.pod, container: containerName || '',
@@ -83,14 +84,24 @@ function connect(containerName, onMsg) {
   })
   const sock = new WebSocket(`${proto}://${location.host}/api/ws/k8s/${props.clusterId}?` + q)
   sock.binaryType = 'arraybuffer'
-  sock.onopen = () => { status.value = $t('k8s.shellConnected') || 'connected'; if (onMsg) onMsg(); else term.focus() }
+  const sink = () => (onMsg ? onMsg() : term)
+  sock.onopen = () => {
+    status.value = $t('k8s.shellConnected') || 'connected'
+    // makeTerm 首次 fit 时连接还没建立，首帧 resize 会被丢弃，这里补发一次
+    if (t) sendResize(sock, t.cols, t.rows)
+    if (onMsg) onMsg(); else term.focus()
+  }
   sock.onmessage = ev => {
     if (typeof ev.data === 'string') { status.value = ev.data; return }
-    const sink = onMsg || term
-    sink.write(new Uint8Array(ev.data))
+    const w = sink()
+    if (w) w.write(new Uint8Array(ev.data))
   }
-    if (typeof ev.data === 'string') { status.value = ev.data; return }
-    if (typeof ev.data === 'string') { status.value = ev.data; return }
+  sock.onclose = () => {
+    status.value = $t('k8s.shellClosed')
+    const w = sink()
+    if (w) w.write(`\r\n\x1b[31m[${$t('k8s.shellClosed')}]\r\n`)
+  }
+  sock.onerror = () => { status.value = $t('k8s.shellError') }
   return sock
 }
 
@@ -108,9 +119,9 @@ function restartAll() {
   if (ws2) { ws2.onclose = null; ws2.close() }
   if (term) term.reset()
   if (term2) term2.reset()
-  ws = connect(container.value, null)
+  ws = connect(container.value, null, term)
   if (split.value) {
-    ws2 = connect(container.value, () => term2)
+    ws2 = connect(container.value, () => term2, term2)
   }
 }
 
@@ -118,7 +129,7 @@ function toggleSplit() {
   split.value = !split.value
   setTimeout(() => {
     if (split.value && !term2) {
-      const inst = makeTerm(termEl2.value)
+      const inst = makeTerm(termEl2.value, () => ws2)
       term2 = inst.term
       fit2 = inst.fit
       term2.onData(d => {
@@ -129,7 +140,7 @@ function toggleSplit() {
           ws2.send(frame)
         }
       })
-      ws2 = connect(container.value, () => term2)
+      ws2 = connect(container.value, () => term2, term2)
     }
     if (fit) fit.fit()
     if (fit2) fit2.fit()
@@ -137,7 +148,7 @@ function toggleSplit() {
 }
 
 onMounted(async () => {
-  const inst = makeTerm(termEl.value)
+  const inst = makeTerm(termEl.value, () => ws)
   term = inst.term
   fit = inst.fit
   term.onData(sendInput)
@@ -148,15 +159,15 @@ onMounted(async () => {
     containers.value = target?.containers || []
     if (containers.value.length && !container.value) container.value = containers.value[0]
   } catch { /* 忽略：无容器列表也可用默认容器 */ }
-  connect(container.value, null)
+  ws = connect(container.value, null, term)
   window.addEventListener('resize', onResize)
   // 宿主容器（如抽屉）展开动画完成后重新适配尺寸
   setTimeout(() => { if (fit) fit.fit(); if (fit2) fit2.fit() }, 250)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
-  if (ws) ws.close()
-  if (ws2) ws2.close()
+  if (ws) { ws.onclose = null; ws.close() }
+  if (ws2) { ws2.onclose = null; ws2.close() }
   if (term) term.dispose()
   if (term2) term2.dispose()
 })
