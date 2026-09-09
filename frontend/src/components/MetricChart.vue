@@ -10,6 +10,8 @@
       <!-- 折线 -->
       <polyline :points="line" fill="none" :stroke="color" stroke-width="2"
                 stroke-linejoin="round" stroke-linecap="round" />
+      <!-- 单点样本：居中画点，避免只有 1 个桶时看起来像渲染失败 -->
+      <circle v-if="dotXY" :cx="dotXY.x" :cy="dotXY.y" r="4" :fill="color" stroke="#fff" stroke-width="1.5" />
       <!-- 悬浮参考线 + 点 -->
       <template v-if="hover">
         <line :x1="hover.x" :x2="hover.x" :y1="4" :y2="H - 4" stroke="#c0c4cc" stroke-dasharray="3 3" />
@@ -17,8 +19,9 @@
       </template>
     </svg>
     <!-- X 轴时间标签 -->
-    <div class="mc-xlabels">
-      <span>{{ tLabel(firstT) }}</span><span v-if="midT">{{ midT }}</span><span>{{ tLabel(lastT) }}</span>
+    <div v-if="points.length" class="mc-xlabels">
+      <span>{{ tLabel(firstT) }}</span><span v-if="midT">{{ midT }}</span>
+      <span v-if="points.length > 1">{{ tLabel(lastT) }}</span>
     </div>
     <!-- 悬浮提示 -->
     <div v-if="hover" class="mc-tip" :style="{ left: tipLeft }">
@@ -51,6 +54,14 @@ const line = computed(() => {
 })
 const yPct = p => (H - 10 - (p / props.yMax) * (H - 20)).toFixed(1)
 const tickLabel = p => `${Math.round(((p / 100) * props.yMax) * 10) / 10}${props.unit}`
+const dotXY = computed(() => {
+  if (props.points.length !== 1) return null
+  const v = Number(props.points[0].v) || 0
+  return {
+    x: (PAD.l + (W - PAD.l - 6) / 2).toFixed(1),
+    y: (H - 10 - (v / props.yMax) * (H - 20)).toFixed(1),
+  }
+})
 
 const hover = ref(null)
 const tipLeft = computed(() => {

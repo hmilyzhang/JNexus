@@ -367,7 +367,8 @@ const capLast = m => {
   const pts = cap.value?.points || []
   if (!pts.length) return '0'
   const last = pts[pts.length - 1]
-  return (m === 'cpu' ? last.cpu_percent : m === 'mem' ? last.mem_percent : last.disk_percent).toFixed(1)
+  const v = m === 'cpu' ? last.cpu_percent : m === 'mem' ? last.mem_percent : last.disk_percent
+  return (Number(v) || 0).toFixed(1)
 }
 const pctChartPoints = m => {
   const pts = cap.value?.points || []
