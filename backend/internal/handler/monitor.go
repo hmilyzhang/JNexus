@@ -279,10 +279,36 @@ func HostMetricsList(c *gin.Context) {
 func HostMetricHistory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	hours := 6
-	if h, e := strconv.Atoi(c.Query("hours")); e == nil && h > 0 && h <= 24*30 {
+	if h, e := strconv.Atoi(c.Query("hours")); e == nil && h > 0 && h <= 24*400 {
 		hours = h
 	}
 	since := time.Now().Add(-time.Duration(hours) * time.Hour)
+	if hours > 24*30 {
+		// 长周期（180d/1y）：近 30 天用 raw 按天桶，更早用小时归档表按天桶，合并成完整序列
+		cutoff := time.Now().Add(-30 * 24 * time.Hour)
+		type dayBucket struct {
+			Bucket      time.Time `json:"collected_at"`
+			CPUPercent  float64   `json:"cpu_percent"`
+			MemPercent  float64   `json:"mem_percent"`
+			DiskPercent float64   `json:"disk_percent"`
+		}
+		// 近 30 天：raw 按天桶；更早：小时归档表按天桶；两段合并为完整序列
+		var rows []dayBucket
+		model.DB.Raw(`SELECT date_trunc('day', t.at) AS bucket,
+				AVG(t.cpu_percent) AS cpu_percent, AVG(t.mem_percent) AS mem_percent, AVG(t.disk_percent) AS disk_percent
+			FROM (
+				SELECT collected_at AS at, cpu_percent, mem_percent, disk_percent
+					FROM host_metrics WHERE host_id = ? AND collected_at >= ?
+				UNION ALL
+				SELECT bucket AS at, cpu_percent, mem_percent, disk_percent
+					FROM host_metric_hourlies WHERE host_id = ? AND bucket >= ? AND bucket < ?
+			) t GROUP BY bucket ORDER BY bucket`, id, cutoff, id, since, cutoff).Scan(&rows)
+		if rows == nil {
+			rows = []dayBucket{}
+		}
+		c.JSON(http.StatusOK, rows)
+		return
+	}
 	if hours > 48 {
 		type bucket struct {
 			Bucket      time.Time `json:"collected_at"`

@@ -462,6 +462,8 @@
           <el-radio-button :value="24">24h</el-radio-button>
           <el-radio-button :value="168">7d</el-radio-button>
           <el-radio-button :value="720">30d</el-radio-button>
+          <el-radio-button :value="4320">180d</el-radio-button>
+          <el-radio-button :value="8760">1y</el-radio-button>
         </el-radio-group>
       </div>
       <div v-if="trendRows.length === 0" style="color:#909399">{{ $t('monitor.noSamples') }}</div>
