@@ -86,7 +86,8 @@ function connect(containerName, onMsg) {
   sock.onopen = () => { status.value = $t('k8s.shellConnected') || 'connected'; if (onMsg) onMsg(); else term.focus() }
   sock.onmessage = ev => {
     if (typeof ev.data === 'string') { status.value = ev.data; return }
-    onMsg().write(new Uint8Array(ev.data))
+    const sink = onMsg || term
+    sink.write(new Uint8Array(ev.data))
   }
     if (typeof ev.data === 'string') { status.value = ev.data; return }
     if (typeof ev.data === 'string') { status.value = ev.data; return }
