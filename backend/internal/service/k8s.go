@@ -453,7 +453,7 @@ func K8sExecURL(server, namespace, pod, container, command string) string {
 	base := strings.TrimRight(server, "/")
 	base = strings.Replace(base, "https://", "wss://", 1)
 	base = strings.Replace(base, "http://", "ws://", 1)
-	q := "stdin=true&stdout=true&stderr=true&command=" + urlQueryEscape(command)
+	q := "stdin=true&stdout=true&stderr=true&tty=true&command=" + urlQueryEscape(command)
 	if container != "" {
 		q += "&container=" + urlQueryEscape(container)
 	}

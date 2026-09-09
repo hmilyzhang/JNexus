@@ -60,7 +60,19 @@ function makeTerm(el) {
   t.loadAddon(f)
   t.open(el)
   f.fit()
+  // PTY 尺寸同步：xterm 尺寸变化 → v4 通道 4 resize 帧
+  t.onResize(({ cols, rows }) => sendResize(cols, rows))
   return { term: t, fit: f }
+}
+
+const sendResize = (cols, rows) => {
+  if (ws && ws.readyState === 1) {
+    const payload = new TextEncoder().encode(JSON.stringify({ Width: cols, Height: rows }))
+    const frame = new Uint8Array(payload.length + 1)
+    frame[0] = 4
+    frame.set(payload, 1)
+    ws.send(frame)
+  }
 }
 
 function connect(containerName, onMsg) {
@@ -73,11 +85,11 @@ function connect(containerName, onMsg) {
   sock.binaryType = 'arraybuffer'
   sock.onopen = () => { status.value = $t('k8s.shellConnected') || 'connected'; if (onMsg) onMsg(); else term.focus() }
   sock.onmessage = ev => {
-    const data = new Uint8Array(ev.data)
-    if (data.length > 1) onMsg ? onMsg().write(data.slice(1)) : term.write(data.slice(1))
+    if (typeof ev.data === 'string') { status.value = ev.data; return }
+    onMsg().write(new Uint8Array(ev.data))
   }
-  sock.onclose = () => { status.value = $t('k8s.shellClosed'); if (onMsg) onMsg().writeln('\r\n\x1b[31m[' + $t('k8s.shellClosed') + ']') }
-  sock.onerror = () => { if (onMsg) onMsg().writeln('\r\n\x1b[31m[' + $t('k8s.shellError') + ']') }
+    if (typeof ev.data === 'string') { status.value = ev.data; return }
+    if (typeof ev.data === 'string') { status.value = ev.data; return }
   return sock
 }
 

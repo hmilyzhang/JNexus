@@ -112,20 +112,22 @@ func K8sExecWS(c *gin.Context) {
 				continue
 			}
 			ch := data[0]
-			if ch == 1 || ch == 2 || ch == 3 {
+			// stdout/stderr 去掉通道字节后转发；error(3) 以文本透出便于排障
+			if ch == 1 || ch == 2 {
 				bws.WriteMessage(websocket.BinaryMessage, data[1:])
+			} else if ch == 3 {
+				bws.WriteMessage(websocket.TextMessage, data[1:])
 			}
 		}
 	}()
-	// 浏览器 → 集群（文本 = 用户输入，前缀 stdin 通道 0）
+	// 浏览器 → 集群：前端已按 v4 帧格式打包（[0]=stdin / [4]=resize），原样透传
 	for {
 		_, msg, err := bws.ReadMessage()
 		if err != nil {
 			kconn.Close()
 			return
 		}
-		frame := append([]byte{0}, msg...)
-		if err := kconn.WriteMessage(websocket.BinaryMessage, frame); err != nil {
+		if err := kconn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
 			kconn.Close()
 			return
 		}
