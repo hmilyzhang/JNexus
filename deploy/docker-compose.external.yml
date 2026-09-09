@@ -51,6 +51,7 @@ services:
     working_dir: /gw
     volumes:
       - ../rdp-gateway:/gw
+      - data:/data:ro
     command: sh -c "npm install --omit=dev && node server.js"
     environment:
       GUACD_HOST: guacd
@@ -59,8 +60,6 @@ services:
       # 密钥从共享 data 卷的 gw_secret 文件读取（与 jnexus-server 同卷），无需明文
     ports:
       - "4823:4823"
-    volumes:
-      - data:/data:ro
     depends_on:
       - jnexus
       - guacd
