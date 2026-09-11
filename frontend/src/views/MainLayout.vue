@@ -40,7 +40,7 @@
           <span v-if="quote.icon" class="q-icon">{{ quote.icon }}</span>{{ quote.text }}
         </div>
         <div style="display:flex; align-items:center; gap:16px">
-          <el-button class="theme-toggle" text @click="toggleTheme" style="padding:6px" :title="isDark ? ('layout.lightMode') : ('layout.darkMode')">
+          <el-button class="theme-toggle" text @click="toggleTheme" style="padding:6px" :title="isDark ? $t('layout.lightMode') : $t('layout.darkMode')">
             <el-icon :size="18"><component :is="isDark ? 'Sunny' : 'Moon'" /></el-icon>
           </el-button>
           <el-dropdown @command="onLocale">
@@ -150,7 +150,8 @@ const menuItems = [
   { key: 'jobs', title: 'menu.jobs', icon: 'Operation', children: [
     { key: 'exec', path: '/exec', title: 'menu.exec', icon: 'Promotion' },
     { key: 'files', path: '/files', title: 'menu.files', icon: 'FolderOpened' },
-    { key: 'scripts', path: '/scripts', title: 'menu.scripts', icon: 'Document' }
+    { key: 'scripts', path: '/scripts', title: 'menu.scripts', icon: 'Document' },
+    { key: 'logtail', path: '/logtail', title: 'menu.logtail', icon: 'View' }
   ] },
   { key: 'tasks', path: '/tasks', title: 'menu.tasks', icon: 'List' },
   { key: 'cron', path: '/crons', title: 'menu.cron', icon: 'Timer' },
@@ -190,7 +191,8 @@ const menus = computed(() => {
   const out = []
   for (const m of menuItems) {
     if (m.children) {
-      const kids = m.children.filter(c => allowed.has(c.key))
+      const kids = m.children.filter(c => allowed.has(c.key) ||
+        (c.key === 'logtail' && allowed.has('exec'))) // 日志输出跟随执行权限
       if (kids.length) out.push({ ...m, children: kids })
     } else if (allowed.has(m.key)) {
       out.push(m)
@@ -322,6 +324,17 @@ aside :deep(.el-sub-menu__title span) {
 }
 aside :deep(.el-menu) {
   overflow-x: hidden;
+}
+/* 子菜单项缩进 + 弱化样式：区分子菜单与主菜单 */
+aside :deep(.el-sub-menu .el-menu .el-menu-item) {
+  padding-left: 42px !important;
+  font-size: 13px;
+  height: 34px;
+  line-height: 34px;
+  color: #93a1b5;
+}
+aside :deep(.el-sub-menu .el-menu .el-menu-item.is-active) {
+  color: #ffffff;
 }
 /* 滚动条视觉隐藏（保留滚动能力，极矮窗口仍可滚动到底） */
 aside::-webkit-scrollbar {

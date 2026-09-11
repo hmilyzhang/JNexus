@@ -2,6 +2,7 @@
 export default {
   menu: {
     dashboard: 'Dashboard',
+    logtail: 'Log Viewer',
     paired: 'Paired Keys',
     osaccounts: 'Host Accounts',
     sysadmin: 'System Admin',
@@ -1029,4 +1030,22 @@ screen: {
   panelRespTrend: 'Probe response · last 24h',
   panelAlertsDaily: 'Alerts per day · last 14d',
 },
+logtail: {
+    title: 'Live Log Viewer',
+    host: 'Target host',
+    path: 'Log file path',
+    pathTip: '/var/log/syslog',
+    lines: 'Backlog lines',
+    follow: 'Follow scroll',
+    connect: 'Start tailing',
+    disconnect: 'Stop tailing',
+    clear: 'Clear',
+    connected: 'Connected',
+    disconnected: 'Disconnected',
+    error: 'Connection error',
+    idle: 'Idle',
+    stopped: 'Tailing stopped',
+    needHostPath: 'Select a host and enter the log path',
+    hint: 'Pick a host, enter an absolute log file path and start tailing. New content streams continuously and survives log rotation (logrotate).',
+  },
 }

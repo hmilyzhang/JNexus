@@ -31,6 +31,7 @@ func SetupRouter() *gin.Engine {
 		api.GET("/system/info", SystemInfo)
 		// Web 终端（自带 token 鉴权，不走 hub）
 		api.GET("/ws/term/:hostId", WebTerminal)
+		api.GET("/ws/tail", LogTailWS)
 		api.GET("/ws/k8s/:clusterId", K8sExecWS)
 		api.GET("/ws/k8s/logs/:clusterId", K8sLogWS)
 		api.GET("/ws/task/:id", ws.Handler(func(c *gin.Context) string {

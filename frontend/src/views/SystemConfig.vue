@@ -423,6 +423,7 @@ const menuKeys = [
   { key: 'k8s', label: 'k8s.title' },
   { key: 'files', label: 'menu.files' },
   { key: 'scripts', label: 'menu.scripts' },
+  { key: 'logtail', label: 'menu.logtail' },
   { key: 'apps', label: 'menu.apps' },
   { key: 'releases', label: 'menu.releases' },
   { key: 'users', label: 'menu.users' },

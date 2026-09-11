@@ -2,6 +2,7 @@
 export default {
   menu: {
     dashboard: '仪表盘',
+    logtail: '日志输出',
     paired: '配对密钥',
     osaccounts: '主机账号',
     sysadmin: '系统管理',
@@ -1030,4 +1031,22 @@ screen: {
   panelRespTrend: '拨测平均响应 · 近 24 小时',
   panelAlertsDaily: '每日告警 · 近 14 天',
 },
+logtail: {
+    title: '日志实时输出',
+    host: '目标主机',
+    path: '日志文件路径',
+    pathTip: '/var/log/syslog',
+    lines: '回看行数',
+    follow: '滚动跟随',
+    connect: '开始跟随',
+    disconnect: '停止跟随',
+    clear: '清屏',
+    connected: '已连接',
+    disconnected: '连接已断开',
+    error: '连接错误',
+    idle: '未连接',
+    stopped: '已停止跟随',
+    needHostPath: '请选择主机并填写日志路径',
+    hint: '选择主机并输入日志文件绝对路径，点击「开始跟随」。持续输出新增内容，跨文件轮转（logrotate）不中断。',
+  },
 }
