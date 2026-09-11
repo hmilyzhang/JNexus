@@ -6,7 +6,7 @@ A self-built, lightweight operations platform: host management (multi OS account
 
 Tech stack: Go (Gin + GORM) + PostgreSQL + Vue3 (Element Plus + xterm.js).
 
-**Docs:** [API reference](docs/API.md) — integrate external systems via API keys (`/api/ext/*`).
+**Docs:** [Project documentation](docs/README.md) — full guide by module, roadmap, and the [API reference](docs/API.md) for external integration via API keys (`/api/ext/*`).
 
 **Online docs:** once deployed, open `http://<server>:8080/docs/api` (bilingual, no login required).
 

@@ -8,7 +8,7 @@
 
 技术栈：Go（Gin + GORM）+ PostgreSQL + Vue3（Element Plus + xterm.js）。
 
-**文档：** [API 使用文档](docs/API.zh-CN.md) —— 通过 API 密钥集成外部系统（`/api/ext/*`）。
+**文档：** [项目说明文档](docs/README.md) —— 按模块的完整指南、任务跟踪与 [API 使用文档](docs/API.zh-CN.md)（通过 API 密钥集成外部系统，`/api/ext/*`）。
 
 **在线文档：** 部署后直接访问 `http://<服务器>:8080/docs/api`（中英双语，无需登录）。
 
