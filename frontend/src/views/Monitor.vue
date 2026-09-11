@@ -1,6 +1,10 @@
 <!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
+      <span style="flex:1"></span>
+      <el-button size="small" type="warning" plain @click="$router.push('/screen')">{{ $t('monitor.bigScreen') }} →</el-button>
+    </div>
     <el-tabs v-model="activeTab">
       <!-- Tab 1: CMD 监控（CPU / 内存 / 磁盘） -->
       <el-tab-pane :label="$t('monitor.tabCmd')" name="cmd">
@@ -78,9 +82,10 @@
               </div>
             </div>
             <div class="hb">
-              <span v-for="(s, i) in row.recent || []" :key="i" class="hb-bar"
-                    :class="s.status === 'up' ? 'hb-up' : s.status === 'maint' ? 'hb-maint' : 'hb-down'"
-                    :title="`${fmtTime(s.at)} · ${s.resp_ms}ms`"></span>
+              <el-tooltip v-for="(s, i) in row.recent || []" :key="i" placement="top"
+                          :content="hbTip(s)" :show-after="80">
+                <span class="hb-bar" :class="s.status === 'up' ? 'hb-up' : s.status === 'maint' ? 'hb-maint' : 'hb-down'"></span>
+              </el-tooltip>
               <span v-if="!(row.recent || []).length" style="color:#c0c4cc; font-size:12px">{{ $t('monitor.notYet') }}</span>
             </div>
             <div class="mon-stats">
@@ -232,15 +237,25 @@
           </template>
           <div style="color:#909399; font-size:12px; margin-bottom:10px">{{ $t('monitor.maintTip') }}</div>
           <div v-for="(w, i) in maintWins" :key="i" style="display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap">
-            <el-date-picker v-model="w.dates" type="daterange" value-format="YYYY-MM-DD"
+            <el-select v-model="w.type" size="small" style="width:120px">
+              <el-option value="once" :label="$t('monitor.maintOnce')" />
+              <el-option value="daily" :label="$t('monitor.maintDaily')" />
+              <el-option value="weekly" :label="$t('monitor.maintWeekly')" />
+              <el-option value="monthly" :label="$t('monitor.maintMonthly')" />
+            </el-select>
+            <el-date-picker v-if="w.type === 'once'" v-model="w.dates" type="daterange" value-format="YYYY-MM-DD"
                             range-separator="→" start-placeholder="—" end-placeholder="—"
                             style="width:280px" :clearable="false" />
+            <el-select v-if="w.type === 'weekly'" v-model="w.weekdays" multiple collapse-tags size="small"
+                       style="width:200px" :placeholder="$t('monitor.maintWeekly')">
+              <el-option v-for="(lbl, d) in maintWeekdays" :key="d" :value="d" :label="lbl" />
+            </el-select>
             <el-time-select v-model="w.start" start="00:00" step="00:30" end="23:30" style="width:120px" placeholder="开始" />
             <span style="color:#909399">→</span>
             <el-time-select v-model="w.end" start="00:00" step="00:30" end="23:59" style="width:120px" placeholder="结束" />
             <el-button type="danger" link size="small" @click="maintWins.splice(i, 1)">{{ $t('apps.remove') }}</el-button>
           </div>
-          <el-button size="small" @click="maintWins.push({ dates: [today(), today()], start: '02:00', end: '04:00' })">{{ $t('monitor.maintAdd') }}</el-button>
+          <el-button size="small" @click="maintWins.push({ type: 'once', dates: [today(), today()], weekdays: [], start: '02:00', end: '04:00' })">{{ $t('monitor.maintAdd') }}</el-button>
         </el-card>
         <el-card style="margin-top:16px">
           <template #header>
@@ -588,11 +603,13 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import api from '../api'
+import { useRouter } from 'vue-router'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
 import MetricChart from '../components/MetricChart.vue'
 
 const { t } = i18n.global
+const $router = useRouter()
 const activeTab = ref('cmd')
 const hostsLoading = ref(false)
 const hostRows = ref([])
@@ -621,6 +638,7 @@ const fmtTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 const typeLabel = ty => ({ http: t('monitor.typeHttp'), tcp: t('monitor.typeTcp'), ping: t('monitor.typePing') }[ty] || ty)
 const monitorTarget = m => (m.type === 'http' ? m.target : m.type === 'tcp' ? `${m.target}:${m.port}` : m.target)
 const statusClass = row => (!row.monitor.enabled ? 'dot-paused' : row.monitor.last_status === 'up' ? 'dot-up' : row.monitor.last_status === 'down' ? 'dot-down' : 'dot-paused')
+const hbTip = s => `${fmtTime(s.at)} · ${s.status === 'up' ? t('monitor.hbUp') : s.status === 'maint' ? t('monitor.hbMaint') : t('monitor.hbDown')} · ${s.resp_ms}ms`
 const statusText = row => (!row.monitor.enabled ? t('monitor.paused') : row.monitor.last_status === 'up' ? t('monitor.up') : row.monitor.last_status === 'down' ? t('monitor.down') : t('monitor.notYet'))
 const barColor = v => (v == null ? '#909399' : v >= 90 ? '#f56c6c' : v >= 75 ? '#e6a23c' : '#67c23a')
 
@@ -828,27 +846,37 @@ const today = () => {
 const loadMaintWindows = async () => {
   const wins = await api.get('/maintenance_windows')
   maintWins.value = (wins || []).map(w => ({
-    dates: [w.date_start, w.date_end],
+    type: w.type || 'once',
+    dates: [w.date_start || today(), w.date_end || today()],
+    weekdays: w.weekdays || [],
     start: w.start || '02:00',
     end: w.end || '04:00',
   }))
 }
+const maintWeekdays = computed(() => t('monitor.maintWd').split(','))
 const saveMaintWindows = async () => {
   if (!maintWins.value.length) {
     ElMessage.warning(t('monitor.maintEmptyWarning'))
     return
   }
-  // 过滤日期未选择的空行
-  const rows = maintWins.value
-    .filter(w => Array.isArray(w.dates) && w.dates[0] && w.dates[1])
-    .map(w => ({
-      date_start: w.dates[0], date_end: w.dates[1],
-      start: w.start || '00:00', end: w.end || '00:00',
-    }))
-  if (!rows.length) {
-    ElMessage.warning(t('monitor.maintFillDates'))
-    return
+  // 按类型校验：单次需日期范围，每周需生效星期
+  for (const w of maintWins.value) {
+    if (w.type === 'once' && !(Array.isArray(w.dates) && w.dates[0] && w.dates[1])) {
+      ElMessage.warning(t('monitor.maintFillDates'))
+      return
+    }
+    if (w.type === 'weekly' && !(w.weekdays || []).length) {
+      ElMessage.warning(t('monitor.maintPickDay'))
+      return
+    }
   }
+  const rows = maintWins.value.map(w => ({
+    type: w.type || 'once',
+    date_start: w.type === 'once' ? (w.dates?.[0] || '') : '',
+    date_end: w.type === 'once' ? (w.dates?.[1] || '') : '',
+    weekdays: w.type === 'weekly' ? (w.weekdays || []) : [],
+    start: w.start || '00:00', end: w.end || '00:00',
+  }))
   maintSaving.value = true
   try {
     await api.put('/maintenance_windows', rows)

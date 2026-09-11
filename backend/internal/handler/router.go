@@ -58,6 +58,7 @@ func SetupRouter() *gin.Engine {
 
 		// MFA（TOTP 两步验证）自助管理
 		// 监控：应用监控项 + 主机资源
+		auth.GET("/monitoring/screen", middleware.RequireCap("monitor", "view"), MonitorScreen)
 		mon := auth.Group("/monitors", middleware.RequireCap("monitor", "view"))
 		{
 			mon.GET("", ListMonitors)

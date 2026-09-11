@@ -13,15 +13,22 @@ import (
 
 // 全局维护窗口：窗口内的 downtime 不计入可用率、不触发告警。
 // 全局设置（对所有监控项生效），存系统配置 JSON。
-// 每个窗口：{date_start/date_end: "YYYY-MM-DD"（日历范围），start/end: "HH:MM"}，end < start 视为跨午夜。
+// 每个窗口 Type：
+//   once    单次：date_start/date_end 日历范围（含两端）
+//   daily   每天：每日生效
+//   weekly  每周：weekdays 命中的星期生效（0=周日..6=周六）
+//   monthly 每月月底：每月最后一天生效
+// start/end HH:MM，end < start 视为跨午夜。Type 为空按 once 兼容旧数据。
 
 const maintenanceKey = "maintenance_windows"
 
 type MaintenanceWindow struct {
-	DateStart string `json:"date_start"` // YYYY-MM-DD
-	DateEnd   string `json:"date_end"`   // YYYY-MM-DD
+	Type      string `json:"type"`       // once / daily / weekly / monthly
+	DateStart string `json:"date_start"` // once: YYYY-MM-DD
+	DateEnd   string `json:"date_end"`   // once: YYYY-MM-DD
 	Start     string `json:"start"`      // HH:MM
 	End       string `json:"end"`        // HH:MM
+	Weekdays  []int  `json:"weekdays"`   // weekly: 0=周日..6=周六
 }
 
 // LoadMaintenances 读取全局维护窗口
@@ -68,16 +75,39 @@ func parseDate(s string) (time.Time, bool) {
 	return t, true
 }
 
-// ValidateMaintenances 校验前端提交的窗口列表
+func maintType(w MaintenanceWindow) string {
+	if w.Type == "" {
+		return "once"
+	}
+	return w.Type
+}
+
+// ValidateMaintenances 校验前端提交的窗口列表（按类型分别校验）
 func ValidateMaintenances(wins []MaintenanceWindow) (string, error) {
 	for i, w := range wins {
-		ds, ok1 := parseDate(w.DateStart)
-		de, ok2 := parseDate(w.DateEnd)
-		if !ok1 || !ok2 {
-			return "", fmt.Errorf("窗口 %d：日期非法（需 YYYY-MM-DD）", i+1)
-		}
-		if de.Before(ds) {
-			return "", fmt.Errorf("窗口 %d：结束日期早于开始日期", i+1)
+		switch maintType(w) {
+		case "once":
+			ds, ok1 := parseDate(w.DateStart)
+			de, ok2 := parseDate(w.DateEnd)
+			if !ok1 || !ok2 {
+				return "", fmt.Errorf("窗口 %d：日期非法（需 YYYY-MM-DD）", i+1)
+			}
+			if de.Before(ds) {
+				return "", fmt.Errorf("窗口 %d：结束日期早于开始日期", i+1)
+			}
+		case "daily", "monthly":
+			// 每天每月底无需额外字段
+		case "weekly":
+			if len(w.Weekdays) == 0 {
+				return "", fmt.Errorf("窗口 %d：每周维护需选择生效星期", i+1)
+			}
+			for _, d := range w.Weekdays {
+				if d < 0 || d > 6 {
+					return "", fmt.Errorf("窗口 %d：星期非法", i+1)
+				}
+			}
+		default:
+			return "", fmt.Errorf("窗口 %d：类型非法", i+1)
 		}
 		if _, ok := parseHM(w.Start); !ok {
 			return "", fmt.Errorf("窗口 %d：开始时间非法（HH:MM）", i+1)
@@ -93,6 +123,12 @@ func ValidateMaintenances(wins []MaintenanceWindow) (string, error) {
 	return string(b), nil
 }
 
+// isMonthEnd 是否当月最后一天
+func isMonthEnd(t time.Time) bool {
+	next := t.AddDate(0, 0, 1)
+	return next.Month() != t.Month()
+}
+
 // InMaintenanceWindow 判断时刻 t 是否处于任一全局维护窗口（对所有监控项生效）
 func InMaintenanceWindow(t time.Time) bool {
 	windows := LoadMaintenances()
@@ -102,8 +138,27 @@ func InMaintenanceWindow(t time.Time) bool {
 	day := t.Format("2006-01-02")
 	minutes := t.Hour()*60 + t.Minute()
 	for _, w := range windows {
-		if day < w.DateStart || day > w.DateEnd {
-			continue
+		switch maintType(w) {
+		case "once":
+			if day < w.DateStart || day > w.DateEnd {
+				continue
+			}
+		case "weekly":
+			wd := int(t.Weekday())
+			hit := false
+			for _, d := range w.Weekdays {
+				if d == wd {
+					hit = true
+					break
+				}
+			}
+			if !hit {
+				continue
+			}
+		case "monthly":
+			if !isMonthEnd(t) {
+				continue
+			}
 		}
 		sm, ok1 := parseHM(w.Start)
 		em, ok2 := parseHM(w.End)

@@ -6,6 +6,7 @@ const routes = [
   { path: '/login', name: 'login', component: () => import('./views/Login.vue'), meta: { public: true } },
   { path: '/k8s/manage/:id', name: 'k8s-manage', component: () => import('./views/K8sManage.vue'), meta: { title: 'k8s.title' } },
   { path: '/rdp', name: 'rdp', component: () => import('./views/RdpClient.vue'), meta: { public: true } },
+  { path: '/screen', name: 'screen', component: () => import('./views/Screen.vue'), meta: { title: 'monitor.bigScreen' } },
   {
     path: '/',
     component: () => import('./views/MainLayout.vue'),

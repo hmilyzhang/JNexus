@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -328,4 +329,124 @@ func HostMetricHistory(c *gin.Context) {
 	model.DB.Where("host_id = ? AND collected_at > ?", id, since).
 		Order("collected_at").Limit(5000).Find(&rows)
 	c.JSON(http.StatusOK, rows)
+}
+
+// MonitorScreen GET /api/monitoring/screen — 监控大屏聚合数据（单次请求拉全，前端 15s 轮询）
+func MonitorScreen(c *gin.Context) {
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	// 主机按分组聚合
+	var hosts []model.Host
+	model.DB.Select("name", "status", "group_id").Find(&hosts)
+	var groups []model.HostGroup
+	model.DB.Find(&groups)
+	groupNames := map[uint]string{}
+	for _, g := range groups {
+		groupNames[g.ID] = g.Name
+	}
+	type grpRow struct {
+		Name   string `json:"name"`
+		Total  int64  `json:"total"`
+		Online int64  `json:"online"`
+	}
+	grpMap := map[uint]*grpRow{}
+	order := []uint{}
+	ensure := func(id uint) *grpRow {
+		if r, ok := grpMap[id]; ok {
+			return r
+		}
+		r := &grpRow{Name: "未分组"}
+		if id != 0 {
+			if n, ok := groupNames[id]; ok {
+				r.Name = n
+			}
+		}
+		grpMap[id] = r
+		order = append(order, id)
+		return r
+	}
+	onlineHosts := 0
+	for _, h := range hosts {
+		id := uint(0)
+		if h.GroupID != nil {
+			id = *h.GroupID
+		}
+		r := ensure(id)
+		r.Total++
+		if h.Status == "online" {
+			r.Online++
+			onlineHosts++
+		}
+	}
+	groupsOut := make([]grpRow, 0, len(order))
+	for _, id := range order {
+		groupsOut = append(groupsOut, *grpMap[id])
+	}
+	sort.Slice(groupsOut, func(i, j int) bool { return groupsOut[i].Total > groupsOut[j].Total })
+
+	// 拨测监控状态
+	var monitors []model.Monitor
+	model.DB.Select("name", "type", "target", "port", "enabled", "last_status", "last_resp_ms").Find(&monitors)
+	type monRow struct {
+		Name   string  `json:"name"`
+		Type   string  `json:"type"`
+		Target string  `json:"target"`
+		Status string  `json:"status"` // up / down / paused / unknown
+		RespMs int     `json:"resp_ms"`
+		Uptime float64 `json:"uptime24h"`
+	}
+	mons := make([]monRow, 0, len(monitors))
+	up, down, paused := 0, 0, 0
+	// 24h 可用率（与列表页同口径）
+	var uptimeRows []struct {
+		MonitorID uint
+		Uptime    float64
+	}
+	model.DB.Raw(`SELECT monitor_id, AVG(CASE WHEN status = 'up' THEN 100.0 ELSE 0 END) AS uptime
+		FROM monitor_samples WHERE created_at > ? AND status IN ('up','down') GROUP BY monitor_id`,
+		now.Add(-24*time.Hour)).Scan(&uptimeRows)
+	uptimes := map[uint]float64{}
+	for _, u := range uptimeRows {
+		uptimes[u.MonitorID] = math.Round(u.Uptime*10) / 10
+	}
+	for _, m := range monitors {
+		st := "unknown"
+		if !m.Enabled {
+			st = "paused"
+			paused++
+		} else if m.LastStatus == "up" {
+			st = "up"
+			up++
+		} else if m.LastStatus == "down" {
+			st = "down"
+			down++
+		}
+		mons = append(mons, monRow{Name: m.Name, Type: m.Type, Target: m.Target, Status: st, RespMs: m.LastRespMs, Uptime: uptimes[m.ID]})
+	}
+
+	// 告警事件：今日数量 + 最近 7 天 20 条
+	var todayAlerts int64
+	model.DB.Model(&model.AlertEvent{}).Where("fired_at >= ?", todayStart).Count(&todayAlerts)
+	var recent []model.AlertEvent
+	model.DB.Where("fired_at >= ?", now.AddDate(0, 0, -7)).Order("fired_at DESC").Limit(20).Find(&recent)
+
+	// 今日任务
+	var tasksToday int64
+	model.DB.Model(&model.Task{}).Where("created_at >= ?", todayStart).Count(&tasksToday)
+
+	c.JSON(http.StatusOK, gin.H{
+		"generated_at": now,
+		"maintenance":  service.InMaintenanceWindow(now),
+		"hosts": gin.H{
+			"total": len(hosts), "online": onlineHosts,
+			"groups": groupsOut,
+		},
+		"monitors": gin.H{
+			"total": len(monitors), "up": up, "down": down, "paused": paused,
+			"rows": mons,
+		},
+		"alerts":      gin.H{"today": todayAlerts, "recent": recent},
+		"tasks_today": tasksToday,
+	})
 }
