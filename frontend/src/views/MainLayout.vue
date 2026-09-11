@@ -212,7 +212,7 @@ const onLocale = v => setLocale(v)
 
 // ---- 顶栏随机一句话：笑话 / 心灵鸡汤（点击换一条，10 分钟自动轮换）----
 const QUOTE_POOLS = [
-  { icon: '😄', pool: jokes },
+  { icon: '', pool: jokes },
   { icon: '', pool: soulSoups },
 ]
 const quote = ref({ icon: '😄', text: '' })
