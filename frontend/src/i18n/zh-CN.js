@@ -1013,5 +1013,13 @@ export default {
     'err.hostExists': '该主机（IP/端口/用户）已存在，请勿重复添加',
     'err.needUser': '用户名必填',
     'err.badRole': '角色不存在或未定义',
-  }
+  },
+screen: {
+  sectionOverview: '总览',
+  sectionTrends: '趋势',
+  sectionStatus: '状态',
+  panelHostTrend: '主机 CPU / 内存 · 近 24 小时',
+  panelRespTrend: '拨测平均响应 · 近 24 小时',
+  panelAlertsDaily: '每日告警 · 近 14 天',
+},
 }

@@ -435,6 +435,47 @@ func MonitorScreen(c *gin.Context) {
 	var tasksToday int64
 	model.DB.Model(&model.Task{}).Where("created_at >= ?", todayStart).Count(&tasksToday)
 
+	// 主机平均 CPU / 内存趋势（近 24h 小时桶，Grafana 风格时间线）
+	type trendRow struct {
+		Bucket time.Time `json:"t"`
+		CPU    float64   `json:"cpu"`
+		Mem    float64   `json:"mem"`
+	}
+	var trend []trendRow
+	model.DB.Raw(`SELECT date_trunc('hour', collected_at) AS bucket,
+			AVG(cpu_percent) AS cpu, AVG(mem_percent) AS mem
+		FROM host_metrics WHERE collected_at > ?
+		GROUP BY bucket ORDER BY bucket`, now.Add(-24*time.Hour)).Scan(&trend)
+
+	// 拨测平均响应趋势（近 24h 小时桶，仅成功样本）
+	type respRow struct {
+		Bucket time.Time `json:"t"`
+		Ms     float64   `json:"ms"`
+	}
+	var respTrend []respRow
+	model.DB.Raw(`SELECT date_trunc('hour', created_at) AS bucket, AVG(resp_ms) AS ms
+		FROM monitor_samples WHERE created_at > ? AND status = 'up'
+		GROUP BY bucket ORDER BY bucket`, now.Add(-24*time.Hour)).Scan(&respTrend)
+
+	// 近 14 天每日告警数（缺失日期补 0）
+	type dayRow struct {
+		Day string `json:"d"`
+		N   int64  `json:"n"`
+	}
+	var alertDays []dayRow
+	model.DB.Raw(`SELECT to_char(date_trunc('day', fired_at), 'YYYY-MM-DD') AS d, COUNT(*) AS n
+		FROM alert_events WHERE fired_at > ?
+		GROUP BY d ORDER BY d`, now.AddDate(0, 0, -13)).Scan(&alertDays)
+	dayMap := map[string]int64{}
+	for _, r := range alertDays {
+		dayMap[r.Day] = r.N
+	}
+	alertsDaily := make([]dayRow, 0, 14)
+	for i := 13; i >= 0; i-- {
+		d := now.AddDate(0, 0, -i).Format("2006-01-02")
+		alertsDaily = append(alertsDaily, dayRow{Day: d, N: dayMap[d]})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"generated_at": now,
 		"maintenance":  service.InMaintenanceWindow(now),
@@ -446,7 +487,10 @@ func MonitorScreen(c *gin.Context) {
 			"total": len(monitors), "up": up, "down": down, "paused": paused,
 			"rows": mons,
 		},
-		"alerts":      gin.H{"today": todayAlerts, "recent": recent},
-		"tasks_today": tasksToday,
+		"alerts":       gin.H{"today": todayAlerts, "recent": recent},
+		"trend":        trend,
+		"resp_trend":   respTrend,
+		"alerts_daily": alertsDaily,
+		"tasks_today":  tasksToday,
 	})
 }

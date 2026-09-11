@@ -1012,5 +1012,13 @@ export default {
     'err.hostExists': 'This host (IP/port/user) already exists',
     'err.needUser': 'Username is required',
     'err.badRole': 'Role does not exist',
-  }
+  },
+screen: {
+  sectionOverview: 'Overview',
+  sectionTrends: 'Trends',
+  sectionStatus: 'Status',
+  panelHostTrend: 'Host CPU / Memory · last 24h',
+  panelRespTrend: 'Probe response · last 24h',
+  panelAlertsDaily: 'Alerts per day · last 14d',
+},
 }
