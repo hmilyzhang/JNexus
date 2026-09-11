@@ -22,3 +22,52 @@ body {
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* ===== 深浅色主题（Element Plus dark 变量 + 应用自定义表面） ===== */
+:root {
+  --app-bg: #f5f7fa;
+  --app-surface: #ffffff;
+  --app-border: #e4e7ed;
+  --app-title: #303133;
+  --app-muted: #909399;
+  --app-hover: #f5f7fa;
+  --app-shadow: 0 1px 4px rgba(0, 21, 41, .08);
+  --mc-bg: #fafbfc;
+  --mc-grid: #f0f2f5;
+  --mc-label: #909399;
+}
+html.dark {
+  --app-bg: #101418;
+  --app-surface: #1d2229;
+  --app-border: #363c44;
+  --app-title: #e5eaf3;
+  --app-muted: #a3abb9;
+  --app-hover: #262c34;
+  --app-shadow: 0 1px 4px rgba(0, 0, 0, .45);
+  --mc-bg: #171c22;
+  --mc-grid: #2a313a;
+  --mc-label: #a3abb9;
+  color-scheme: dark;
+}
+html.dark body { color: var(--app-title); }
+
+/* 应用自定义表面：K8sManage/Hosts 等页面共用卡片样式（Hosts 未局部定义，这里补全局） */
+.km-usage-card { background: var(--app-surface); border-radius: 6px; padding: 14px 16px; box-shadow: var(--app-shadow); }
+.km-usage-head { font-size: 13px; font-weight: 600; color: var(--app-title); margin-bottom: 10px; }
+.km-usage-sub { font-size: 12px; color: var(--app-muted); margin-top: 6px; }
+
+/* 深色覆盖（html.dark 前缀优先级高于组件内 scoped 样式） */
+html.dark .header { background: var(--app-surface); box-shadow: var(--app-shadow); }
+html.dark .user-info { color: var(--app-title); }
+html.dark .km-page { background: var(--app-bg); }
+html.dark .km-top { background: var(--app-surface); border-bottom-color: var(--app-border); box-shadow: var(--app-shadow); }
+html.dark .km-h4, html.dark .km-usage-head { color: var(--app-title); }
+html.dark .km-usage-card, html.dark .km-card { background: var(--app-surface); box-shadow: var(--app-shadow); }
+html.dark .km-usage-sub, html.dark .sum-time { color: var(--app-muted); }
+html.dark .cap-chart, html.dark .mc-svg { background: var(--mc-bg); }
+html.dark .sess-item:hover, html.dark .tpl-item:hover { background: var(--app-hover); }
+html.dark .sum-params { background: var(--app-hover); color: var(--app-muted); }
+html.dark #monthly-report { background: var(--app-surface); box-shadow: var(--app-shadow); color: var(--app-title); }
+html.dark #monthly-report h2, html.dark #monthly-report h3 { color: var(--app-title); }
+html.dark #monthly-report h4 { color: var(--app-muted); }
+html.dark #monthly-report .el-table th.el-table__cell { background: var(--app-hover) !important; color: var(--app-title); }

@@ -40,6 +40,9 @@
           <span class="q-icon">{{ quote.icon }}</span>{{ quote.text }}
         </div>
         <div style="display:flex; align-items:center; gap:16px">
+          <el-button class="theme-toggle" text @click="toggleTheme" style="padding:6px" :title="isDark ? ('layout.lightMode') : ('layout.darkMode')">
+            <el-icon :size="18"><component :is="isDark ? 'Sunny' : 'Moon'" /></el-icon>
+          </el-button>
           <el-dropdown @command="onLocale">
             <span class="user-info"><el-icon><Clock /></el-icon>{{ localeLabel }}</span>
             <template #dropdown>
@@ -64,7 +67,7 @@
           </el-dropdown>
         </div>
       </el-header>
-      <el-main style="padding:16px; background:#f5f7fa">
+      <el-main style="padding:16px; background:var(--app-bg)">
         <router-view />
       </el-main>
     </el-container>
@@ -195,6 +198,14 @@ const menus = computed(() => {
   }
   return out
 })
+
+// ---- 深浅色主题（引导脚本在 index.html，避免首屏闪烁）----
+const isDark = ref(document.documentElement.classList.contains('dark'))
+const toggleTheme = () => {
+  isDark.value = !isDark.value
+  document.documentElement.classList.toggle('dark', isDark.value)
+  localStorage.setItem('jtheme', isDark.value ? 'dark' : 'light')
+}
 
 const localeLabel = computed(() => (locales.find(l => l.value === i18n.global.locale.value) || {}).label || '中文')
 const onLocale = v => setLocale(v)
@@ -330,7 +341,7 @@ aside {
   border-top: 1px solid #2a3947; letter-spacing: .5px;
 }
 .header {
-  background: #fff; display: flex; align-items: center; justify-content: space-between;
+  background: var(--app-surface); display: flex; align-items: center; justify-content: space-between;
   box-shadow: 0 1px 4px rgba(0,21,41,.08);
 }
 .title { font-size: 16px; font-weight: 600; }

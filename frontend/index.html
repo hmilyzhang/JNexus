@@ -5,6 +5,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JNexus</title>
+  <script>
+    // 主题引导：避免首屏闪烁（localStorage > 系统偏好）
+    (function () {
+      var t = localStorage.getItem('jtheme');
+      if (t === 'dark' || (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
 </head>
 <body>
   <div id="app"></div>

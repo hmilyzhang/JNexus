@@ -6,7 +6,7 @@
       <text v-for="p in [0, 25, 50, 75, 100]" :key="'y' + p" x="2" :y="yOf(p) + 4"
             class="mc-ylabel">{{ tickLabel(p) }}</text>
       <line v-for="p in [25, 50, 75, 100]" :key="'gl' + p" :x1="PAD.l" :x2="W - 6"
-            :y1="yOf(p)" :y2="yOf(p)" stroke="#f0f2f5" stroke-width="1" />
+            :y1="yOf(p)" :y2="yOf(p)" class="mc-grid" stroke-width="1" />
       <!-- 折线 -->
       <polyline v-if="points.length > 1" :points="line" fill="none" :stroke="color" stroke-width="2"
                 stroke-linejoin="round" stroke-linecap="round" />
@@ -109,10 +109,11 @@ const fmtV = v => `${Math.round((Number(v) || 0) * 10) / 10}${props.unit}`
 
 <style scoped>
 .mc-wrap { position: relative; }
-.mc-svg { width: 100%; display: block; background: #fafbfc; border-radius: 4px; }
-.mc-ylabel { font-size: 9px; fill: #909399; }
+.mc-svg { width: 100%; display: block; background: var(--mc-bg); border-radius: 4px; }
+.mc-grid { stroke: var(--mc-grid); }
+.mc-ylabel { font-size: 9px; fill: var(--mc-label); }
 .mc-empty { font-size: 12px; fill: #c0c4cc; }
-.mc-xlabels { display: flex; justify-content: space-between; font-size: 10px; color: #909399; padding: 2px 4px 0; }
+.mc-xlabels { display: flex; justify-content: space-between; font-size: 10px; color: var(--mc-label); padding: 2px 4px 0; }
 .mc-tip {
   position: absolute; transform: translateX(-50%); top: 0; pointer-events: none;
   background: #303133; color: #fff; border-radius: 4px; padding: 5px 8px;

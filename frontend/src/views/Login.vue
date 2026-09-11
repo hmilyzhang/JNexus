@@ -1,6 +1,9 @@
 <!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <div class="login-wrap">
+    <el-button class="theme-toggle" text @click="toggleTheme" :title="isDark ? $t('layout.lightMode') : $t('layout.darkMode')">
+      <el-icon :size="17"><component :is="isDark ? 'Sunny' : 'Moon'" /></el-icon>
+    </el-button>
     <el-card class="login-card">
       <h2 style="text-align:center; margin-bottom:18px">⚙️ {{ systemName }}</h2>
 
@@ -49,6 +52,12 @@ const store = useUserStore()
 const form = ref({ username: '', password: '' })
 const loading = ref(false)
 const systemName = ref(localStorage.getItem('system_name') || 'JNexus')
+const isDark = ref(document.documentElement.classList.contains('dark'))
+const toggleTheme = () => {
+  isDark.value = !isDark.value
+  document.documentElement.classList.toggle('dark', isDark.value)
+  localStorage.setItem('jtheme', isDark.value ? 'dark' : 'light')
+}
 const mfaStep = ref(false)
 const mfaToken = ref('')
 const mfaCode = ref('')
@@ -95,8 +104,9 @@ const backToLogin = () => {
 
 <style scoped>
 .login-wrap {
-  height: 100vh; display: flex; align-items: center; justify-content: center;
+  position: relative; height: 100vh; display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, #1d2935 0%, #2c3e50 60%, #3a6073 100%);
 }
 .login-card { width: 380px; padding: 10px 10px 0; }
+.theme-toggle { position: absolute; top: 16px; right: 18px; color: #d8e4f0; }
 </style>

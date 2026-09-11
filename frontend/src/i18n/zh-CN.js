@@ -90,6 +90,8 @@ export default {
     roleK8s: 'K8S 集群运维（Pod/计划任务/服务账号）',
     roleAuditor: '审计员',
     byline: 'By JJ Zhang v{version}',
+    lightMode: '切换浅色模式',
+    darkMode: '切换深色模式',
   },
   dashboard: {
     title: '仪表盘',

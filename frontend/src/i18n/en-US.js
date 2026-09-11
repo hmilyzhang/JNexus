@@ -90,6 +90,8 @@ export default {
     roleAuditor: 'Auditor',
     roleK8s: 'K8S',
     byline: 'By JJ Zhang v{version}',
+    lightMode: 'Switch to light mode',
+    darkMode: 'Switch to dark mode',
   },
   dashboard: {
     title: 'Dashboard',
