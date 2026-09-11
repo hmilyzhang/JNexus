@@ -56,6 +56,7 @@
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px">
           <el-tag size="small" type="success">{{ okCount }} {{ $t('report.okShort') }}</el-tag>
           <el-tag size="small" :type="failCount ? 'danger' : 'info'">{{ failCount }} {{ $t('report.failShort') }}</el-tag>
+          <el-tag v-if="runningCount" size="small" type="warning">{{ runningCount }} {{ $t('exec.taskRunning') }}</el-tag>
           <el-checkbox v-model="onlyFailed" style="margin-left:8px">{{ $t('report.onlyFailedHosts') }}</el-checkbox>
           <span style="flex:1"></span>
           <el-button size="small" @click="download('log')">{{ $t('tasks.exportLog') }}</el-button>
@@ -64,8 +65,8 @@
         <el-collapse v-model="expandedHosts">
           <el-collapse-item v-for="it in shownItems" :key="it.id" :name="it.id">
             <template #title>
-              <el-tag size="small" :type="it.status === 'success' ? 'success' : 'danger'" style="margin-right:8px">
-                {{ it.status === 'success' ? 'OK' : 'FAIL' }}
+              <el-tag size="small" :type="it.status === 'success' ? 'success' : it.status === 'failed' ? 'danger' : 'warning'" style="margin-right:8px">
+                {{ it.status === 'success' ? 'OK' : it.status === 'failed' ? 'FAIL' : $t('exec.taskRunning') }}
               </el-tag>
               <span style="font-weight:600">{{ it.host_name }}</span>
               <span class="mono" style="color:#909399; margin-left:8px">{{ it.host_ip }}</span>
@@ -101,14 +102,15 @@ const detail = ref(null)
 const onlyFailed = ref(false)
 const expandedHosts = ref([])
 const okCount = computed(() => (detail.value?.items || []).filter(i => i.status === 'success').length)
-const failCount = computed(() => (detail.value?.items || []).length - okCount.value)
+const failCount = computed(() => (detail.value?.items || []).filter(i => i.status === 'failed').length)
+const runningCount = computed(() => (detail.value?.items || []).filter(i => i.status !== 'success' && i.status !== 'failed').length)
 const shownItems = computed(() => {
   const items = detail.value?.items || []
-  return onlyFailed.value ? items.filter(i => i.status !== 'success') : items
+  return onlyFailed.value ? items.filter(i => i.status === 'failed') : items
 })
 const autoExpandFailures = () => {
   const items = detail.value?.items || []
-  expandedHosts.value = items.filter(i => i.status !== 'success').map(i => i.id)
+  expandedHosts.value = items.filter(i => i.status === 'failed').map(i => i.id)
 }
 let pollTimer = null
 
