@@ -189,11 +189,14 @@ onMounted(async () => {
 <style scoped>
 .tpl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .tpl-card {
-  border: 1px solid #dcdfe6; border-radius: 6px; padding: 12px; cursor: pointer;
+  border: 1px solid var(--el-border-color); border-radius: 6px; padding: 12px; cursor: pointer;
   transition: border-color .2s;
 }
-.tpl-card:hover { border-color: #409eff; }
-.tpl-card.active { border-color: #409eff; background: #ecf5ff; }
-.tpl-name { font-weight: 600; margin-bottom: 4px; }
-.tpl-desc { color: #909399; font-size: 12px; line-height: 1.5; }
+.tpl-card:hover { border-color: var(--el-color-primary); }
+.tpl-card.active {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+.tpl-name { font-weight: 600; margin-bottom: 4px; color: var(--el-text-color-primary); }
+.tpl-desc { color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.5; }
 </style>
