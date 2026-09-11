@@ -62,6 +62,46 @@
           <el-button size="small" @click="download('log')">{{ $t('tasks.exportLog') }}</el-button>
           <el-button size="small" @click="download('csv')">{{ $t('tasks.exportCsv') }}</el-button>
         </div>
+
+        <!-- 跨主机账号对比（accounts 模板专属） -->
+        <template v-if="detail?.report?.template === 'accounts'">
+          <div style="display:flex; gap:10px; align-items:center; margin:6px 0 10px">
+            <span style="font-weight:600">{{ $t('report.acctMatrixTitle') }}</span>
+            <el-checkbox v-model="acctDiffOnly">{{ $t('report.acctOnlyDiff') }}</el-checkbox>
+            <span style="flex:1"></span>
+            <span style="color:#909399; font-size:12px">{{ acctMatrix.accounts?.length ?? 0 }} {{ $t('report.acctCount') }} · {{ (acctMatrix.hosts || []).length }} {{ $t('cron.target') }}</span>
+          </div>
+          <el-alert v-if="acctMatrix.old_format" :title="$t('report.acctOldFormat')" type="info" :closable="false" style="margin-bottom:10px" />
+          <template v-if="!acctMatrix.old_format">
+            <div v-if="(acctMatrix.suspicious || []).length" style="margin-bottom:10px">
+              <div style="font-weight:600; font-size:13px; margin-bottom:6px">{{ $t('report.acctSuspicious') }}</div>
+              <el-tag v-for="(sc, i) in acctMatrix.suspicious" :key="i" size="small" type="danger" style="margin:0 6px 6px 0">
+                {{ sc.host }} · {{ sc.username }} · {{ acctReason(sc) }}
+              </el-tag>
+            </div>
+            <el-table :data="acctRows" size="small" border max-height="360">
+              <el-table-column prop="username" label="Username" min-width="120" />
+              <el-table-column prop="uid" label="UID" width="70" />
+              <el-table-column :label="$t('monitor.type')" width="80">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="row.type === 'human' ? 'warning' : 'info'">{{ row.type }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column :label="$t('osac.loginEnabled')" width="80" align="center">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="row.login_enabled ? 'success' : 'info'">{{ row.login_enabled ? 'Y' : 'N' }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column v-for="(h, hi) in acctMatrix.hosts || []" :key="h.item_id"
+                               :label="h.host_name" min-width="90" align="center">
+                <template #default="{ row }">
+                  <span v-if="row.cells[hi]" style="color:#67c23a">✓</span>
+                  <span v-else style="color:#dcdfe6">—</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </template>
         <el-collapse v-model="expandedHosts">
           <el-collapse-item v-for="it in shownItems" :key="it.id" :name="it.id">
             <template #title>
@@ -142,11 +182,35 @@ const reportLabel = r => {
     return `${i18n.global.t(`report.tpl_${r.template}`)} ${fmtStamp(r.created_at)}`.trim()
   return r.name
 }
+// ---- 跨主机账号对比 ----
+const acctMatrix = ref({})
+const acctDiffOnly = ref(false)
+const acctRows = computed(() => {
+  const accounts = acctMatrix.value.accounts || []
+  const list = acctDiffOnly.value ? accounts.filter(a => a.diff) : accounts
+  return list.map(a => {
+    const cells = (acctMatrix.value.hosts || []).map((h, i) => (a.present || []).includes(i))
+    return { ...a, cells }
+  })
+})
+const acctReason = sc => ({
+  uid0: t('report.acctUid0'),
+  system_login: t('report.acctSysLogin'),
+  dup_uid: t('report.acctDupUid'),
+}[sc.reason] || sc.reason)
+const loadAcctMatrix = async id => {
+  acctMatrix.value = {}
+  acctDiffOnly.value = false
+  try {
+    acctMatrix.value = await api.get(`/reports/accounts-matrix/${id}`)
+  } catch { /* 旧报告无 CSV 时由 old_format 提示 */ }
+}
 const openDetail = async row => {
   detail.value = await api.get(`/reports/${row.id}`)
   autoExpandFailures()
   detailVisible.value = true
   pollDetail(row.id)
+  if (detail.value?.report?.template === 'accounts') loadAcctMatrix(row.id)
 }
 const pollDetail = id => {
   clearInterval(pollTimer)

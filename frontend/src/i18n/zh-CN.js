@@ -799,7 +799,15 @@ export default {
     tpl_osinfo: '系统信息',
     tpl_osinfo_desc: '内核版本、发行版、IP 地址',
     tpl_portcert: '端口与证书检查',
-    tpl_portcert_desc: '监听端口清单、HTTP/HTTPS 协议探测、HTTPS 证书与本机证书文件过期检查'
+    tpl_portcert_desc: '监听端口清单、HTTP/HTTPS 协议探测、HTTPS 证书与本机证书文件过期检查',
+    acctMatrixTitle: '跨主机账号对比',
+    acctOnlyDiff: '只看差异账号',
+    acctCount: '个账号',
+    acctOldFormat: '该报告为旧格式（无 CSV 明细），重新生成后即可对比',
+    acctSuspicious: '可疑账号',
+    acctUid0: 'UID 0 非 root 账号',
+    acctSysLogin: '系统账号可登录',
+    acctDupUid: 'UID 重复',
   },
   osac: {
     rotFilterAll: '全部轮换状态',

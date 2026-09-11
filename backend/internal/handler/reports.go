@@ -4,6 +4,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -143,4 +144,140 @@ func ExportReport(c *gin.Context) {
 	sb.WriteString("================ Exported at " + time.Now().Format("2006-01-02 15:04:05") + " ================\n")
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=report-%d-%s.log", int(report.ID), stamp))
 	c.Data(http.StatusOK, "application/octet-stream", []byte(sb.String()))
+}
+
+// ---- 跨主机账号对比（accounts 模板报告的 CSV 解析聚合） ----
+
+type acctCSVRow struct {
+	Username     string
+	UID          int
+	Group        string
+	Shell        string
+	LoginEnabled bool
+	Type         string // human / system
+}
+
+// parseAccountsCSV 从报告条目内容中解析 == Accounts CSV == 段（v1.180+ 新格式）
+func parseAccountsCSV(content string) []acctCSVRow {
+	inCSV := false
+	rows := []acctCSVRow{}
+	for _, raw := range strings.Split(content, "\n") {
+		line := strings.TrimSpace(raw)
+		if strings.HasPrefix(line, "== Accounts CSV ==") {
+			inCSV = true
+			continue
+		}
+		if !inCSV {
+			continue
+		}
+		if line == "" || strings.HasPrefix(line, "==") {
+			break
+		}
+		if strings.HasPrefix(line, "username,") {
+			continue // 表头
+		}
+		p := strings.Split(line, ",")
+		if len(p) < 8 {
+			continue
+		}
+		uid, err := strconv.Atoi(p[1])
+		if err != nil {
+			continue
+		}
+		rows = append(rows, acctCSVRow{
+			Username: p[0], UID: uid, Group: p[3], Shell: p[5],
+			LoginEnabled: p[6] == "yes", Type: p[7],
+		})
+	}
+	return rows
+}
+
+// ReportAccountsMatrix GET /api/reports/accounts-matrix/:id
+// 输出：账号 × 主机 矩阵（present 为主机列下标）+ 可疑账号清单（UID0 非 root / 系统账号可登录 / UID 重复）
+func ReportAccountsMatrix(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var report model.Report
+	if err := model.DB.First(&report, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "report not found"})
+		return
+	}
+	var items []model.ReportItem
+	model.DB.Where("report_id = ?", id).Order("host_name").Find(&items)
+
+	type hostCol struct {
+		ItemID   uint   `json:"item_id"`
+		HostName string `json:"host_name"`
+		HostIP   string `json:"host_ip"`
+	}
+	hostsOut := []hostCol{}
+
+	type acctAgg struct {
+		Username     string `json:"username"`
+		UID          int    `json:"uid"`
+		Type         string `json:"type"`
+		LoginEnabled bool   `json:"login_enabled"`
+		Count        int    `json:"count"`
+		Present      []int  `json:"present"`
+		Diff         bool   `json:"diff"`
+	}
+	acctMap := map[string]*acctAgg{}
+	acctOrder := []string{}
+	suspicious := []gin.H{}
+	oldFormat := 0
+
+	for ii, it := range items {
+		hostsOut = append(hostsOut, hostCol{ItemID: it.ID, HostName: it.HostName, HostIP: it.HostIP})
+		rows := parseAccountsCSV(it.Content)
+		if len(rows) == 0 {
+			oldFormat++
+			continue
+		}
+		uidUsers := map[int][]string{}
+		for _, r := range rows {
+			agg, ok := acctMap[r.Username]
+			if !ok {
+				agg = &acctAgg{Username: r.Username, UID: r.UID, Type: r.Type, LoginEnabled: r.LoginEnabled, Present: []int{}}
+				acctMap[r.Username] = agg
+				acctOrder = append(acctOrder, r.Username)
+			}
+			agg.Present = append(agg.Present, ii)
+			agg.Count++
+			if r.UID == 0 && r.Username != "root" {
+				suspicious = append(suspicious, gin.H{"host": it.HostName, "username": r.Username, "reason": "uid0"})
+			}
+			if r.Type == "system" && r.LoginEnabled {
+				suspicious = append(suspicious, gin.H{"host": it.HostName, "username": r.Username, "reason": "system_login"})
+			}
+			uidUsers[r.UID] = append(uidUsers[r.UID], r.Username)
+		}
+		for uid, users := range uidUsers {
+			if len(users) > 1 {
+				for _, u := range users {
+					suspicious = append(suspicious, gin.H{"host": it.HostName, "username": u, "reason": "dup_uid", "uid": uid})
+				}
+			}
+		}
+	}
+
+	accounts := make([]*acctAgg, 0, len(acctOrder))
+	for _, name := range acctOrder {
+		a := acctMap[name]
+		a.Diff = a.Count < len(items)
+		sort.Slice(a.Present, func(i, j int) bool { return a.Present[i] < a.Present[j] })
+		accounts = append(accounts, a)
+	}
+	sort.Slice(accounts, func(i, j int) bool {
+		if accounts[i].UID != accounts[j].UID {
+			return accounts[i].UID < accounts[j].UID
+		}
+		return accounts[i].Username < accounts[j].Username
+	})
+
+	c.JSON(http.StatusOK, gin.H{
+		"report":     report,
+		"hosts":      hostsOut,
+		"accounts":   accounts,
+		"suspicious": suspicious,
+		"old_format": len(items) > 0 && oldFormat == len(items),
+	})
 }

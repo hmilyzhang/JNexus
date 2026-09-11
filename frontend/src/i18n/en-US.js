@@ -798,7 +798,15 @@ export default {
     tpl_osinfo: 'System Info',
     tpl_osinfo_desc: 'Kernel version, distribution, IP addresses',
     tpl_portcert: 'Ports & Certificates',
-    tpl_portcert_desc: 'Listening ports, HTTP/HTTPS detection, HTTPS certificate and local certificate file expiry check'
+          tpl_portcert_desc: 'Listening ports, HTTP/HTTPS detection, HTTPS certificate and local certificate file expiry check',
+    acctMatrixTitle: 'Cross-host account matrix',
+    acctOnlyDiff: 'Only differing accounts',
+    acctCount: 'accounts',
+    acctOldFormat: 'Legacy report without CSV detail — regenerate to compare',
+    acctSuspicious: 'Suspicious accounts',
+    acctUid0: 'UID 0 non-root',
+    acctSysLogin: 'Login-enabled system account',
+    acctDupUid: 'Duplicate UID',
   },
   osac: {
     rotFilterAll: 'All rotation status',
