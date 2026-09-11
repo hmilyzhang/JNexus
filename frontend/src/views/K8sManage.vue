@@ -183,7 +183,8 @@
                 {{ $t('k8s.clusterCPU') }} · {{ $t('k8s.capForecast') }}
                 <span style="float:right; font-weight:400" class="mono">{{ capLastPct('cpu') }}%</span>
               </div>
-              <MetricChart :points="capPctPoints('cpu')" :range="capRange" :empty-text="$t('monitor.noData')"
+              <MetricChart :points="capPctPoints('cpu')" :forecast="capForecastSeries('cpu')" :forecast-tag="$t('k8s.capTrend')"
+                           :range="capRange" :empty-text="$t('monitor.noData')"
                            color="#409eff" unit="%" :y-max="100" />
               <div class="km-usage-sub mono">
                 {{ fmtCores(cap?.forecast?.cpu_current_m) }} / {{ fmtCores(cap?.forecast?.cpu_capacity_m) }} ·
@@ -198,7 +199,8 @@
                 {{ $t('k8s.clusterMem') }} · {{ $t('k8s.capForecast') }}
                 <span style="float:right; font-weight:400" class="mono">{{ capLastPct('mem') }}%</span>
               </div>
-              <MetricChart :points="capPctPoints('mem')" :range="capRange" :empty-text="$t('monitor.noData')"
+              <MetricChart :points="capPctPoints('mem')" :forecast="capForecastSeries('mem')" :forecast-tag="$t('k8s.capTrend')"
+                           :range="capRange" :empty-text="$t('monitor.noData')"
                            color="#67c23a" unit="%" :y-max="100" />
               <div class="km-usage-sub mono">
                 {{ fmtMem(cap?.forecast?.mem_current_mi) }} / {{ fmtMem(cap?.forecast?.mem_capacity_mi) }} ·
@@ -214,6 +216,7 @@
             <span><span class="cap-dot" style="background:#409eff"></span>CPU</span>
             <span><span class="cap-dot" style="background:#67c23a"></span>{{ $t('k8s.memory') }}</span>
             <span>100% = {{ $t('k8s.capCapacityLine') }}</span>
+            <span><span class="cap-dot" style="background:#f56c6c"></span>{{ $t('k8s.capTrend') }} (+90d)</span>
           </div>
 
           <h4 class="km-h4" style="margin-top:6px">{{ $t('k8s.podCapTitle') }}</h4>
@@ -231,12 +234,12 @@
             <div class="km-usage-sub mono" style="margin:0 0 2px">
               <span><span class="cap-dot" style="background:#409eff"></span>CPU</span>
             </div>
-            <MetricChart :points="podPoints('cpu_m')" :range="capRange" :empty-text="$t('monitor.noData')"
+            <MetricChart :points="podPoints('cpu_m')" :forecast="podForecast('cpu_m')" :forecast-tag="$t('k8s.capTrend')" :range="capRange" :empty-text="$t('monitor.noData')"
                          color="#409eff" unit="m" :y-max="podYMax('cpu_m')" />
             <div class="km-usage-sub mono" style="margin:10px 0 2px">
               <span><span class="cap-dot" style="background:#67c23a"></span>{{ $t('k8s.memory') }}</span>
             </div>
-            <MetricChart :points="podPoints('mem_mi')" :range="capRange" :empty-text="$t('monitor.noData')"
+            <MetricChart :points="podPoints('mem_mi')" :forecast="podForecast('mem_mi')" :forecast-tag="$t('k8s.capTrend')" :range="capRange" :empty-text="$t('monitor.noData')"
                          color="#67c23a" unit="Mi" :y-max="podYMax('mem_mi')" />
           </div>
         </template>
@@ -787,6 +790,31 @@ const capLastPct = kind => {
   const arr = capPctPoints(kind)
   return arr.length ? arr[arr.length - 1].v.toFixed(1) : '0.0'
 }
+// 预测外推：+90 天虚线，基于回归斜率换算为百分比量纲，触顶 100% 精确截断
+const HORIZON_DAYS = 90, DAY_MS = 86400000
+const capForecastSeries = kind => {
+  const pts = capPctPoints(kind)
+  const fc = cap.value?.forecast
+  if (pts.length < 2 || !fc) return []
+  const capV = kind === 'cpu' ? fc.cpu_capacity_m : fc.mem_capacity_mi
+  const slopeAbs = kind === 'cpu' ? fc.cpu_slope_m_per_day : fc.mem_slope_mi_per_day
+  if (!capV || !(slopeAbs > 0)) return []
+  const slopePct = (slopeAbs / capV) * 100
+  const last = pts[pts.length - 1]
+  const t0 = new Date(last.t).getTime()
+  if (isNaN(t0)) return []
+  const v0 = Number(last.v) || 0
+  const endDay = Math.min(HORIZON_DAYS, (100 - v0) / slopePct)
+  if (endDay <= 0) return []
+  const out = []
+  for (let d = 1; d <= Math.floor(endDay); d++) {
+    out.push({ t: new Date(t0 + d * DAY_MS).toISOString(), v: v0 + slopePct * d })
+  }
+  if (endDay < HORIZON_DAYS && endDay > Math.floor(endDay)) {
+    out.push({ t: new Date(t0 + endDay * DAY_MS).toISOString(), v: 100 })
+  }
+  return out
+}
 const capSlopeText = (slope, kind) => {
   if (slope == null || slope <= 0) return t('k8s.capStable')
   const perMonth = slope * 30
@@ -814,9 +842,25 @@ const loadCapacity = async () => {
 }
 // Pod 级趋势图（绝对量纲：CPU millicore / 内存 Mi，Y 轴按自身峰值缩放）
 const podPoints = field => (capPodTrend.value?.points || []).map(p => ({ t: p.t, v: p[field] }))
+const podForecast = field => {
+  const t = capPodTrend.value
+  if (!t || !t.points || t.points.length < 2) return []
+  const slope = field === 'cpu_m' ? t.slope_cpu_m_per_day : t.slope_mem_mi_per_day
+  if (!(slope > 0)) return []
+  const last = t.points[t.points.length - 1]
+  const t0 = new Date(last.t).getTime()
+  if (isNaN(t0)) return []
+  const v0 = Number(last[field]) || 0
+  const out = []
+  for (let d = 1; d <= HORIZON_DAYS; d++) {
+    out.push({ t: new Date(t0 + d * DAY_MS).toISOString(), v: v0 + slope * d })
+  }
+  return out
+}
 const podYMax = field => {
   let m = 0
   for (const p of podPoints(field)) m = Math.max(m, Number(p.v) || 0)
+  for (const p of podForecast(field)) m = Math.max(m, Number(p.v) || 0)
   return m * 1.1 || 1
 }
 const capPodSlopeText = computed(() => {

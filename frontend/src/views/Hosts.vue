@@ -315,7 +315,7 @@
         {{ m === 'cpu' ? 'CPU' : m === 'mem' ? $t('monitor.mem') : $t('monitor.disk') }}
         <span style="float:right; font-weight:400" class="mono">{{ capLast(m) }}%</span>
       </div>
-      <MetricChart :points="pctChartPoints(m)" :range="capRange" :empty-text="$t('monitor.noData')"
+      <MetricChart :points="pctChartPoints(m)" :forecast="capForecastSeries(m)" :forecast-tag="$t('k8s.capTrend')" :range="capRange" :empty-text="$t('monitor.noData')"
                    :color="m === 'cpu' ? '#409eff' : m === 'mem' ? '#67c23a' : '#e6a23c'"
                    unit="%" :y-max="100" />
       <div class="km-usage-sub" :style="{ color: capDaysColor(cap?.forecast?.[capField(m)]) }">
@@ -376,6 +376,28 @@ const pctChartPoints = m => {
   const pts = cap.value?.points || []
   const key = m === 'cpu' ? 'cpu_percent' : m === 'mem' ? 'mem_percent' : 'disk_percent'
   return pts.map(p => ({ t: p.t || p.collected_at, v: p[key] }))
+}
+// 预测外推：+90 天虚线（百分比量纲），触顶 100% 精确截断
+const capForecastSeries = m => {
+  const pts = pctChartPoints(m)
+  const fc = cap.value?.forecast
+  if (pts.length < 2 || !fc) return []
+  const slope = m === 'cpu' ? fc.cpu_slope_pct_per_day : m === 'mem' ? fc.mem_slope_pct_per_day : fc.disk_slope_pct_per_day
+  if (!(slope > 0)) return []
+  const last = pts[pts.length - 1]
+  const t0 = new Date(last.t).getTime()
+  if (isNaN(t0)) return []
+  const v0 = Number(last.v) || 0
+  const endDay = Math.min(90, (100 - v0) / slope)
+  if (endDay <= 0) return []
+  const out = []
+  for (let d = 1; d <= Math.floor(endDay); d++) {
+    out.push({ t: new Date(t0 + d * 86400000).toISOString(), v: v0 + slope * d })
+  }
+  if (endDay < 90 && endDay > Math.floor(endDay)) {
+    out.push({ t: new Date(t0 + endDay * 86400000).toISOString(), v: 100 })
+  }
+  return out
 }
 const capDaysText = d => {
   if (d == null) return t('k8s.capNoExhaust')
