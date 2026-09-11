@@ -23,10 +23,24 @@ var reportTemplates = []ReportTemplate{
 		Key:  "accounts",
 		Name: "Server Accounts",
 		Desc: "All system accounts (UID/Shell/Home) and login-enabled accounts",
-		Cmd: `echo '== System Accounts =='
-getent passwd 2>/dev/null || cat /etc/passwd
+		Cmd: `echo '== Summary =='
+TOTAL=$(awk -F: 'END{print NR}' /etc/passwd 2>/dev/null)
+LOGIN=$(awk -F: '$7 !~ /nologin|false/ && $7 != ""' /etc/passwd 2>/dev/null | wc -l)
+HUMAN=$(awk -F: '$3 >= 1000 && $1 != "nobody"' /etc/passwd 2>/dev/null | wc -l)
+UID0=$(awk -F: '$3 == 0 {printf "%s ",$1}' /etc/passwd 2>/dev/null)
+DUP=$(awk -F: '{print $3}' /etc/passwd 2>/dev/null | sort -n | uniq -d | tr '\n' ' ')
+echo "total_accounts=${TOTAL:-0}"
+echo "login_enabled=${LOGIN:-0}"
+echo "human_accounts=${HUMAN:-0}"
+echo "system_accounts=$((TOTAL - HUMAN))"
+echo "uid0_accounts=${UID0:-none}"
+echo "duplicate_uid=${DUP:-none}"
 echo
-echo '== Login-enabled Accounts =='
+echo '== Accounts CSV =='
+echo 'username,uid,gid,group,home,shell,login_enabled,type'
+awk -F: 'NR==FNR { g[$3]=$1; next } { le = ($7 ~ /nologin|false/) ? "no" : "yes"; ty = ($3 >= 1000 && $1 != "nobody") ? "human" : "system"; printf "%s,%s,%s,%s,%s,%s,%s,%s\n", $1,$3,$4,g[$4],$6,$7,le,ty }' /etc/group /etc/passwd 2>/dev/null
+echo
+echo '== Login-enabled Detail =='
 grep -Ev '(nologin|false)$' /etc/passwd 2>/dev/null | cut -d: -f1,6,7
 `,
 	},
