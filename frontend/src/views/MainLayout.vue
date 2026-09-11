@@ -37,7 +37,7 @@
           <div class="title">{{ $route.meta.title ? $t($route.meta.title) : 'JNexus' }}</div>
         </div>
         <div class="header-quote" :title="quote.text + '（点击换一条）'" @click="pickQuote">
-          <span class="q-icon">{{ quote.icon }}</span>{{ quote.text }}
+          <span v-if="quote.icon" class="q-icon">{{ quote.icon }}</span>{{ quote.text }}
         </div>
         <div style="display:flex; align-items:center; gap:16px">
           <el-button class="theme-toggle" text @click="toggleTheme" style="padding:6px" :title="isDark ? ('layout.lightMode') : ('layout.darkMode')">
@@ -213,7 +213,7 @@ const onLocale = v => setLocale(v)
 // ---- 顶栏随机一句话：笑话 / 心灵鸡汤（点击换一条，10 分钟自动轮换）----
 const QUOTE_POOLS = [
   { icon: '😄', pool: jokes },
-  { icon: '☕', pool: soulSoups },
+  { icon: '', pool: soulSoups },
 ]
 const quote = ref({ icon: '😄', text: '' })
 let lastQuote = ''
