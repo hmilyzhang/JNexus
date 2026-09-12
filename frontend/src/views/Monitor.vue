@@ -1081,31 +1081,35 @@ onUnmounted(() => clearInterval(timer))
   padding: 10px 14px; cursor: pointer; border-radius: 4px; font-size: 14px;
   border: 1px solid transparent;
 }
-.tpl-item:hover { background: #f5f7fa; }
-.tpl-item.active { background: #ecf5ff; color: #409eff; font-weight: 600; border-color: #d9ecff; }
+.tpl-item:hover { background: var(--el-fill-color-light); }
+.tpl-item.active {
+  background: var(--el-color-primary-light-9); color: var(--el-color-primary);
+  font-weight: 600; border-color: var(--el-color-primary-light-7);
+}
 @media (max-width: 1100px) { .hb { display: none; } }
 </style>
 
 <style>
-/* ---- 运维月报排版 ---- */
+/* ---- 运维月报排版（跟随深浅色主题；打印时强制浅色） ---- */
 #monthly-report {
-  max-width: 980px; margin: 0 auto; background: #fff;
-  padding: 36px 48px 40px; box-shadow: 0 2px 12px rgba(0, 21, 41, .08);
-  border-radius: 4px; color: #303133;
+  max-width: 980px; margin: 0 auto; background: var(--el-bg-color);
+  padding: 36px 48px 40px; box-shadow: var(--el-box-shadow-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px; color: var(--el-text-color-primary);
 }
-#monthly-report h2 { font-size: 22px; letter-spacing: 3px; color: #1d2935; }
+#monthly-report h2 { font-size: 22px; letter-spacing: 3px; color: var(--el-text-color-primary); }
 #monthly-report h3 {
   font-size: 16px; margin: 26px 0 12px; padding-left: 10px;
-  border-left: 4px solid #409eff; line-height: 1.3; color: #1d2935;
+  border-left: 4px solid #409eff; line-height: 1.3; color: var(--el-text-color-primary);
 }
-#monthly-report h4 { font-size: 13px; margin: 16px 0 8px; color: #606266; }
+#monthly-report h4 { font-size: 13px; margin: 16px 0 8px; color: var(--el-text-color-regular); }
 #monthly-report .el-table { margin-bottom: 10px; }
 #monthly-report .el-table th.el-table__cell {
-  background: #f5f7fa !important; color: #303133; font-weight: 600;
+  background: var(--el-fill-color-light) !important; color: var(--el-text-color-primary); font-weight: 600;
 }
 .rep-grid { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 14px; }
 .rep-stat {
-  flex: 1; min-width: 118px; background: #f7f9fb; border: 1px solid #ebeef5;
+  flex: 1; min-width: 118px; background: var(--el-fill-color-light); border: 1px solid var(--el-border-color-lighter);
   border-radius: 6px; padding: 12px 8px; text-align: center;
 }
 .rep-stat b { display: block; font-size: 26px; color: #409eff; line-height: 1.2; }
@@ -1114,6 +1118,11 @@ onUnmounted(() => clearInterval(timer))
 
 @media print {
   body * { visibility: hidden; }
+  #monthly-report, #monthly-report * {
+    background: #ffffff !important; color: #1d2935 !important;
+    border-color: #dcdfe6 !important; box-shadow: none !important;
+  }
+  #monthly-report .el-table th.el-table__cell { background: #f5f7fa !important; color: #1d2935 !important; }
   #monthly-report, #monthly-report * { visibility: visible; }
   #monthly-report {
     position: absolute; left: 0; top: 0; width: 100%;
