@@ -25,3 +25,5 @@ Thumbs.db
 *.exe~
 __pycache__/
 frontend/i18n_audit.mjs
+NUL
+%TEMP%*
