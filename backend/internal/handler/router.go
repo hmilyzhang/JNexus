@@ -394,15 +394,15 @@ func SetupRouter() *gin.Engine {
 				c.JSON(http.StatusNotFound, gin.H{"error": "接口不存在"})
 				return
 			}
-			if p != "/" && !strings.HasPrefix(p, "/assets") {
-				c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
-				c.File(filepath.Join(abs, "index.html"))
+			// 带 hash 的静态资源：长缓存
+			if strings.HasPrefix(p, "/assets/") {
+				c.Header("Cache-Control", "public, max-age=31536000, immutable")
+				c.File(filepath.Join(abs, strings.TrimPrefix(p, "/")))
 				return
 			}
-			if strings.HasPrefix(p, "/assets") {
-				c.Header("Cache-Control", "public, max-age=31536000, immutable")
-			}
-			c.File(filepath.Join(abs, strings.TrimPrefix(p, "/")))
+			// 其余一律回 index.html 且禁止缓存：发版后浏览器立刻拿到新入口
+			c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+			c.File(filepath.Join(abs, "index.html"))
 		})
 		break
 	}
