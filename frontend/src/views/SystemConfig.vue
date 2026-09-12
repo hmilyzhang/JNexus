@@ -47,6 +47,39 @@
       </el-form>
       <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
     </el-card>
+
+    <el-card style="margin-top:16px">
+      <template #header>
+        <div style="display:flex; align-items:center; gap:10px">
+          <span style="flex:1">{{ $t('rot.applicableAccts') }}（{{ rotAccounts.length }}）</span>
+          <el-button size="small" @click="loadRotAccounts">{{ $t('common.refresh') }}</el-button>
+          <el-button size="small" type="warning" :disabled="!rotAccounts.length"
+                     @click="runAllNow">{{ $t('rot.runNow') }}</el-button>
+        </div>
+      </template>
+      <el-table :data="rotAccounts" size="small" border max-height="420">
+        <el-table-column prop="host" :label="$t('menu.hosts')" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="username" :label="$t('hosts.credUser')" min-width="110" />
+        <el-table-column :label="$t('rot.enable')" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.rotate_enabled" size="small">{{ row.days }}{{ $t('rot.daysUnit') }}</el-tag>
+            <span v-else style="color:var(--el-text-color-secondary)">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('rot.due')" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.due ? 'danger' : 'success'">{{ row.due ? $t('rot.dueYes') : $t('rot.dueNo') }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('rot.lastRot')" min-width="150">
+          <template #default="{ row }">
+            <span :style="{ color: (row.last_rotation_result || '').includes('失败') ? 'var(--el-color-danger)' : 'inherit' }">
+              {{ row.last_rotation_result || '—' }}
+            </span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
     </el-tab-pane>
 
     <el-tab-pane :label="$t('system.ldap')" name="ldap">
@@ -511,9 +544,45 @@ const saveRoles = async () => {
   } finally { savingRoles.value = false }
 }
 
+// ---- Password rotation: applicable accounts + run-all-now (reuses the async batch) ----
+const rotAccounts = ref([])
+const rotBatchId = ref('')
+const rotBatchProg = ref({ done: 0, total: 0, ok: 0, failed: 0, running: false, results: [] })
+let rotBatchTimer = null
+const rotBatchPollStop = () => { if (rotBatchTimer) { clearInterval(rotBatchTimer); rotBatchTimer = null } }
+
+const loadRotAccounts = async () => {
+  try {
+    const r = await api.get('/system/rotation/accounts')
+    rotAccounts.value = r.accounts || []
+  } catch { /* ignore */ }
+}
+
+const runAllNow = async () => {
+  try {
+    await ElMessageBox.confirm(t('rot.runNowConfirm'), t('rot.tab'), { type: 'warning' })
+  } catch { return }
+  try {
+    const r = await api.post('/system/rotation/run-now')
+    if (!r.batch) { ElMessage.info(t('rot.noAccounts')); return }
+    rotBatchId.value = r.batch
+    rotBatchPollStop()
+    rotBatchTimer = setInterval(async () => {
+      try {
+        const st = await api.get('/credentials/rotate-batch/' + rotBatchId.value)
+        rotBatchProg.value = st
+        if (!st.running) { rotBatchPollStop(); loadRotAccounts() }
+      } catch { rotBatchPollStop() }
+    }, 1500)
+  } catch { /* interceptor shows the error */ }
+}
+
 onMounted(async () => {
   try {
     api.get('/system/info').then(info => { appVersion.value = info.version || '1.0' }).catch(() => {})
+  } catch { /* ignore */ }
+  loadRotAccounts()
+  try {
     const cfg = await api.get('/system/config')
     for (const k of Object.keys(form)) {
       if (cfg[k] !== undefined && cfg[k] !== null) form[k] = cfg[k]

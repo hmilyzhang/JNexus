@@ -309,3 +309,67 @@ func Dashboard(c *gin.Context) {
 		"danger_rules": dangerCnt,
 	})
 }
+
+// ---- 密码轮换：适用账号列表 + 立即全部轮换 ----
+
+// RotationAccounts GET /api/system/rotation/accounts — 适用账号列表（密码认证、非 LDAP）+ 到期状态
+func RotationAccounts(c *gin.Context) {
+	type row struct {
+		ID            uint       `json:"id"`
+		Host          string     `json:"host"`
+		Username      string     `json:"username"`
+		RotateEnabled bool       `json:"rotate_enabled"`
+		Days          int        `json:"days"`
+		Due           bool       `json:"due"`
+		LastRotated   *time.Time `json:"last_rotated_at"`
+		LastResult    string     `json:"last_rotation_result"`
+	}
+	var creds []model.HostCredential
+	model.DB.Where("auth_type = ? AND is_ldap = ?", "password", false).
+		Order("host_id, username").Find(&creds)
+
+	hosts := map[uint]string{}
+	var hl []model.Host
+	model.DB.Select("id", "name", "ip").Find(&hl)
+	for _, h := range hl {
+		n := h.Name
+		if n == "" {
+			n = h.IP
+		}
+		hosts[h.ID] = n
+	}
+
+	policy := service.GetRotationPolicy()
+	now := time.Now()
+	out := make([]row, 0, len(creds))
+	for _, cr := range creds {
+		days := cr.RotateDays
+		if days <= 0 {
+			days = policy.Days
+		}
+		due := cr.LastRotatedAt == nil || now.Sub(*cr.LastRotatedAt) > time.Duration(days)*24*time.Hour
+		out = append(out, row{
+			ID: cr.ID, Host: hosts[cr.HostID], Username: cr.Username,
+			RotateEnabled: cr.RotateEnabled, Days: days, Due: due,
+			LastRotated: cr.LastRotatedAt, LastResult: cr.LastRotationResult,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"accounts": out, "policy_days": policy.Days})
+}
+
+// RotationRunNow POST /api/system/rotation/run-now — 立即轮换全部适用账号（复用异步批量，前端轮询进度）
+func RotationRunNow(c *gin.Context) {
+	u := currentUser(c)
+	var creds []model.HostCredential
+	model.DB.Where("auth_type = ? AND is_ldap = ?", "password", false).Find(&creds)
+	ids := make([]uint, 0, len(creds))
+	for _, cr := range creds {
+		ids = append(ids, cr.ID)
+	}
+	if len(ids) == 0 {
+		c.JSON(http.StatusOK, gin.H{"batch": "", "total": 0})
+		return
+	}
+	batch := startRotationBatch(ids, u, c.ClientIP())
+	c.JSON(http.StatusOK, gin.H{"batch": batch, "total": len(ids)})
+}

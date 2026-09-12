@@ -527,8 +527,14 @@ func RotateCredentialsBatch(c *gin.Context) {
 		return
 	}
 	u := currentUser(c)
+	batch := startRotationBatch(req.IDs, u, c.ClientIP())
+	c.JSON(http.StatusOK, gin.H{"batch": batch, "total": len(req.IDs)})
+}
+
+// startRotationBatch 启动异步批量轮换（逐台串行，300ms 错峰），返回批次 ID
+func startRotationBatch(ids []uint, u *model.User, ip string) string {
 	batch := "rb-" + time.Now().Format("0102150405") + fmt.Sprintf("-%04d", time.Now().UnixNano()%10000)
-	st := &rotateBatchState{Total: len(req.IDs), Running: true, Results: []gin.H{}}
+	st := &rotateBatchState{Total: len(ids), Running: true, Results: []gin.H{}}
 	rotateBatchesMu.Lock()
 	rotateBatches[batch] = st
 	for k := range rotateBatches { // 只保留最近 20 个批次
@@ -538,7 +544,6 @@ func RotateCredentialsBatch(c *gin.Context) {
 	}
 	rotateBatchesMu.Unlock()
 
-	ids := req.IDs
 	go func() {
 		defer func() { recover() }()
 		rotateBatchesMu.Lock()
@@ -579,7 +584,7 @@ func RotateCredentialsBatch(c *gin.Context) {
 				model.DB.Create(&model.AuditLog{
 					UserID: u.ID, Username: u.Username,
 					Action: "CRED_ROTATE", Resource: fmt.Sprintf("%s@%s", cred.Username, hostDisp),
-					IP: c.ClientIP(), Status: map[bool]int{true: 200, false: 500}[ok], CreatedAt: time.Now(),
+					IP: ip, Status: map[bool]int{true: 200, false: 500}[ok], CreatedAt: time.Now(),
 				})
 			}
 			rotateBatchesMu.Lock()
@@ -600,7 +605,7 @@ func RotateCredentialsBatch(c *gin.Context) {
 		rotateBatchesMu.Unlock()
 	}()
 
-	c.JSON(http.StatusOK, gin.H{"batch": batch, "total": len(req.IDs)})
+	return batch
 }
 
 // RotateCredentialsBatchStatus GET /api/credentials/rotate-batch/:batch — 批量轮换进度

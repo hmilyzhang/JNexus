@@ -360,6 +360,8 @@ func SetupRouter() *gin.Engine {
 			sysCfg.PUT("/config", UpdateSystemConfig)
 			sysCfg.POST("/ldap/test", TestLDAPConfig)
 			sysCfg.POST("/smtp/test", TestSMTPConfig)
+			sysCfg.GET("/rotation/accounts", RotationAccounts)
+			sysCfg.POST("/rotation/run-now", RotationRunNow)
 			sysCfg.GET("/platform_key", GetPlatformKey)
 			sysCfg.PUT("/roles", UpdateSystemRoles)
 		}
