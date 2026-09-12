@@ -78,7 +78,20 @@
             </span>
           </template>
         </el-table-column>
+        <el-table-column :label="$t('common.operation')" width="100" align="center">
+          <template #default="{ row }">
+            <el-button size="small" link type="warning" @click="revealAcct(row)">{{ $t('rot.view') }}</el-button>
+          </template>
+        </el-table-column>
       </el-table>
+
+    <el-dialog v-model="revealVisible" :title="$t('rot.viewTitle')" width="420px" append-to-body>
+      <el-form label-width="90px">
+        <el-form-item :label="$t('hosts.credUser')"><span class="mono">{{ revealAcctData.username }}</span></el-form-item>
+        <el-form-item :label="$t('hosts.password')"><span class="mono" style="font-weight:bold">{{ revealAcctData.password }}</span></el-form-item>
+      </el-form>
+      <el-alert type="warning" :closable="false" :title="$t('rot.revealAudit')" />
+    </el-dialog>
     </el-card>
     </el-tab-pane>
 
@@ -574,6 +587,17 @@ const runAllNow = async () => {
         if (!st.running) { rotBatchPollStop(); loadRotAccounts() }
       } catch { rotBatchPollStop() }
     }, 1500)
+  } catch { /* interceptor shows the error */ }
+}
+
+// ---- 查看账号密码（管理员，带审计） ----
+const revealVisible = ref(false)
+const revealAcctData = ref({ username: '', password: '' })
+const revealAcct = async row => {
+  try {
+    const r = await api.post(`/credentials/${row.id}/reveal`)
+    revealAcctData.value = { username: row.username, password: r.password }
+    revealVisible.value = true
   } catch { /* interceptor shows the error */ }
 }
 
