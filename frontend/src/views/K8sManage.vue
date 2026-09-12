@@ -388,6 +388,7 @@
         <el-button type="primary" @click="createSa">{{ $t('common.save') }}</el-button>
       </template>
     </el-dialog>
+    <FloatingAI />
   </div>
 </template>
 
@@ -397,6 +398,7 @@ import { useRoute } from 'vue-router'
 import { Odometer, OfficeBuilding, Box, Connection, Setting, Coin, Key, Back, ShoppingBag, Search as SearchIcon, TrendCharts } from '@element-plus/icons-vue'
 import api from '../api'
 import i18n from '../i18n'
+import FloatingAI from '../components/FloatingAI.vue'
 import K8sShell from '../components/K8sShell.vue'
 import MetricChart from '../components/MetricChart.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
