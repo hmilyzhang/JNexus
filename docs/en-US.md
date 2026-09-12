@@ -37,6 +37,8 @@ JNexus is built with **Go (Gin + GORM) + Vue 3 (Element Plus + xterm.js) + Postg
 JNexus targets self-hosted operations for small and mid-size teams. The goal: **run your whole fleet from one web page**.
 
 - **Two platforms, one console**: Linux (SSH) and Windows (WinRM / in-browser RDP) managed side by side;
+- **AI Assistant**: built-in floating chat panel compatible with any OpenAI protocol service (Ollama / vLLM / LM Studio), with page context awareness and role presets;
+- **Dark / Light theme**: global toggle, fully adapted across all pages;
 - **One-command deploy**: a single binary plus one Docker Compose file (database and RDP gateway included);
 - **13 modules**: hosts, credentials, reports, monitoring, Kubernetes, cron jobs, apps, releases, tasks, execution, files, scripts, keys;
 - **Built-in governance**: capability-based RBAC + custom roles + MFA + LDAP + full audit trail;
