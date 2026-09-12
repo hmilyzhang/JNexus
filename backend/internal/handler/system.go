@@ -25,12 +25,13 @@ var editableConfigKeys = []string{
 	"smtp_enabled", "smtp_host", "smtp_port", "smtp_ssl", "smtp_tls",
 	"smtp_username", "smtp_password", "smtp_from", "smtp_recipients", "smtp_notify",
 	"rotation_enabled", "rotation_length", "rotation_complexity", "rotation_days",
+	"ai_enabled", "ai_base_url", "ai_api_key", "ai_model", "ai_timeout_sec",
 }
 
 // GetSystemConfig 读取系统配置（admin），密码字段打码
 func GetSystemConfig(c *gin.Context) {
 	m := service.SystemConfigMap()
-	for _, k := range []string{"ldap_bind_password", "smtp_password"} {
+	for _, k := range []string{"ldap_bind_password", "smtp_password", "ai_api_key"} {
 		if m[k] != "" {
 			m[k] = "******"
 		}
@@ -52,7 +53,7 @@ func UpdateSystemConfig(c *gin.Context) {
 		if !ok {
 			continue
 		}
-		if (k == "ldap_bind_password" || k == "smtp_password") && (v == "" || v == "******") {
+		if (k == "ldap_bind_password" || k == "smtp_password" || k == "ai_api_key") && (v == "" || v == "******") {
 			continue // 保持原值
 		}
 		filtered[k] = v

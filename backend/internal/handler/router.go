@@ -32,6 +32,7 @@ func SetupRouter() *gin.Engine {
 		// Web 终端（自带 token 鉴权，不走 hub）
 		api.GET("/ws/term/:hostId", WebTerminal)
 		api.GET("/ws/tail", LogTailWS)
+		api.POST("/ai/chat", AIChat)
 		api.GET("/ws/k8s/:clusterId", K8sExecWS)
 		api.GET("/ws/k8s/logs/:clusterId", K8sLogWS)
 		api.GET("/ws/task/:id", ws.Handler(func(c *gin.Context) string {
@@ -362,6 +363,7 @@ func SetupRouter() *gin.Engine {
 			sysCfg.POST("/smtp/test", TestSMTPConfig)
 			sysCfg.GET("/rotation/accounts", RotationAccounts)
 			sysCfg.POST("/rotation/run-now", RotationRunNow)
+			sysCfg.POST("/ai/test", middleware.RequireRole(model.RoleAdmin), AITest)
 			sysCfg.GET("/platform_key", GetPlatformKey)
 			sysCfg.PUT("/roles", UpdateSystemRoles)
 		}

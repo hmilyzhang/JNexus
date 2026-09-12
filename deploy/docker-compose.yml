@@ -45,6 +45,8 @@ services:
     volumes:
       - uploads:/app/uploads
       - data:/app/data
+      # 主机自定义 CA 证书目录（可选）：放入 .crt/.pem 文件即被容器信任（LDAPS/HTTPS/K8S 自签证书）
+      - ./cacerts:/cacerts:ro
     restart: unless-stopped
 
   # RDP 图形桌面网关：浏览器 ←WS← guacamole-lite ← guacd ← Windows 3389

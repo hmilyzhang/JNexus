@@ -57,4 +57,18 @@ elif [ ! -f "$DATA_DIR/gw_secret" ]; then
   echo "[entrypoint] 已将环境变量提供的 RDP 网关密钥持久化到 $DATA_DIR/gw_secret"
 fi
 
+# 主机自定义 CA 证书（可选：compose 挂载 /cacerts 只读目录，放入 .crt/.pem）：
+# 与系统 CA 合并生成信任 bundle，通过 SSL_CERT_FILE 供 Go TLS 使用
+# （LDAPS / HTTPS 拨测 / Kubernetes 自签证书即可被容器信任，无需 root）。
+EXTRA_CA_DIR=/cacerts
+if [ -d "$EXTRA_CA_DIR" ] && ls "$EXTRA_CA_DIR"/*.crt "$EXTRA_CA_DIR"/*.pem >/dev/null 2>&1; then
+  BUNDLE="$DATA_DIR/ca-bundle.crt"
+  {
+    cat /etc/ssl/certs/ca-certificates.crt 2>/dev/null
+    cat "$EXTRA_CA_DIR"/*.crt "$EXTRA_CA_DIR"/*.pem 2>/dev/null
+  } > "$BUNDLE"
+  export SSL_CERT_FILE="$BUNDLE"
+  echo "[entrypoint] CA bundle merged: $BUNDLE"
+fi
+
 exec /app/jnexus-server -config /app/config.yaml

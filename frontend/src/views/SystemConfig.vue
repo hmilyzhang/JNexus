@@ -95,6 +95,44 @@
     </el-card>
     </el-tab-pane>
 
+    <!-- AI 助手 -->
+    <el-tab-pane :label="$t('ai.tab')" name="ai">
+    <el-card>
+      <el-form label-width="150px">
+        <el-form-item :label="$t('ai.enabled')">
+          <el-switch v-model="form.ai_enabled" active-value="true" inactive-value="false" />
+          <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:4px">{{ $t('ai.tip') }}</div>
+        </el-form-item>
+        <template v-if="form.ai_enabled === 'true'">
+          <el-form-item :label="$t('ai.baseUrl')">
+            <el-input v-model="form.ai_base_url" class="mono" placeholder="http://127.0.0.1:11434/v1" />
+            <div style="color:var(--el-text-color-secondary); font-size:12px; width:100%">{{ $t('ai.baseUrlTip') }}</div>
+          </el-form-item>
+          <el-form-item :label="$t('ai.apiKey')">
+            <el-input v-model="form.ai_api_key" type="password" show-password class="mono" :placeholder="$t('ai.apiKeyTip')" />
+          </el-form-item>
+          <el-form-item :label="$t('ai.model')">
+            <el-input v-model="form.ai_model" class="mono" placeholder="qwen2.5:7b" />
+          </el-form-item>
+          <el-form-item :label="$t('ai.timeout')">
+            <el-input-number v-model="aiTimeoutNum" :min="5" :max="600" />
+            <span style="margin-left:8px; color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.timeoutTip') }}</span>
+          </el-form-item>
+        </template>
+        <el-form-item>
+          <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+          <el-button :loading="aiTesting" @click="testAi">{{ $t('ai.testConn') }}</el-button>
+        </el-form-item>
+        <el-divider content-position="left">{{ $t('ai.chatTest') }}</el-divider>
+        <div style="display:flex; gap:8px">
+          <el-input v-model="aiPrompt" :placeholder="$t('ai.promptTip')" @keyup.enter="sendAi" />
+          <el-button type="primary" :loading="aiSending" @click="sendAi">{{ $t('ai.send') }}</el-button>
+        </div>
+        <pre v-if="aiReply" class="mono" style="margin-top:12px; white-space:pre-wrap; background:var(--el-fill-color-light); padding:12px; border-radius:6px">{{ aiReply }}</pre>
+      </el-form>
+    </el-card>
+    </el-tab-pane>
+
     <el-tab-pane :label="$t('system.ldap')" name="ldap">
     <el-card>
       <el-form label-width="140px">
@@ -401,7 +439,8 @@ const form = reactive({
   ldap_group_check: 'false', ldap_group_base_dn: '', ldap_group_filter: '(member=%s)', ldap_required_groups: '',
   smtp_enabled: 'false', smtp_host: '', smtp_port: '25', smtp_ssl: 'false', smtp_tls: 'true',
   smtp_username: '', smtp_password: '', smtp_from: '', smtp_recipients: '', smtp_notify: 'true',
-  rotation_enabled: 'false'
+  rotation_enabled: 'false',
+  ai_enabled: 'false', ai_base_url: '', ai_api_key: '', ai_model: '', ai_timeout_sec: '120'
 })
 const rotationLength = ref(20)
 const rotationComplexity = ref('high')
@@ -601,11 +640,51 @@ const revealAcct = async row => {
   } catch { /* interceptor shows the error */ }
 }
 
+// ---- AI 助手：配置 + 连通性测试 + 测试对话 ----
+const aiTesting = ref(false)
+const aiSending = ref(false)
+const aiTimeoutNum = ref(120)
+const aiPrompt = ref('')
+const aiReply = ref('')
+
+const loadAiConfig = async () => {
+  try {
+    const cfg = await api.get('/system/config')
+    form.ai_enabled = cfg.ai_enabled || 'false'
+    form.ai_base_url = cfg.ai_base_url || ''
+    form.ai_model = cfg.ai_model || ''
+    form.ai_timeout_sec = cfg.ai_timeout_sec || '120'
+    aiTimeoutNum.value = Number(cfg.ai_timeout_sec) || 120
+    form.ai_api_key = cfg.ai_api_key === '******' ? '******' : (cfg.ai_api_key || '')
+  } catch { /* ignore */ }
+}
+
+const testAi = async () => {
+  await save()
+  aiTesting.value = true
+  try {
+    const r = await api.post('/system/ai/test')
+    aiReply.value = r.reply || ('OK · ' + (r.elapsed_ms || 0) + 'ms')
+    ElMessage.success(t('system.saved'))
+  } catch { /* interceptor shows the error */ } finally { aiTesting.value = false }
+}
+
+const sendAi = async () => {
+  if (!aiPrompt.value.trim()) { ElMessage.warning(t('ai.promptTip')); return }
+  aiSending.value = true
+  aiReply.value = ''
+  try {
+    const r = await api.post('/ai/chat', { prompt: aiPrompt.value })
+    aiReply.value = r.reply || ''
+  } catch { /* interceptor shows the error */ } finally { aiSending.value = false }
+}
+
 onMounted(async () => {
   try {
     api.get('/system/info').then(info => { appVersion.value = info.version || '1.0' }).catch(() => {})
   } catch { /* ignore */ }
   loadRotAccounts()
+  loadAiConfig()
   try {
     const cfg = await api.get('/system/config')
     for (const k of Object.keys(form)) {
@@ -629,7 +708,12 @@ const save = async () => {
     const payload = { ...form, ldap_port: String(ldapPort.value), smtp_port: String(smtpPort.value),
       smtp_ssl: smtpSsl.value ? 'true' : 'false',
       rotation_length: String(rotationLength.value), rotation_complexity: rotationComplexity.value,
-      rotation_days: String(rotationDays.value) }
+      rotation_days: String(rotationDays.value),
+      ai_enabled: String(form.ai_enabled),
+      ai_base_url: form.ai_base_url,
+      ai_api_key: form.ai_api_key === '******' ? '' : form.ai_api_key,
+      ai_model: form.ai_model,
+      ai_timeout_sec: String(aiTimeoutNum.value) }
     await api.put('/system/config', payload)
     localStorage.setItem('system_name', form.system_name)
     document.title = form.system_name
