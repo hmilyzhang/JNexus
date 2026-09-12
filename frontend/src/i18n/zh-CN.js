@@ -1079,6 +1079,8 @@ logtail: {
     testConn: '测试连通',
     chatTest: '测试对话',
     promptTip: '输入内容，回车或点发送',
+    greeting: '你好！我是 JNexus AI 助手，有什么可以帮你？',
+    error: '连接失败，请稍后再试',
     send: '发送',
     stateOn: '已启用',
     stateOff: '未启用',

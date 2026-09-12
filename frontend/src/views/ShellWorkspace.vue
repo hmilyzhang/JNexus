@@ -1,7 +1,7 @@
 <!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
 <template>
   <el-row :gutter="12" class="shell-row">
-    <el-col :span="6">
+    <el-col :span="6" v-show="!sideCollapsed">
       <el-card :header="$t('shell.assetTree')" v-loading="loading" class="side-card">
         <el-tree :data="treeData" node-key="key" highlight-current :default-expand-all="false" :expand-on-click-node="false"
                  @node-click="onTreeNode">
@@ -29,10 +29,13 @@
       </el-card>
     </el-col>
 
-    <el-col :span="18">
+    <el-col :span="sideCollapsed ? 24 : 18">
       <el-card class="term-card" :class="{ 'term-fullscreen': fullScreen }" ref="termCardEl">
         <template #header>
           <div style="display:flex; align-items:center; gap:10px">
+            <el-button text size="small" @click="sideCollapsed = !sideCollapsed" style="padding:4px">
+              <el-icon :size="16"><component :is="sideCollapsed ? 'Expand' : 'Fold'" /></el-icon>
+            </el-button>
             <span style="flex:1; font-weight:600">{{ activeLabel || $t('shell.title') }}</span>
             <el-select v-model="themeName" size="small" style="width:150px" @change="applyTheme">
               <el-option v-for="(t, name) in termThemes" :key="name" :label="name" :value="name" />
@@ -86,6 +89,7 @@ const termThemes = {
     selectionBackground: '#0969da33', red: '#cf222e', green: '#116329', yellow: '#bf8700',
     blue: '#0550ae', magenta: '#8250df', cyan: '#1b7c83' },
 }
+const sideCollapsed = ref(false)
 const themeName = ref(localStorage.getItem('term_theme') || '默认 Dark')
 const applyTheme = name => {
   const th = termThemes[name]

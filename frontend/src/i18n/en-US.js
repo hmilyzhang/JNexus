@@ -1078,6 +1078,8 @@ logtail: {
     testConn: 'Test connection',
     chatTest: 'Test chat',
     promptTip: 'Type a message…',
+    greeting: 'Hi! I am the JNexus AI assistant. How can I help?',
+    error: 'Connection failed, please try again',
     send: 'Send',
     stateOn: 'Enabled',
     stateOff: 'Disabled',

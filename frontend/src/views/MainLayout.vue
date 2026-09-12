@@ -112,6 +112,39 @@
       </template>
     </template>
   </el-dialog>
+
+  <!-- 全站悬浮 AI 助手 -->
+  <transition name="ai-fade">
+    <div v-if="aiOpen" class="ai-panel">
+      <div class="ai-head">
+        <span style="font-weight:700">{{ $t('ai.assistantTitle') }}</span>
+        <el-button text size="small" style="color:#909399" @click="aiOpen = false">
+          <el-icon><Close /></el-icon>
+        </el-button>
+      </div>
+      <div class="ai-messages" ref="aiMsgBox">
+        <div v-for="(msg, i) in aiMessages" :key="i" class="ai-msg" :class="msg.role">
+          <div class="ai-bubble">{{ msg.text }}</div>
+        </div>
+        <div v-if="aiThinking" class="ai-msg ai-user-side" style="opacity:.6"><div class="ai-bubble">…</div></div>
+      </div>
+      <div class="ai-input-row">
+        <el-input v-model="aiInput" :placeholder="$t('ai.assistantPlaceholder')" size="default"
+                  @keyup.enter="sendToAI" :disabled="aiBusy" clearable />
+        <el-button type="primary" :loading="aiBusy" @click="sendToAI">{{ $t('ai.send') }}</el-button>
+      </div>
+    </div>
+  </transition>
+  <transition name="ai-fade">
+    <div v-if="!aiOpen" class="ai-fab" @click="aiOpen = true" :title="$t('ai.assistantTitle')">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        <circle cx="9" cy="10" r="0.5" fill="currentColor"/>
+        <circle cx="13" cy="10" r="0.5" fill="currentColor"/>
+        <circle cx="17" cy="10" r="0.5" fill="currentColor"/>
+      </svg>
+    </div>
+  </transition>
 </template>
 
 <script setup>
@@ -230,8 +263,29 @@ pickQuote()
 const quoteTimer = setInterval(pickQuote, 10 * 60 * 1000)
 onBeforeUnmount(() => clearInterval(quoteTimer))
 
-const pwdVisible = ref(false)
-const pwdForm = ref({ old_password: '', new_password: '' })
+// ---- 全站悬浮 AI 对话框 ----
+const aiOpen = ref(false)
+const aiBusy = ref(false)
+const aiInput = ref('')
+const aiMessages = ref([])
+const aiMsgBox = ref(null)
+
+const sendToAI = async () => {
+  const text = aiInput.value.trim()
+  if (!text || aiBusy.value) return
+  aiMessages.value.push({ role: 'user', text })
+  aiBusy.value = true
+  try {
+    const r = await api.post('/ai/chat', { prompt: text })
+    aiMessages.value.push({ role: 'bot', text: r.reply || '…' })
+  } catch {
+    aiMessages.value.push({ role: 'bot', text: t('ai.error') })
+  } finally {
+    aiInput.value = ''
+    aiBusy.value = false
+    setTimeout(() => { const b = aiMsgBox.value; if (b) b.scrollTop = b.scrollHeight }, 50)
+  }
+}
 
 const onCmd = cmd => {
   if (cmd === 'logout') {
