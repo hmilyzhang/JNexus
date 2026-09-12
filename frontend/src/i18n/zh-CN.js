@@ -21,6 +21,7 @@ export default {
     danger: '危险命令规则',
     audit: '审计日志',
     system: '系统配置'
+    logtail: "日志输出",
   },
   common: {
     confirm: '确认',
@@ -495,6 +496,12 @@ export default {
     revealAudit: '⚠ 本次查看已记录审计日志',
     confirm: '确认立即轮换该账号密码？新密码将随机生成并加密保存。',
     last: '上次轮换'
+    applicableAccts: "适用账号（密码认证、非域账号）",
+    runNow: "立即全部轮换",
+    due: "轮换状态",
+    dueYes: "已到期",
+    dueNo: "未到期",
+    lastRot: "最近轮换",
   },
   monitor: {
     tabRules: '报警规则',
@@ -831,6 +838,13 @@ export default {
     batchRotateTip: '逐台串行执行（错峰 300ms）；新密码已加密入库，请通过「查看密码」或密码管理工具同步到需要的地方。',
     batchRunning: '执行中',
     rotOff: '未启用轮换'
+    unnamedHost: "未命名主机",
+    unbound: "未绑定主机",
+    batchRotate: "批量轮换",
+    batchRotateTitle: "批量轮换 OS 账号密码",
+    batchRotateConfirm: "将对 {n} 个账号执行密码轮换，密钥/LDAP 账号自动跳过。继续？",
+    batchRotateTip: "逐台串行执行；新密码已加密入库。",
+    batchRunning: "执行中",
   },
   paired: {
     name: '名称（主机-账号）',

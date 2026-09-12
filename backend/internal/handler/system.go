@@ -26,6 +26,7 @@ var editableConfigKeys = []string{
 	"smtp_username", "smtp_password", "smtp_from", "smtp_recipients", "smtp_notify",
 	"rotation_enabled", "rotation_length", "rotation_complexity", "rotation_days",
 	"ai_enabled", "ai_base_url", "ai_api_key", "ai_model", "ai_timeout_sec",
+	"ai_system_prompt",
 }
 
 // GetSystemConfig 读取系统配置（admin），密码字段打码

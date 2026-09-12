@@ -21,6 +21,7 @@ export default {
     danger: 'Dangerous Commands',
     audit: 'Audit Log',
     system: 'System Settings'
+    logtail: "Log Viewer",
   },
   common: {
     confirm: 'Confirm',
@@ -494,6 +495,12 @@ export default {
     revealAudit: '⚠ This view has been recorded in the audit log',
     confirm: 'Rotate this account password now? A new random password will be generated and stored encrypted.',
     last: 'Last rotated'
+    applicableAccts: "Applicable accounts (password auth, non-LDAP)",
+    runNow: "Rotate all now",
+    due: "Due",
+    dueYes: "Due",
+    dueNo: "OK",
+    lastRot: "Last rotation",
   },
   monitor: {
     tabRules: 'Alert Rules',
@@ -830,6 +837,13 @@ export default {
     batchRotateTip: 'Executed sequentially (300ms stagger); new passwords are encrypted at rest - sync them via "View password" or your password manager.',
     batchRunning: 'running',
     rotOff: 'Rotation disabled'
+    unnamedHost: "Unnamed host",
+    unbound: "No host bound",
+    batchRotate: "Batch rotate",
+    batchRotateTitle: "Batch rotate OS account passwords",
+    batchRotateConfirm: "Rotate passwords for {n} accounts. Key/LDAP accounts are skipped automatically. Continue?",
+    batchRotateTip: "Executed sequentially; new passwords are encrypted at rest.",
+    batchRunning: "running",
   },
   paired: {
     name: 'Name (host-account)',

@@ -95,41 +95,55 @@
     </el-card>
     </el-tab-pane>
 
-    <!-- AI 助手 -->
+    <!-- AI 助手：左右分栏 -->
     <el-tab-pane :label="$t('ai.tab')" name="ai">
     <el-card>
-      <el-form label-width="150px">
-        <el-form-item :label="$t('ai.enabled')">
-          <el-switch v-model="form.ai_enabled" active-value="true" inactive-value="false" />
-          <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:4px">{{ $t('ai.tip') }}</div>
-        </el-form-item>
-        <template v-if="form.ai_enabled === 'true'">
-          <el-form-item :label="$t('ai.baseUrl')">
-            <el-input v-model="form.ai_base_url" class="mono" placeholder="http://127.0.0.1:11434/v1" />
-            <div style="color:var(--el-text-color-secondary); font-size:12px; width:100%">{{ $t('ai.baseUrlTip') }}</div>
-          </el-form-item>
-          <el-form-item :label="$t('ai.apiKey')">
-            <el-input v-model="form.ai_api_key" type="password" show-password class="mono" :placeholder="$t('ai.apiKeyTip')" />
-          </el-form-item>
-          <el-form-item :label="$t('ai.model')">
-            <el-input v-model="form.ai_model" class="mono" placeholder="qwen2.5:7b" />
-          </el-form-item>
-          <el-form-item :label="$t('ai.timeout')">
-            <el-input-number v-model="aiTimeoutNum" :min="5" :max="600" />
-            <span style="margin-left:8px; color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.timeoutTip') }}</span>
-          </el-form-item>
-        </template>
-        <el-form-item>
-          <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
-          <el-button :loading="aiTesting" @click="testAi">{{ $t('ai.testConn') }}</el-button>
-        </el-form-item>
-        <el-divider content-position="left">{{ $t('ai.chatTest') }}</el-divider>
-        <div style="display:flex; gap:8px">
-          <el-input v-model="aiPrompt" :placeholder="$t('ai.promptTip')" @keyup.enter="sendAi" />
-          <el-button type="primary" :loading="aiSending" @click="sendAi">{{ $t('ai.send') }}</el-button>
+      <div style="display:flex; gap:24px">
+        <!-- 左：AI 连接配置 -->
+        <div style="flex:1; min-width:0">
+          <div style="font-weight:600; margin-bottom:14px">{{ $t('ai.cfgTitle') }}</div>
+          <el-form label-width="130px">
+            <el-form-item :label="$t('ai.enabled')">
+              <el-switch v-model="form.ai_enabled" active-value="true" inactive-value="false" />
+            </el-form-item>
+            <el-form-item :label="$t('ai.baseUrl')">
+              <el-input v-model="form.ai_base_url" class="mono" placeholder="http://127.0.0.1:11434/v1" />
+            </el-form-item>
+            <el-form-item :label="$t('ai.apiKey')">
+              <el-input v-model="form.ai_api_key" type="password" show-password class="mono" :placeholder="$t('ai.apiKeyTip')" />
+            </el-form-item>
+            <el-form-item :label="$t('ai.model')">
+              <el-input v-model="form.ai_model" class="mono" placeholder="qwen2.5:7b" />
+            </el-form-item>
+            <el-form-item :label="$t('ai.timeout')">
+              <el-input-number v-model="aiTimeoutNum" :min="5" :max="600" />
+              <span style="margin-left:8px; color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.timeoutTip') }}</span>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+              <el-button :loading="aiTesting" @click="testAi">{{ $t('ai.testConn') }}</el-button>
+            </el-form-item>
+          </el-form>
         </div>
-        <pre v-if="aiReply" class="mono" style="margin-top:12px; white-space:pre-wrap; background:var(--el-fill-color-light); padding:12px; border-radius:6px">{{ aiReply }}</pre>
-      </el-form>
+
+        <!-- 右：AI 角色设置 -->
+        <div style="flex:1; min-width:0">
+          <div style="font-weight:600; margin-bottom:14px">{{ $t('ai.roleTitle') }}</div>
+          <el-form label-width="130px">
+            <el-form-item :label="$t('ai.roleLabel')">
+              <el-select v-model="aiRole" style="width:100%" @change="onRoleChange">
+                <el-option v-for="r in aiRolePresets" :key="r.key" :value="r.key" :label="r.label" />
+              </el-select>
+            </el-form-item>
+            <el-form-item :label="$t('ai.systemPrompt')">
+              <el-input v-model="aiSystemPromptEdit" type="textarea" :rows="6" class="mono" />
+            </el-form-item>
+            <el-form-item>
+              <el-button size="small" type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+      </div>
     </el-card>
     </el-tab-pane>
 

@@ -11,7 +11,16 @@ import (
 	"jnexus/internal/service"
 )
 
-const aiSystemPrompt = "你是 JNexus 运维平台的 AI 助手。回答简洁、专业、可执行；使用与用户提问相同的语言。"
+const aiDefaultSystemPrompt = "你是 JNexus 运维平台的 AI 助手。回答简洁、专业、可执行；使用与用户提问相同的语言。"
+
+// getSystemPrompt 读取管理员配置的自定义 System Prompt，无则用默认
+func getSystemPrompt() string {
+	m := service.SystemConfigMap()
+	if p := strings.TrimSpace(m["ai_system_prompt"]); p != "" {
+		return p
+	}
+	return aiDefaultSystemPrompt
+}
 
 // pageContexts 路由路径 → 页面描述（让 AI 了解用户当前所在模块）
 var pageContexts = map[string]string{
@@ -55,7 +64,7 @@ func AIChat(c *gin.Context) {
 		return
 	}
 
-	systemP := aiSystemPrompt
+	systemP := getSystemPrompt()
 	// 页面感知：根据当前路由注入模块上下文
 	if desc, ok := pageContexts[req.Page]; ok {
 		systemP += "\n\n[用户当前所在页面] " + desc
