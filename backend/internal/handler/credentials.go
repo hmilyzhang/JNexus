@@ -558,12 +558,12 @@ func RotateCredentialsBatch(c *gin.Context) {
 				result = "LDAP/域账号跳过"
 			} else if err := model.DB.First(&host, cred.HostID).Error; err != nil {
 				result = "主机不存在"
-			} else if host.Name != "" {
-				hostDisp = host.Name
 			} else {
-				hostDisp = host.IP
-			}
-			} else {
+				if host.Name != "" {
+					hostDisp = host.Name
+				} else {
+					hostDisp = host.IP
+				}
 				_, rerr := service.RotateCredentialPassword(&host, &cred)
 				if rerr != nil {
 					result = "轮换失败: " + rerr.Error()
@@ -578,7 +578,7 @@ func RotateCredentialsBatch(c *gin.Context) {
 				service.NotifyRotationResult(cred, result, rerr)
 				model.DB.Create(&model.AuditLog{
 					UserID: u.ID, Username: u.Username,
-					Action: "CRED_ROTATE", Resource: fmt.Sprintf("%s@%s", cred.Username, host.Name),
+					Action: "CRED_ROTATE", Resource: fmt.Sprintf("%s@%s", cred.Username, hostDisp),
 					IP: c.ClientIP(), Status: map[bool]int{true: 200, false: 500}[ok], CreatedAt: time.Now(),
 				})
 			}
