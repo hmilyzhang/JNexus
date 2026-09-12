@@ -421,4 +421,43 @@ aside {
 .header-quote:hover { color: #66788f; }
 .header-quote .q-icon { margin-right: 6px; }
 .user-info { cursor: pointer; display: flex; align-items: center; gap: 6px; color: #333; font-size: 14px; }
+
+/* ---- 全站悬浮 AI 助手 ---- */
+.ai-fab {
+  position: fixed; bottom: 22px; right: 22px; z-index: 2000;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: linear-gradient(135deg, #67c23a, #4fc3a1); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border: none; box-shadow: 0 4px 14px rgba(103,194,58,.4);
+  transition: transform .2s, box-shadow .2s;
+}
+.ai-fab:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(103,194,58,.5); }
+.ai-fab svg { width: 24px; height: 24px; }
+
+.ai-panel {
+  position: fixed; bottom: 80px; right: 22px; z-index: 2001;
+  width: 380px; height: 480px; display: flex; flex-direction: column;
+  background: var(--el-bg-color); border: 1px solid var(--el-border-color-lighter);
+  border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  overflow: hidden;
+}
+.ai-head {
+  display: flex; align-items: center; gap: 8px; padding: 12px 14px 8px;
+  font-size: 14px; font-weight: 700; color: var(--el-text-color-primary);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+.ai-messages { flex: 1; overflow-y: auto; padding: 12px 14px; }
+.ai-msg { margin-bottom: 10px; display: flex; }
+.ai-msg.bot { justify-content: flex-start; }
+.ai-msg.user { justify-content: flex-end; }
+.ai-bubble {
+  max-width: 82%; padding: 8px 12px; border-radius: 12px;
+  font-size: 13.5px; line-height: 1.55; word-break: break-word;
+  background: var(--el-fill-color); color: var(--el-text-color-primary);
+}
+.ai-msg.user .ai-bubble { background: var(--el-color-primary-light-8); }
+.ai-input-row { display: flex; gap: 8px; padding: 8px 12px 12px; }
+
+.ai-fade-enter-active, .ai-fade-leave-active { transition: opacity .25s, transform .25s; }
+.ai-fade-enter-from, .ai-fade-leave-to { opacity: 0; transform: translateY(12px) scale(.97); }
 </style>
