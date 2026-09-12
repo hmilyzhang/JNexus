@@ -547,6 +547,7 @@ func RotateCredentialsBatch(c *gin.Context) {
 		for _, id := range ids {
 			var cred model.HostCredential
 			var host model.Host
+			hostDisp := ""
 			result := ""
 			ok := false
 			if err := model.DB.First(&cred, id).Error; err != nil {
@@ -557,6 +558,11 @@ func RotateCredentialsBatch(c *gin.Context) {
 				result = "LDAP/域账号跳过"
 			} else if err := model.DB.First(&host, cred.HostID).Error; err != nil {
 				result = "主机不存在"
+			} else if host.Name != "" {
+				hostDisp = host.Name
+			} else {
+				hostDisp = host.IP
+			}
 			} else {
 				_, rerr := service.RotateCredentialPassword(&host, &cred)
 				if rerr != nil {
@@ -584,7 +590,7 @@ func RotateCredentialsBatch(c *gin.Context) {
 				st.Failed++
 			}
 			st.Results = append(st.Results, gin.H{
-				"id": id, "host": host.Name, "username": cred.Username, "ok": ok, "result": result,
+				"id": id, "host": hostDisp, "username": cred.Username, "ok": ok, "result": result,
 			})
 			rotateBatchesMu.Unlock()
 			time.Sleep(300 * time.Millisecond) // 错峰，避免同时连爆目标机
