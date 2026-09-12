@@ -267,16 +267,17 @@ onBeforeUnmount(() => clearInterval(quoteTimer))
 const aiOpen = ref(false)
 const aiBusy = ref(false)
 const aiInput = ref('')
-const aiMessages = ref([])
+const aiMessages = ref([{ role: 'bot', text: '' }])
 const aiMsgBox = ref(null)
 
 const sendToAI = async () => {
   const text = aiInput.value.trim()
   if (!text || aiBusy.value) return
+  // 自动附带当前路由路径作为页面上下文
   aiMessages.value.push({ role: 'user', text })
   aiBusy.value = true
   try {
-    const r = await api.post('/ai/chat', { prompt: text })
+    const r = await api.post('/ai/chat', { prompt: text, page: router.currentRoute.value.path })
     aiMessages.value.push({ role: 'bot', text: r.reply || '…' })
   } catch {
     aiMessages.value.push({ role: 'bot', text: t('ai.error') })
