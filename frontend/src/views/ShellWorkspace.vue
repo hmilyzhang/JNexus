@@ -287,8 +287,10 @@ const closeSession = id => {
 .sess-item {
   display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 4px;
   cursor: pointer; font-size: 13px; margin-bottom: 4px;
+  color: var(--el-text-color-primary);
 }
-.sess-item:hover { background: #f5f7fa; }
-.sess-item.active { background: #ecf5ff; }
+.sess-item:hover { background: var(--el-fill-color-light); }
+.sess-item.active { background: var(--el-color-primary-light-9); color: var(--el-color-primary); }
+.sess-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--el-text-color-primary); }
 .sess-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
