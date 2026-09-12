@@ -1090,5 +1090,7 @@ logtail: {
     lastRot: 'Last rotation',
     runNow: 'Rotate all now',
     applicableAccts: 'Applicable accounts (password auth, non-LDAP)',
-  },
+      assistantTitle: 'AI Assistant',
+    assistantPlaceholder: 'Type a message…',
+},
 }

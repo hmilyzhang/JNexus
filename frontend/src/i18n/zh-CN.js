@@ -1091,5 +1091,7 @@ logtail: {
     lastRot: '最近轮换',
     runNow: '立即全部轮换',
     applicableAccts: '适用账号（密码认证、非域账号）',
-  },
+      assistantTitle: 'AI 助手',
+    assistantPlaceholder: '输入内容…',
+},
 }
