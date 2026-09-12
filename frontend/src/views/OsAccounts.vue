@@ -27,8 +27,9 @@
         <el-table-column type="selection" width="38" />
         <el-table-column :label="$t('menu.hosts')" min-width="150">
           <template #default="{ row }">
-            <span v-if="row.host_name">{{ row.host_name }} <span class="mono" style="color:var(--el-text-color-secondary)">({{ row.host_ip }})</span></span>
-            <span v-else class="mono">{{ row.host_ip }} <span style="color:var(--el-text-color-secondary)">({{ ('osac.unnamedHost') }})</span></span>
+            <span v-if="!row.host_name && !row.host_ip" style="color:var(--el-text-color-secondary)">{{ $t('osac.unbound') }}</span>
+            <span v-else-if="row.host_name">{{ row.host_name }} <span class="mono" style="color:var(--el-text-color-secondary)">({{ row.host_ip }})</span></span>
+            <span v-else class="mono">{{ row.host_ip }} <span style="color:var(--el-text-color-secondary)">({{ $t('osac.unnamedHost') }})</span></span>
           </template>
         </el-table-column>
         <el-table-column prop="username" :label="$t('hosts.credUser')" width="120" />
