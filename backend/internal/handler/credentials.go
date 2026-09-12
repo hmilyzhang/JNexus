@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -493,4 +494,117 @@ func resolveTemplatePassword(id uint) (username, password string, isLDAP bool, e
 		return "", "", false, e
 	}
 	return cr.Username, plain, cr.IsLDAP, nil
+}
+
+// ---- 批量轮换 ----
+
+type rotateBatchState struct {
+	Total   int     `json:"total"`
+	Done    int     `json:"done"`
+	OK      int     `json:"ok"`
+	Failed  int     `json:"failed"`
+	Running bool    `json:"running"`
+	Results []gin.H `json:"results"`
+}
+
+var (
+	rotateBatchesMu sync.Mutex
+	rotateBatches   = map[string]*rotateBatchState{}
+)
+
+// RotateCredentialsBatch POST /api/credentials/rotate-batch  {ids: [credID...]}
+// 异步逐个轮换（300ms 错峰），进度经 /rotate-batch/:batch 查询。
+func RotateCredentialsBatch(c *gin.Context) {
+	var req struct {
+		IDs []uint `json:"ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids 必填"})
+		return
+	}
+	if len(req.IDs) > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "单批最多 100 个账号"})
+		return
+	}
+	u := currentUser(c)
+	batch := "rb-" + time.Now().Format("0102150405") + fmt.Sprintf("-%04d", time.Now().UnixNano()%10000)
+	st := &rotateBatchState{Total: len(req.IDs), Running: true, Results: []gin.H{}}
+	rotateBatchesMu.Lock()
+	rotateBatches[batch] = st
+	for k := range rotateBatches { // 只保留最近 20 个批次
+		if len(rotateBatches) > 20 {
+			delete(rotateBatches, k)
+		}
+	}
+	rotateBatchesMu.Unlock()
+
+	ids := req.IDs
+	go func() {
+		defer func() { recover() }()
+		rotateBatchesMu.Lock()
+		st := rotateBatches[batch]
+		rotateBatchesMu.Unlock()
+		for _, id := range ids {
+			var cred model.HostCredential
+			var host model.Host
+			result := ""
+			ok := false
+			if err := model.DB.First(&cred, id).Error; err != nil {
+				result = "账号不存在"
+			} else if cred.AuthType != "password" || cred.Password == "" {
+				result = "仅密码认证账号支持轮换"
+			} else if cred.IsLDAP {
+				result = "LDAP/域账号跳过"
+			} else if err := model.DB.First(&host, cred.HostID).Error; err != nil {
+				result = "主机不存在"
+			} else {
+				_, rerr := service.RotateCredentialPassword(&host, &cred)
+				if rerr != nil {
+					result = "轮换失败: " + rerr.Error()
+				} else {
+					result = "轮换成功"
+					ok = true
+				}
+				model.DB.Model(&cred).Updates(map[string]any{
+					"last_rotated_at":      time.Now(),
+					"last_rotation_result": result,
+				})
+				service.NotifyRotationResult(cred, result, rerr)
+				model.DB.Create(&model.AuditLog{
+					UserID: u.ID, Username: u.Username,
+					Action: "CRED_ROTATE", Resource: fmt.Sprintf("%s@%s", cred.Username, host.Name),
+					IP: c.ClientIP(), Status: map[bool]int{true: 200, false: 500}[ok], CreatedAt: time.Now(),
+				})
+			}
+			rotateBatchesMu.Lock()
+			st.Done++
+			if ok {
+				st.OK++
+			} else {
+				st.Failed++
+			}
+			st.Results = append(st.Results, gin.H{
+				"id": id, "host": host.Name, "username": cred.Username, "ok": ok, "result": result,
+			})
+			rotateBatchesMu.Unlock()
+			time.Sleep(300 * time.Millisecond) // 错峰，避免同时连爆目标机
+		}
+		rotateBatchesMu.Lock()
+		st.Running = false
+		rotateBatchesMu.Unlock()
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"batch": batch, "total": len(req.IDs)})
+}
+
+// RotateCredentialsBatchStatus GET /api/credentials/rotate-batch/:batch — 批量轮换进度
+func RotateCredentialsBatchStatus(c *gin.Context) {
+	rotateBatchesMu.Lock()
+	st, ok := rotateBatches[c.Param("batch")]
+	rotateBatchesMu.Unlock()
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "批次不存在"})
+		return
+	}
+	c.JSON(http.StatusOK, st)
 }

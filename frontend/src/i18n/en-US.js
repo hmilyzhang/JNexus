@@ -814,6 +814,11 @@ export default {
     pwdChanged: 'Last password change',
     rotFailed: 'Failed only',
     rotOn: 'Rotation enabled',
+    batchRotate: 'Batch rotate',
+    batchRotateTitle: 'Batch rotate OS account passwords',
+    batchRotateConfirm: 'Rotate passwords for {n} accounts: a strong random password is generated, applied on the target host and updated here. Key/LDAP accounts are skipped automatically. Continue?',
+    batchRotateTip: 'Executed sequentially (300ms stagger); new passwords are encrypted at rest - sync them via "View password" or your password manager.',
+    batchRunning: 'running',
     rotOff: 'Rotation disabled'
   },
   paired: {

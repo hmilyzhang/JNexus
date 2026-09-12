@@ -815,6 +815,11 @@ export default {
     pwdChanged: '最后密码修改',
     rotFailed: '只看轮换失败',
     rotOn: '仅启用轮换',
+    batchRotate: '批量轮换',
+    batchRotateTitle: '批量轮换 OS 账号密码',
+    batchRotateConfirm: '将对 {n} 个账号执行密码轮换：生成强随机新密码并在目标机生效，平台同步更新。密钥/LDAP 账号自动跳过。继续？',
+    batchRotateTip: '逐台串行执行（错峰 300ms）；新密码已加密入库，请通过「查看密码」或密码管理工具同步到需要的地方。',
+    batchRunning: '执行中',
     rotOff: '未启用轮换'
   },
   paired: {

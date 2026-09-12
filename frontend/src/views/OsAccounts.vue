@@ -16,6 +16,8 @@
         <el-button v-if="canManageCreds" type="success" plain @click="batchVisible = true">{{ $t('hosts.credBatchBtn') }}</el-button>
         <el-button v-if="canManageCreds" type="primary" @click="dlgAdd()">{{ $t('hosts.credAdd') }}</el-button>
 
+        <el-button v-if="canManageCreds" type="warning" plain :disabled="!selRows.length"
+                   @click="startBatchRotate">{{ $t('osac.batchRotate') }}{{ selRows.length ? ` (${selRows.length})` : '' }}</el-button>
         <el-button v-if="canManageCreds" type="danger" plain :disabled="!selRows.length"
                    @click="batchDelCreds">{{ $t('k8s.batchDelete') }}{{ selRows.length ? ` (${selRows.length})` : '' }}</el-button>
       </div>
@@ -182,6 +184,32 @@
       </template>
     </el-dialog>
   </div>
+
+    <!-- Batch rotation progress -->
+    <el-dialog v-model="batchRotateDlg" :title="$t('osac.batchRotateTitle')" width="560px"
+               :close-on-click-modal="!rotBatchRunning" @closed="rotBatchPollStop">
+      <div style="margin-bottom:12px">
+        <el-progress :percentage="rotBatchProg" :status="rotBatchRunning ? '' : 'success'" />
+        <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:6px">
+          {{ rotBatch.done }} / {{ rotBatch.total }} · ✅ {{ rotBatch.ok }} · ❌ {{ rotBatch.failed }}
+          <span v-if="rotBatchRunning"> · {{ $t('exec.taskRunning') }}</span>
+        </div>
+      </div>
+      <el-table :data="rotBatch.results || []" size="small" border max-height="320">
+        <el-table-column prop="host" :label="$t('menu.hosts')" min-width="130" />
+        <el-table-column prop="username" :label="$t('hosts.credUser')" min-width="110" />
+        <el-table-column :label="$t('tasks.status')" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.ok === undefined ? 'warning' : row.ok ? 'success' : 'danger'">
+              {{ row.ok === undefined ? $t('exec.taskRunning') : row.ok ? $t('report.okShort') : $t('report.failShort') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="result" :label="$t('audit.detail')" min-width="140" show-overflow-tooltip />
+      </el-table>
+      <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:8px">{{ $t('osac.batchRotateTip') }}</div>
+    </el-dialog>
+
 </template>
 
 <script setup>
@@ -302,6 +330,39 @@ const delCred = async row => {
   await api.delete(`/credentials/${row.id}`)
   ElMessage.success(t('hosts.deleted'))
   load()
+}
+// ---- Batch rotation (async batch + progress polling) ----
+const rotBatchDlg = ref(false)
+const rotBatchRunning = ref(false)
+const rotBatchId = ref('')
+const rotBatch = ref({ total: 0, done: 0, ok: 0, failed: 0, results: [], running: false })
+const rotBatchProg = computed(() => (rotBatch.value.total ? Math.round((rotBatch.value.done / rotBatch.value.total) * 100) : 0))
+let rotBatchTimer = null
+const rotBatchPollStop = () => { if (rotBatchTimer) { clearInterval(rotBatchTimer); rotBatchTimer = null } }
+const startBatchRotate = async () => {
+  if (!selRows.value.length) return
+  try {
+    await ElMessageBox.confirm(
+      t('osac.batchRotateConfirm').replace('{n}', String(selRows.value.length)),
+      t('osac.batchRotateTitle'),
+      { type: 'warning', confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel') }
+    )
+  } catch { return }
+  const ids = selRows.value.map(r => r.id)
+  try {
+    const r = await api.post('/credentials/rotate-batch', { ids })
+    rotBatchId.value = r.batch
+    rotBatch.value = { total: r.total, done: 0, ok: 0, failed: 0, results: [], running: true }
+    rotBatchDlg.value = true
+    rotBatchPollStop()
+    rotBatchTimer = setInterval(async () => {
+      try {
+        const st = await api.get('/credentials/rotate-batch/' + rotBatchId.value)
+        rotBatch.value = st
+        if (!st.running) { rotBatchPollStop(); load() }
+      } catch { rotBatchPollStop() }
+    }, 1500)
+  } catch { /* interceptor shows the error */ }
 }
 const rotateNow = async row => {
   try {
