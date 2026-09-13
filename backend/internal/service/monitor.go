@@ -475,6 +475,7 @@ func StartMonitorLoop() {
 				defer func() { recover() }()
 				go ScanDueMonitors()
 				go CollectHostMetrics()
+				go CollectWindowsEvents()
 				go CollectK8sClusters()
 				go CollectK8sUsage()
 				if time.Since(lastPrune) >= time.Hour {

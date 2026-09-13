@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"jnexus/internal/model"
+	"jnexus/internal/service"
 )
 
 type bodyWriter struct {
@@ -55,6 +56,7 @@ func Audit() gin.HandlerFunc {
 				Action: method, Resource: path, Detail: sum,
 				IP: ip, Status: status, CreatedAt: time.Now(),
 			})
+			service.OOPushDBAudit(username, method, path, ip, status, sum)
 		}(CurrentUser(c), c.Request.Method, c.Request.URL.Path, c.ClientIP(), c.Writer.Status(), summary)
 		_ = bw.body
 	}

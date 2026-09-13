@@ -121,6 +121,8 @@ const builtinRows = computed(() => [
   { stream: 'host_metrics', desc: t('oa.descHostMetrics'), enabled: isEnabled('host_metrics') },
   { stream: 'task_logs', desc: t('oa.descTaskLogs'), enabled: isEnabled('task_logs') },
   { stream: 'alert_events', desc: t('oa.descAlertEvents'), enabled: isEnabled('alert_events') },
+  { stream: 'windows_events', desc: t('oa.descWindowsEvents'), enabled: isEnabled('windows_events') },
+  { stream: 'db_audit', desc: t('oa.descDbAudit'), enabled: isEnabled('db_audit') },
 ])
 const knownStreams = computed(() => [...new Set(['custom_stream', ...builtinRows.value.map(r => r.stream), ...discovered.value])])
 

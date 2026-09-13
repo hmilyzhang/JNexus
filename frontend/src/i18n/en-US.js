@@ -1097,6 +1097,8 @@ logtail: {
     streamHostMetrics: 'Host metrics',
     streamTaskLogs: 'Task output',
     streamAlertEvents: 'Alert events',
+    streamWindowsEvents: 'Windows events',
+    streamDbAudit: 'DB audit trail',
     range1h: 'Last 1h',
     range24h: 'Last 24h',
     range7d: 'Last 7 days',
@@ -1142,6 +1144,8 @@ logtail: {
     descHostMetrics: 'Host CPU/memory/disk samples (dual-written by the SSH + WinRM collectors)',
     descTaskLogs: 'Task execution output (per-host status / exit code / full output)',
     descAlertEvents: 'Alert events (written when alerts fire)',
+    descWindowsEvents: 'Windows event logs (System/Application errors & warnings, incremental WinRM pull)',
+    descDbAudit: 'Database audit trail (platform PostgreSQL audit_log, written in real time)',
   },
   ai: {
     tab: 'AI Assistant',

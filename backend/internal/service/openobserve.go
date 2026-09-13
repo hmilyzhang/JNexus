@@ -171,7 +171,7 @@ func ooStat(stream string) *OOStreamStat {
 
 // ooIntegrationEnabled reads the per-stream toggle from oo_integrations config
 // (JSON map; a missing entry defaults to enabled for the builtin streams)
-var ooBuiltinStreams = []string{"host_metrics", "task_logs", "alert_events"}
+var ooBuiltinStreams = []string{"host_metrics", "task_logs", "alert_events", "windows_events", "db_audit"}
 
 func ooIntegrationEnabled(stream string) bool {
 	m := SystemConfigMap()
@@ -350,5 +350,13 @@ func OOPushTaskLog(taskID uint, taskType, operator, host, osUser, status string,
 func OOPushAlertEvent(kind, level, target, message string) {
 	ooPushAsync("alert_events", map[string]any{
 		"kind": kind, "level": level, "target": target, "message": message,
+	})
+}
+
+// OOPushDBAudit dual-writes one platform audit-log entry (database audit ingestion)
+func OOPushDBAudit(username, action, resource, ip string, status int, detail string) {
+	ooPushAsync("db_audit", map[string]any{
+		"username": username, "action": action, "resource": resource,
+		"ip": ip, "status": status, "detail": detail,
 	})
 }

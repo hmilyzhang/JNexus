@@ -67,6 +67,8 @@ const presetStreams = [
   { value: 'host_metrics', label: 'oo.streamHostMetrics' },
   { value: 'task_logs', label: 'oo.streamTaskLogs' },
   { value: 'alert_events', label: 'oo.streamAlertEvents' },
+  { value: 'windows_events', label: 'oo.streamWindowsEvents' },
+  { value: 'db_audit', label: 'oo.streamDbAudit' },
 ]
 const stream = ref('host_metrics')
 const rangePreset = ref('24')
@@ -84,6 +86,8 @@ const STREAM_FIELDS = {
   host_metrics: 'host, host_id, cpu_percent, mem_percent, disk_percent, collected_at',
   task_logs: 'task_id, type, operator, host, os_user, status, exit_code, output',
   alert_events: 'kind, level, target, message',
+  windows_events: 'host, log_name, level, event_id, provider, event_time, message',
+  db_audit: 'username, action, resource, ip, status, detail',
 }
 
 const streamHint = computed(() => STREAM_FIELDS[stream.value] || '')
@@ -92,6 +96,8 @@ const defaultSQL = s => ({
   host_metrics: 'SELECT host, cpu_percent, mem_percent, disk_percent FROM host_metrics ORDER BY _timestamp DESC',
   task_logs: 'SELECT task_id, host, os_user, status, exit_code, output FROM task_logs ORDER BY _timestamp DESC',
   alert_events: 'SELECT kind, level, target, message FROM alert_events ORDER BY _timestamp DESC',
+  windows_events: "SELECT host, log_name, level, event_id, message FROM windows_events ORDER BY _timestamp DESC",
+  db_audit: 'SELECT username, action, resource, ip, status FROM db_audit ORDER BY _timestamp DESC',
 }[s] || `SELECT * FROM ${s} LIMIT 100`)
 
 const onStreamChange = () => { sql.value = defaultSQL(stream.value) }

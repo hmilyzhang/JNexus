@@ -1098,6 +1098,8 @@ logtail: {
     streamHostMetrics: '主机指标',
     streamTaskLogs: '任务输出',
     streamAlertEvents: '告警事件',
+    streamWindowsEvents: 'Windows 事件日志',
+    streamDbAudit: '数据库审计',
     range1h: '近 1 小时',
     range24h: '近 24 小时',
     range7d: '近 7 天',
@@ -1143,6 +1145,8 @@ logtail: {
     descHostMetrics: '主机 CPU/内存/磁盘采样（SSH + WinRM 采集器双写）',
     descTaskLogs: '任务执行输出（每台主机的状态/退出码/输出全文）',
     descAlertEvents: '告警事件（告警触发时写入）',
+    descWindowsEvents: 'Windows 事件日志（System/Application 错误与警告，经 WinRM 增量拉取）',
+    descDbAudit: '数据库审计流水（平台 PostgreSQL audit_log 实时写入）',
   },
   ai: {
     tab: 'AI 助手',
