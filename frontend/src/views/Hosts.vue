@@ -3,8 +3,9 @@
   <el-row :gutter="16">
     <el-col :span="6">
       <el-card :header="$t('hosts.treeView')" v-loading="loading">
-        <el-tree ref="treeRef" :data="treeData" node-key="key" highlight-current default-expand-all
-                 @node-click="onTreeNode">
+        <el-tree ref="treeRef" :data="treeData" node-key="key" highlight-current
+                 :default-expanded-keys="expandedKeys"
+                 @node-click="onTreeNode" @node-expand="onNodeExpand" @node-collapse="onNodeCollapse">
           <template #default="{ data }">
             <span class="tree-node">
               <el-icon v-if="data.type === 'group'"><Folder /></el-icon>
@@ -327,7 +328,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import i18n from '../i18n'
@@ -469,6 +470,20 @@ const treeData = computed(() => {
   }
   return nodes
 })
+
+// Group expansion survives data reloads: any node click refetches hosts/groups and rebuilds
+// treeData, and el-tree re-creates every node, so expansion state must be fed back explicitly.
+// seenGroupKeys prevents a freshly collapsed group from being re-expanded by the seed pass.
+const expandedKeys = ref([])
+const seenGroupKeys = new Set()
+const collectGroupKeys = nodes => nodes.flatMap(n => n.type === 'group' ? [n.key, ...collectGroupKeys(n.children || [])] : [])
+watch(treeData, nodes => {
+  for (const k of collectGroupKeys(nodes)) {
+    if (!seenGroupKeys.has(k)) { seenGroupKeys.add(k); expandedKeys.value.push(k) }
+  }
+}, { immediate: true })
+const onNodeExpand = data => { if (!expandedKeys.value.includes(data.key)) expandedKeys.value.push(data.key) }
+const onNodeCollapse = data => { expandedKeys.value = expandedKeys.value.filter(k => k !== data.key) }
 
 const onTreeNode = node => {
   if (node.type === 'group') {
