@@ -33,6 +33,12 @@
         <el-date-picker v-if="rangePreset === 'custom'" v-model="customRange" type="datetimerange"
                         :start-placeholder="$t('oo.startTime')" :end-placeholder="$t('oo.endTime')"
                         value-format="x" style="width:360px" />
+        <el-select v-if="stream === 'windows_events'" v-model="logFilter" style="width:130px">
+          <el-option value="all" :label="$t('oo.logAll')" />
+          <el-option value="Security" label="Security" />
+          <el-option value="System" label="System" />
+          <el-option value="Application" label="Application" />
+        </el-select>
         <el-button type="primary" :loading="busy" @click="search">{{ $t('oo.run') }}</el-button>
         <span style="flex:1"></span>
         <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oo.sqlTip') }}</span>
@@ -46,7 +52,7 @@
         {{ $t('oo.fields') }}: <code class="mono">{{ streamHint }}</code>
       </div>
 
-      <el-table v-if="cols.length" :data="rows" size="small" border style="margin-top:12px" max-height="560">
+      <el-table v-if="cols.length" :data="displayRows" size="small" border style="margin-top:12px" max-height="560">
         <el-table-column type="expand">
           <template #default="{ row }">
             <div class="oo-expand">
@@ -113,7 +119,7 @@ const defaultSQL = s => ({
   db_audit: 'SELECT username, action, resource, ip, status FROM db_audit ORDER BY _timestamp DESC',
 }[s] || `SELECT * FROM ${s} LIMIT 100`)
 
-const onStreamChange = () => { sql.value = defaultSQL(stream.value) }
+const onStreamChange = () => { sql.value = defaultSQL(stream.value); logFilter.value = 'all'; search() }
 const onRangeChange = () => { if (rangePreset.value !== 'custom') search() }
 
 const resolveRange = () => {
@@ -144,6 +150,13 @@ const fmtTs = v => {
   return isNaN(n) || n <= 0 ? '-' : new Date(n / 1000).toLocaleString()
 }
 
+// windows_events quick filter: narrow fetched rows by log_name client-side
+const logFilter = ref('all')
+const displayRows = computed(() =>
+  stream.value === 'windows_events' && logFilter.value !== 'all'
+    ? rows.value.filter(r => r.log_name === logFilter.value)
+    : rows.value)
+
 const csvCell = v => {
   const s = v === null || v === undefined ? '' : String(v)
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
@@ -151,7 +164,7 @@ const csvCell = v => {
 
 const exportCsv = () => {
   const head = cols.value.map(csvCell).join(',')
-  const body = rows.value.map(r => cols.value.map(c => csvCell(formatCell(r[c]))).join(',')).join('\n')
+  const body = displayRows.value.map(r => cols.value.map(c => csvCell(formatCell(r[c]))).join(',')).join('\n')
   const blob = new Blob(['\uFEFF' + head + '\n' + body], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)

@@ -524,3 +524,26 @@ type K8sClusterMember struct {
 	Role      string `gorm:"size:16" json:"role"` // admin / user / viewer
 	Username  string `gorm:"-" json:"username"`
 }
+
+// DbSource database ingestion source (OpenObserve builtin "DB ingestion"):
+// admin-registered MySQL/MSSQL/PostgreSQL connection + query, scheduled into a stream
+type DbSource struct {
+	ID          uint       `gorm:"primaryKey" json:"id"`
+	Name        string     `gorm:"size:64;uniqueIndex" json:"name"`
+	DBType      string     `gorm:"size:16" json:"db_type"` // mysql / mssql / pgsql
+	Host        string     `gorm:"size:128" json:"host"`
+	Port        int        `json:"port"`
+	Username    string     `gorm:"size:64" json:"username"`
+	Password    string     `json:"-"` // AES-GCM encrypted
+	Database    string     `gorm:"size:64" json:"database"`
+	Query       string     `gorm:"type:text" json:"query"`
+	IntervalSec int        `json:"interval_sec"`
+	Stream      string     `gorm:"size:100" json:"stream"`
+	Enabled     bool       `json:"enabled"`
+	LastRunAt   *time.Time `json:"last_run_at"`
+	LastError   string     `gorm:"size:512" json:"last_error"`
+	RowsPushed  int64      `json:"rows_pushed"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+func (DbSource) TableName() string { return "db_sources" }

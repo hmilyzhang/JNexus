@@ -7,10 +7,12 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"jnexus/internal/model"
 	"jnexus/internal/service"
 )
 
@@ -148,4 +150,71 @@ func OOSearchProxy(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, out)
+}
+
+// ---- Database ingestion sources (admin CRUD + run-now) ----
+
+// OODbSourceList GET /api/system/oo/dbsources
+func OODbSourceList(c *gin.Context) {
+	c.JSON(http.StatusOK, service.ListDbSources())
+}
+
+// OODbSourceSave POST /api/system/oo/dbsources — create or update
+func OODbSourceSave(c *gin.Context) {
+	// wrapper: model.DbSource.Password carries json:"-" (never echoed), so the
+	// incoming password is bound through this dedicated field instead
+	var req struct {
+		model.DbSource
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
+		return
+	}
+	src := req.DbSource
+	src.Password = req.Password
+	if err := service.SaveDbSource(&src); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	src.Password = "******"
+	c.JSON(http.StatusOK, src)
+}
+
+// OODbSourceDelete DELETE /api/system/oo/dbsources/:id
+func OODbSourceDelete(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := service.DeleteDbSource(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// OODbSourceEnable POST /api/system/oo/dbsources/:id/enabled {enabled}
+func OODbSourceEnable(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "enabled is required"})
+		return
+	}
+	if err := service.SetDbSourceEnabled(uint(id), req.Enabled); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// OODbSourceRun POST /api/system/oo/dbsources/:id/run — run now
+func OODbSourceRun(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	n, err := service.RunDbSource(uint(id))
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "rows": n})
 }

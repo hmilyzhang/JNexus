@@ -379,6 +379,11 @@ func SetupRouter() *gin.Engine {
 			sysCfg.GET("/oo/status", middleware.RequireRole(model.RoleAdmin), OOAdminStatus)
 			sysCfg.POST("/oo/integrations", middleware.RequireRole(model.RoleAdmin), OOAdminToggle)
 			sysCfg.POST("/oo/push", middleware.RequireRole(model.RoleAdmin), OOAdminPush)
+			sysCfg.GET("/oo/dbsources", middleware.RequireRole(model.RoleAdmin), OODbSourceList)
+			sysCfg.POST("/oo/dbsources", middleware.RequireRole(model.RoleAdmin), OODbSourceSave)
+			sysCfg.DELETE("/oo/dbsources/:id", middleware.RequireRole(model.RoleAdmin), OODbSourceDelete)
+			sysCfg.POST("/oo/dbsources/:id/enabled", middleware.RequireRole(model.RoleAdmin), OODbSourceEnable)
+			sysCfg.POST("/oo/dbsources/:id/run", middleware.RequireRole(model.RoleAdmin), OODbSourceRun)
 			sysCfg.GET("/platform_key", GetPlatformKey)
 			sysCfg.PUT("/roles", UpdateSystemRoles)
 		}

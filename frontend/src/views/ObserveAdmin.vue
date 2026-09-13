@@ -63,6 +63,106 @@
       <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:8px">{{ $t('oa.statsHint') }}</div>
     </el-card>
 
+    <!-- Database ingestion sources -->
+    <el-card style="margin-top:14px">
+      <template #header>
+        <div style="display:flex; align-items:center; gap:10px">
+          <span style="font-weight:600">{{ $t('oa.dbTitle') }}</span>
+          <span style="flex:1"></span>
+          <el-button size="small" type="primary" @click="dbDlg()">{{ $t('oa.dbAdd') }}</el-button>
+        </div>
+      </template>
+      <el-table :data="dbSources" size="small" border v-loading="dbLoading">
+        <el-table-column prop="name" :label="$t('oa.dbName')" width="150">
+          <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
+        </el-table-column>
+        <el-table-column prop="db_type" :label="$t('oa.dbType')" width="90" align="center">
+          <template #default="{ row }"><el-tag size="small" effect="plain">{{ row.db_type }}</el-tag></template>
+        </el-table-column>
+        <el-table-column :label="$t('oa.dbConn')" min-width="180">
+          <template #default="{ row }"><span class="mono">{{ row.host }}:{{ row.port }} / {{ row.database }}</span></template>
+        </el-table-column>
+        <el-table-column prop="query" :label="$t('oa.dbQuery')" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="stream" :label="$t('oa.streamCol')" width="120">
+          <template #default="{ row }"><span class="mono">{{ row.stream }}</span></template>
+        </el-table-column>
+        <el-table-column :label="$t('oa.enabledCol')" width="80" align="center">
+          <template #default="{ row }">
+            <el-switch :model-value="row.enabled" @change="v => dbToggle(row, v)" />
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('oa.lastRunCol')" width="160">
+          <template #default="{ row }">
+            <div>{{ fmtTime(row.last_run_at) }}</div>
+            <div v-if="row.last_error" style="color:var(--el-color-danger); font-size:11px" :title="row.last_error">{{ row.last_error.slice(0, 40) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('common.actions')" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" link type="primary" :loading="row._running" @click="dbRun(row)">{{ $t('oo.run') }}</el-button>
+            <el-button size="small" link type="primary" @click="dbDlg(row)">{{ $t('common.edit') }}</el-button>
+            <el-popconfirm :title="$t('oa.dbDelConfirm')" @confirm="dbDel(row)">
+              <template #reference><el-button size="small" link type="danger">{{ $t('common.delete') }}</el-button></template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <!-- DB source dialog -->
+    <el-dialog v-model="dbDlgVisible" :title="dbForm.id ? $t('oa.dbEdit') : $t('oa.dbAdd')" width="560px">
+      <el-form label-width="110px">
+        <el-form-item :label="$t('oa.dbName')" required>
+          <el-input v-model="dbForm.name" class="mono" placeholder="billing-db" />
+        </el-form-item>
+        <el-form-item :label="$t('oa.dbType')" required>
+          <el-radio-group v-model="dbForm.db_type">
+            <el-radio value="mysql">MySQL</el-radio>
+            <el-radio value="mssql">MSSQL</el-radio>
+            <el-radio value="pgsql">PostgreSQL</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item :label="$t('hosts.ip')" required>
+          <div style="display:flex; gap:8px; width:100%">
+            <el-input v-model="dbForm.host" class="mono" style="flex:1" placeholder="10.0.0.10" />
+            <el-input-number v-model="dbForm.port" :min="1" :max="65535" style="width:120px" />
+          </div>
+        </el-form-item>
+        <el-form-item :label="$t('hosts.user')" required>
+          <el-input v-model="dbForm.username" class="mono" />
+        </el-form-item>
+        <el-form-item :label="$t('hosts.password')">
+          <el-input v-model="dbForm.password" type="password" show-password class="mono"
+                    :placeholder="dbForm.id ? $t('oa.keepPwd') : ''" />
+        </el-form-item>
+        <el-form-item :label="$t('oa.dbName2')" required>
+          <el-input v-model="dbForm.database" class="mono" />
+        </el-form-item>
+        <el-form-item :label="$t('oa.dbQuery')" required>
+          <el-input v-model="dbForm.query" type="textarea" :rows="4" class="mono"
+                    :placeholder="'SELECT id, status, created_at FROM orders WHERE created_at > NOW() - INTERVAL 1 DAY'" />
+          <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:4px">{{ $t('oa.dbQueryTip') }}</div>
+        </el-form-item>
+        <el-form-item :label="$t('oa.streamCol')">
+          <el-input v-model="dbForm.stream" class="mono" :placeholder="'db_billing_db'" />
+          <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:4px">{{ $t('oa.dbStreamTip') }}</div>
+        </el-form-item>
+        <el-form-item :label="$t('oa.intervalLabel')">
+          <div style="display:flex; align-items:center; gap:8px">
+            <el-input-number v-model="dbForm.interval_sec" :min="30" :max="86400" :step="30" />
+            <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oa.dbIntervalTip') }}</span>
+          </div>
+        </el-form-item>
+        <el-form-item :label="$t('oa.enabledCol')">
+          <el-switch v-model="dbForm.enabled" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dbDlgVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="dbSaving" @click="dbSave">{{ $t('common.save') }}</el-button>
+      </template>
+    </el-dialog>
+
     <!-- Custom ingestion -->
     <el-card style="margin-top:14px">
       <template #header>
@@ -144,6 +244,7 @@ const load = async () => {
     st.value = await api.get('/system/oo/status')
     discovered.value = st.value.streams || []
   } finally { loading.value = false }
+  loadDbSources()
 }
 
 const testConn = async () => {
@@ -161,6 +262,60 @@ const toggle = async (stream, enabled) => {
     ElMessage.success(t('system.saved'))
     await load()
   } catch { /* interceptor shows the error */ }
+}
+
+// ---- Database ingestion sources ----
+const dbSources = ref([])
+const dbLoading = ref(false)
+const dbDlgVisible = ref(false)
+const dbSaving = ref(false)
+const dbForm = ref({})
+
+const loadDbSources = async () => {
+  dbLoading.value = true
+  try { dbSources.value = await api.get('/system/oo/dbsources') || [] }
+  finally { dbLoading.value = false }
+}
+
+const dbDlg = row => {
+  dbForm.value = row
+    ? { ...row, password: '' }
+    : { id: null, name: '', db_type: 'mysql', host: '', port: 3306, username: '', password: '',
+        database: '', query: '', interval_sec: 300, stream: '', enabled: true }
+  dbDlgVisible.value = true
+}
+
+const dbSave = async () => {
+  dbSaving.value = true
+  try {
+    await api.post('/system/oo/dbsources', dbForm.value)
+    ElMessage.success(t('system.saved'))
+    dbDlgVisible.value = false
+    await load(); await loadDbSources()
+  } catch { /* interceptor shows the error */ } finally { dbSaving.value = false }
+}
+
+const dbToggle = async (row, enabled) => {
+  try {
+    await api.post(`/system/oo/dbsources/${row.id}/enabled`, { enabled })
+    ElMessage.success(t('system.saved')); await loadDbSources()
+  } catch { /* interceptor shows the error */ }
+}
+
+const dbDel = async row => {
+  try {
+    await api.delete(`/system/oo/dbsources/${row.id}`)
+    ElMessage.success(t('system.saved')); await loadDbSources()
+  } catch { /* interceptor shows the error */ }
+}
+
+const dbRun = async row => {
+  row._running = true
+  try {
+    const r = await api.post(`/system/oo/dbsources/${row.id}/run`)
+    ElMessage.success(t('oa.pushOk', { n: r.rows }))
+    await load(); await loadDbSources()
+  } catch { /* interceptor shows the error */ } finally { row._running = false }
 }
 
 const pushTest = async () => {
