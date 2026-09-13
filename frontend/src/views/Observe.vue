@@ -47,7 +47,20 @@
       </div>
 
       <el-table v-if="cols.length" :data="rows" size="small" border style="margin-top:12px" max-height="560">
-        <el-table-column v-for="c in cols" :key="c" :prop="c" :label="c" min-width="150" show-overflow-tooltip>
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <div class="oo-expand">
+              <div v-for="c in expandKeys(row)" :key="c" class="oo-kv">
+                <span class="oo-k mono">{{ c }}</span>
+                <span class="oo-v mono">{{ formatCell(row[c]) }}</span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('oo.time')" width="165">
+          <template #default="{ row }">{{ fmtTs(row._timestamp) }}</template>
+        </el-table-column>
+        <el-table-column v-for="c in cols" :key="c" :prop="c" :label="c" min-width="150">
           <template #default="{ row }">{{ formatCell(row[c]) }}</template>
         </el-table-column>
       </el-table>
@@ -124,6 +137,13 @@ const formatCell = v => {
   return s
 }
 
+// detail view: all fields except the internal timestamp (shown as its own column)
+const expandKeys = row => Object.keys(row).filter(k => k !== '_timestamp')
+const fmtTs = v => {
+  const n = Number(v)
+  return isNaN(n) || n <= 0 ? '-' : new Date(n / 1000).toLocaleString()
+}
+
 const csvCell = v => {
   const s = v === null || v === undefined ? '' : String(v)
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
@@ -178,3 +198,11 @@ onMounted(async () => {
   } catch { /* disabled → preset streams only */ }
 })
 </script>
+
+
+<style scoped>
+.oo-expand { padding: 4px 12px 8px 24px; }
+.oo-kv { display: flex; gap: 10px; padding: 2px 0; font-size: 12px; line-height: 1.6; }
+.oo-k { color: var(--el-text-color-secondary); width: 110px; flex-shrink: 0; text-align: right; }
+.oo-v { white-space: pre-wrap; word-break: break-all; color: var(--el-text-color-primary); }
+</style>

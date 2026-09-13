@@ -1105,6 +1105,7 @@ logtail: {
     range7d: '近 7 天',
     range30d: '近 30 天',
     run: '查询',
+    time: '时间',
     sqlTip: '支持 OpenObserve SQL（自动带时间范围）',
     rangeCustom: '自定义时间',
     startTime: '开始时间',

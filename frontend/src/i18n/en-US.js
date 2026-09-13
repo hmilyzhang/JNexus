@@ -1104,6 +1104,7 @@ logtail: {
     range7d: 'Last 7 days',
     range30d: 'Last 30 days',
     run: 'Run',
+    time: 'Time',
     sqlTip: 'OpenObserve SQL (time range applied automatically)',
     rangeCustom: 'Custom range',
     startTime: 'Start time',
