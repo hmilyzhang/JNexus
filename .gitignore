@@ -33,3 +33,6 @@ CLAUDE.md
 test-data/
 *.krb5conf
 *.testoutput
+
+# Deployment secrets
+deploy/.env
