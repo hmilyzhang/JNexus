@@ -5,7 +5,10 @@
       <el-icon :size="17"><component :is="isDark ? 'Sunny' : 'Moon'" /></el-icon>
     </el-button>
     <el-card class="login-card">
-      <h2 style="text-align:center; margin-bottom:18px">⚙️ {{ systemName }}</h2>
+      <div style="text-align:center; margin-bottom:18px">
+        <img :src="isDark ? logoOnDark : logoOnLight" :alt="systemName"
+             style="max-width:300px; width:72%; height:auto" />
+      </div>
 
       <!-- Step 1: username and password -->
       <el-form v-if="!mfaStep" @keyup.enter="doLogin">
@@ -52,6 +55,8 @@ const store = useUserStore()
 const form = ref({ username: '', password: '' })
 const loading = ref(false)
 const systemName = ref(localStorage.getItem('system_name') || 'JNexus')
+import logoOnDark from '../assets/logo-on-dark.png'
+import logoOnLight from '../assets/logo-on-light.png'
 const isDark = ref(document.documentElement.classList.contains('dark'))
 const toggleTheme = () => {
   isDark.value = !isDark.value

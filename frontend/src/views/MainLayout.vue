@@ -2,8 +2,13 @@
 <template>
   <el-container style="height: 100vh">
     <el-aside :width="collapsed ? '64px' : '210px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s; overflow-x:hidden; background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
-      <div class="logo" v-if="!collapsed">{{ systemName }}</div>
-      <div class="logo logo-mini" v-else :title="systemName">{{ systemName.charAt(0).toUpperCase() }}</div>
+      <div class="logo" v-if="!collapsed">
+        <img :src="logoMark" alt="logo" style="width:26px; height:26px; flex-shrink:0" />
+        <span>{{ systemName }}</span>
+      </div>
+      <div class="logo logo-mini" v-else :title="systemName">
+        <img :src="logoMark" alt="logo" style="width:26px; height:26px" />
+      </div>
       <el-menu ref="menuRef" :default-active="$route.path" router :collapse="collapsed" :collapse-transition="false"
                popper-class="sidebar-popper" background-color="#1d2935" text-color="#a7b1c2"
                active-text-color="#ffffff" style="border-right:none; flex:1; overflow-y:auto" :ellipsis="false"
@@ -31,6 +36,8 @@
     <el-container>
       <el-header class="header">
         <div style="display:flex; align-items:center; gap:12px">
+          <img :src="headerLogo" alt="JNexus"
+               style="height:30px; width:auto" />
           <el-button text @click="toggleCollapse" style="padding:6px">
             <el-icon :size="18"><component :is="collapsed ? 'Expand' : 'Fold'" /></el-icon>
           </el-button>
@@ -158,6 +165,9 @@ import api from '../api'
 import i18n, { locales, setLocale } from '../i18n'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../store'
+import logoOnDark from '../assets/logo-on-dark.png'
+import logoOnLight from '../assets/logo-on-light.png'
+import logoMark from '../assets/logo-mark.png'
 import { jokes, soulSoups } from '../data/quotations'
 
 const store = useUserStore()
@@ -252,6 +262,7 @@ const menus = computed(() => {
 
 // ---- Light/dark theme (bootstrap script lives in index.html to avoid first-paint flicker) ----
 const isDark = ref(document.documentElement.classList.contains('dark'))
+const headerLogo = computed(() => (isDark.value ? logoOnDark : logoOnLight))
 const toggleTheme = () => {
   isDark.value = !isDark.value
   document.documentElement.classList.toggle('dark', isDark.value)
@@ -435,6 +446,7 @@ aside {
 .logo {
   color: #fff; font-size: 18px; font-weight: bold;
   padding: 12px 20px 8px; letter-spacing: 1px;
+  display: flex; align-items: center; gap: 10px;
 }
 .byline {
   color: #6b7a8d; font-size: 11px; text-align: center; padding: 8px 0 10px;
