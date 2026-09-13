@@ -1,7 +1,7 @@
 <!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <el-container style="height: 100vh">
-    <el-aside :width="collapsed ? '64px' : '210px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s; overflow-x:hidden; background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
+    <el-aside :width="collapsed ? '64px' : '165px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s; overflow-x:hidden; background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
       <div class="logo" v-if="!collapsed">
         <img :src="logoMark" alt="logo" style="width:26px; height:26px; flex-shrink:0" />
         <span>{{ systemName }}</span>
