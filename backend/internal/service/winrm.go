@@ -29,8 +29,9 @@ func WinRMPortOf(h *model.Host) int {
 }
 
 // WinRMClientFor builds a WinRM client for the target host: HTTP/HTTPS is negotiated automatically.
-// When port 5986 (HTTPS) is reachable on the target, the encrypted connection is preferred; otherwise it falls back to HTTP (5985 or the host's custom port).
-// Both transports attach NTLM negotiation (works for domain accounts DOMAIN/user as well as local accounts).
+// When port 5986 (HTTPS) is reachable on the target, the encrypted connection is preferred with the
+// default Basic transport (immune to NTLM blocking policies; Basic is only enabled over TLS).
+// Otherwise it falls back to HTTP with NTLM negotiation (works for local and DOMAIN/user accounts).
 func WinRMClientFor(h *model.Host, username, password string) (*winrm.Client, error) {
 	if !IsWindows(h) {
 		return nil, fmt.Errorf("仅 Windows 主机支持 WinRM")
@@ -51,14 +52,14 @@ func WinRMClientFor(h *model.Host, username, password string) (*winrm.Client, er
 	}
 
 	params := winrm.DefaultParameters
-	// Windows enables only Negotiate auth by default: attach the NTLM transport to complete the handshake automatically (domain accounts DOMAIN/user also work)
-	params.TransportDecorator = func() winrm.Transporter { return winrm.NewClientNTLMWithDial(params.Dial) }
 
 	// auto-negotiation: prefer encryption when 5986 (HTTPS) is reachable; otherwise fall back to HTTP
 	if tcpOpen(h.IP, 5986) {
 		return winrm.NewClientWithParameters(
 			winrm.NewEndpoint(h.IP, 5986, true, true, nil, nil, nil, 0), user, pass, params)
 	}
+	// Windows enables only Negotiate auth by default: attach the NTLM transport to complete the handshake automatically (domain accounts DOMAIN/user also work)
+	params.TransportDecorator = func() winrm.Transporter { return winrm.NewClientNTLMWithDial(params.Dial) }
 	return winrm.NewClientWithParameters(
 		winrm.NewEndpoint(h.IP, WinRMPortOf(h), false, true, nil, nil, nil, 0), user, pass, params)
 }
