@@ -28,3 +28,8 @@ frontend/i18n_audit.mjs
 NUL
 %TEMP%*
 CLAUDE.md
+
+# Test data (domain/lab credentials, krb5 configs, probe outputs) — never commit
+test-data/
+*.krb5conf
+*.testoutput
