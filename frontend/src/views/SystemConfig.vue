@@ -390,7 +390,7 @@
     <!-- One-time key reveal -->
     <el-dialog v-model="keyShownVisible" :title="$t('system.apiKeyCreatedTitle')" width="560px" :close-on-click-modal="false">
       <el-alert type="warning" :title="$t('system.apiKeyOnceTip')" :closable="false" style="margin-bottom:12px" />
-      <div class="mono" style="background:#f5f7fa; padding:10px; border-radius:4px; word-break:break-all; font-size:13px">{{ createdKey }}</div>
+      <div class="mono" style="background:var(--el-fill-color-light); padding:10px; border-radius:4px; word-break:break-all; font-size:13px">{{ createdKey }}</div>
       <div style="margin-top:10px; text-align:right">
         <el-button size="small" @click="copyKey">{{ $t('system.apiKeyCopy') }}</el-button>
       </div>

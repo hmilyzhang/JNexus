@@ -398,5 +398,5 @@ const runBatch = async () => {
 </script>
 
 <style scoped>
-:deep(.fail-row) { background: #fef0f0; }
+:deep(.fail-row) { background: var(--el-color-danger-light-9); }
 </style>

@@ -24,7 +24,7 @@
 
       <!-- Step 2: MFA verification code -->
       <el-form v-else @keyup.enter="doMfa">
-        <div style="text-align:center; color:#606266; font-size:13px; margin-bottom:14px">{{ $t('login.mfaTip') }}</div>
+        <div style="text-align:center; color:var(--el-text-color-regular); font-size:13px; margin-bottom:14px">{{ $t('login.mfaTip') }}</div>
         <el-form-item>
           <el-input v-model="mfaCode" size="large" maxlength="6" class="mono"
                     :placeholder="$t('login.mfaCode')" style="text-align:center; letter-spacing:8px">

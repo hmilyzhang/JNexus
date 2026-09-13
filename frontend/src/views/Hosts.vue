@@ -726,6 +726,6 @@ const delKey = async row => {
 
 <style scoped>
 .tree-node { display: flex; align-items: center; gap: 6px; font-size: 13px; }
-.cap-chart { width: 100%; height: 110px; background: #fafbfc; border-radius: 4px; }
+.cap-chart { width: 100%; height: 110px; background: var(--el-fill-color-light); border-radius: 4px; }
 .cap-dot { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 4px; }
 </style>

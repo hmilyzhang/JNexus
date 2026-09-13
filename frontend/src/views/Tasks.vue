@@ -86,11 +86,11 @@
           <div class="out-title">
             {{ selected.host_name }}（{{ selected.host_ip }}）
             <el-tag size="small" :type="selected.status === 'success' ? 'success' : 'danger'" style="margin:0 6px">{{ statusText(selected.status) }}</el-tag>
-            <span style="color:#909399; font-size:12px">{{ $t('tasks.exitCode') }} {{ selected.exit_code }}</span>
+            <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('tasks.exitCode') }} {{ selected.exit_code }}</span>
           </div>
           <div class="log-box">{{ selected.output || $t('tasks.noOutput') }}</div>
         </template>
-        <div v-else class="out-title" style="color:#909399">{{ $t('tasks.clickRow') }}</div>
+        <div v-else class="out-title" style="color:var(--el-text-color-secondary)">{{ $t('tasks.clickRow') }}</div>
       </template>
     </el-drawer>
   </div>
@@ -187,13 +187,13 @@ onMounted(async () => {
 <style scoped>
 .sum-line { display: flex; align-items: center; gap: 8px; }
 .sum-op { font-weight: 600; }
-.sum-time { color: #909399; font-size: 12px; }
+.sum-time { color: var(--el-text-color-secondary); font-size: 12px; }
 .sum-params {
-  margin: 8px 0; padding: 6px 10px; background: #f5f7fa; border-radius: 4px;
-  font-size: 12px; color: #606266; word-break: break-all;
+  margin: 8px 0; padding: 6px 10px; background: var(--el-fill-color-light); border-radius: 4px;
+  font-size: 12px; color: var(--el-text-color-regular); word-break: break-all;
 }
 .toolbar { display: flex; align-items: center; margin-top: 6px; }
 .out-title { margin: 12px 0 6px; font-size: 13px; font-weight: 600; }
 .log-box { max-height: 300px; }
-:deep(.cur-row) { background: #ecf5ff; }
+:deep(.cur-row) { background: var(--el-color-primary-light-9); }
 </style>

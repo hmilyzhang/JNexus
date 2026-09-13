@@ -110,7 +110,7 @@ onMounted(async () => {
 
 <style scoped>
 .user-card .user-meta > div {
-  display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; color: #606266;
+  display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; color: var(--el-text-color-regular);
 }
 .user-meta span { color: #909399; }
 .stat-card {
