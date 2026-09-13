@@ -95,53 +95,66 @@
     </el-card>
     </el-tab-pane>
 
-    <!-- AI 助手：左右分栏 -->
+    <!-- AI 助手：左侧导航 + 右侧内容 -->
     <el-tab-pane :label="$t('ai.tab')" name="ai">
     <el-card>
-      <div style="display:flex; gap:24px">
-        <!-- 左：AI 连接配置 -->
-        <div style="flex:1; min-width:0">
-          <div style="font-weight:600; margin-bottom:14px">{{ $t('ai.cfgTitle') }}</div>
-          <el-form label-width="130px">
-            <el-form-item :label="$t('ai.enabled')">
-              <el-switch v-model="form.ai_enabled" active-value="true" inactive-value="false" />
-            </el-form-item>
-            <el-form-item :label="$t('ai.baseUrl')">
-              <el-input v-model="form.ai_base_url" class="mono" placeholder="http://127.0.0.1:11434/v1" />
-            </el-form-item>
-            <el-form-item :label="$t('ai.apiKey')">
-              <el-input v-model="form.ai_api_key" type="password" show-password class="mono" :placeholder="$t('ai.apiKeyTip')" />
-            </el-form-item>
-            <el-form-item :label="$t('ai.model')">
-              <el-input v-model="form.ai_model" class="mono" placeholder="qwen2.5:7b" />
-            </el-form-item>
-            <el-form-item :label="$t('ai.timeout')">
-              <el-input-number v-model="aiTimeoutNum" :min="5" :max="600" />
-              <span style="margin-left:8px; color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.timeoutTip') }}</span>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
-              <el-button :loading="aiTesting" @click="testAi">{{ $t('ai.testConn') }}</el-button>
-            </el-form-item>
-          </el-form>
+      <div style="display:flex; gap:0; min-height:420px">
+        <!-- 左侧导航 -->
+        <div class="ai-side-nav">
+          <div style="font-weight:600; font-size:14px; margin-bottom:12px; color:var(--el-text-color-primary)">{{ $t('ai.tab') }}</div>
+          <div class="ai-nav-item" :class="{ active: aiTabSection === 'conn' }" @click="aiTabSection = 'conn'">
+            <el-icon><Connection /></el-icon> {{ $t('ai.navConn') }}
+          </div>
+          <div class="ai-nav-item" :class="{ active: aiTabSection === 'role' }" @click="aiTabSection = 'role'">
+            <el-icon><User /></el-icon> {{ $t('ai.navRole') }}
+          </div>
         </div>
-
-        <!-- 右：AI 角色设置 -->
-        <div style="flex:1; min-width:0">
-          <div style="font-weight:600; margin-bottom:14px">{{ $t('ai.roleTitle') }}</div>
-          <el-form label-width="130px">
-            <el-form-item :label="$t('ai.roleLabel')">
-              <el-select v-model="aiRole" style="width:100%" @change="onRoleChange">
-                <el-option v-for="r in aiRolePresets" :key="r.key" :value="r.key" :label="r.label" />
-              </el-select>
-            </el-form-item>
-            <el-form-item :label="$t('ai.systemPrompt')">
-              <el-input v-model="aiSystemPromptEdit" type="textarea" :rows="6" class="mono" />
-            </el-form-item>
-            <el-form-item>
-              <el-button size="small" type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
-            </el-form-item>
-          </el-form>
+        <!-- 右侧内容 -->
+        <div style="flex:1; min-width:0; padding-left:20px; border-left:1px solid var(--el-border-color-lighter)">
+          <!-- 连接配置 -->
+          <template v-if="aiTabSection === 'conn'">
+            <div style="font-weight:600; font-size:15px; margin-bottom:16px">{{ $t('ai.cfgTitle') }}</div>
+            <el-form label-width="130px" style="max-width:520px">
+              <el-form-item :label="$t('ai.enabled')">
+                <el-switch v-model="form.ai_enabled" active-value="true" inactive-value="false" />
+              </el-form-item>
+              <el-form-item :label="$t('ai.baseUrl')">
+                <el-input v-model="form.ai_base_url" class="mono" placeholder="http://127.0.0.1:11434/v1" />
+                <div style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.baseUrlTip') }}</div>
+              </el-form-item>
+              <el-form-item :label="$t('ai.apiKey')">
+                <el-input v-model="form.ai_api_key" type="password" show-password class="mono" :placeholder="$t('ai.apiKeyTip')" />
+              </el-form-item>
+              <el-form-item :label="$t('ai.model')">
+                <el-input v-model="form.ai_model" class="mono" placeholder="qwen2.5:7b" />
+              </el-form-item>
+              <el-form-item :label="$t('ai.timeout')">
+                <el-input-number v-model="aiTimeoutNum" :min="5" :max="600" />
+                <span style="margin-left:8px; color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.timeoutTip') }}</span>
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+                <el-button :loading="aiTesting" @click="testAi">{{ $t('ai.testConn') }}</el-button>
+              </el-form-item>
+            </el-form>
+          </template>
+          <!-- 角色设置 -->
+          <template v-if="aiTabSection === 'role'">
+            <div style="font-weight:600; font-size:15px; margin-bottom:16px">{{ $t('ai.roleTitle') }}</div>
+            <el-form label-width="130px" style="max-width:520px">
+              <el-form-item :label="$t('ai.roleLabel')">
+                <el-select v-model="aiRole" style="width:100%" @change="onRoleChange">
+                  <el-option v-for="r in aiRolePresets" :key="r.key" :value="r.key" :label="r.label" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="$t('ai.systemPrompt')">
+                <el-input v-model="aiSystemPromptEdit" type="textarea" :rows="6" class="mono" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+              </el-form-item>
+            </el-form>
+          </template>
         </div>
       </div>
     </el-card>
@@ -654,12 +667,27 @@ const revealAcct = async row => {
   } catch { /* interceptor shows the error */ }
 }
 
-// ---- AI 助手：配置 + 连通性测试 + 测试对话 ----
+// ---- AI 助手：配置 + 连通性测试 + 测试对话 + 角色设置 ----
+const aiTabSection = ref('conn')
 const aiTesting = ref(false)
 const aiSending = ref(false)
 const aiTimeoutNum = ref(120)
 const aiPrompt = ref('')
 const aiReply = ref('')
+const aiRole = ref('general')
+const aiSystemPromptEdit = ref('')
+const aiRolePresets = [
+  { key: 'sre', label: 'SRE 可靠性工程师', prompt: '你是一名资深 SRE（站点可靠性工程师），擅长故障排查、根因分析、容量规划和 SLO 制定。回答注重可操作性，给出具体命令和排查步骤。' },
+  { key: 'dba', label: 'DBA 数据库管理员', prompt: '你是一名资深数据库管理员（DBA），擅长 MySQL/PostgreSQL/Redis 的运维、SQL 优化、备份恢复、主从复制和慢查询分析。回答注重安全性，涉及破坏性操作时提醒确认。' },
+  { key: 'devops', label: 'DevOps 工程师', prompt: '你是一名 DevOps 工程师，擅长 CI/CD、容器化、基础设施即代码和自动化运维。回答注重效率和最佳实践。' },
+  { key: 'security', label: '安全分析师', prompt: '你是一名安全分析师，擅长漏洞评估、入侵检测、加固建议和合规审计。回答注重风险等级和修复优先级。' },
+  { key: 'general', label: '通用助手', prompt: '你是一名通用运维助手，能回答各类技术问题和运维场景咨询。' },
+]
+
+const onRoleChange = key => {
+  const preset = aiRolePresets.find(r => r.key === key)
+  if (preset) aiSystemPromptEdit.value = preset.prompt
+}
 
 const loadAiConfig = async () => {
   try {
@@ -670,6 +698,7 @@ const loadAiConfig = async () => {
     form.ai_timeout_sec = cfg.ai_timeout_sec || '120'
     aiTimeoutNum.value = Number(cfg.ai_timeout_sec) || 120
     form.ai_api_key = cfg.ai_api_key === '******' ? '******' : (cfg.ai_api_key || '')
+    aiSystemPromptEdit.value = cfg.ai_system_prompt || aiRolePresets[aiRolePresets.length - 1].prompt
   } catch { /* ignore */ }
 }
 
@@ -727,7 +756,8 @@ const save = async () => {
       ai_base_url: form.ai_base_url,
       ai_api_key: form.ai_api_key === '******' ? '' : form.ai_api_key,
       ai_model: form.ai_model,
-      ai_timeout_sec: String(aiTimeoutNum.value) }
+      ai_timeout_sec: String(aiTimeoutNum.value),
+      ai_system_prompt: aiSystemPromptEdit.value }
     await api.put('/system/config', payload)
     localStorage.setItem('system_name', form.system_name)
     document.title = form.system_name
