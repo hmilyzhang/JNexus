@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div v-loading="loading">
     <el-row :gutter="16">
@@ -76,7 +76,7 @@ const statCards = computed(() => {
     { key: 'users', label: 'dashboard.users', icon: 'User', color: '#36cfc9', path: '/users', admin: true },
     { key: 'danger_rules', label: 'dashboard.dangerRules', icon: 'Warning', color: '#fa8c16', path: '/danger', admin: true }
   ]
-  // 无权限的卡片不展示（用户数/拦截规则仅管理员；执行记录对只读隐藏）
+  // Hide cards without permission (users/danger rules are admin-only; tasks hidden from viewers)
   return all.filter(c => {
     if (c.admin && !store.isAdmin) return false
     if (c.key === 'tasks' && store.role === 'viewer') return false
@@ -84,7 +84,7 @@ const statCards = computed(() => {
   })
 })
 
-// 快捷入口与主菜单同源：非 admin 按「角色设置」的可见菜单过滤
+// Quick nav mirrors the main menu: for non-admins, filter by the menus visible in role settings
 const roleSettings = ref({})
 api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
 const quickNavs = computed(() => {
@@ -97,7 +97,7 @@ const quickNavs = computed(() => {
   if (store.isAdmin) return all.filter(q => q.path !== '/audit' || store.isAdmin || store.isAuditor)
   const conf = roleSettings.value[store.role]
   const allowed = new Set(conf?.menus || [])
-  // 快捷入口的目标页没在角色菜单里就不展示（viewer 默认只剩 dashboard 相关，列表为空）
+  // Hide quick nav entries whose target page is not in the role's menus (viewer defaults to dashboard only, so the list is empty)
   return all.filter(q => q.key === 'audit' ? (store.isAdmin || store.isAuditor) : allowed.has(q.key))
 })
 

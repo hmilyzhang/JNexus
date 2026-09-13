@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -12,7 +12,7 @@ import (
 	"jnexus/internal/service"
 )
 
-// ---- 审计日志 ----
+// ---- Audit logs ----
 
 func ListAudit(c *gin.Context) {
 	var logs []model.AuditLog
@@ -41,7 +41,7 @@ func ListAudit(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"total": total, "items": logs})
 }
 
-// ---- 危险命令规则 ----
+// ---- Dangerous command rules ----
 
 func ListDangerRules(c *gin.Context) {
 	var rules []model.DangerRule

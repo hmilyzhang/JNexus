@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -27,10 +27,10 @@ type monitorReq struct {
 	IntervalSec    int    `json:"interval_sec"`
 	TimeoutSec     int    `json:"timeout_sec"`
 	Enabled        *bool  `json:"enabled"`
-	ChannelIDs     []uint `json:"channel_ids"` // 告警通知通道绑定
+	ChannelIDs     []uint `json:"channel_ids"` // Alert notification channel bindings
 }
 
-// saveMonitorBindings 重写监控项的通知通道绑定
+// saveMonitorBindings replaces a monitor's notification channel bindings
 func saveMonitorBindings(monitorID uint, channelIDs []uint) {
 	model.DB.Where("monitor_id = ?", monitorID).Delete(&model.MonitorChannel{})
 	for _, cid := range channelIDs {
@@ -63,7 +63,7 @@ func applyMonitorReq(m *model.Monitor, req monitorReq) error {
 	return nil
 }
 
-// ListMonitors 监控列表：最新状态 + 24h 可用率 + 最近心跳（最多 50 条）
+// ListMonitors monitor list: latest status + 24h uptime + recent heartbeats (up to 50)
 func ListMonitors(c *gin.Context) {
 	var monitors []model.Monitor
 	model.DB.Order("id").Find(&monitors)
@@ -126,7 +126,7 @@ func ListMonitors(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// CreateMonitor 新建监控项
+// CreateMonitor creates a monitor
 func CreateMonitor(c *gin.Context) {
 	var req monitorReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -146,7 +146,7 @@ func CreateMonitor(c *gin.Context) {
 	c.JSON(http.StatusOK, m)
 }
 
-// UpdateMonitor 编辑监控项
+// UpdateMonitor edits a monitor
 func UpdateMonitor(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var m model.Monitor
@@ -166,7 +166,7 @@ func UpdateMonitor(c *gin.Context) {
 	if req.Enabled != nil {
 		m.Enabled = *req.Enabled
 	}
-	m.NextRunAt = nil // 立即重新调度
+	m.NextRunAt = nil // reschedule immediately
 	updates := map[string]any{
 		"name": m.Name, "type": m.Type, "target": m.Target, "port": m.Port,
 		"method": m.Method, "accepted_status": m.AcceptedStatus,
@@ -179,7 +179,7 @@ func UpdateMonitor(c *gin.Context) {
 	c.JSON(http.StatusOK, m)
 }
 
-// DeleteMonitor 删除监控项（样本级联删除）
+// DeleteMonitor deletes a monitor (samples are cascade-deleted)
 func DeleteMonitor(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	model.DB.Where("monitor_id = ?", id).Delete(&model.MonitorSample{})
@@ -187,7 +187,7 @@ func DeleteMonitor(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// TestMonitor 立即执行一次检查（结果同时落库，便于看到即时状态）
+// TestMonitor runs a check immediately (the result is also persisted so the latest status is visible)
 func TestMonitor(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var m model.Monitor
@@ -199,7 +199,7 @@ func TestMonitor(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"up": up, "resp_ms": ms, "error": errMsg})
 }
 
-// MonitorHistory 单个监控项的采样历史（?hours=24，最大 720；超 48h 按小时聚合）
+// MonitorHistory sample history for one monitor (?hours=24, max 720; aggregated hourly beyond 48h)
 func MonitorHistory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	hours := 24
@@ -230,7 +230,7 @@ func MonitorHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, samples)
 }
 
-// HostMetricsList 全部主机最新资源（CPU/内存/磁盘）
+// HostMetricsList returns the latest resources of all hosts (CPU/memory/disk)
 func HostMetricsList(c *gin.Context) {
 	var rows []struct {
 		HostID      uint
@@ -250,7 +250,7 @@ func HostMetricsList(c *gin.Context) {
 		JOIN hosts h ON h.id = hm.host_id
 		LEFT JOIN host_groups g ON g.id = h.group_id
 		ORDER BY hm.host_id, hm.collected_at DESC`).Scan(&rows)
-	// 也列出尚无采样数据的主机（前端显示"暂无数据"）
+	// Also list hosts that have no samples yet (frontend shows "no data")
 	var hosts []model.Host
 	model.DB.Order("name").Find(&hosts)
 	seen := map[uint]bool{}
@@ -276,7 +276,7 @@ func HostMetricsList(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// HostMetricHistory 单台主机资源历史（?hours=6，最大 720；超 48h 按小时聚合）
+// HostMetricHistory resource history for one host (?hours=6, max 720; aggregated hourly beyond 48h)
 func HostMetricHistory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	hours := 6
@@ -285,7 +285,7 @@ func HostMetricHistory(c *gin.Context) {
 	}
 	since := time.Now().Add(-time.Duration(hours) * time.Hour)
 	if hours > 24*30 {
-		// 长周期（180d/1y）：近 30 天用 raw 按天桶，更早用小时归档表按天桶，合并成完整序列
+		// Long ranges (180d/1y): last 30 days from raw data in day buckets, older from the hourly archive in day buckets, merged into one series
 		cutoff := time.Now().Add(-30 * 24 * time.Hour)
 		type dayBucket struct {
 			Bucket      time.Time `json:"collected_at"`
@@ -293,7 +293,7 @@ func HostMetricHistory(c *gin.Context) {
 			MemPercent  float64   `json:"mem_percent"`
 			DiskPercent float64   `json:"disk_percent"`
 		}
-		// 近 30 天：raw 按天桶；更早：小时归档表按天桶；两段合并为完整序列
+		// Last 30 days: raw data in day buckets; older: hourly archive in day buckets; both merged into one series
 		var rows []dayBucket
 		model.DB.Raw(`SELECT date_trunc('day', t.at) AS bucket,
 				AVG(t.cpu_percent) AS cpu_percent, AVG(t.mem_percent) AS mem_percent, AVG(t.disk_percent) AS disk_percent
@@ -331,12 +331,12 @@ func HostMetricHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, rows)
 }
 
-// MonitorScreen GET /api/monitoring/screen — 监控大屏聚合数据（单次请求拉全，前端 15s 轮询）
+// MonitorScreen GET /api/monitoring/screen — aggregated monitoring dashboard data (single request fetches all; frontend polls every 15s)
 func MonitorScreen(c *gin.Context) {
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
-	// 主机按分组聚合
+	// Aggregate hosts by group
 	var hosts []model.Host
 	model.DB.Select("name", "status", "group_id").Find(&hosts)
 	var groups []model.HostGroup
@@ -385,7 +385,7 @@ func MonitorScreen(c *gin.Context) {
 	}
 	sort.Slice(groupsOut, func(i, j int) bool { return groupsOut[i].Total > groupsOut[j].Total })
 
-	// 拨测监控状态
+	// Probe monitor status
 	var monitors []model.Monitor
 	model.DB.Select("name", "type", "target", "port", "enabled", "last_status", "last_resp_ms").Find(&monitors)
 	type monRow struct {
@@ -398,7 +398,7 @@ func MonitorScreen(c *gin.Context) {
 	}
 	mons := make([]monRow, 0, len(monitors))
 	up, down, paused := 0, 0, 0
-	// 24h 可用率（与列表页同口径）
+	// 24h uptime (same calculation as the list page)
 	var uptimeRows []struct {
 		MonitorID uint
 		Uptime    float64
@@ -425,17 +425,17 @@ func MonitorScreen(c *gin.Context) {
 		mons = append(mons, monRow{Name: m.Name, Type: m.Type, Target: m.Target, Status: st, RespMs: m.LastRespMs, Uptime: uptimes[m.ID]})
 	}
 
-	// 告警事件：今日数量 + 最近 7 天 20 条
+	// Alert events: today's count + latest 20 from the last 7 days
 	var todayAlerts int64
 	model.DB.Model(&model.AlertEvent{}).Where("fired_at >= ?", todayStart).Count(&todayAlerts)
 	var recent []model.AlertEvent
 	model.DB.Where("fired_at >= ?", now.AddDate(0, 0, -7)).Order("fired_at DESC").Limit(20).Find(&recent)
 
-	// 今日任务
+	// Tasks today
 	var tasksToday int64
 	model.DB.Model(&model.Task{}).Where("created_at >= ?", todayStart).Count(&tasksToday)
 
-	// 主机平均 CPU / 内存趋势（近 24h 小时桶，Grafana 风格时间线）
+	// Host average CPU/memory trend (last 24h in hourly buckets, Grafana-style timeline)
 	type trendRow struct {
 		Bucket time.Time `json:"t"`
 		CPU    float64   `json:"cpu"`
@@ -447,7 +447,7 @@ func MonitorScreen(c *gin.Context) {
 		FROM host_metrics WHERE collected_at > ?
 		GROUP BY bucket ORDER BY bucket`, now.Add(-24*time.Hour)).Scan(&trend)
 
-	// 拨测平均响应趋势（近 24h 小时桶，仅成功样本）
+	// Probe average response trend (last 24h in hourly buckets, successful samples only)
 	type respRow struct {
 		Bucket time.Time `json:"t"`
 		Ms     float64   `json:"ms"`
@@ -457,7 +457,7 @@ func MonitorScreen(c *gin.Context) {
 		FROM monitor_samples WHERE created_at > ? AND status = 'up'
 		GROUP BY bucket ORDER BY bucket`, now.Add(-24*time.Hour)).Scan(&respTrend)
 
-	// 近 14 天每日告警数（缺失日期补 0）
+	// Daily alert counts for the last 14 days (missing days filled with 0)
 	type dayRow struct {
 		Day string `json:"d"`
 		N   int64  `json:"n"`

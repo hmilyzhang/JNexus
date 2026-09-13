@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package model
 
@@ -7,37 +7,37 @@ import (
 	"time"
 )
 
-// 角色
+// Roles
 const (
-	RoleAdmin     = "admin"     // 管理员
-	RoleOps       = "ops"       // 运维
-	RolePublisher = "publisher" // 发布员
-	RoleViewer    = "viewer"    // 只读
-	RoleAuditor   = "auditor"   // 审计员：可查看执行记录与审计日志
-	RoleK8s       = "k8s"       // K8S 运维：集群查看与 Pod/计划任务/服务账号运维
+	RoleAdmin     = "admin"     // Administrator
+	RoleOps       = "ops"       // Ops
+	RolePublisher = "publisher" // Publisher
+	RoleViewer    = "viewer"    // Read-only
+	RoleAuditor   = "auditor"   // Auditor: can view execution records and audit logs
+	RoleK8s       = "k8s"       // K8s ops: cluster viewing plus Pod/cron job/service account operations
 )
 
 type User struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`
 	Username    string     `gorm:"uniqueIndex;size:64" json:"username"`
-	DisplayName string     `gorm:"size:128" json:"display_name"` // 显示名（LDAP 同步 displayName/cn；本地用户可在个人中心设置）
+	DisplayName string     `gorm:"size:128" json:"display_name"` // Display name (synced from LDAP displayName/cn; local users can set it in their profile)
 	Password    string     `json:"-"`
 	Role        string     `gorm:"size:32;index" json:"role"`
 	AuthSource  string     `gorm:"size:16;default:local" json:"auth_source"` // local / ldap
 	Email       string     `gorm:"size:128" json:"email"`
-	Status      int        `gorm:"default:1" json:"status"` // 1 启用 0 禁用
+	Status      int        `gorm:"default:1" json:"status"` // 1 enabled, 0 disabled
 	MFAEnabled  bool       `gorm:"default:false" json:"mfa_enabled"`
-	MFASecret   string     `gorm:"size:256" json:"-"` // TOTP 密钥，AES-GCM 加密存储
+	MFASecret   string     `gorm:"size:256" json:"-"` // TOTP secret, stored AES-GCM encrypted
 	LastLoginAt *time.Time `json:"last_login_at"`
 	CreatedAt   time.Time  `json:"created_at"`
-	CreatedBy   string     `gorm:"size:64" json:"created_by"` // 创建人（LDAP 自动建号记为 LDAP）
-	UpdatedBy   string     `gorm:"size:64" json:"updated_by"` // 最近修改人
+	CreatedBy   string     `gorm:"size:64" json:"created_by"` // Creator ("LDAP" for accounts auto-created via LDAP)
+	UpdatedBy   string     `gorm:"size:64" json:"updated_by"` // Last modified by
 	UpdatedAt   time.Time  `json:"updated_at"`
-	DisabledAt  *time.Time `json:"disabled_at"`                // 禁用时间（启用后清空）
-	DisabledBy  string     `gorm:"size:64" json:"disabled_by"` // 禁用操作人
+	DisabledAt  *time.Time `json:"disabled_at"`                // Disabled at (cleared once re-enabled)
+	DisabledBy  string     `gorm:"size:64" json:"disabled_by"` // Disabled by
 }
 
-// SystemConfig 系统配置（key-value，值可为 JSON 文本）
+// SystemConfig system configuration (key-value; value may be JSON text)
 type SystemConfig struct {
 	Key   string `gorm:"primaryKey;size:64" json:"key"`
 	Value string `gorm:"type:text" json:"value"`
@@ -46,7 +46,7 @@ type SystemConfig struct {
 type HostGroup struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	Name        string    `gorm:"uniqueIndex;size:128" json:"name"`
-	ParentID    *uint     `gorm:"index" json:"parent_id"` // 上级分组（多级树）
+	ParentID    *uint     `gorm:"index" json:"parent_id"` // Parent group (multi-level tree)
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
 }
@@ -55,13 +55,13 @@ type SSHKey struct {
 	ID        uint   `gorm:"primaryKey" json:"id"`
 	Name      string `gorm:"uniqueIndex;size:128" json:"name"`
 	PublicKey string `json:"public_key"`
-	// AES-GCM 加密后的私钥
+	// Private key, AES-GCM encrypted
 	PrivateKey string    `json:"-"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
 type Host struct {
-	LastBootID string     `gorm:"size:64" json:"-"` // 上次采集到的 boot_id（用于检测系统重启）
+	LastBootID string     `gorm:"size:64" json:"-"` // Last collected boot_id (used to detect system reboots)
 	ID         uint       `gorm:"primaryKey" json:"id"`
 	Name       string     `gorm:"size:128" json:"name"`
 	IP         string     `gorm:"size:64;index" json:"ip"`
@@ -72,7 +72,7 @@ type Host struct {
 	Username   string     `gorm:"size:64" json:"username"`
 	AuthType   string     `gorm:"size:16;default:key" json:"auth_type"` // key / password
 	SSHKeyID   *uint      `json:"ssh_key_id"`
-	Password   string     `json:"-"` // AES-GCM 加密
+	Password   string     `json:"-"` // AES-GCM encrypted
 	GroupID    *uint      `gorm:"index" json:"group_id"`
 	Status     string     `gorm:"size:16;default:unknown" json:"status"` // online / offline / unknown
 	LastSeen   *time.Time `json:"last_seen"`
@@ -92,13 +92,13 @@ type Script struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// 任务类型
+// Task types
 const (
 	TaskCommand = "command"
 	TaskScript  = "script"
 	TaskFile    = "file"
 	TaskRelease = "release"
-	TaskCred    = "cred" // 批量添加 OS 账号
+	TaskCred    = "cred" // Bulk OS account creation
 )
 
 type Task struct {
@@ -106,7 +106,7 @@ type Task struct {
 	Type       string     `gorm:"size:16;index" json:"type"`
 	Operator   string     `gorm:"size:64;index" json:"operator"`
 	Params     string     `gorm:"type:text" json:"params"`                     // JSON
-	CronJobID  *uint      `gorm:"index" json:"cron_job_id"`                    // 计划任务触发来源
+	CronJobID  *uint      `gorm:"index" json:"cron_job_id"`                    // Cron job that triggered this task
 	Status     string     `gorm:"size:16;index;default:running" json:"status"` // running / done / failed / blocked
 	CreatedAt  time.Time  `json:"created_at"`
 	FinishedAt *time.Time `json:"finished_at"`
@@ -120,7 +120,7 @@ type TaskHostResult struct {
 	HostID     uint       `json:"host_id"`
 	HostIP     string     `gorm:"size:64" json:"host_ip"`
 	HostName   string     `gorm:"size:128" json:"host_name"`
-	OsUser     string     `gorm:"size:64" json:"os_user"`                // 执行使用的 OS 账号
+	OsUser     string     `gorm:"size:64" json:"os_user"`                // OS account used for execution
 	Status     string     `gorm:"size:16;default:pending" json:"status"` // pending / running / success / failed / blocked
 	ExitCode   int        `json:"exit_code"`
 	Output     string     `gorm:"type:text" json:"output"`
@@ -137,30 +137,30 @@ type Application struct {
 	AppHosts []AppHost `gorm:"foreignKey:AppID" json:"app_hosts,omitempty"`
 }
 
-// 应用在某台主机上的部署配置
+// Per-host deployment config for an application
 type AppHost struct {
 	ID             uint   `gorm:"primaryKey" json:"id"`
 	AppID          uint   `gorm:"index" json:"app_id"`
 	HostID         uint   `json:"host_id"`
-	CredentialID   *uint  `json:"credential_id"`              // 发布使用的 OS 账号（空=主机默认账号）
-	DeployDir      string `gorm:"size:256" json:"deploy_dir"` // 如 /app/myapp
-	JarName        string `gorm:"size:256" json:"jar_name"`   // 如 app.jar
-	StopCmd        string `gorm:"size:512" json:"stop_cmd"`   // 为空则按进程名 kill
-	StartCmd       string `gorm:"size:512" json:"start_cmd"`  // 如 nohup java -jar ... &
-	BackupDir      string `gorm:"size:256" json:"backup_dir"` // 为空用 deployDir/backup
+	CredentialID   *uint  `json:"credential_id"`              // OS account used for releases (empty = host default account)
+	DeployDir      string `gorm:"size:256" json:"deploy_dir"` // e.g. /app/myapp
+	JarName        string `gorm:"size:256" json:"jar_name"`   // e.g. app.jar
+	StopCmd        string `gorm:"size:512" json:"stop_cmd"`   // if empty, kill by process name
+	StartCmd       string `gorm:"size:512" json:"start_cmd"`  // e.g. nohup java -jar ... &
+	BackupDir      string `gorm:"size:256" json:"backup_dir"` // if empty, deployDir/backup is used
 	HealthCheckURL string `gorm:"size:256" json:"health_check_url"`
 
 	Host *Host `gorm:"foreignKey:HostID" json:"host,omitempty"`
 }
 
-// 发布单
+// Release ticket
 type Release struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	AppID       uint      `gorm:"index" json:"app_id"`
 	AppName     string    `gorm:"size:128" json:"app_name"`
 	Operator    string    `gorm:"size:64" json:"operator"`
-	PackageFile string    `gorm:"size:256" json:"package_file"`                // 服务端暂存的包文件名
-	PackageName string    `gorm:"size:256" json:"package_name"`                // 原始文件名
+	PackageFile string    `gorm:"size:256" json:"package_file"`                // Package file name staged on the server
+	PackageName string    `gorm:"size:256" json:"package_name"`                // Original file name
 	Status      string    `gorm:"size:16;index;default:running" json:"status"` // running / success / failed / rollback
 	CreatedAt   time.Time `json:"created_at"`
 
@@ -191,14 +191,14 @@ type AuditLog struct {
 	UserID    uint      `gorm:"index" json:"user_id"`
 	Username  string    `gorm:"size:64;index" json:"username"`
 	Action    string    `gorm:"size:32;index" json:"action"` // POST / PUT / DELETE
-	Resource  string    `gorm:"size:256" json:"resource"`    // 路径
-	Detail    string    `gorm:"type:text" json:"detail"`     // 请求摘要 JSON
+	Resource  string    `gorm:"size:256" json:"resource"`    // Path
+	Detail    string    `gorm:"type:text" json:"detail"`     // Request summary JSON
 	IP        string    `gorm:"size:64" json:"ip"`
-	Status    int       `json:"status"` // 响应码
+	Status    int       `json:"status"` // Response status code
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 }
 
-// 用户 ↔ 主机分组授权（数据级权限）
+// User ↔ host group authorization (data-level permission)
 type UserHostGroup struct {
 	ID        uint `gorm:"primaryKey" json:"id"`
 	UserID    uint `gorm:"index" json:"user_id"`
@@ -207,45 +207,45 @@ type UserHostGroup struct {
 	CanDeploy bool `json:"can_deploy"`
 }
 
-// 用户 ↔ 应用发布授权
+// User ↔ app release authorization
 type UserApp struct {
 	ID     uint `gorm:"primaryKey" json:"id"`
 	UserID uint `gorm:"index" json:"user_id"`
 	AppID  uint `gorm:"index" json:"app_id"`
 }
 
-// 用户组：批量管理用户的主机访问权限
+// User group: bulk-manages users' host access
 type UserGroup struct {
-	ID          uint      `gorm:"primaryKey" json:"id"`
-	Name        string    `gorm:"uniqueIndex;size:128" json:"name"`
-	Description string    `json:"description"`
-	// RestrictVisibility 开启后，组成员的主机列表仅显示本组绑定的主机/主机分组（admin/ops 不受限）
-	RestrictVisibility bool       `gorm:"default:false" json:"restrict_visibility"`
-	CreatedAt          time.Time  `json:"created_at"`
+	ID          uint   `gorm:"primaryKey" json:"id"`
+	Name        string `gorm:"uniqueIndex;size:128" json:"name"`
+	Description string `json:"description"`
+	// When RestrictVisibility is on, group members' host lists only show hosts/host groups bound to this group (admin/ops unaffected)
+	RestrictVisibility bool      `gorm:"default:false" json:"restrict_visibility"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
-// 用户组 ↔ 主机（直接授权）
+// User group ↔ host (direct authorization)
 type UserGroupHost struct {
 	ID          uint `gorm:"primaryKey" json:"id"`
 	UserGroupID uint `gorm:"index" json:"user_group_id"`
 	HostID      uint `gorm:"index" json:"host_id"`
 }
 
-// 用户组 ↔ 主机分组（整组授权）
+// User group ↔ host group (whole-group authorization)
 type UserGroupHostGroup struct {
 	ID          uint `gorm:"primaryKey" json:"id"`
 	UserGroupID uint `gorm:"index" json:"user_group_id"`
 	HostGroupID uint `gorm:"index" json:"host_group_id"`
 }
 
-// 用户组 ↔ 用户（组成员）
+// User group ↔ user (group members)
 type UserGroupMember struct {
 	ID          uint `gorm:"primaryKey" json:"id"`
 	UserGroupID uint `gorm:"index" json:"user_group_id"`
 	UserID      uint `gorm:"index" json:"user_id"`
 }
 
-// 采集报告：按模板在多台主机上收集信息并汇总
+// Collection report: gathers info from multiple hosts by template and summarizes it
 type Report struct {
 	ID         uint       `gorm:"primaryKey" json:"id"`
 	Name       string     `gorm:"size:128" json:"name"`
@@ -269,7 +269,7 @@ type ReportItem struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// 计划任务：定时执行命令或脚本
+// Cron job: runs a command or script on a schedule
 type CronJob struct {
 	ID           uint       `gorm:"primaryKey" json:"id"`
 	Name         string     `gorm:"uniqueIndex;size:128" json:"name"`
@@ -277,7 +277,7 @@ type CronJob struct {
 	Command      string     `gorm:"type:text" json:"command"`
 	ScriptID     *uint      `json:"script_id"`
 	ScriptArgs   string     `gorm:"size:512" json:"script_args"`
-	HostIDs      string     `gorm:"type:text" json:"host_ids"` // JSON 数组
+	HostIDs      string     `gorm:"type:text" json:"host_ids"` // JSON array
 	GroupID      *uint      `json:"group_id"`
 	IPs          string     `gorm:"size:512" json:"ips"`
 	CredentialID *uint      `json:"credential_id"`
@@ -292,74 +292,74 @@ type CronJob struct {
 	CreatedAt    time.Time  `json:"created_at"`
 }
 
-// 主机访问凭据：一台主机可挂多个 OS 账号，不同团队使用不同账号实现账号隔离
+// Host access credential: a host can have multiple OS accounts so different teams use different accounts for isolation
 type HostCredential struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	HostID    uint      `gorm:"index" json:"host_id"`
 	Username  string    `gorm:"size:64" json:"username"`
 	AuthType  string    `gorm:"size:16;default:key" json:"auth_type"` // key / password
 	SSHKeyID  *uint     `json:"ssh_key_id"`
-	Password  string    `json:"-"`                    // AES-GCM 加密
-	Label     string    `gorm:"size:64" json:"label"` // 用途：运维/应用/发布等
+	Password  string    `json:"-"`                    // AES-GCM encrypted
+	Label     string    `gorm:"size:64" json:"label"` // Purpose: ops/app/release etc.
 	IsDefault bool      `gorm:"default:false" json:"is_default"`
 	CreatedAt time.Time `json:"created_at"`
-	// 密码定期轮换（仅密码认证的账号；LDAP/域账号自动检测跳过）
+	// Periodic password rotation (password-auth accounts only; LDAP/domain accounts are auto-detected and skipped)
 	RotateEnabled      bool       `gorm:"default:false" json:"rotate_enabled"`
-	RotateDays         int        `json:"rotate_days"` // 0 = 跟随系统设置的全局周期
+	RotateDays         int        `json:"rotate_days"` // 0 = follow the global period from system settings
 	LastRotatedAt      *time.Time `json:"last_rotated_at"`
 	LastRotationResult string     `gorm:"size:255" json:"last_rotation_result"`
-	IsLDAP             bool       `gorm:"default:false" json:"is_ldap"` // 手动标记域账号，排除轮换
+	IsLDAP             bool       `gorm:"default:false" json:"is_ldap"` // Manually marks a domain account to exclude from rotation
 
 	SSHKey *SSHKey `gorm:"foreignKey:SSHKeyID" json:"ssh_key,omitempty"`
 }
 
-// 用户组 ↔ 应用（应用团队授权：成员只能看到/发布绑定的应用）
+// User group ↔ app (app team authorization: members can only see/release bound apps)
 type UserGroupApp struct {
 	ID          uint `gorm:"primaryKey" json:"id"`
 	UserGroupID uint `gorm:"index" json:"user_group_id"`
 	AppID       uint `gorm:"index" json:"app_id"`
 }
 
-// 用户组 ↔ 凭据（把 OS 账号分配给团队）
+// User group ↔ credential (assigns OS accounts to teams)
 type UserGroupCredential struct {
 	ID           uint `gorm:"primaryKey" json:"id"`
 	UserGroupID  uint `gorm:"index" json:"user_group_id"`
 	CredentialID uint `gorm:"index" json:"credential_id"`
 }
 
-// 用户组账号规则：主机分组范围（空=全部主机）× 账号名，一次规则覆盖存量与新增主机
+// User group account rule: host group scope (empty = all hosts) x username; one rule covers existing and newly added hosts
 type UserGroupCredRule struct {
 	ID          uint   `gorm:"primaryKey" json:"id"`
 	UserGroupID uint   `gorm:"index" json:"user_group_id"`
-	HostGroupID *uint  `gorm:"index" json:"host_group_id"` // NULL=全部主机
+	HostGroupID *uint  `gorm:"index" json:"host_group_id"` // NULL = all hosts
 	Username    string `gorm:"size:64;index" json:"username"`
 }
 
 func (u *User) IsAdmin() bool { return u.Role == RoleAdmin }
 
-// JSONParams 把 map 序列化为 JSON 字符串
+// JSONParams serializes a map into a JSON string
 func JSONParams(m map[string]any) string {
 	b, _ := json.Marshal(m)
 	return string(b)
 }
 
-// 应用监控项（Uptime Kuma 风格：HTTP(s) / TCP / Ping）
+// Application monitor (Uptime Kuma style: HTTP(s) / TCP / Ping)
 type Monitor struct {
 	ID             uint       `gorm:"primaryKey" json:"id"`
 	Name           string     `gorm:"size:128" json:"name"`
 	Type           string     `gorm:"size:16" json:"type"`            // http / tcp / ping
-	Target         string     `gorm:"size:256" json:"target"`         // http: 完整 URL；tcp/ping: 主机名或 IP
-	Port           int        `json:"port"`                           // tcp: 目标端口
+	Target         string     `gorm:"size:256" json:"target"`         // http: full URL; tcp/ping: hostname or IP
+	Port           int        `json:"port"`                           // tcp: target port
 	Method         string     `gorm:"size:8" json:"method"`           // http: GET / HEAD
 	AcceptedStatus string     `gorm:"size:64" json:"accepted_status"` // http: 200-299
-	Keyword        string     `gorm:"size:256" json:"keyword"`        // http: 关键字（可选）
+	Keyword        string     `gorm:"size:256" json:"keyword"`        // http: keyword (optional)
 	KeywordType    string     `gorm:"size:16" json:"keyword_type"`    // contain / absent
 	IntervalSec    int        `json:"interval_sec"`
 	TimeoutSec     int        `json:"timeout_sec"`
 	Enabled        bool       `gorm:"default:true" json:"enabled"`
-	DownSince      *time.Time `json:"down_since"`                // 当前故障开始时间（恢复后清空）
-	AlertFired     bool       `json:"alert_fired"`               // 本次故障周期内是否已发送告警
-	LastStatus     string     `gorm:"size:8" json:"last_status"` // up / down / 空=未检查
+	DownSince      *time.Time `json:"down_since"`                // When the current outage started (cleared on recovery)
+	AlertFired     bool       `json:"alert_fired"`               // Whether an alert was already sent during this outage
+	LastStatus     string     `gorm:"size:8" json:"last_status"` // up / down / empty = not checked
 	LastRespMs     int        `json:"last_resp_ms"`
 	LastError      string     `gorm:"size:255" json:"last_error"`
 	LastCheckedAt  *time.Time `json:"last_checked_at"`
@@ -369,7 +369,7 @@ type Monitor struct {
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
-// MonitorSample 监控心跳样本（状态 + 耗时历史，用于心跳条与可用率）
+// MonitorSample monitoring heartbeat sample (status + latency history, used for the heartbeat bar and uptime rate)
 type MonitorSample struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	MonitorID uint      `gorm:"index" json:"monitor_id"`
@@ -379,17 +379,17 @@ type MonitorSample struct {
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 }
 
-// HostMetric 主机基础资源采样（CPU / 内存 / 磁盘，经 SSH 采集）
+// HostMetric host resource sampling (CPU / memory / disk, collected via SSH)
 type HostMetric struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	HostID      uint      `gorm:"index" json:"host_id"`
 	CPUPercent  float64   `json:"cpu_percent"`
 	MemPercent  float64   `json:"mem_percent"`
-	DiskPercent float64   `json:"disk_percent"` // 所有真实挂载点中最大使用率
+	DiskPercent float64   `json:"disk_percent"` // Max usage across all real mount points
 	CollectedAt time.Time `gorm:"index" json:"collected_at"`
 }
 
-// K8sCapacitySample K8S 集群容量采样（容量规划：月/半年/年趋势与预测）
+// K8sCapacitySample K8s cluster capacity sampling (capacity planning: monthly/half-year/yearly trends and forecasts)
 type K8sCapacitySample struct {
 	ID            uint      `gorm:"primaryKey" json:"id"`
 	ClusterID     uint      `gorm:"index" json:"cluster_id"`
@@ -402,11 +402,11 @@ type K8sCapacitySample struct {
 	CollectedAt   time.Time `gorm:"index" json:"collected_at"`
 }
 
-// AlertEvent 告警事件历史（月报/告警统计的数据源；发出即落一条）
+// AlertEvent alert event history (data source for monthly reports/alert stats; one row per alert sent)
 type AlertEvent struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`
-	Kind        string     `gorm:"size:32;index" json:"kind"`   // monitor_down / monitor_recovery / cmd_level / host_reboot / k8s_cluster_offline / k8s_cluster_recovery / k8s_node / k8s_cert / k8s_warning
-	Level       string     `gorm:"size:8;index" json:"level"`   // P1 / P2 / P3 / P4 / warn / info
+	Kind        string     `gorm:"size:32;index" json:"kind"` // monitor_down / monitor_recovery / cmd_level / host_reboot / k8s_cluster_offline / k8s_cluster_recovery / k8s_node / k8s_cert / k8s_warning
+	Level       string     `gorm:"size:8;index" json:"level"` // P1 / P2 / P3 / P4 / warn / info
 	Target      string     `gorm:"size:255;index" json:"target"`
 	Message     string     `gorm:"type:text" json:"message"`
 	FiredAt     time.Time  `gorm:"index" json:"fired_at"`
@@ -414,7 +414,7 @@ type AlertEvent struct {
 	DurationSec *int       `json:"duration_sec"`
 }
 
-// K8sPodSample Pod 级容量采样：每集群 CPU 用量 Top10（容量规划 Pod 维度）
+// K8sPodSample pod-level capacity sampling: top 10 CPU usage per cluster (pod dimension of capacity planning)
 type K8sPodSample struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	ClusterID   uint      `gorm:"index:idx_kps_cluster_pod"`
@@ -425,7 +425,7 @@ type K8sPodSample struct {
 	CollectedAt time.Time `gorm:"index" json:"collected_at"`
 }
 
-// HostMetricHourly 主机指标小时聚合（raw 30 天过期后支撑半年/一年趋势）
+// HostMetricHourly hourly aggregation of host metrics (backs half-year/yearly trends after raw data expires in 30 days)
 type HostMetricHourly struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	HostID      uint      `gorm:"index:idx_hmh_host_bucket,unique"`
@@ -435,41 +435,41 @@ type HostMetricHourly struct {
 	DiskPercent float64   `json:"disk_percent"`
 }
 
-// 告警通知通道（参考 Uptime Kuma：邮件 / Webhook / 企业微信 / 钉钉 / 飞书 / Telegram）
+// Alert notification channel (modeled on Uptime Kuma: email / webhook / WeCom / DingTalk / Feishu / Telegram)
 type AlertChannel struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Name      string    `gorm:"size:128" json:"name"`
 	Type      string    `gorm:"size:16" json:"type"`     // email / webhook / wecom / dingtalk / feishu / telegram
-	Config    string    `gorm:"type:text" json:"config"` // JSON：各类型自己的字段
+	Config    string    `gorm:"type:text" json:"config"` // JSON: type-specific fields
 	Enabled   bool      `gorm:"default:true" json:"enabled"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// CmdAlertState 主机当前所处的 CMD 告警级别状态（每主机一行）
+// CmdAlertState the host's current CMD alert level state (one row per host)
 type CmdAlertState struct {
 	HostID uint       `gorm:"primaryKey" json:"host_id"`
-	Level  string     `gorm:"size:4" json:"level"` // P1-P4，空=正常
-	Since  *time.Time `json:"since"`               // 当前级别起始时间
-	Fired  bool       `json:"fired"`               // 该级别告警是否已发送
+	Level  string     `gorm:"size:4" json:"level"` // P1-P4, empty = normal
+	Since  *time.Time `json:"since"`               // When the current level started
+	Fired  bool       `json:"fired"`               // Whether the alert for this level was already sent
 }
 
-// MonitorChannel 监控项 ↔ 通知通道 绑定
+// MonitorChannel monitor ↔ notification channel binding
 type MonitorChannel struct {
 	MonitorID uint `gorm:"primaryKey" json:"monitor_id"`
 	ChannelID uint `gorm:"primaryKey" json:"channel_id"`
 }
 
-// API 密钥（外部系统集成；仅存 SHA-256 哈希，完整密钥仅创建时展示一次）
+// API key (external system integration; only the SHA-256 hash is stored, the full key is shown once at creation)
 type ApiKey struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`
 	Name        string     `gorm:"size:128" json:"name"`
-	KeyID       string     `gorm:"size:32;uniqueIndex" json:"key_id"` // 公开标识
+	KeyID       string     `gorm:"size:32;uniqueIndex" json:"key_id"` // Public identifier
 	KeyHash     string     `gorm:"size:64" json:"-"`                  // sha256(secret)
-	OwnerUserID uint       `gorm:"index" json:"owner_user_id"`        // 以该用户身份执行
+	OwnerUserID uint       `gorm:"index" json:"owner_user_id"`        // Executes as this user
 	OwnerName   string     `gorm:"size:64" json:"owner_name"`
-	ExpiresAt   *time.Time `json:"expires_at"`                   // 可选过期时间
-	IPAllowlist string     `gorm:"size:512" json:"ip_allowlist"` // 逗号分隔 IP/CIDR，空=不限
+	ExpiresAt   *time.Time `json:"expires_at"`                   // Optional expiry time
+	IPAllowlist string     `gorm:"size:512" json:"ip_allowlist"` // Comma-separated IP/CIDR, empty = unrestricted
 	Enabled     bool       `gorm:"default:true" json:"enabled"`
 	LastUsedAt  *time.Time `json:"last_used_at"`
 	LastUsedIP  string     `gorm:"size:64" json:"last_used_ip"`
@@ -477,42 +477,42 @@ type ApiKey struct {
 	CreatedBy   string     `gorm:"size:64" json:"created_by"`
 }
 
-// MaintenanceLog 维护窗口变更留痕（每次保存一条；active 标记当前生效版本）
+// MaintenanceLog change history of maintenance windows (one row per save; active marks the current version)
 type MaintenanceLog struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Username  string    `gorm:"size:64;index" json:"username"`
 	IP        string    `gorm:"size:64" json:"ip"`
-	Windows   string    `gorm:"type:text" json:"windows"` // 窗口 JSON
+	Windows   string    `gorm:"type:text" json:"windows"` // Windows JSON
 	Active    bool      `json:"active"`
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 }
 
-// K8S 集群（外部系统集成；凭据 AES-GCM 加密存储）
+// K8s cluster (external system integration; credentials stored AES-GCM encrypted)
 type K8sCluster struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`
 	Name        string     `gorm:"size:128;uniqueIndex" json:"name"`
 	ApiServer   string     `gorm:"size:256" json:"api_server"`
-	Support     string     `gorm:"size:128" json:"support"`       // 支持人/负责人
+	Support     string     `gorm:"size:128" json:"support"` // Support/contact owner
 	Description string     `gorm:"size:256" json:"description"`
-	CA          string     `gorm:"size:4096" json:"-"`            // PEM，加密存储
+	CA          string     `gorm:"size:4096" json:"-"` // PEM, stored encrypted
 	ClientCert  string     `gorm:"size:4096" json:"-"`
 	ClientKey   string     `gorm:"size:8192" json:"-"`
-	Kubeconfig  string     `gorm:"type:text" json:"-"`            // kubeconfig 全文，加密存储
+	Kubeconfig  string     `gorm:"type:text" json:"-"` // Full kubeconfig, stored encrypted
 	Version     string     `gorm:"size:32" json:"version"`
 	NodeCount   int        `json:"node_count"`
-	Status      string     `gorm:"size:16" json:"status"`         // online / offline / unknown
-	CertExpiry  *time.Time `json:"cert_expiry"`                   // 客户端证书到期
-	CAExpiry    *time.Time `json:"ca_expiry"`                     // CA 到期
+	Status      string     `gorm:"size:16" json:"status"` // online / offline / unknown
+	CertExpiry  *time.Time `json:"cert_expiry"`           // Client certificate expiry
+	CAExpiry    *time.Time `json:"ca_expiry"`             // CA expiry
 	LastSeen    *time.Time `json:"last_seen"`
-	Warn30Sent  bool       `json:"-"`                              // 30 天提醒已发送
-	Warn7Sent   bool       `json:"-"`                              // 7 天提醒已发送
+	Warn30Sent  bool       `json:"-"` // 30-day reminder sent
+	Warn7Sent   bool       `json:"-"` // 7-day reminder sent
 	Enabled     bool       `gorm:"default:true" json:"enabled"`
 	CreatedBy   string     `gorm:"size:64" json:"created_by"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
-// K8sClusterMember 集群成员（平台内角色：admin / user / viewer）
+// K8sClusterMember cluster member (platform role: admin / user / viewer)
 type K8sClusterMember struct {
 	ID        uint   `gorm:"primaryKey" json:"id"`
 	ClusterID uint   `gorm:"uniqueIndex:uq_k8s_cluster_user" json:"cluster_id"`

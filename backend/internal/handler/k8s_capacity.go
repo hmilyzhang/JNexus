@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -12,7 +12,7 @@ import (
 	"jnexus/internal/model"
 )
 
-// K8S 容量规划：历史趋势（小时/天桶）+ 线性回归预测
+// K8S capacity planning: historical trends (hour/day buckets) + linear regression forecast
 
 type capacityPoint struct {
 	Bucket      time.Time `json:"t"`
@@ -34,7 +34,7 @@ type capacityForecast struct {
 }
 
 // K8sCapacityHistory GET /:id/capacity/history?hours=6|24|168|720|4320|8760
-// ≤48h 原始样本；7d/30d 小时桶；180d/1y 天桶（时间维度对齐监控中心）；附线性回归预测
+// ≤48h raw samples; 7d/30d hourly buckets; 180d/1y daily buckets (time ranges aligned with the monitoring center); with linear regression forecast
 func K8sCapacityHistory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	if _, _, _, ok := k8sClusterAccess(c, id, "viewer"); !ok {
@@ -63,7 +63,7 @@ func K8sCapacityHistory(c *gin.Context) {
 		points = []capacityPoint{}
 	}
 
-	// 容量取最近样本（节点扩缩容会变化）
+	// Capacity from the latest sample (changes as nodes scale up/down)
 	var latest model.K8sCapacitySample
 	model.DB.Where("cluster_id = ?", id).Order("collected_at DESC").First(&latest)
 
@@ -81,17 +81,17 @@ func K8sCapacityHistory(c *gin.Context) {
 		fc.MemDaysLeft = daysUntilFull(fc.MemCurrentMi, float64(fc.MemCapacityMi), slopeMem)
 	}
 
-	// 数据是否足以做趋势判断（采样 15 分钟一次，2 小时至少 8 点）
+	// Whether there is enough data for trend analysis (sampled every 15 min, at least 8 points in 2 hours)
 	degraded := len(points) < 2
 	c.JSON(http.StatusOK, gin.H{
 		"hours":    hours,
 		"points":   points,
 		"forecast": fc,
-		"degraded": degraded, // true = 样本不足或 metrics-server 缺失
+		"degraded": degraded, // true = insufficient samples or missing metrics-server
 	})
 }
 
-// capacityHours 时间范围参数（对齐监控中心：6h/24h/7d/30d/180d/1y）
+// capacityHours parses the time range parameter (aligned with the monitoring center: 6h/24h/7d/30d/180d/1y)
 func capacityHours(c *gin.Context) int {
 	hours := 720
 	if h, e := strconv.Atoi(c.Query("hours")); e == nil {
@@ -103,7 +103,7 @@ func capacityHours(c *gin.Context) int {
 	return hours
 }
 
-// linearSlopePerDay 最小二乘斜率（单位/天）
+// linearSlopePerDay computes the least-squares slope (units per day)
 func linearSlopePerDay(points []capacityPoint) (float64, float64) {
 	if len(points) < 2 {
 		return 0, 0
@@ -133,7 +133,7 @@ func linearSlopePerDay(points []capacityPoint) (float64, float64) {
 	return (n*sxyC - sx*syC) / den, (n*sxyM - sx*syM) / den
 }
 
-// daysUntilFull 按当前增速估算到达容量的天数；不增长或已超容量返回 nil/0
+// daysUntilFull estimates days until full capacity at the current growth rate; returns nil/0 if not growing or already over capacity
 func daysUntilFull(current, capacity float64, slopePerDay float64) *float64 {
 	if slopePerDay <= 0 || capacity <= 0 {
 		return nil
@@ -145,7 +145,7 @@ func daysUntilFull(current, capacity float64, slopePerDay float64) *float64 {
 	}
 	d := remaining / slopePerDay
 	if d > 3650 {
-		d = 3650 // 上限 10 年，避免"遥远未来"的夸张数字
+		d = 3650 // cap at 10 years to avoid exaggerated "distant future" numbers
 	}
 	return &d
 }

@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -13,7 +13,7 @@ import (
 	"jnexus/internal/model"
 )
 
-// 告警通知通道分发：邮件 / Webhook / 企业微信 / 钉钉 / 飞书 / Telegram（参考 Uptime Kuma）
+// Alert notification channel dispatch: email / webhook / WeCom / DingTalk / Feishu / Telegram (modeled after Uptime Kuma)
 
 func postJSON(url string, payload any, timeout time.Duration) error {
 	body, _ := json.Marshal(payload)
@@ -29,10 +29,10 @@ func postJSON(url string, payload any, timeout time.Duration) error {
 	return nil
 }
 
-// RenderTemplate 模板占位符渲染（导出供 handler 预览使用）
+// RenderTemplate renders template placeholders (exported for handler preview)
 func RenderTemplate(tpl string, vars map[string]string) string { return renderTpl(tpl, vars) }
 
-// renderTpl 模板占位符渲染：{key} 替换为 vars 值
+// renderTpl renders template placeholders: {key} is replaced with the value from vars
 func renderTpl(tpl string, vars map[string]string) string {
 	out := tpl
 	for k, v := range vars {
@@ -41,9 +41,9 @@ func renderTpl(tpl string, vars map[string]string) string {
 	return out
 }
 
-// SendViaChannel 通过指定通道发送通知。
-// vars 为模板占位符变量（各告警源提供）；通道配置里的 title_tpl / body_tpl
-// 非空时优先渲染，否则使用调用方给出的默认标题/正文。
+// SendViaChannel sends a notification through the given channel.
+// vars holds the template placeholder variables (provided by each alert source); title_tpl / body_tpl
+// in the channel config take priority when non-empty, otherwise the default subject/body from the caller is used.
 func SendViaChannel(ch *model.AlertChannel, vars map[string]string, defSubject, defBody string) error {
 	var cfg map[string]string
 	if err := json.Unmarshal([]byte(ch.Config), &cfg); err != nil {
@@ -74,7 +74,7 @@ func SendViaChannel(ch *model.AlertChannel, vars map[string]string, defSubject, 
 		if len(to) == 0 {
 			return fmt.Errorf("收件人未配置")
 		}
-		// 邮件专用模板：通道自身未配置 title/body_tpl 时生效（正文支持 HTML）
+		// Email-specific templates: applied when the channel has no title/body_tpl of its own (body supports HTML)
 		tpl := LoadAlertTemplates()
 		if strings.TrimSpace(tpl.EmailTitle) != "" && strings.TrimSpace(cfg["title_tpl"]) == "" {
 			subject = renderTpl(tpl.EmailTitle, vars)
@@ -92,7 +92,7 @@ func SendViaChannel(ch *model.AlertChannel, vars map[string]string, defSubject, 
 			"title": subject, "message": text, "timestamp": time.Now().Format(time.RFC3339),
 		}
 		return postJSON(url, payload, timeout)
-	case "wecom": // 企业微信群机器人
+	case "wecom": // WeCom group bot
 		url := strings.TrimSpace(cfg["url"])
 		if url == "" {
 			return fmt.Errorf("企业微信机器人 URL 未配置")
@@ -103,7 +103,7 @@ func SendViaChannel(ch *model.AlertChannel, vars map[string]string, defSubject, 
 				"content": fmt.Sprintf("**%s**\n%s", subject, text),
 			},
 		}, timeout)
-	case "dingtalk": // 钉钉群机器人
+	case "dingtalk": // DingTalk group bot
 		url := strings.TrimSpace(cfg["url"])
 		if url == "" {
 			return fmt.Errorf("钉钉机器人 URL 未配置")
@@ -115,7 +115,7 @@ func SendViaChannel(ch *model.AlertChannel, vars map[string]string, defSubject, 
 				"text":  fmt.Sprintf("### %s\n\n%s", subject, text),
 			},
 		}, timeout)
-	case "feishu": // 飞书自定义机器人
+	case "feishu": // Feishu custom bot
 		url := strings.TrimSpace(cfg["url"])
 		if url == "" {
 			return fmt.Errorf("飞书机器人 URL 未配置")
@@ -139,7 +139,7 @@ func SendViaChannel(ch *model.AlertChannel, vars map[string]string, defSubject, 
 	}
 }
 
-// SendMonitorAlert 按报警规则的判定结果向绑定通道发送告警/恢复通知
+// SendMonitorAlert sends alert/recovery notifications to bound channels based on the monitor rule evaluation
 func SendMonitorAlert(m *model.Monitor, status string, respMs int, errMsg string) {
 	var bindings []model.MonitorChannel
 	model.DB.Where("monitor_id = ?", m.ID).Find(&bindings)
@@ -164,7 +164,7 @@ func SendMonitorAlert(m *model.Monitor, status string, respMs int, errMsg string
 		emoji = "🔴"
 		event = "ALERT"
 	}
-	// 告警事件历史（月报数据源）
+	// Alert event history (data source for monthly reports)
 	if down {
 		LogAlertEvent("monitor_down", "warn", m.Name,
 			fmt.Sprintf("监控项故障 %s（%s）：%s", m.Name, monitorTargetText(m), errMsg))
@@ -200,7 +200,7 @@ func SendMonitorAlert(m *model.Monitor, status string, respMs int, errMsg string
 	}
 }
 
-// SendHostRebootAlert 主机重启自动告警（boot_id 变化时触发），广播到所有启用的通知通道
+// SendHostRebootAlert automatic alert on host reboot (triggered when boot_id changes), broadcast to all enabled channels
 func SendHostRebootAlert(h *model.Host, newBootID string) {
 	var channels []model.AlertChannel
 	model.DB.Where("enabled = ?", true).Find(&channels)

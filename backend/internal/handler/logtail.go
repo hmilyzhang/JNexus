@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -18,11 +18,11 @@ import (
 	"jnexus/internal/sshpool"
 )
 
-// LogTailWS 日志实时跟随：GET /api/ws/tail?token=xxx&host_id=1&path=/var/log/syslog&lines=200
-// 轮询方案：每次轮询用短命 exec 查文件大小与增量（无远端常驻进程、零泄漏），
-// 文件缩短视为轮转并重置。WS 断开即停止轮询。
+// LogTailWS real-time log tailing: GET /api/ws/tail?token=xxx&host_id=1&path=/var/log/syslog&lines=200
+// Polling approach: each poll uses a short-lived exec to check the file size and delta (no resident remote process, zero leaks),
+// a shrinking file is treated as rotation and resets the offset. Polling stops when the WS closes.
 func LogTailWS(c *gin.Context) {
-	// 鉴权（与 WebTerminal 相同）
+	// Auth (same as WebTerminal)
 	token := c.Query("token")
 	if token == "" {
 		if auth := c.GetHeader("Authorization"); len(auth) > 7 {
@@ -126,14 +126,14 @@ func LogTailWS(c *gin.Context) {
 		}
 	}
 
-	// 初始回读：尾部 lines 行
+	// Initial read-back: the tail (last N lines)
 	if out, ok := capture(tailCmd, 12*time.Second); ok {
 		onOut(out)
 	} else {
 		sendMsg("[tail] 初始读取失败，继续跟随新内容")
 	}
 
-	// 当前大小作为轮询基准
+	// Current file size becomes the polling baseline
 	offset := int64(0)
 	if out, ok := capture(sizeCmd, 10*time.Second); ok {
 		if n, e := strconv.ParseInt(strings.TrimSpace(out), 10, 64); e == nil {
@@ -143,7 +143,7 @@ func LogTailWS(c *gin.Context) {
 
 	sendMsg("[tail] following")
 
-	// 轮询循环：2s 一次
+	// Polling loop: every 2s
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -179,7 +179,7 @@ func LogTailWS(c *gin.Context) {
 		if e != nil || size < 0 {
 			continue
 		}
-		if size < offset { // 轮转/截断：从头重读
+		if size < offset { // rotated/truncated: re-read from the beginning
 			offset = 0
 			sendMsg("[tail] file rotated, restarting from beginning")
 		}
@@ -199,7 +199,7 @@ func LogTailWS(c *gin.Context) {
 	}
 }
 
-// quotePath POSIX 单引号包裹（内嵌单引号转义）
+// quotePath wraps in POSIX single quotes (embedded single quotes escaped)
 func quotePath(p string) string {
 	return "'" + strings.ReplaceAll(p, "'", `'\''`) + "'"
 }

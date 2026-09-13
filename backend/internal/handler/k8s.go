@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -14,10 +14,10 @@ import (
 	"jnexus/internal/service"
 )
 
-// K8S 集群管理：
-//   - 权限：角色设置 k8s_view（查看）/ k8s_manage（添加/删除集群与成员管理，admin 恒有）
-//   - 集群成员（K8SClusterMember）拥有该集群的 admin/user 角色，可查看该集群
-//   - 不同集群可绑定不同的成员与支持人
+// K8S cluster management:
+//   - Permissions: roles set k8s_view (view) / k8s_manage (add/remove clusters and member management; admin always has it)
+//   - Cluster members (K8SClusterMember) hold an admin/user role on that cluster and can view it
+//   - Different clusters can bind different members and support contacts
 
 func hasK8sView(u *model.User) bool {
 	if u.IsAdmin() {
@@ -33,7 +33,7 @@ func hasK8sManage(u *model.User) bool {
 	return service.HasK8sPerm(u.Role, "manage")
 }
 
-// clusterAdmin 判断用户是否为指定集群的管理成员
+// clusterAdmin reports whether the user is an admin member of the given cluster
 func clusterAdmin(userID uint, clusterID uint) bool {
 	var m model.K8sClusterMember
 	if err := model.DB.Where("cluster_id = ? AND user_id = ?", clusterID, userID).
@@ -53,7 +53,7 @@ func canSeeCluster(u *model.User, clusterID uint) bool {
 	return cnt > 0
 }
 
-// ListK8sClusters 集群列表（含我的角色与成员数）
+// ListK8sClusters lists clusters (including my role and member count)
 func ListK8sClusters(c *gin.Context) {
 	user := currentUser(c)
 	var clusters []model.K8sCluster
@@ -102,7 +102,7 @@ type k8sClusterReq struct {
 	Enabled     *bool  `json:"enabled"`
 }
 
-// applyK8sCluster 处理凭据（kubeconfig 或三件套，AES 加密）
+// applyK8sCluster processes credentials (kubeconfig or the CA/cert/key triple, AES-encrypted)
 func applyK8sCluster(c *model.K8sCluster, req k8sClusterReq, isUpdate bool) error {
 	c.Name, c.ApiServer, c.Support, c.Description = req.Name, req.ApiServer, req.Support, req.Description
 	if req.Kubeconfig != "" {
@@ -147,10 +147,10 @@ func applyK8sCluster(c *model.K8sCluster, req k8sClusterReq, isUpdate bool) erro
 	if !isUpdate {
 		return fmt.Errorf("需要 kubeconfig 或 CA/客户端证书/私钥 三件套")
 	}
-	return nil // 更新时允许仅改元数据，凭据保留
+	return nil // On update, allow metadata-only changes; keep existing credentials
 }
 
-// CreateK8sCluster 添加集群并立即探测
+// CreateK8sCluster adds a cluster and probes it immediately
 func CreateK8sCluster(c *gin.Context) {
 	user := currentUser(c)
 	if !hasK8sManage(user) {
@@ -188,7 +188,7 @@ func CreateK8sCluster(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"id": cl.ID, "version": cl.Version, "node_count": cl.NodeCount, "cert_expiry": cl.CertExpiry})
 }
 
-// UpdateK8sCluster 更新集群（元数据/凭据/启停）
+// UpdateK8sCluster updates a cluster (metadata/credentials/enable-disable)
 func UpdateK8sCluster(c *gin.Context) {
 	user := currentUser(c)
 	id, _ := strconv.Atoi(c.Param("id"))
@@ -213,7 +213,7 @@ func UpdateK8sCluster(c *gin.Context) {
 	if req.Enabled != nil {
 		cl.Enabled = *req.Enabled
 	}
-	// 凭据更新后重置证书到期提醒标记
+	// Reset certificate expiry reminder flags after a credential update
 	if req.Kubeconfig != "" || (req.CA != "" && req.ClientCert != "" && req.ClientKey != "") {
 		cl.Warn30Sent, cl.Warn7Sent = false, false
 	}
@@ -221,7 +221,7 @@ func UpdateK8sCluster(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// DeleteK8sCluster 删除集群（含成员绑定）
+// DeleteK8sCluster deletes a cluster (including member bindings)
 func DeleteK8sCluster(c *gin.Context) {
 	user := currentUser(c)
 	id, _ := strconv.Atoi(c.Param("id"))
@@ -239,7 +239,7 @@ func DeleteK8sCluster(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// TestK8sCluster 立即重测连通性并刷新证书有效期
+// TestK8sCluster re-tests connectivity immediately and refreshes certificate expiry
 func TestK8sCluster(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var cl model.K8sCluster
@@ -272,8 +272,8 @@ func TestK8sCluster(c *gin.Context) {
 		"cert_expiry": res.CertExp, "ca_expiry": res.CAExp})
 }
 
-// k8sClusterAccess 组合检查：返回 (集群, API 客户端, 成员角色, 是否允许)
-// role 需求：viewer 只读；user 运维操作；admin 集群管理
+// k8sClusterAccess combined check: returns (cluster, API client, member role, allowed)
+// Role requirements: viewer read-only; user ops actions; admin cluster management
 func k8sClusterAccess(c *gin.Context, clusterID int, needRole string) (*model.K8sCluster, *service.K8sAPI, string, bool) {
 	user := currentUser(c)
 	var cl model.K8sCluster
@@ -304,7 +304,7 @@ func k8sClusterAccess(c *gin.Context, clusterID int, needRole string) (*model.K8
 	return &cl, api, myRole, true
 }
 
-// K8sNodes 集群节点列表
+// K8sNodes lists cluster nodes
 func K8sNodes(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	cl, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -319,7 +319,7 @@ func K8sNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"cluster": cl.Name, "nodes": nodes})
 }
 
-// K8sNamespaces 命名空间列表
+// K8sNamespaces lists namespaces
 func K8sNamespaces(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -334,7 +334,7 @@ func K8sNamespaces(c *gin.Context) {
 	c.JSON(http.StatusOK, ns)
 }
 
-// K8sPods Pod 列表（?namespace=）
+// K8sPods lists pods (?namespace=)
 func K8sPods(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -349,7 +349,7 @@ func K8sPods(c *gin.Context) {
 	c.JSON(http.StatusOK, pods)
 }
 
-// K8sPodLog Pod 日志
+// K8sPodLog returns pod logs
 func K8sPodLog(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns, name := c.Query("namespace"), c.Query("pod")
@@ -369,7 +369,7 @@ func K8sPodLog(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"log": text})
 }
 
-// K8sDeletePod 删除 Pod（需要 user 及以上角色）
+// K8sDeletePod deletes a pod (requires user role or above)
 func K8sDeletePod(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns, name := c.Param("namespace"), c.Param("name")
@@ -390,8 +390,8 @@ func K8sDeletePod(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// K8sClusterShell 创建临时 Shell Pod（busybox），等待 Running 后返回给前端打开终端；
-// 前端关闭终端时调用既有删除 Pod 接口清理
+// K8sClusterShell creates a temporary shell pod (busybox), waits for Running, then returns
+// it so the frontend can open a terminal; the frontend cleans up via the existing delete-pod API on close
 func K8sClusterShell(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	cl, api, _, ok := k8sClusterAccess(c, id, "user")
@@ -407,7 +407,7 @@ func K8sClusterShell(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// 等待 Pod Running（镜像拉取可能耗时），失败即清理并报错
+	// Wait for the pod to be Running (image pull may be slow); clean up and error out on failure
 	ready := false
 	for i := 0; i < 15; i++ {
 		time.Sleep(2 * time.Second)
@@ -433,7 +433,7 @@ func K8sClusterShell(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"namespace": ns, "name": name})
 }
 
-// K8sDeployments Deployment 列表（?namespace=）
+// K8sDeployments lists deployments (?namespace=)
 func K8sDeployments(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -448,7 +448,7 @@ func K8sDeployments(c *gin.Context) {
 	c.JSON(http.StatusOK, deps)
 }
 
-// K8sRestartDeployment 重启 Deployment（滚动重启，需要 user 及以上角色）
+// K8sRestartDeployment restarts a deployment (rolling restart; requires user role or above)
 func K8sRestartDeployment(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns, name := c.Param("namespace"), c.Param("name")
@@ -469,7 +469,7 @@ func K8sRestartDeployment(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// K8sEvents 集群事件
+// K8sEvents lists cluster events
 func K8sEvents(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -484,7 +484,7 @@ func K8sEvents(c *gin.Context) {
 	c.JSON(http.StatusOK, events)
 }
 
-// K8sConfigMaps ConfigMap 列表
+// K8sConfigMaps lists ConfigMaps
 func K8sConfigMaps(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns := c.Query("namespace")
@@ -500,7 +500,7 @@ func K8sConfigMaps(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sSecrets Secret 列表
+// K8sSecrets lists Secrets
 func K8sSecrets(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns := c.Query("namespace")
@@ -516,7 +516,7 @@ func K8sSecrets(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sDeleteConfig 删除 ConfigMap / Secret（kind: configmap / secret）
+// K8sDeleteConfig deletes a ConfigMap / Secret (kind: configmap / secret)
 func K8sDeleteConfig(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	kind, ns, name := c.Param("kind"), c.Param("namespace"), c.Param("name")
@@ -547,8 +547,7 @@ func K8sDeleteConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-
-// K8sCronJobs 计划任务列表（?namespace=）
+// K8sCronJobs lists cron jobs (?namespace=)
 func K8sCronJobs(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns := c.Query("namespace")
@@ -564,7 +563,7 @@ func K8sCronJobs(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sCreateCronJob 创建计划任务
+// K8sCreateCronJob creates a cron job
 func K8sCreateCronJob(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var req struct {
@@ -593,7 +592,7 @@ func K8sCreateCronJob(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// K8sSuspendCronJob 暂停/恢复计划任务
+// K8sSuspendCronJob suspends/resumes a cron job
 func K8sSuspendCronJob(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns, name := c.Param("namespace"), c.Param("name")
@@ -624,7 +623,7 @@ func K8sSuspendCronJob(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// K8sDeleteCronJob 删除计划任务
+// K8sDeleteCronJob deletes a cron job
 func K8sDeleteCronJob(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns, name := c.Param("namespace"), c.Param("name")
@@ -644,7 +643,7 @@ func K8sDeleteCronJob(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// K8sServiceAccounts 服务账号列表（?namespace=）
+// K8sServiceAccounts lists service accounts (?namespace=)
 func K8sServiceAccounts(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns := c.Query("namespace")
@@ -660,7 +659,7 @@ func K8sServiceAccounts(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sCreateServiceAccount 创建服务账号
+// K8sCreateServiceAccount creates a service account
 func K8sCreateServiceAccount(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var req struct {
@@ -687,7 +686,7 @@ func K8sCreateServiceAccount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// K8sDeleteServiceAccount 删除服务账号
+// K8sDeleteServiceAccount deletes a service account
 func K8sDeleteServiceAccount(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns, name := c.Param("namespace"), c.Param("name")
@@ -707,8 +706,8 @@ func K8sDeleteServiceAccount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ListClusterMembers 集群成员列表
-// ListClusterMembers 集群成员列表
+// ListClusterMembers lists cluster members
+// ListClusterMembers lists cluster members
 func ListClusterMembers(c *gin.Context) {
 	clusterID, _ := strconv.Atoi(c.Param("id"))
 	var members []model.K8sClusterMember
@@ -730,7 +729,7 @@ type clusterMemberReq struct {
 	Role   string `json:"role" binding:"required"`
 }
 
-// SetClusterMembers 重写集群成员（角色 admin/user/viewer）
+// SetClusterMembers replaces cluster members (roles: admin/user/viewer)
 func SetClusterMembers(c *gin.Context) {
 	operator := currentUser(c)
 	clusterID, _ := strconv.Atoi(c.Param("id"))

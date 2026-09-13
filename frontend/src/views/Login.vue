@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div class="login-wrap">
     <el-button class="theme-toggle" text @click="toggleTheme" :title="isDark ? $t('layout.lightMode') : $t('layout.darkMode')">
@@ -7,7 +7,7 @@
     <el-card class="login-card">
       <h2 style="text-align:center; margin-bottom:18px">⚙️ {{ systemName }}</h2>
 
-      <!-- 第一步：账号密码 -->
+      <!-- Step 1: username and password -->
       <el-form v-if="!mfaStep" @keyup.enter="doLogin">
         <el-form-item>
           <el-input v-model="form.username" :placeholder="$t('login.username')" size="large">
@@ -22,7 +22,7 @@
         <el-button type="primary" size="large" style="width:100%" :loading="loading" @click="doLogin">{{ $t('login.submit') }}</el-button>
       </el-form>
 
-      <!-- 第二步：MFA 动态验证码 -->
+      <!-- Step 2: MFA verification code -->
       <el-form v-else @keyup.enter="doMfa">
         <div style="text-align:center; color:#606266; font-size:13px; margin-bottom:14px">{{ $t('login.mfaTip') }}</div>
         <el-form-item>

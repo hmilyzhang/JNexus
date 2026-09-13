@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package ws
 
@@ -62,19 +62,19 @@ func (h *Hub) Broadcast(topic string, payload any) {
 	for c := range h.clients[topic] {
 		select {
 		case c.send <- data:
-		default: // 发送队列满则丢弃，避免阻塞执行引擎
+		default: // drop when the send queue is full, to avoid blocking the execution engine
 		}
 	}
 }
 
-// 消息结构：task 推送 / 终端输出
+// Message structure: task push / terminal output
 type Message struct {
 	Type string          `json:"type"` // output / status / data / closed / error
 	Data json.RawMessage `json:"data,omitempty"`
 	Text string          `json:"text,omitempty"`
 }
 
-// TopicAuth 鉴权后升级连接并挂到 topic
+// TopicAuth authenticates, upgrades the connection, and attaches it to the topic
 func Serve(c *gin.Context, topic string) {
 	_, exists := c.Get("user")
 	if !exists {
@@ -115,15 +115,15 @@ func readPump(c *client) {
 	}
 }
 
-// 供 gin 路由使用：带 JWT 校验的 WS 入口
+// For gin routes: WS entry point with JWT validation
 func Handler(topicFactory func(c *gin.Context) string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if _, err := c.Cookie("token"); err == nil {
-			// 支持 cookie 方式
+			// Support cookie-based auth
 		} else if h := c.GetHeader("Sec-WebSocket-Protocol"); h != "" {
 			c.Request.Header.Set("Authorization", "Bearer "+h)
 		}
-		// 手动解析 token（WS 无法总是携带 header）
+		// Parse the token manually (WS cannot always carry headers)
 		token := c.Query("token")
 		if token == "" {
 			auth := c.GetHeader("Authorization")

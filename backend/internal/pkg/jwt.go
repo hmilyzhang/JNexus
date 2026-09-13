@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package pkg
 
@@ -15,7 +15,7 @@ type Claims struct {
 	UserID   uint   `json:"uid"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
-	Purpose  string `json:"purpose,omitempty"` // "mfa" = 登录二次验证中转 token，不可用于 API
+	Purpose  string `json:"purpose,omitempty"` // "mfa" = interim token for the second login step, not valid for API use
 	jwt.RegisteredClaims
 }
 
@@ -32,7 +32,7 @@ func GenToken(userID uint, username, role string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(config.Cfg.Auth.JWTSecret))
 }
 
-// GenMFAToken 密码校验通过后的短时中转 token（2 分钟），仅供 /login/mfa 换取正式 token
+// GenMFAToken short-lived interim token (2 min) issued after the password check, only exchanged for a real token at /login/mfa
 func GenMFAToken(userID uint, username, role string) (string, error) {
 	claims := Claims{
 		UserID:   userID,

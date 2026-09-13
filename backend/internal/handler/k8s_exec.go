@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -18,7 +18,7 @@ import (
 	"jnexus/internal/service"
 )
 
-// K8S Pod exec WebSocket 终端：浏览器 WS ↔ 集群 API WSS(v4.channel.k8s.io) 中继
+// K8S pod exec WebSocket terminal: relays browser WS ↔ cluster API WSS (v4.channel.k8s.io)
 
 var k8sExecUpgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
@@ -56,7 +56,7 @@ func K8sExecWS(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "集群不存在"})
 		return
 	}
-	// 权限：集群成员 user/admin 角色（viewer 只读不可进终端）
+	// Permission: cluster member with user/admin role (viewer is read-only and cannot enter the terminal)
 	var mm model.K8sClusterMember
 	model.DB.Where("cluster_id = ? AND user_id = ?", cl.ID, user.ID).First(&mm)
 	allowed := user.IsAdmin() || service.HasK8sPerm(user.Role, "manage") ||
@@ -81,7 +81,7 @@ func K8sExecWS(c *gin.Context) {
 	}
 	defer bws.Close()
 
-	// 拨号集群 API exec WebSocket
+	// Dial the cluster API exec WebSocket
 	caPEM, certPEM, keyPEM := service.DecryptK8sCredsPair(&cl)
 	tlsCfg := &tls.Config{RootCAs: service.K8sRootCAs(caPEM), MinVersion: tls.VersionTLS12}
 	if certPEM != "" && keyPEM != "" {
@@ -103,13 +103,13 @@ func K8sExecWS(c *gin.Context) {
 	log.Printf("[k8s-exec] cluster %d exec open: %s/%s (tty)", cl.ID, ns, pod)
 
 	done := make(chan struct{})
-	// 集群 → 浏览器（v4 帧：[channel][data]，转发 stdout/stderr/error）
+	// Cluster → browser (v4 frames: [channel][data]; forwards stdout/stderr/error)
 	go func() {
 		defer close(done)
 		for {
 			_, data, err := kconn.ReadMessage()
 			if err != nil {
-				// apiserver 关闭时带原因（如镜像无 shell），透传到终端
+				// When apiserver closes with a reason (e.g. image has no shell), pass it through to the terminal
 				if ce, ok := err.(*websocket.CloseError); ok && ce.Text != "" {
 					log.Printf("[k8s-exec] cluster %d exec closed: %s", cl.ID, ce.Text)
 					bws.WriteMessage(websocket.TextMessage, []byte("[exec] "+ce.Text))
@@ -125,12 +125,12 @@ func K8sExecWS(c *gin.Context) {
 			if ch == 1 || ch == 2 {
 				bws.WriteMessage(websocket.BinaryMessage, data[1:])
 			} else if ch == 3 {
-				// error 通道：apiserver 的失败原因（如 executable file not found）
+				// error channel: apiserver failure reason (e.g. executable file not found)
 				bws.WriteMessage(websocket.TextMessage, data[1:])
 			}
 		}
 	}()
-	// 浏览器 → 集群：前端已按 v4 帧格式打包（[0]=stdin / [4]=resize），原样透传
+	// Browser → cluster: the frontend already packs v4 frames ([0]=stdin / [4]=resize); pass through as-is
 	for {
 		_, msg, err := bws.ReadMessage()
 		if err != nil {

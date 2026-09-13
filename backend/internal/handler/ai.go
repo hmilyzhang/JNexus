@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -14,7 +14,7 @@ import (
 
 const aiDefaultSystemPrompt = "You are the JNexus AI assistant for an ops platform. Answer concisely, professionally, and actionably; reply in the same language the user writes in."
 
-// ---- AI 角色（存于系统配置 ai_roles，JSON 数组；可添加/删除/编辑） ----
+// ---- AI roles (stored in system config ai_roles as a JSON array; can be added/deleted/edited) ----
 
 type aiRole struct {
 	Key    string `json:"key"`
@@ -22,7 +22,7 @@ type aiRole struct {
 	Prompt string `json:"prompt"`
 }
 
-// aiBuiltinRoles 内置角色种子（仅 ai_roles 尚未写入时播种一次，之后以配置为准，均可编辑删除）
+// aiBuiltinRoles built-in role seeds (seeded once only when ai_roles is not yet set; afterwards config takes precedence, all roles editable/deletable)
 func aiBuiltinRoles() []aiRole {
 	return []aiRole{
 		{Key: "sre", Name: "SRE Reliability Engineer", Prompt: "You are a senior SRE (Site Reliability Engineer) skilled at troubleshooting, root cause analysis, capacity planning and SLO design. Give actionable answers with concrete commands and troubleshooting steps."},
@@ -33,7 +33,7 @@ func aiBuiltinRoles() []aiRole {
 	}
 }
 
-// aiRoleList 读取角色列表；ai_roles 缺失时用内置角色播种（迁移旧 ai_system_prompt 到 general）
+// aiRoleList reads the role list; seeds built-in roles when ai_roles is missing (migrates legacy ai_system_prompt to general)
 func aiRoleList() []aiRole {
 	m := service.SystemConfigMap()
 	if raw := strings.TrimSpace(m["ai_roles"]); raw != "" {
@@ -56,7 +56,7 @@ func aiRoleList() []aiRole {
 	return roles
 }
 
-// aiRolePrompt 按 key 取角色 Prompt，未命中返回空
+// aiRolePrompt returns the role prompt by key, or empty if not found
 func aiRolePrompt(key string) string {
 	for _, r := range aiRoleList() {
 		if r.Key == key {
@@ -66,12 +66,12 @@ func aiRolePrompt(key string) string {
 	return ""
 }
 
-// GetAIRoles GET /api/ai/roles — 角色列表（登录用户可读，供对话选择）
+// GetAIRoles GET /api/ai/roles — role list (readable by logged-in users, for chat selection)
 func GetAIRoles(c *gin.Context) {
 	c.JSON(http.StatusOK, aiRoleList())
 }
 
-// UpdateAIRoles POST /api/ai/roles — 整表保存角色（admin，前端添加/删除/改名/改 Prompt 后提交）
+// UpdateAIRoles POST /api/ai/roles — save the whole role table (admin; frontend submits after add/delete/rename/prompt edits)
 func UpdateAIRoles(c *gin.Context) {
 	var roles []aiRole
 	if err := c.ShouldBindJSON(&roles); err != nil {
@@ -104,7 +104,7 @@ func UpdateAIRoles(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "roles": out})
 }
 
-// getSystemPrompt 读取默认 System Prompt（未选角色时使用），无则用内置默认
+// getSystemPrompt reads the default System Prompt (used when no role is selected), falling back to the built-in default
 func getSystemPrompt() string {
 	m := service.SystemConfigMap()
 	if p := strings.TrimSpace(m["ai_system_prompt"]); p != "" {
@@ -113,7 +113,7 @@ func getSystemPrompt() string {
 	return aiDefaultSystemPrompt
 }
 
-// pageContexts 路由路径 → 页面描述（让 AI 了解用户当前所在模块）
+// pageContexts route path → page description (helps the AI know which module the user is in)
 var pageContexts = map[string]string{
 	"/dashboard":   "Dashboard: system overview",
 	"/hosts":       "Hosts: manage SSH/WinRM hosts, groups and credentials",
@@ -138,9 +138,9 @@ var pageContexts = map[string]string{
 	"/k8s/manage":  "K8S Cluster Management: nodes, workloads, pods, services, config, Helm, capacity planning",
 }
 
-// AIChat POST /api/ai/chat  {prompt, page, role} — AI 对话
-// page: 前端自动传入的当前路由路径（如 /monitor），让 AI 感知用户所在模块
-// role: 前端对话框选择的角色 key，命中则用该角色的 System Prompt
+// AIChat POST /api/ai/chat  {prompt, page, role} — AI chat
+// page: current route path auto-sent by the frontend (e.g. /monitor), letting the AI sense the user's module
+// role: role key selected in the frontend chat box; if matched, that role's System Prompt is used
 func AIChat(c *gin.Context) {
 	var req struct {
 		Prompt string `json:"prompt"`
@@ -163,7 +163,7 @@ func AIChat(c *gin.Context) {
 			systemP = p
 		}
 	}
-	// 页面感知：根据当前路由注入模块上下文
+	// Page awareness: inject module context based on the current route
 	if desc, ok := pageContexts[req.Page]; ok {
 		systemP += "\n\n[用户当前所在页面] " + desc
 	}
@@ -177,7 +177,7 @@ func AIChat(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"reply": reply, "elapsed_ms": time.Since(start).Milliseconds()})
 }
 
-// AITest POST /api/system/ai/test — 管理员测试 AI 服务连通性
+// AITest POST /api/system/ai/test — admin tests AI service connectivity
 func AITest(c *gin.Context) {
 	s := service.LoadAISettings()
 	if s.BaseURL == "" || s.Model == "" {

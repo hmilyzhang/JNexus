@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <el-config-provider :locale="elementLocale">
     <router-view />

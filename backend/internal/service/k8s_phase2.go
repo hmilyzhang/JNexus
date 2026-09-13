@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -14,28 +14,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// K8S 二期能力：YAML 查看 / Deployment 伸缩 / metrics-server 资源使用率 / Helm 发布视图
+// K8S phase-2 capabilities: YAML viewer / Deployment scaling / metrics-server usage / Helm release view
 
-// k8sYAMLPaths kind → 资源路径模板（%s = namespace, %s = name）
+// k8sYAMLPaths kind → resource path template (%s = namespace, %s = name)
 var k8sYAMLPaths = map[string]string{
-	"pod":           "/api/v1/namespaces/%s/pods/%s",
-	"service":       "/api/v1/namespaces/%s/services/%s",
-	"configmap":     "/api/v1/namespaces/%s/configmaps/%s",
-	"secret":        "/api/v1/namespaces/%s/secrets/%s",
-	"pvc":           "/api/v1/namespaces/%s/persistentvolumeclaims/%s",
+	"pod":            "/api/v1/namespaces/%s/pods/%s",
+	"service":        "/api/v1/namespaces/%s/services/%s",
+	"configmap":      "/api/v1/namespaces/%s/configmaps/%s",
+	"secret":         "/api/v1/namespaces/%s/secrets/%s",
+	"pvc":            "/api/v1/namespaces/%s/persistentvolumeclaims/%s",
 	"serviceaccount": "/api/v1/namespaces/%s/serviceaccounts/%s",
-	"node":          "/api/v1/nodes/%s",
-	"pv":            "/api/v1/persistentvolumes/%s",
-	"deployment":    "/apis/apps/v1/namespaces/%s/deployments/%s",
-	"daemonset":     "/apis/apps/v1/namespaces/%s/daemonsets/%s",
-	"statefulset":   "/apis/apps/v1/namespaces/%s/statefulsets/%s",
-	"job":           "/apis/batch/v1/namespaces/%s/jobs/%s",
-	"cronjob":       "/apis/batch/v1/namespaces/%s/cronjobs/%s",
-	"ingress":       "/apis/networking.k8s.io/v1/namespaces/%s/ingresses/%s",
-	"storageclass":  "/apis/storage.k8s.io/v1/storageclasses/%s",
+	"node":           "/api/v1/nodes/%s",
+	"pv":             "/api/v1/persistentvolumes/%s",
+	"deployment":     "/apis/apps/v1/namespaces/%s/deployments/%s",
+	"daemonset":      "/apis/apps/v1/namespaces/%s/daemonsets/%s",
+	"statefulset":    "/apis/apps/v1/namespaces/%s/statefulsets/%s",
+	"job":            "/apis/batch/v1/namespaces/%s/jobs/%s",
+	"cronjob":        "/apis/batch/v1/namespaces/%s/cronjobs/%s",
+	"ingress":        "/apis/networking.k8s.io/v1/namespaces/%s/ingresses/%s",
+	"storageclass":   "/apis/storage.k8s.io/v1/storageclasses/%s",
 }
 
-// ResourceYAML 拉取资源原始 JSON 并转为 YAML（只读）
+// ResourceYAML fetches the resource's raw JSON and converts it to YAML (read-only)
 func (k *K8sAPI) ResourceYAML(kind, namespace, name string) (string, error) {
 	tpl, ok := k8sYAMLPaths[kind]
 	if !ok {
@@ -61,7 +61,7 @@ func (k *K8sAPI) ResourceYAML(kind, namespace, name string) (string, error) {
 	return string(out), nil
 }
 
-// ScaleDeployment 调整 Deployment 副本数（scale 子资源）
+// ScaleDeployment adjusts Deployment replicas (scale subresource)
 func (k *K8sAPI) ScaleDeployment(namespace, name string, replicas int) error {
 	body, _ := json.Marshal(map[string]any{
 		"apiVersion": "apps/v1", "kind": "Scale",
@@ -71,17 +71,17 @@ func (k *K8sAPI) ScaleDeployment(namespace, name string, replicas int) error {
 	return k.do("PATCH", "/apis/apps/v1/namespaces/"+namespace+"/deployments/"+name+"/scale", body, nil)
 }
 
-// ---- metrics-server 资源使用率（集群未装 metrics-server 时优雅降级） ----
+// ---- metrics-server resource usage (graceful degradation when metrics-server is not installed) ----
 
-// K8sMetricInfo 单个对象的资源用量（CPU 毫核 / 内存 Mi）
+// K8sMetricInfo resource usage of a single object (CPU millicores / memory Mi)
 type K8sMetricInfo struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace,omitempty"`
-	CPUM      int64  `json:"cpu_m"`   // 毫核
-	MemMi     int64  `json:"mem_mi"`  // MiB
+	CPUM      int64  `json:"cpu_m"`  // millicores
+	MemMi     int64  `json:"mem_mi"` // MiB
 }
 
-// k8sQuantityCPU 解析 CPU 用量为毫核（支持 n/u/m/裸核）
+// k8sQuantityCPU parses CPU usage into millicores (supports n/u/m/bare cores)
 func k8sQuantityCPU(v string) int64 {
 	v = strings.TrimSpace(v)
 	if v == "" {
@@ -105,7 +105,7 @@ func k8sQuantityCPU(v string) int64 {
 	return int64(f * 1000)
 }
 
-// k8sQuantityMem 解析内存用量为字节（支持 Ki/Mi/Gi/Ti/K/M/G 及裸字节）
+// k8sQuantityMem parses memory usage into bytes (supports Ki/Mi/Gi/Ti/K/M/G and bare bytes)
 func k8sQuantityMem(v string) int64 {
 	v = strings.TrimSpace(v)
 	if v == "" {
@@ -127,7 +127,7 @@ func k8sQuantityMem(v string) int64 {
 	return int64(n * float64(mult))
 }
 
-// NodeMetrics 节点资源用量（metrics-server 缺失时返回空列表）
+// NodeMetrics node resource usage (returns an empty list when metrics-server is missing)
 func (k *K8sAPI) NodeMetrics() ([]K8sMetricInfo, error) {
 	var list struct {
 		Items []struct {
@@ -141,7 +141,7 @@ func (k *K8sAPI) NodeMetrics() ([]K8sMetricInfo, error) {
 		} `json:"items"`
 	}
 	if err := k.do("GET", "/apis/metrics.k8s.io/v1beta1/nodes", nil, &list); err != nil {
-		return []K8sMetricInfo{}, nil // 未安装 metrics-server：静默降级
+		return []K8sMetricInfo{}, nil // metrics-server not installed: degrade silently
 	}
 	out := []K8sMetricInfo{}
 	for _, it := range list.Items {
@@ -153,7 +153,7 @@ func (k *K8sAPI) NodeMetrics() ([]K8sMetricInfo, error) {
 	return out, nil
 }
 
-// PodMetrics Pod 资源用量（容器用量求和）
+// PodMetrics pod resource usage (summed over containers)
 func (k *K8sAPI) PodMetrics(namespace string) ([]K8sMetricInfo, error) {
 	path := "/apis/metrics.k8s.io/v1beta1/pods"
 	if namespace != "" {
@@ -188,9 +188,9 @@ func (k *K8sAPI) PodMetrics(namespace string) ([]K8sMetricInfo, error) {
 	return out, nil
 }
 
-// ---- Helm 发布视图（helm.sh/release.v1 secret 解码，只读） ----
+// ---- Helm release view (decodes helm.sh/release.v1 secrets, read-only) ----
 
-// K8sHelmReleaseInfo Helm Release 信息
+// K8sHelmReleaseInfo Helm release info
 type K8sHelmReleaseInfo struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
@@ -201,7 +201,7 @@ type K8sHelmReleaseInfo struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
-// K8sHelmReleases Helm 发布列表（每个 release 取最新 revision）
+// K8sHelmReleases Helm release list (latest revision per release)
 func (k *K8sAPI) HelmReleases(namespace string) ([]K8sHelmReleaseInfo, error) {
 	path := "/api/v1/secrets"
 	if namespace != "" {
@@ -248,7 +248,7 @@ func (k *K8sAPI) HelmReleases(namespace string) ([]K8sHelmReleaseInfo, error) {
 	return out, nil
 }
 
-// decodeHelmRelease 解码 release secret 载荷（base64 → gzip → JSON），取 chart 名/版本/部署时间
+// decodeHelmRelease decodes the release secret payload (base64 → gzip → JSON) and extracts chart name/version/deploy time
 func decodeHelmRelease(payload string) (chart, version, deployed string, err error) {
 	raw, err := base64.StdEncoding.DecodeString(payload)
 	if err != nil {

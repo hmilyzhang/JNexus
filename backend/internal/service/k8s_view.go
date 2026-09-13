@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -9,16 +9,16 @@ import (
 	"time"
 )
 
-// K8S 集群只读视图：概览统计 + DaemonSet/StatefulSet/Job/Service/Ingress/PVC/PV/StorageClass 列表
-// （K8S 管理页左侧菜单数据源，均为 viewer 权限即可访问的只读接口）
+// K8S cluster read-only views: overview stats + DaemonSet/StatefulSet/Job/Service/Ingress/PVC/PV/StorageClass lists
+// (data source for the K8S admin page's left menu; all read-only endpoints accessible with viewer permission)
 
-// K8sWorkloadInfo 通用工作负载条目（DaemonSet / StatefulSet / Job）
+// K8sWorkloadInfo generic workload entry (DaemonSet / StatefulSet / Job)
 type K8sWorkloadInfo struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 	Desired   int    `json:"desired"`
 	Ready     int    `json:"ready"`
-	Status    string `json:"status"` // Job 场景：Succeeded/Failed 计数描述
+	Status    string `json:"status"` // Job case: Succeeded/Failed count description
 	Age       string `json:"age"`
 }
 
@@ -87,7 +87,7 @@ func formatJobStatus(active, succeeded, failed int) string {
 	return strings.Join(parts, " / ")
 }
 
-// DaemonSets DaemonSet 列表
+// DaemonSets DaemonSet list
 func (k *K8sAPI) DaemonSets(namespace string) ([]K8sWorkloadInfo, error) {
 	path := "/apis/apps/v1/daemonsets"
 	if namespace != "" {
@@ -96,7 +96,7 @@ func (k *K8sAPI) DaemonSets(namespace string) ([]K8sWorkloadInfo, error) {
 	return k.workloadList(path, "daemonset")
 }
 
-// StatefulSets StatefulSet 列表
+// StatefulSets StatefulSet list
 func (k *K8sAPI) StatefulSets(namespace string) ([]K8sWorkloadInfo, error) {
 	path := "/apis/apps/v1/statefulsets"
 	if namespace != "" {
@@ -105,7 +105,7 @@ func (k *K8sAPI) StatefulSets(namespace string) ([]K8sWorkloadInfo, error) {
 	return k.workloadList(path, "statefulset")
 }
 
-// Jobs Job 列表
+// Jobs Job list
 func (k *K8sAPI) Jobs(namespace string) ([]K8sWorkloadInfo, error) {
 	path := "/apis/batch/v1/jobs"
 	if namespace != "" {
@@ -114,7 +114,7 @@ func (k *K8sAPI) Jobs(namespace string) ([]K8sWorkloadInfo, error) {
 	return k.workloadList(path, "job")
 }
 
-// K8sServiceInfo Service 信息
+// K8sServiceInfo service info
 type K8sServiceInfo struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
@@ -124,7 +124,7 @@ type K8sServiceInfo struct {
 	Age       string `json:"age"`
 }
 
-// K8sServices Service 列表
+// K8sServices service list
 func (k *K8sAPI) Services(namespace string) ([]K8sServiceInfo, error) {
 	path := "/api/v1/services"
 	if namespace != "" {
@@ -171,7 +171,7 @@ func (k *K8sAPI) Services(namespace string) ([]K8sServiceInfo, error) {
 	return out, nil
 }
 
-// K8sIngressInfo Ingress 信息
+// K8sIngressInfo ingress info
 type K8sIngressInfo struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
@@ -179,7 +179,7 @@ type K8sIngressInfo struct {
 	Age       string `json:"age"`
 }
 
-// K8sIngresses Ingress 列表
+// K8sIngresses ingress list
 func (k *K8sAPI) Ingresses(namespace string) ([]K8sIngressInfo, error) {
 	path := "/apis/networking.k8s.io/v1/ingresses"
 	if namespace != "" {
@@ -218,7 +218,7 @@ func (k *K8sAPI) Ingresses(namespace string) ([]K8sIngressInfo, error) {
 	return out, nil
 }
 
-// K8sPVCInfo PersistentVolumeClaim 信息
+// K8sPVCInfo PersistentVolumeClaim info
 type K8sPVCInfo struct {
 	Namespace    string `json:"namespace"`
 	Name         string `json:"name"`
@@ -228,7 +228,7 @@ type K8sPVCInfo struct {
 	Age          string `json:"age"`
 }
 
-// K8sPVCs PVC 列表
+// K8sPVCs PVC list
 func (k *K8sAPI) PVCs(namespace string) ([]K8sPVCInfo, error) {
 	path := "/api/v1/persistentvolumeclaims"
 	if namespace != "" {
@@ -246,9 +246,9 @@ func (k *K8sAPI) PVCs(namespace string) ([]K8sPVCInfo, error) {
 			} `json:"spec"`
 			Status struct {
 				Phase     string `json:"phase"`
-			Resources struct {
-				Requests map[string]string `json:"requests"`
-			} `json:"resources"`
+				Resources struct {
+					Requests map[string]string `json:"requests"`
+				} `json:"resources"`
 			} `json:"status"`
 		} `json:"items"`
 	}
@@ -266,7 +266,7 @@ func (k *K8sAPI) PVCs(namespace string) ([]K8sPVCInfo, error) {
 	return out, nil
 }
 
-// K8sPVInfo PersistentVolume 信息
+// K8sPVInfo PersistentVolume info
 type K8sPVInfo struct {
 	Name         string `json:"name"`
 	Phase        string `json:"phase"`
@@ -276,7 +276,7 @@ type K8sPVInfo struct {
 	Age          string `json:"age"`
 }
 
-// K8sPVs PV 列表（集群级资源）
+// K8sPVs PV list (cluster-scoped resources)
 func (k *K8sAPI) PVs() ([]K8sPVInfo, error) {
 	var list struct {
 		Items []struct {
@@ -315,14 +315,14 @@ func (k *K8sAPI) PVs() ([]K8sPVInfo, error) {
 	return out, nil
 }
 
-// K8sStorageClassInfo StorageClass 信息
+// K8sStorageClassInfo StorageClass info
 type K8sStorageClassInfo struct {
 	Name        string `json:"name"`
 	Provisioner string `json:"provisioner"`
 	Age         string `json:"age"`
 }
 
-// K8sStorageClasses StorageClass 列表（集群级资源）
+// K8sStorageClasses StorageClass list (cluster-scoped resources)
 func (k *K8sAPI) StorageClasses() ([]K8sStorageClassInfo, error) {
 	var list struct {
 		Items []struct {
@@ -345,44 +345,44 @@ func (k *K8sAPI) StorageClasses() ([]K8sStorageClassInfo, error) {
 	return out, nil
 }
 
-// K8sClusterSummary 集群概览统计
+// K8sClusterSummary cluster overview stats
 type K8sClusterSummary struct {
-	Version          string `json:"version"`
-	CreatedAt        string `json:"created_at"` // 最早节点创建时间，即集群存活起点
-	Nodes            int    `json:"nodes"`
-	NodesReady       int    `json:"nodes_ready"`
-	Namespaces       int    `json:"namespaces"`
-	Pods             int    `json:"pods"`
-	RunningPods      int    `json:"running_pods"`
-	Deployments      int    `json:"deployments"`
-	DaemonSets       int    `json:"daemonsets"`
-	StatefulSets     int    `json:"statefulsets"`
-	Jobs             int    `json:"jobs"`
-	CronJobs         int    `json:"cronjobs"`
-	Services         int    `json:"services"`
-	Ingresses        int    `json:"ingresses"`
-	PVs              int    `json:"pvs"`
-	PVCs             int    `json:"pvcs"`
-	ConfigMaps       int    `json:"configmaps"`
-	Secrets          int    `json:"secrets"`
-	ServiceAccounts  int    `json:"serviceaccounts"`
+	Version         string `json:"version"`
+	CreatedAt       string `json:"created_at"` // creation time of the earliest node, i.e. when the cluster came up
+	Nodes           int    `json:"nodes"`
+	NodesReady      int    `json:"nodes_ready"`
+	Namespaces      int    `json:"namespaces"`
+	Pods            int    `json:"pods"`
+	RunningPods     int    `json:"running_pods"`
+	Deployments     int    `json:"deployments"`
+	DaemonSets      int    `json:"daemonsets"`
+	StatefulSets    int    `json:"statefulsets"`
+	Jobs            int    `json:"jobs"`
+	CronJobs        int    `json:"cronjobs"`
+	Services        int    `json:"services"`
+	Ingresses       int    `json:"ingresses"`
+	PVs             int    `json:"pvs"`
+	PVCs            int    `json:"pvcs"`
+	ConfigMaps      int    `json:"configmaps"`
+	Secrets         int    `json:"secrets"`
+	ServiceAccounts int    `json:"serviceaccounts"`
 }
 
-// k8sRawItem 概览计数用的宽松列表条目
+// k8sRawItem loose list entry used for overview counting
 type k8sRawItem struct {
 	Metadata struct {
 		CreationTimestamp string `json:"creationTimestamp"`
 	} `json:"metadata"`
 	Status struct {
-		Phase                  string `json:"phase"`
-		Conditions             []struct {
+		Phase      string `json:"phase"`
+		Conditions []struct {
 			Type   string `json:"type"`
 			Status string `json:"status"`
 		} `json:"conditions"`
 	} `json:"status"`
 }
 
-// countList 拉取列表并计数（fn 为过滤条件，nil = 全部）；瞬时失败自动重试一次
+// countList fetches a list and counts it (fn is the filter, nil = all); retries once on transient failure
 func (k *K8sAPI) countList(path string, fn func(it k8sRawItem) bool) (int, string, error) {
 	var list struct {
 		Items []json.RawMessage `json:"items"`
@@ -414,7 +414,7 @@ func (k *K8sAPI) countList(path string, fn func(it k8sRawItem) bool) (int, strin
 	return n, created, nil
 }
 
-// Summary 集群概览：并发拉取各资源计数（单项失败不影响整体，计数保持 0）
+// Summary cluster overview: concurrently fetches counts of each resource (individual failures don't affect the whole; counts stay 0)
 func (k *K8sAPI) Summary() (*K8sClusterSummary, error) {
 	s := &K8sClusterSummary{}
 	var ver struct {
@@ -424,7 +424,7 @@ func (k *K8sAPI) Summary() (*K8sClusterSummary, error) {
 		s.Version = ver.GitVersion
 	}
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 4) // 限制并发，避免集群 API 连接数突增
+	sem := make(chan struct{}, 4) // limit concurrency to avoid a spike in cluster API connections
 	run := func(f func()) {
 		wg.Add(1)
 		go func() {

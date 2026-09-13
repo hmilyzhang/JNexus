@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -10,8 +10,8 @@ import (
 	"jnexus/internal/pkg"
 )
 
-// Windows 主机指标采集：PowerShell CIM 实例（固定 InvariantCulture 输出）。
-// 采集频率与 Linux 相同（monitor_interval_sec），WinRM 开销更大，与执行共享节流。
+// Windows host metric collection: PowerShell CIM instances (pinned InvariantCulture output).
+// Collection frequency is the same as Linux (monitor_interval_sec); WinRM is more expensive and shares throttling with execution.
 
 const winMetricCmd = `$ErrorActionPreference='SilentlyContinue'
 $r = [System.Globalization.CultureInfo]::InvariantCulture
@@ -30,7 +30,7 @@ Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | ForEach-Object {
   Write-Output ('DISK=' + $_.DeviceID + ' ' + $pct)
 }`
 
-// collectWindowsMetrics 经 WinRM 采集 Windows 主机 CPU/内存/磁盘 并落样本
+// collectWindowsMetrics collects Windows host CPU/memory/disk via WinRM and records a sample
 func collectWindowsMetrics(h *model.Host) {
 	defer func() { recover() }()
 	var user, pass string
@@ -49,7 +49,7 @@ func collectWindowsMetrics(h *model.Host) {
 		}
 		pass = p
 	} else {
-		return // 无凭据无法 WinRM
+		return // no credential, WinRM impossible
 	}
 	out, _, err := WinRMRun(h, user, pass, winMetricCmd, 45)
 	if err != nil || out == "" {
@@ -63,7 +63,7 @@ func collectWindowsMetrics(h *model.Host) {
 		HostID: h.ID, CPUPercent: s.CPU, MemPercent: s.Mem, DiskPercent: s.Disk,
 		CollectedAt: time.Now(),
 	})
-	// Windows 重启检测：boot 时间变化即推送
+	// Windows reboot detection: push when the boot time changes
 	if h.LastBootID != "" && s.BootID != "" && s.BootID != h.LastBootID {
 		SendHostRebootAlert(h, s.BootID)
 		LogAlertEvent("host_reboot", "warn", h.Name, "Windows 主机系统重启（启动时间变化）")
@@ -73,7 +73,7 @@ func collectWindowsMetrics(h *model.Host) {
 	}
 }
 
-// parseWinMetricOutput 解析 ---WINMETRIC--- 输出
+// parseWinMetricOutput parses the ---WINMETRIC--- output
 func parseWinMetricOutput(out string) (hostSample, bool) {
 	var s hostSample
 	idx := strings.Index(out, "---WINMETRIC---")
@@ -91,7 +91,7 @@ func parseWinMetricOutput(out string) (hostSample, bool) {
 		case strings.HasPrefix(line, "BOOT="):
 			s.BootID = strings.TrimPrefix(line, "BOOT=")
 		case strings.HasPrefix(line, "DISK="):
-			// 取所有逻辑盘中使用率最高者（与 Linux 行为一致）
+			// take the highest usage among all logical drives (consistent with Linux behavior)
 			parts := strings.SplitN(strings.TrimPrefix(line, "DISK="), " ", 2)
 			if len(parts) == 2 {
 				if p, e := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64); e == nil && p > s.Disk {
@@ -106,7 +106,7 @@ func parseWinMetricOutput(out string) (hostSample, bool) {
 	return s, true
 }
 
-// pkgDec 解密凭据密文
+// pkgDec decrypts a credential ciphertext
 func pkgDec(cipherB64 string) (string, error) {
 	return pkg.Decrypt(cipherB64)
 }

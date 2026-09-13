@@ -1,8 +1,8 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <el-row :gutter="16">
-      <!-- 基本信息 -->
+      <!-- Basic info -->
       <el-col :span="12">
         <el-card>
           <template #header>{{ $t('profile.basicInfo') }}</template>

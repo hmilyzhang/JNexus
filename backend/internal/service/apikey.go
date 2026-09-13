@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -16,11 +16,11 @@ import (
 	"jnexus/internal/model"
 )
 
-// API 密钥：外部系统集成用。完整密钥仅创建时返回一次，服务端只保存 SHA-256 哈希。
+// API keys: for external system integrations. The full key is returned only once at creation; the server stores only its SHA-256 hash.
 
 const apiKeyRateLimitPerMin = 120
 
-// GenerateApiKey 生成新密钥：返回 (完整密钥, keyID, secretHash)
+// GenerateApiKey generates a new key: returns (full key, keyID, secretHash)
 func GenerateApiKey() (full, keyID, secretHash string, err error) {
 	raw := make([]byte, 20)
 	if _, err = rand.Read(raw); err != nil {
@@ -38,13 +38,13 @@ func GenerateApiKey() (full, keyID, secretHash string, err error) {
 	return
 }
 
-// HashApiKeySecret 计算密钥 secret 部分的哈希
+// HashApiKeySecret computes the hash of the key's secret part
 func HashApiKeySecret(secret string) string {
 	sum := sha256.Sum256([]byte(secret))
 	return hex.EncodeToString(sum[:])
 }
 
-// ParseApiKey 拆分完整密钥为 keyID + secret（格式 aok_<keyID>.<secret>）
+// ParseApiKey splits a full key into keyID + secret (format aok_<keyID>.<secret>)
 func ParseApiKey(full string) (keyID, secret string, ok bool) {
 	if !strings.HasPrefix(full, "aok_") {
 		return
@@ -57,8 +57,8 @@ func ParseApiKey(full string) (keyID, secret string, ok bool) {
 	return rest[:idx], rest[idx+1:], true
 }
 
-// AuthenticateApiKey 校验完整密钥：返回密钥行与属主用户
-// checks: 存在、哈希一致（恒定时间比较）、启用、未过期、IP 白名单
+// AuthenticateApiKey verifies a full key: returns the key row and its owner user
+// checks: existence, hash match (constant-time compare), enabled, not expired, IP allowlist
 func AuthenticateApiKey(full, clientIP string) (*model.ApiKey, *model.User, error) {
 	keyID, secret, ok := ParseApiKey(full)
 	if !ok {
@@ -87,7 +87,7 @@ func AuthenticateApiKey(full, clientIP string) (*model.ApiKey, *model.User, erro
 	return &key, &user, nil
 }
 
-// checkIPAllowlist 白名单为逗号分隔的 IP 或 CIDR；空 = 不限制
+// checkIPAllowlist the allowlist is comma-separated IPs or CIDRs; empty = no restriction
 func checkIPAllowlist(allowlist, clientIP string) error {
 	allowlist = strings.TrimSpace(allowlist)
 	if allowlist == "" {
@@ -113,15 +113,15 @@ func checkIPAllowlist(allowlist, clientIP string) error {
 	return fmt.Errorf("来源 IP %s 不在密钥白名单内", clientIP)
 }
 
-// ---------- 简单限流（每密钥每分钟 120 次） ----------
+// ---------- Simple rate limiting (120 requests per key per minute) ----------
 
 var (
 	rateMu    sync.Mutex
-	rateBlink int64 // 分钟桶起点（Unix 分钟）
+	rateBlink int64 // start of the minute bucket (Unix minutes)
 	rateCount = map[uint]int{}
 )
 
-// RateLimitApiKey 超限返回 false
+// RateLimitApiKey returns false when over the limit
 func RateLimitApiKey(keyID uint) bool {
 	rateMu.Lock()
 	defer rateMu.Unlock()
@@ -137,7 +137,7 @@ func RateLimitApiKey(keyID uint) bool {
 	return true
 }
 
-// TouchApiKey 更新最后使用时间/IP（节流：最多每分钟写一次库）
+// TouchApiKey updates last-used time/IP (throttled: at most one DB write per minute)
 var lastTouchMu sync.Mutex
 var lastTouch = map[uint]time.Time{}
 

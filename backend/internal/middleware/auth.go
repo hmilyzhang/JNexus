@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package middleware
 
@@ -12,7 +12,7 @@ import (
 	"jnexus/internal/pkg"
 )
 
-// JWT 解析 token 并把用户信息写入 context
+// JWT parses the token and stores the user in the context
 func JWT() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth := c.GetHeader("Authorization")
@@ -39,14 +39,14 @@ func JWT() gin.HandlerFunc {
 	}
 }
 
-// CurrentUser 从 context 取当前用户
+// CurrentUser returns the current user from the context
 func CurrentUser(c *gin.Context) *model.User {
 	v, _ := c.Get("user")
 	u, _ := v.(*model.User)
 	return u
 }
 
-// RequireRole 路由级 RBAC：admin 恒通过
+// RequireRole route-level RBAC: admin always passes
 func RequireRole(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u := CurrentUser(c)
@@ -68,7 +68,7 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 	}
 }
 
-// UserCanExecGroup 用户是否对主机组有执行权限
+// UserCanExecGroup whether the user has exec permission on the host group
 func UserCanExecGroup(user *model.User, groupID *uint) bool {
 	if user.IsAdmin() {
 		return true
@@ -77,7 +77,7 @@ func UserCanExecGroup(user *model.User, groupID *uint) bool {
 		return false
 	}
 	if groupID == nil {
-		// 未分组主机：仅 admin 可执行
+		// Ungrouped hosts: only admin can execute
 		return false
 	}
 	var cnt int64

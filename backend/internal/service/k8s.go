@@ -1,9 +1,7 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
-	"jnexus/internal/model"
-	"jnexus/internal/pkg"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -12,14 +10,16 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"io"
+	"jnexus/internal/model"
+	"jnexus/internal/pkg"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 )
 
-// K8S 集群集成：通过 API Server + 证书认证纳管集群，
-// 探测在线状态/版本/节点数，记录并监控证书有效期。
+// K8S cluster integration: manages clusters via API Server + certificate auth,
+// probes online status/version/node count, and records and monitors certificate expiry.
 
 type k8sKubeconfig struct {
 	CurrentContext string `yaml:"current-context"`
@@ -46,7 +46,7 @@ type k8sKubeconfig struct {
 	} `yaml:"users"`
 }
 
-// ParseKubeconfig 解析 kubeconfig，返回 server / CA / 客户端证书 / 私钥（PEM 明文）
+// ParseKubeconfig parses a kubeconfig and returns server / CA / client cert / private key (plain PEM)
 func ParseKubeconfig(raw string) (server, ca, cert, key string, err error) {
 	var kc k8sKubeconfig
 	if err = yaml.Unmarshal([]byte(raw), &kc); err != nil {
@@ -83,8 +83,8 @@ func ParseKubeconfig(raw string) (server, ca, cert, key string, err error) {
 	return server, ca, cert, key, nil
 }
 
-// k8sTLSClient 用集群凭据构造带客户端证书的 HTTP 客户端
-// decodeBase64OrPlain kubeconfig 中 -data 字段为 base64；兼容直接粘贴 PEM
+// k8sTLSClient builds an HTTP client with a client certificate from the cluster credentials
+// decodeBase64OrPlain the -data fields in a kubeconfig are base64; directly pasted PEM is also accepted
 func decodeBase64OrPlain(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -115,7 +115,7 @@ func k8sTLSClient(caPEM, certPEM, keyPEM string, timeout time.Duration) (*http.C
 	return &http.Client{Timeout: timeout, Transport: &http.Transport{TLSClientConfig: tlsCfg}}, nil
 }
 
-// K8sProbeResult 探测结果
+// K8sProbeResult probe result
 type K8sProbeResult struct {
 	Version   string
 	NodeCount int
@@ -123,7 +123,7 @@ type K8sProbeResult struct {
 	CAExp     *time.Time
 }
 
-// ProbeK8sCluster 连接集群：取版本 / 节点数 / 证书到期
+// ProbeK8sCluster connects to the cluster: fetches version / node count / certificate expiry
 func ProbeK8sCluster(c *model.K8sCluster) (*K8sProbeResult, error) {
 	caPEM, certPEM, keyPEM := decryptK8sCreds(c)
 	cli, err := k8sTLSClient(caPEM, certPEM, keyPEM, 10*time.Second)
@@ -132,7 +132,7 @@ func ProbeK8sCluster(c *model.K8sCluster) (*K8sProbeResult, error) {
 	}
 	res := &K8sProbeResult{}
 
-	// /version（无需鉴权，用于连通性与版本）
+	// /version (no auth required; used for connectivity and version)
 	resp, err := cli.Get(stringsTrimRightSlash(c.ApiServer) + "/version")
 	if err != nil {
 		return nil, err
@@ -148,7 +148,7 @@ func ProbeK8sCluster(c *model.K8sCluster) (*K8sProbeResult, error) {
 		res.Version = ver.GitVersion
 	}
 
-	// /api/v1/nodes（需要客户端证书）
+	// /api/v1/nodes (requires client certificate)
 	resp2, err := cli.Get(stringsTrimRightSlash(c.ApiServer) + "/api/v1/nodes")
 	if err == nil {
 		b2, _ := io.ReadAll(io.LimitReader(resp2.Body, 5<<20))
@@ -165,7 +165,7 @@ func ProbeK8sCluster(c *model.K8sCluster) (*K8sProbeResult, error) {
 		}
 	}
 
-	// 证书有效期（客户端证书优先，其次 CA）
+	// Certificate expiry (client cert first, then CA)
 	if certPEM != "" {
 		if exp := pemNotAfter(certPEM); exp != nil {
 			res.CertExp = exp
@@ -193,7 +193,7 @@ func firstPEMBlock(pemData string) *pem.Block {
 }
 
 func pemNotAfter(pemData string) *time.Time {
-	// 仅取第一块证书
+	// Only take the first certificate block
 	block := firstPEMBlock(pemData)
 	if block == nil {
 		return nil
@@ -212,9 +212,9 @@ func stringsTrimRightSlash(s string) string {
 	return s
 }
 
-// ---------- 凭据加解密 ----------
+// ---------- Credential encryption/decryption ----------
 
-// EncryptK8sSecret AES-GCM 加密集群凭据
+// EncryptK8sSecret AES-GCM encrypts cluster credentials
 func EncryptK8sSecret(plain string) (string, error) {
 	if plain == "" {
 		return "", nil
@@ -223,7 +223,7 @@ func EncryptK8sSecret(plain string) (string, error) {
 }
 
 func decryptK8sCreds(c *model.K8sCluster) (ca, cert, key string) {
-	// kubeconfig 模式：从加密的 kubeconfig 中解析三件套
+	// kubeconfig mode: parse the CA/cert/key trio from the encrypted kubeconfig
 	if c.Kubeconfig != "" {
 		if raw, err := pkg.Decrypt(c.Kubeconfig); err == nil {
 			server, ca, cert, key, err := ParseKubeconfig(raw)
@@ -241,16 +241,16 @@ func decryptK8sCreds(c *model.K8sCluster) (ca, cert, key string) {
 	return ca, cert, key
 }
 
-// ---------- 周期探测与证书到期提醒 ----------
+// ---------- Periodic probing and certificate expiry reminders ----------
 
 var k8sProbeMu sync.Mutex
 var k8sLastProbe = map[uint]time.Time{}
 
-// k8sLastRemind 证书提醒冷却（每集群每级别 20h）
+// k8sLastRemind certificate reminder cooldown (20h per cluster per level)
 var remindMu sync.Mutex
 var k8sLastRemind = map[string]time.Time{}
 
-// CollectK8sClusters 探测全部集群状态/版本/节点（5 分钟节流）
+// CollectK8sClusters probes all clusters for status/version/nodes (throttled to 5 minutes)
 func CollectK8sClusters() {
 	var clusters []model.K8sCluster
 	model.DB.Where("enabled = ?", true).Find(&clusters)
@@ -271,14 +271,14 @@ func CollectK8sClusters() {
 			updates := map[string]any{"last_seen": now}
 			if err != nil {
 				updates["status"] = "offline"
-				// 集群离线告警（20h 冷却）
+				// Cluster offline alert (20h cooldown)
 				if c.Status == "online" {
 					K8sNotify(c.Name, c.ApiServer, "🔴 [集群离线] "+c.Name,
 						fmt.Sprintf("集群: %s\nAPI Server: %s\n状态: 离线\n时间: %s",
 							c.Name, c.ApiServer, now.Format("2006-01-02 15:04:05")), "offline")
 				}
 			} else {
-				// 集群恢复上线
+				// Cluster back online
 				if c.Status == "offline" {
 					K8sNotify(c.Name, c.ApiServer, "🟢 [集群恢复] "+c.Name,
 						fmt.Sprintf("集群: %s\n状态: 在线\n时间: %s", c.Name, now.Format("2006-01-02 15:04:05")), "backonline")
@@ -311,7 +311,7 @@ func CollectK8sClusters() {
 	}
 }
 
-// CheckK8sCertExpiry 证书到期提醒：剩余 30 天 / 7 天各提醒一次（恢复证书后重置）
+// CheckK8sCertExpiry certificate expiry reminders: one at 30 days and one at 7 days remaining (reset when the cert is renewed)
 func CheckK8sCertExpiry(c *model.K8sCluster, res *K8sProbeResult) {
 	if res == nil || res.CertExp == nil {
 		return
@@ -335,7 +335,7 @@ func CheckK8sCertExpiry(c *model.K8sCluster, res *K8sProbeResult) {
 	}
 	text := fmt.Sprintf("集群: %s\nAPI Server: %s\n支持人: %s\n证书到期: %s\n剩余约 %d 天",
 		c.Name, c.ApiServer, c.Support, res.CertExp.Format("2006-01-02"), days)
-	// 提醒冷却：每集群每级别 20 小时内不重复推送（防止探测频率变化导致的重复告警）
+	// Reminder cooldown: no repeated pushes within 20 hours per cluster per level (prevents duplicate alerts from probe frequency changes)
 	remind := func(lv string) bool {
 		key := fmt.Sprintf("%d:%s", c.ID, lv)
 		remindMu.Lock()
@@ -355,7 +355,7 @@ func CheckK8sCertExpiry(c *model.K8sCluster, res *K8sProbeResult) {
 	}
 }
 
-// K8sNotify 向所有启用通道广播集群级通知（20h 冷却）
+// K8sNotify broadcasts a cluster-level notification to all enabled channels (20h cooldown)
 func K8sNotify(name, apiServer, title, text, eventKey string) {
 	key := eventKey + ":" + apiServer
 	remindMu.Lock()
@@ -378,7 +378,7 @@ func K8sNotify(name, apiServer, title, text, eventKey string) {
 	}
 }
 
-// CheckK8sWarningEvents 检查集群 Warning 事件，聚合告警（20h 冷却）
+// CheckK8sWarningEvents checks cluster Warning events and aggregates alerts (20h cooldown)
 func CheckK8sWarningEvents(c *model.K8sCluster) {
 	k8s, err := K8sClientFor(c)
 	if err != nil {
@@ -410,7 +410,7 @@ func CheckK8sWarningEvents(c *model.K8sCluster) {
 	K8sNotify(c.Name, c.ApiServer, "🟠 [K8S Warning 事件] "+c.Name, b.String(), "warnings")
 }
 
-// CheckK8sNodeHealth 节点健康检查：NotReady 节点告警（20h 冷却）
+// CheckK8sNodeHealth node health check: alerts on NotReady nodes (20h cooldown)
 func CheckK8sNodeHealth(c *model.K8sCluster) {
 	k8s, err := K8sClientFor(c)
 	if err != nil {
@@ -434,12 +434,12 @@ func CheckK8sNodeHealth(c *model.K8sCluster) {
 			c.Name, c.ApiServer, strings.Join(bad, ", "), len(bad), time.Now().Format("2006-01-02 15:04:05")), "nodehealth")
 }
 
-// DecryptK8sCredsPair 解密并返回 CA / 客户端证书 / 私钥 PEM
+// DecryptK8sCredsPair decrypts and returns the CA / client cert / private key PEM
 func DecryptK8sCredsPair(c *model.K8sCluster) (ca, cert, key string) {
 	return decryptK8sCreds(c)
 }
 
-// K8sRootCAs 构造 CA 证书池
+// K8sRootCAs builds the CA cert pool
 func K8sRootCAs(caPEM string) *x509.CertPool {
 	pool := x509.NewCertPool()
 	if caPEM != "" {
@@ -448,7 +448,7 @@ func K8sRootCAs(caPEM string) *x509.CertPool {
 	return pool
 }
 
-// K8sExecURL 构造 exec WebSocket 地址（https→wss / http→ws）
+// K8sExecURL builds the exec WebSocket URL (https→wss / http→ws)
 func K8sExecURL(server, namespace, pod, container, command string) string {
 	base := strings.TrimRight(server, "/")
 	base = strings.Replace(base, "https://", "wss://", 1)

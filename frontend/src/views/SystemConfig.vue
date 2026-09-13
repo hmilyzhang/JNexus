@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div v-loading="loading">
     <el-tabs v-model="activeTab">
@@ -95,11 +95,11 @@
     </el-card>
     </el-tab-pane>
 
-    <!-- AI 助手：左侧导航 + 右侧内容 -->
+    <!-- AI assistant tab: left nav + right content -->
     <el-tab-pane :label="$t('ai.tab')" name="ai">
     <el-card>
       <div style="display:flex; gap:18px; min-height:420px">
-        <!-- 左侧导航 -->
+        <!-- Left nav -->
         <div class="ai-side-nav">
           <div class="ai-side-nav-title">{{ $t('ai.tab') }}</div>
           <div class="ai-nav-item" :class="{ active: aiTabSection === 'conn' }" @click="aiTabSection = 'conn'">
@@ -109,9 +109,9 @@
             <el-icon><User /></el-icon> {{ $t('ai.navRole') }}
           </div>
         </div>
-        <!-- 右侧内容 -->
+        <!-- Right content -->
         <div style="flex:1; min-width:0; padding-left:20px; border-left:1px solid var(--el-border-color-lighter)">
-          <!-- 连接配置 -->
+          <!-- Connection settings -->
           <template v-if="aiTabSection === 'conn'">
             <div style="font-weight:600; font-size:15px; margin-bottom:16px">{{ $t('ai.cfgTitle') }}</div>
             <el-form label-width="130px" style="max-width:520px">
@@ -138,7 +138,7 @@
               </el-form-item>
             </el-form>
           </template>
-          <!-- 角色设置：可添加/删除/编辑的角色列表 -->
+          <!-- Role settings: add / remove / edit roles -->
           <template v-if="aiTabSection === 'role'">
             <div style="font-weight:600; font-size:15px; margin-bottom:16px">{{ $t('ai.roleTitle') }}</div>
             <el-form label-width="130px" style="max-width:520px">
@@ -364,7 +364,7 @@
     </el-tab-pane>
     </el-tabs>
 
-    <!-- API 密钥创建 -->
+    <!-- API key create -->
     <el-dialog v-model="apiKeyDlgVisible" :title="$t('system.apiKeyCreate')" width="480px">
       <el-form label-width="120px">
         <el-form-item :label="$t('system.apiKeyName')"><el-input v-model="apiKeyForm.name" /></el-form-item>
@@ -387,7 +387,7 @@
       </template>
     </el-dialog>
 
-    <!-- 密钥一次性展示 -->
+    <!-- One-time key reveal -->
     <el-dialog v-model="keyShownVisible" :title="$t('system.apiKeyCreatedTitle')" width="560px" :close-on-click-modal="false">
       <el-alert type="warning" :title="$t('system.apiKeyOnceTip')" :closable="false" style="margin-bottom:12px" />
       <div class="mono" style="background:#f5f7fa; padding:10px; border-radius:4px; word-break:break-all; font-size:13px">{{ createdKey }}</div>
@@ -399,7 +399,7 @@
       </template>
     </el-dialog>
 
-    <!-- 菜单权限编辑 -->
+    <!-- Menu permission editor -->
     <el-dialog v-model="menuDlgVisible" :title="`${$t('system.menuPerms')}：${menuDlgRole?.label}`" width="420px">
       <el-checkbox-group v-model="menuDlgSelection">
         <el-checkbox v-for="m in menuKeys" :key="m.key" :value="m.key" style="display:block; margin-left:0">
@@ -413,7 +413,7 @@
     </el-dialog>
   </div>
 
-    <!-- 新建自定义角色 -->
+    <!-- New custom role -->
     <el-dialog v-model="newRoleVisible" :title="$t('system.newRole')" width="480px">
       <el-form label-width="110px">
         <el-form-item :label="$t('system.roleKey')"><el-input v-model="newRoleForm.key" placeholder="sre" /></el-form-item>
@@ -430,7 +430,7 @@
       </template>
     </el-dialog>
 
-    <!-- 模块权限矩阵 -->
+    <!-- Module permission matrix -->
     <el-dialog v-model="capDlgVisible" :title="`${$t('system.capMatrix')}：${capRow?.label || ''}`" width="560px">
       <el-table :data="capabilities" size="small" border>
         <el-table-column prop="key" :label="$t('system.capModule')" width="160" />
@@ -485,7 +485,7 @@ const smtpTestTo = ref('')
 const smtpTesting = ref(false)
 const ldapPort = ref(389)
 
-// ---- API 密钥 ----
+// ---- API keys ----
 const apiKeys = ref([])
 const users = ref([])
 const apiKeyDlgVisible = ref(false)
@@ -526,7 +526,7 @@ const delApiKey = async row => {
 const openDoc = () => { window.open('/docs/api.html', '_blank') }
 
 const roleRows = ref([])
-// 角色名/描述按语言包本地化显示（system.role<Cap> / layout.role<Cap>），保存的是显示值
+// Role names/descriptions are localized via language packs (system.role<Cap> / layout.role<Cap>); the display value is what gets saved
 const roleCaps = { admin: 'Admin', ops: 'Ops', publisher: 'Publisher', viewer: 'Viewer', auditor: 'Auditor', k8s: 'K8s' }
 const menuKeys = [
   { key: 'dashboard', label: 'menu.dashboard' },
@@ -568,7 +568,7 @@ const capSet = (row, module, action, on) => {
 }
 const openCapDlg = row => { capRow.value = row; capDlgVisible.value = true }
 
-// ---- 自定义角色 ----
+// ---- Custom roles ----
 const newRoleVisible = ref(false)
 const newRoleForm = ref({ key: '', desc: '', copy_of: '' })
 const openNewRole = () => { newRoleForm.value = { key: '', desc: '', copy_of: 'viewer' }; newRoleVisible.value = true }
@@ -579,14 +579,14 @@ const createRole = async () => {
     ElMessage.success(t('common.success'))
     newRoleVisible.value = false
     await loadRoles()
-  } catch { /* 拦截器已提示 */ }
+  } catch { /* interceptor already showed the error */ }
 }
 const delRole = async row => {
   try {
     await api.delete(`/system/roles/${row.role}`)
     ElMessage.success(t('common.success'))
     await loadRoles()
-  } catch { /* 拦截器已提示 */ }
+  } catch { /* interceptor already showed the error */ }
 }
 
 const allRoleKeys = ref([])
@@ -663,7 +663,7 @@ const runAllNow = async () => {
   } catch { /* interceptor shows the error */ }
 }
 
-// ---- 查看账号密码（管理员，带审计） ----
+// ---- View account passwords (admin only, audited) ----
 const revealVisible = ref(false)
 const revealAcctData = ref({ username: '', password: '' })
 const revealAcct = async row => {
@@ -674,7 +674,7 @@ const revealAcct = async row => {
   } catch { /* interceptor shows the error */ }
 }
 
-// ---- AI 助手：配置 + 连通性测试 + 测试对话 + 角色设置（后端 ai_roles，可增删） ----
+// ---- AI assistant: config + connectivity test + test chat + role settings (backend ai_roles, add/remove supported) ----
 const aiTabSection = ref('conn')
 const aiTesting = ref(false)
 const aiSending = ref(false)
@@ -704,7 +704,7 @@ const loadAiRoles = async () => {
   } catch { /* ignore */ }
 }
 
-const syncRoleEditor = () => { /* v-model computed 已双向绑定，仅占位供 select @change */ }
+const syncRoleEditor = () => { /* the v-model computed is already two-way bound; this is just a placeholder for the select @change */ }
 
 const addAiRole = async () => {
   let value = ''
@@ -834,7 +834,7 @@ const testLdap = async () => {
 </script>
 
 <style scoped>
-/* AI 助手 tab：左侧导航（与监控中心模板设置左列表同风格） */
+/* AI assistant tab: left nav (same style as the template settings list in Monitor) */
 .ai-side-nav { width: 180px; flex-shrink: 0; }
 .ai-side-nav-title {
   font-weight: 600; font-size: 14px; color: var(--el-text-color-primary);

@@ -1,7 +1,7 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
-// AI 助手客户端：OpenAI 兼容协议（OpenAI / Ollama / vLLM / LM Studio 等均兼容）
+// AI assistant client: OpenAI-compatible protocol (works with OpenAI / Ollama / vLLM / LM Studio, etc.)
 
 import (
 	"bytes"
@@ -15,13 +15,13 @@ import (
 
 type AISettings struct {
 	Enabled bool
-	BaseURL string // 如 http://127.0.0.1:11434/v1（ollama）、https://api.openai.com/v1
-	APIKey  string // ollama 本地可留空
-	Model   string // 如 qwen2.5:7b / gpt-4o-mini
+	BaseURL string // e.g. http://127.0.0.1:11434/v1 (ollama), https://api.openai.com/v1
+	APIKey  string // can be left empty for local ollama
+	Model   string // e.g. qwen2.5:7b / gpt-4o-mini
 	Timeout time.Duration
 }
 
-// LoadAISettings 从系统配置读取 AI 设置
+// LoadAISettings reads AI settings from system config
 func LoadAISettings() AISettings {
 	m := SystemConfigMap()
 	timeout := 120 * time.Second
@@ -42,7 +42,7 @@ type aiMessage struct {
 	Content string `json:"content"`
 }
 
-// AIChat 调用 OpenAI 兼容的 /chat/completions，返回回复文本
+// AIChat calls the OpenAI-compatible /chat/completions endpoint and returns the reply text
 func AIChat(s AISettings, systemPrompt, userPrompt string) (string, error) {
 	if s.BaseURL == "" || s.Model == "" {
 		return "", fmt.Errorf("AI is not configured: set the base URL and model in System Settings first")

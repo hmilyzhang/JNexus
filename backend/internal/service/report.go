@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -10,7 +10,7 @@ import (
 	"jnexus/internal/sshpool"
 )
 
-// 预设报告模板（命令为 POSIX sh，采集失败段落不影响其余输出）
+// Preset report templates (commands are POSIX sh; a failing section does not affect the rest of the output)
 type ReportTemplate struct {
 	Key  string
 	Name string
@@ -141,10 +141,10 @@ fi
 	},
 }
 
-// GetReportTemplates 供前端展示模板列表
+// GetReportTemplates serves the template list for the frontend
 func ReportTemplateList() []ReportTemplate { return reportTemplates }
 
-// FindReportTemplate 导出查询（handler 展示模板名用）
+// FindReportTemplate exported lookup (handlers use it to show template names)
 func FindReportTemplate(key string) (ReportTemplate, error) {
 	return findTemplate(key)
 }
@@ -158,7 +158,7 @@ func findTemplate(key string) (ReportTemplate, error) {
 	return ReportTemplate{}, fmt.Errorf("未知报告模板: %s", key)
 }
 
-// StartReport 创建报告并并发采集（复用主机默认凭据连接）
+// StartReport creates a report and collects concurrently (reuses the host default credential connection)
 func StartReport(operator *model.User, templateKey string, hostIDs []uint) (uint, error) {
 	tpl, err := findTemplate(templateKey)
 	if err != nil {

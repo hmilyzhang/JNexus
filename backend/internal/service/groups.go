@@ -1,11 +1,11 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
 	"jnexus/internal/model"
 )
 
-// GroupAndDescendants 返回指定分组及其全部后代分组的 ID（含自身）
+// GroupAndDescendants returns the IDs of the given group and all its descendant groups (including itself)
 func GroupAndDescendants(rootID uint) []uint {
 	var groups []model.HostGroup
 	model.DB.Find(&groups)
@@ -28,7 +28,7 @@ func GroupAndDescendants(rootID uint) []uint {
 	return out
 }
 
-// GroupAncestors 返回分组及其全部祖先 ID（含自身），用于规则匹配主机所在分组
+// GroupAncestors returns the IDs of the group and all its ancestors (including itself), used to match rules against the host's group
 func GroupAncestors(groupID uint) []uint {
 	var groups []model.HostGroup
 	model.DB.Find(&groups)

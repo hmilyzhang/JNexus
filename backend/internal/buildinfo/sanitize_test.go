@@ -7,13 +7,13 @@ import (
 
 func TestSanitize(t *testing.T) {
 	cases := map[string]string{
-		"1.130": "1.130", // 正常
-		"1.":    "",      // 部署机无 git 导出的残缺值
-		"1":     "",      // 缺小数部分
-		"":      "",
+		"1.130":   "1.130", // valid
+		"1.":      "",      // broken value exported on a machine without git
+		"1":       "",      // missing fractional part
+		"":        "",
 		" 1.121 ": "1.121",
-		"1.abc": "",
-		"2.5":   "",
+		"1.abc":   "",
+		"2.5":     "",
 	}
 	for in, want := range cases {
 		if got := sanitize(in); got != want {

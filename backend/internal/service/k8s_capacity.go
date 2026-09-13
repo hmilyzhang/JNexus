@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -10,14 +10,14 @@ import (
 	"jnexus/internal/model"
 )
 
-// K8S 容量规划：周期采样集群容量/用量，支撑 月/半年/年 趋势与预测
+// K8S capacity planning: periodically samples cluster capacity/usage to support month/half-year/year trends and forecasts
 
 var (
 	k8sUsageMu   sync.Mutex
 	k8sLastUsage = map[uint]time.Time{}
 )
 
-// CollectK8sUsage 按集群节流采样容量样本（15 分钟一次），挂在 StartMonitorLoop
+// CollectK8sUsage samples capacity per cluster with throttling (every 15 minutes), hooked into StartMonitorLoop
 func CollectK8sUsage() {
 	defer func() { recover() }()
 	var clusters []model.K8sCluster
@@ -60,7 +60,7 @@ func CollectK8sUsage() {
 			}
 			model.DB.Create(&sample)
 
-			// Pod 级：按 CPU 用量 Top10 采样（容量规划 Pod 维度趋势）
+			// Pod level: sample top 10 by CPU usage (pod-dimension trends for capacity planning)
 			top := make([]K8sPodUsage, len(u.Pods))
 			copy(top, u.Pods)
 			sort.Slice(top, func(i, j int) bool { return top[i].CPUM > top[j].CPUM })
@@ -82,7 +82,7 @@ func CollectK8sUsage() {
 	wg.Wait()
 }
 
-// PruneK8sCapacitySamples 清理超过 400 天的容量样本（一年维度 + 余量）
+// PruneK8sCapacitySamples deletes capacity samples older than 400 days (one-year horizon + margin)
 func PruneK8sCapacitySamples() {
 	defer func() { recover() }()
 	cut := time.Now().AddDate(0, 0, -400)
@@ -90,7 +90,7 @@ func PruneK8sCapacitySamples() {
 	model.DB.Where("collected_at < ?", cut).Delete(&model.K8sPodSample{})
 }
 
-// ArchiveHostMetrics 把 30 天前的主机指标按小时聚合进 HostMetricHourly（幂等覆盖），随后 raw 由 PruneMonitorData 删除
+// ArchiveHostMetrics aggregates host metrics older than 30 days into HostMetricHourly by hour (idempotent upsert); raw rows are then deleted by PruneMonitorData
 func ArchiveHostMetrics() {
 	defer func() { recover() }()
 	cut := time.Now().Add(-30 * 24 * time.Hour)

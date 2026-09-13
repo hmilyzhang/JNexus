@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -14,9 +14,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// K8S 三期：StatefulSet 伸缩 / YAML 更新 / Pod 日志实时跟随
+// K8S phase 3: StatefulSet scaling / YAML updates / real-time pod log following
 
-// ScaleStatefulSet 调整 StatefulSet 副本数（scale 子资源）
+// ScaleStatefulSet adjusts StatefulSet replicas (scale subresource)
 func (k *K8sAPI) ScaleStatefulSet(namespace, name string, replicas int) error {
 	body, _ := json.Marshal(map[string]any{
 		"apiVersion": "apps/v1", "kind": "Scale",
@@ -26,7 +26,7 @@ func (k *K8sAPI) ScaleStatefulSet(namespace, name string, replicas int) error {
 	return k.do("PATCH", "/apis/apps/v1/namespaces/"+namespace+"/statefulsets/"+name+"/scale", body, nil)
 }
 
-// UpdateResourceYAML 用编辑后的 YAML 替换资源（整对象 PUT）
+// UpdateResourceYAML replaces the resource with the edited YAML (whole-object PUT)
 func (k *K8sAPI) UpdateResourceYAML(kind, namespace, name, yamlText string) error {
 	tpl, ok := k8sYAMLPaths[kind]
 	if !ok {
@@ -48,7 +48,7 @@ func (k *K8sAPI) UpdateResourceYAML(kind, namespace, name, yamlText string) erro
 	if obj == nil {
 		return fmt.Errorf("YAML 内容为空")
 	}
-	// 元数据一致性校验，防止把 A 资源的内容提交到 B
+	// Metadata consistency check to prevent submitting resource A's content to B
 	if md, ok := obj["metadata"].(map[string]any); ok {
 		if n, _ := md["name"].(string); n != "" && n != name {
 			return fmt.Errorf("YAML 中 metadata.name(%s) 与目标资源(%s)不一致", n, name)
@@ -64,7 +64,7 @@ func (k *K8sAPI) UpdateResourceYAML(kind, namespace, name, yamlText string) erro
 	return k.do("PUT", path, body, nil)
 }
 
-// FollowPodLog 打开 follow=true 的日志流，返回响应体（调用方负责 close 与 cancel）
+// FollowPodLog opens a follow=true log stream and returns the response body (caller is responsible for close and cancel)
 func (k *K8sAPI) FollowPodLog(ctx context.Context, namespace, name, container string, tail int) (io.ReadCloser, error) {
 	path := "/api/v1/namespaces/" + namespace + "/pods/" + name + "/log?follow=true"
 	if container != "" {
@@ -89,31 +89,31 @@ func (k *K8sAPI) FollowPodLog(ctx context.Context, namespace, name, container st
 	return resp.Body, nil
 }
 
-// K8sPodUsage 单个 Pod：requests/limits 申请量 + 实际用量
+// K8sPodUsage single pod: requests/limits + actual usage
 type K8sPodUsage struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 	Phase     string `json:"phase"`
-	CPUReqM   int64  `json:"cpu_req_m"`  // requests 合计（毫核）
-	CPULimM   int64  `json:"cpu_lim_m"`  // limits 合计（毫核）
-	MemReqMi  int64  `json:"mem_req_mi"` // requests 合计（Mi）
-	MemLimMi  int64  `json:"mem_lim_mi"` // limits 合计（Mi）
-	CPUM      int64  `json:"cpu_m"`      // 实际用量（毫核）
-	MemMi     int64  `json:"mem_mi"`     // 实际用量（Mi）
+	CPUReqM   int64  `json:"cpu_req_m"`  // total requests (millicores)
+	CPULimM   int64  `json:"cpu_lim_m"`  // total limits (millicores)
+	MemReqMi  int64  `json:"mem_req_mi"` // total requests (Mi)
+	MemLimMi  int64  `json:"mem_lim_mi"` // total limits (Mi)
+	CPUM      int64  `json:"cpu_m"`      // actual usage (millicores)
+	MemMi     int64  `json:"mem_mi"`     // actual usage (Mi)
 }
 
-// K8sClusterUsage 集群资源概况：容量/实际用量（来自 metrics-server）+ 全部 Pod 申请量与用量
+// K8sClusterUsage cluster resource overview: capacity/actual usage (from metrics-server) + all pod requests and usage
 type K8sClusterUsage struct {
-	CPUCapacityM  int64          `json:"cpu_capacity_m"`  // 可分配 CPU 总量（毫核）
-	CPUUsedM      int64          `json:"cpu_used_m"`      // 节点实际 CPU 用量合计（毫核）
-	MemCapacityMi int64          `json:"mem_capacity_mi"` // 可分配内存总量（Mi）
-	MemUsedMi     int64          `json:"mem_used_mi"`     // 节点实际内存用量合计（Mi）
-	PodReqCPUM    int64          `json:"pod_req_cpu_m"`   // 全部 Pod requests CPU 合计
-	PodReqMemMi   int64          `json:"pod_req_mem_mi"`  // 全部 Pod requests 内存合计
-	Pods          []K8sPodUsage  `json:"pods"`
+	CPUCapacityM  int64         `json:"cpu_capacity_m"`  // total allocatable CPU (millicores)
+	CPUUsedM      int64         `json:"cpu_used_m"`      // total actual node CPU usage (millicores)
+	MemCapacityMi int64         `json:"mem_capacity_mi"` // total allocatable memory (Mi)
+	MemUsedMi     int64         `json:"mem_used_mi"`     // total actual node memory usage (Mi)
+	PodReqCPUM    int64         `json:"pod_req_cpu_m"`   // total CPU requests across all pods
+	PodReqMemMi   int64         `json:"pod_req_mem_mi"`  // total memory requests across all pods
+	Pods          []K8sPodUsage `json:"pods"`
 }
 
-// ClusterUsage 并发拉取节点容量、节点用量与 Pod 用量（metrics-server 缺失时容量仍有值，用量为 0）
+// ClusterUsage concurrently fetches node capacity, node usage and pod usage (capacity still populated without metrics-server; usage is 0)
 func (k *K8sAPI) ClusterUsage() (*K8sClusterUsage, error) {
 	u := &K8sClusterUsage{Pods: []K8sPodUsage{}}
 	var wg sync.WaitGroup
@@ -151,7 +151,7 @@ func (k *K8sAPI) ClusterUsage() (*K8sClusterUsage, error) {
 		}
 	})
 	run(func() {
-		// 全部 Pod 的 requests/limits 申请量
+		// requests/limits of all pods
 		var list struct {
 			Items []struct {
 				Metadata struct {
@@ -188,7 +188,7 @@ func (k *K8sAPI) ClusterUsage() (*K8sClusterUsage, error) {
 	})
 	wg.Wait()
 
-	// 实际用量合并进 Pod 列表（按 namespace/name 匹配；须在 Pods 拉取完成后串行执行）
+	// Merge actual usage into the pod list (matched by namespace/name; must run serially after pods are fetched)
 	if ps, err := k.PodMetrics(""); err == nil {
 		idx := make(map[string]int, len(u.Pods))
 		for i := range u.Pods {
@@ -204,7 +204,7 @@ func (k *K8sAPI) ClusterUsage() (*K8sClusterUsage, error) {
 	return u, nil
 }
 
-// k8sCreatePaths 可创建资源的集合路径（%s = namespace）
+// k8sCreatePaths collection paths for creatable resources (%s = namespace)
 var k8sCreatePaths = map[string]string{
 	"deployment":     "/apis/apps/v1/namespaces/%s/deployments",
 	"daemonset":      "/apis/apps/v1/namespaces/%s/daemonsets",
@@ -219,7 +219,7 @@ var k8sCreatePaths = map[string]string{
 	"serviceaccount": "/api/v1/namespaces/%s/serviceaccounts",
 }
 
-// DeleteResource 通用资源删除（拒绝集群级资源，避免误删 PV/节点等）
+// DeleteResource generic resource deletion (rejects cluster-scoped resources to avoid accidentally deleting PVs/nodes)
 func (k *K8sAPI) DeleteResource(kind, namespace, name string) error {
 	switch kind {
 	case "node", "pv", "storageclass":
@@ -235,7 +235,7 @@ func (k *K8sAPI) DeleteResource(kind, namespace, name string) error {
 	return k.do("DELETE", fmt.Sprintf(tpl, namespace, name), nil, nil)
 }
 
-// CreateResourceYAML 用 YAML 创建资源，返回创建的资源名
+// CreateResourceYAML creates a resource from YAML and returns the created resource name
 func (k *K8sAPI) CreateResourceYAML(kind, defaultNS, yamlText string) (string, error) {
 	tpl, ok := k8sCreatePaths[kind]
 	if !ok {

@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package service
 
@@ -15,7 +15,7 @@ import (
 
 const ldapTimeout = 10 * time.Second
 
-// SystemConfigMap 读取全部系统配置为 map
+// SystemConfigMap reads all system config into a map
 func SystemConfigMap() map[string]string {
 	out := map[string]string{}
 	var rows []model.SystemConfig
@@ -26,7 +26,7 @@ func SystemConfigMap() map[string]string {
 	return out
 }
 
-// SetSystemConfigs 批量写入配置（key 不存在则创建）
+// SetSystemConfigs writes configs in batch (creates the key if absent)
 func SetSystemConfigs(m map[string]string) error {
 	for k, v := range m {
 		if err := model.DB.Save(&model.SystemConfig{Key: k, Value: v}).Error; err != nil {
@@ -36,7 +36,7 @@ func SetSystemConfigs(m map[string]string) error {
 	return nil
 }
 
-// LDAPSettings 从系统配置提取 LDAP 设置
+// LDAPSettings extracts LDAP settings from system config
 type LDAPSettings struct {
 	Enabled        bool
 	Host           string
@@ -48,10 +48,10 @@ type LDAPSettings struct {
 	UserFilter     string
 	AttrUsername   string
 	DefaultRole    string
-	GroupCheck     bool     // 启用用户组校验
-	GroupBaseDN    string   // 用户组搜索 Base DN
-	GroupFilter    string   // 组过滤器，%s 替换为用户 DN
-	RequiredGroups []string // 允许登录的用户组 DN/CN 列表
+	GroupCheck     bool     // enable group check
+	GroupBaseDN    string   // Base DN for group search
+	GroupFilter    string   // group filter; %s is replaced with the user DN
+	RequiredGroups []string // list of group DN/CN allowed to log in
 }
 
 func LoadLDAPSettings() LDAPSettings {
@@ -94,7 +94,7 @@ func LoadLDAPSettings() LDAPSettings {
 	return s
 }
 
-// LDAPLogin 用 LDAP 验证用户名密码，成功返回用户属性（DN、用户名、邮箱）
+// LDAPLogin verifies the username/password against LDAP; on success returns user attributes (DN, username, email)
 func LDAPLogin(s LDAPSettings, username, password string) (dn, email, displayName string, err error) {
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
 	var conn *goldap.Conn
@@ -109,7 +109,7 @@ func LDAPLogin(s LDAPSettings, username, password string) (dn, email, displayNam
 	defer conn.Close()
 	conn.SetTimeout(ldapTimeout)
 
-	// 管理员绑定（可选；未配置则匿名搜索）
+	// admin bind (optional; falls back to anonymous search when not configured)
 	if s.BindDN != "" {
 		if err := conn.Bind(s.BindDN, s.BindPassword); err != nil {
 			return "", "", "", fmt.Errorf("LDAP 绑定账号失败: %w", err)
@@ -129,11 +129,11 @@ func LDAPLogin(s LDAPSettings, username, password string) (dn, email, displayNam
 		return "", "", "", fmt.Errorf("LDAP 中未找到唯一用户 %s", username)
 	}
 	entry := res.Entries[0]
-	// 用用户 DN 验证密码
+	// verify the password with the user DN
 	if err := conn.Bind(entry.DN, password); err != nil {
 		return "", "", "", fmt.Errorf("LDAP 密码验证失败")
 	}
-	// 用户组校验：必须属于允许登录的用户组之一
+	// group check: the user must belong to one of the groups allowed to log in
 	if s.GroupCheck {
 		if err := checkLDAPGroup(s, conn, entry.DN); err != nil {
 			return "", "", "", err
@@ -147,11 +147,11 @@ func LDAPLogin(s LDAPSettings, username, password string) (dn, email, displayNam
 	return entry.DN, email, displayName, nil
 }
 
-// ErrLDAPGroupDenied 用户不在允许登录的 LDAP 用户组中
+// ErrLDAPGroupDenied indicates the user is not in any LDAP group allowed to log in
 var ErrLDAPGroupDenied = fmt.Errorf("该账号不属于允许登录的 LDAP 用户组")
 
-// checkLDAPGroup 在组 Base DN 下用过滤器搜索用户的组，命中 RequiredGroups 之一（按 DN 或 CN 比对）才放行
-// LDAPSyncEmails 管理员凭据搜索全部含 mail 属性的用户，返回 用户名 -> 邮箱
+// checkLDAPGroup searches the user's groups under the group Base DN with the filter; access is granted only when one of RequiredGroups matches (compared by DN or CN)
+// LDAPSyncEmails searches all users with a mail attribute using admin credentials, returning username -> email
 func LDAPSyncEmails(s LDAPSettings) (map[string]LDAPOpts, error) {
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
 	var conn *goldap.Conn
@@ -171,7 +171,7 @@ func LDAPSyncEmails(s LDAPSettings) (map[string]LDAPOpts, error) {
 			return nil, fmt.Errorf("LDAP 绑定账号失败: %w", err)
 		}
 	}
-	// 搜索所有含 mail 属性的条目
+	// search all entries that have a mail attribute
 	search := goldap.NewSearchRequest(
 		s.BaseDN, goldap.ScopeWholeSubtree, goldap.NeverDerefAliases, 0, 0, false,
 		"(&(mail=*)("+s.AttrUsername+"=*))", []string{s.AttrUsername, "mail", "displayName", "cn"}, nil,
@@ -195,7 +195,7 @@ func LDAPSyncEmails(s LDAPSettings) (map[string]LDAPOpts, error) {
 	return out, nil
 }
 
-// LDAPOpts LDAP 同步拿到的用户属性
+// LDAPOpts holds user attributes obtained from LDAP sync
 type LDAPOpts struct {
 	Email       string
 	DisplayName string
@@ -203,7 +203,7 @@ type LDAPOpts struct {
 
 func checkLDAPGroup(s LDAPSettings, conn *goldap.Conn, userDN string) error {
 	if len(s.RequiredGroups) == 0 {
-		return nil // 未配置允许组则不限制
+		return nil // no allowed groups configured means no restriction
 	}
 	filter := strings.ReplaceAll(s.GroupFilter, "%s", goldap.EscapeFilter(userDN))
 	search := goldap.NewSearchRequest(
@@ -220,14 +220,14 @@ func checkLDAPGroup(s LDAPSettings, conn *goldap.Conn, userDN string) error {
 		for _, req := range s.RequiredGroups {
 			r := strings.ToLower(strings.TrimSpace(req))
 			if dn == r || cn == r || strings.HasSuffix(dn, ","+r) {
-				return nil // 命中允许组
+				return nil // matched an allowed group
 			}
 		}
 	}
 	return ErrLDAPGroupDenied
 }
 
-// TestLDAP 管理员测试 LDAP 连通性
+// TestLDAP lets an admin test LDAP connectivity
 func TestLDAP(s LDAPSettings) error {
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
 	var conn *goldap.Conn

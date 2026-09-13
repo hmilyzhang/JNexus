@@ -1,13 +1,13 @@
 #!/bin/sh
-# JNexus 容器入口：首次启动自动生成并持久化 AES 主密钥与 JWT 密钥。
-# 密钥保存在数据卷（/app/data），容器重建不丢失；通过环境变量显式传入时优先使用。
+# JNexus container entrypoint: on first start, auto-generates and persists the AES master key and JWT secret.
+# Secrets are kept on the data volume (/app/data) and survive container recreation; env vars take precedence when explicitly provided.
 set -e
 
 DATA_DIR="${JNEXUS_DATA_DIR:-/app/data}"
 mkdir -p "$DATA_DIR"
 
-# 密钥来源优先级：环境变量 > 数据卷已有文件 > 自动生成。
-# 无论来源如何都持久化到数据卷，保证后续重启/升级使用同一密钥（避免已加密数据无法解密）。
+# Secret source priority: env var > existing file on the data volume > auto-generated.
+# Whatever the source, the secret is persisted to the data volume so restarts/upgrades reuse the same key (otherwise already-encrypted data could not be decrypted).
 if [ -z "$JNEXUS_AES_KEY" ] && [ -f "$DATA_DIR/aes_key" ]; then
   JNEXUS_AES_KEY="$(cat "$DATA_DIR/aes_key")"
   export JNEXUS_AES_KEY
@@ -40,7 +40,7 @@ elif [ ! -f "$DATA_DIR/jwt_secret" ]; then
   echo "[entrypoint] 已将环境变量提供的 JWT 密钥持久化到 $DATA_DIR/jwt_secret"
 fi
 
-# RDP 网关密钥：写入数据卷，供 rdp-gateway 容器只读挂载（同 JWT/AES 的自动生成模式）
+# RDP gateway secret: written to the data volume for the rdp-gateway container to mount read-only (same auto-generation pattern as JWT/AES)
 if [ -z "$GW_SECRET" ] && [ -f "$DATA_DIR/gw_secret" ]; then
   GW_SECRET="$(cat "$DATA_DIR/gw_secret")"
   export GW_SECRET
@@ -57,9 +57,9 @@ elif [ ! -f "$DATA_DIR/gw_secret" ]; then
   echo "[entrypoint] 已将环境变量提供的 RDP 网关密钥持久化到 $DATA_DIR/gw_secret"
 fi
 
-# 主机自定义 CA 证书（可选：compose 挂载 /cacerts 只读目录，放入 .crt/.pem）：
-# 与系统 CA 合并生成信任 bundle，通过 SSL_CERT_FILE 供 Go TLS 使用
-# （LDAPS / HTTPS 拨测 / Kubernetes 自签证书即可被容器信任，无需 root）。
+# Host-provided custom CA certificates (optional: compose mounts a read-only /cacerts directory with .crt/.pem files):
+# Merged with the system CAs into a trust bundle exposed via SSL_CERT_FILE for Go TLS
+# (so LDAPS / HTTPS checks / Kubernetes self-signed certs are trusted by the container, no root needed).
 EXTRA_CA_DIR=/cacerts
 if [ -d "$EXTRA_CA_DIR" ] && ls "$EXTRA_CA_DIR"/*.crt "$EXTRA_CA_DIR"/*.pem >/dev/null 2>&1; then
   BUNDLE="$DATA_DIR/ca-bundle.crt"

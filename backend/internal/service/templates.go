@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -7,12 +7,12 @@ import (
 	"jnexus/internal/model"
 )
 
-// 全局默认通知模板（占位符渲染；通道级 title_tpl/body_tpl 优先级更高）。
-// 五类通知源 × 标题/正文，存系统配置 JSON；字段留空使用内建默认。
+// Global default notification templates (placeholder rendering; channel-level title_tpl/body_tpl take higher priority).
+// Five notification sources × title/body, stored as JSON in system config; empty fields fall back to built-in defaults.
 
 const alertTemplatesKey = "alert_templates"
 
-// AlertTemplates 各通知源的默认标题/正文模板（占位符形式存储）
+// AlertTemplates holds default title/body templates per notification source (stored as placeholders)
 type AlertTemplates struct {
 	MonitorAlertTitle    string `json:"monitor_alert_title"`
 	MonitorAlertBody     string `json:"monitor_alert_body"`
@@ -24,11 +24,11 @@ type AlertTemplates struct {
 	CmdAlertBody         string `json:"cmd_alert_body"`
 	CmdRecoveryTitle     string `json:"cmd_recovery_title"`
 	CmdRecoveryBody      string `json:"cmd_recovery_body"`
-	EmailTitle           string `json:"email_title"` // 邮件通道专用（优先于通用模板）
-	EmailBody            string `json:"email_body"`  // 支持 HTML
+	EmailTitle           string `json:"email_title"` // email channel only (takes priority over the generic templates)
+	EmailBody            string `json:"email_body"`  // supports HTML
 }
 
-// BuiltinAlertTemplates 内建默认模板（与历史行为一致）
+// BuiltinAlertTemplates returns built-in default templates (identical to historical behavior)
 func BuiltinAlertTemplates() AlertTemplates {
 	return AlertTemplates{
 		MonitorAlertTitle:    "🔴 [ALERT] {monitor}",
@@ -44,7 +44,7 @@ func BuiltinAlertTemplates() AlertTemplates {
 	}
 }
 
-// LoadAlertTemplates 读取生效模板（未配置的字段回落内建默认）
+// LoadAlertTemplates loads the effective templates (unconfigured fields fall back to built-in defaults)
 func LoadAlertTemplates() AlertTemplates {
 	def := BuiltinAlertTemplates()
 	m := SystemConfigMap()
@@ -95,7 +95,7 @@ func LoadAlertTemplates() AlertTemplates {
 	return def
 }
 
-// SaveAlertTemplates 保存模板（字段留空 = 恢复内建默认）
+// SaveAlertTemplates saves templates (empty field = restore the built-in default)
 func SaveAlertTemplates(t AlertTemplates) error {
 	b, err := json.Marshal(t)
 	if err != nil {

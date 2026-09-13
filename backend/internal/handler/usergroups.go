@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -12,7 +12,7 @@ import (
 	"jnexus/internal/model"
 )
 
-// ---- 用户组管理 ----
+// ---- User group management ----
 
 type userGroupSummary struct {
 	ID          uint   `json:"id"`
@@ -78,7 +78,7 @@ func DeleteUserGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// GetUserGroup 用户组详情（含成员/主机/主机分组 ID 列表）
+// GetUserGroup returns user group details (with member/host/host group ID lists)
 func GetUserGroup(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var g model.UserGroup
@@ -137,7 +137,7 @@ func UpdateUserGroupLinks(c *gin.Context) {
 		model.DB.Create(&model.UserGroupMember{UserGroupID: g.ID, UserID: v})
 		newMemberIDs = append(newMemberIDs, v)
 	}
-	// 成员变化刷新双方用户的「最近修改」审计字段
+	// On membership changes, refresh the "last modified" audit fields for affected users on both sides
 	op := currentUser(c).Username
 	now := time.Now()
 	touched := map[uint]bool{}
@@ -167,7 +167,7 @@ func UpdateUserGroupLinks(c *gin.Context) {
 		}
 		model.DB.Create(&model.UserGroupCredRule{UserGroupID: g.ID, HostGroupID: r.HostGroupID, Username: strings.TrimSpace(r.Username)})
 	}
-	// 应用绑定同步
+	// Sync app bindings
 	model.DB.Where("user_group_id = ?", g.ID).Delete(&model.UserGroupApp{})
 	for _, v := range req.AppIDs {
 		model.DB.Create(&model.UserGroupApp{UserGroupID: g.ID, AppID: v})

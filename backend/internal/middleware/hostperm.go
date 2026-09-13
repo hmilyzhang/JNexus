@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package middleware
 
 import (
@@ -9,7 +9,7 @@ import (
 	"jnexus/internal/service"
 )
 
-// RequireCredPerm 校验 OS 账号管理权限（角色设置可配；admin 恒通过）
+// RequireCredPerm checks OS account management permission (configurable per role; admin always passes)
 func RequireCredPerm() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u := CurrentUser(c)
@@ -25,7 +25,7 @@ func RequireCredPerm() gin.HandlerFunc {
 	}
 }
 
-// RequireReportPerm 校验报告模块权限（角色设置可配；admin 恒通过）
+// RequireReportPerm checks report module permission (configurable per role; admin always passes)
 func RequireReportPerm() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u := CurrentUser(c)
@@ -41,7 +41,7 @@ func RequireReportPerm() gin.HandlerFunc {
 	}
 }
 
-// RequireHostPerm 按角色配置校验主机细粒度权限（view/create/edit/delete）
+// RequireHostPerm checks fine-grained host permissions per role config (view/create/edit/delete)
 func RequireHostPerm(action string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u := CurrentUser(c)

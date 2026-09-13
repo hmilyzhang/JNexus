@@ -1,10 +1,10 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package pkg
 
 import (
-	"crypto/rand"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base32"
 	"encoding/binary"
@@ -14,12 +14,12 @@ import (
 	"time"
 )
 
-// TOTP 实现（RFC 6238：HMAC-SHA1、6 位、30 秒步长），纯标准库无外部依赖
+// TOTP implementation (RFC 6238: HMAC-SHA1, 6 digits, 30s step), pure stdlib with no external dependencies
 
 const totpPeriod = 30 * time.Second
 const totpDigits = 6
 
-// GenerateTOTPSecret 生成 20 字节随机密钥，返回 base32（无填充）
+// GenerateTOTPSecret generates a 20-byte random secret and returns it as base32 (unpadded)
 func GenerateTOTPSecret() (string, error) {
 	buf := make([]byte, 20)
 	if _, err := rand.Read(buf); err != nil {
@@ -28,7 +28,7 @@ func GenerateTOTPSecret() (string, error) {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf), nil
 }
 
-// totpAt 计算 time 对应步长的 TOTP 码
+// totpAt computes the TOTP code for the step containing t
 func totpAt(secret string, t time.Time) (string, error) {
 	key, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(
 		strings.ToUpper(strings.ReplaceAll(secret, " ", "")))
@@ -41,13 +41,13 @@ func totpAt(secret string, t time.Time) (string, error) {
 	mac := hmac.New(sha1.New, key)
 	mac.Write(msg[:])
 	sum := mac.Sum(nil)
-	// RFC 4226 动态截断
+	// RFC 4226 dynamic truncation
 	offset := sum[len(sum)-1] & 0x0f
 	code := (binary.BigEndian.Uint32(sum[offset:offset+4]) & 0x7fffffff) % 1000000
 	return fmt.Sprintf("%0*d", totpDigits, code), nil
 }
 
-// VerifyTOTP 校验动态验证码，允许 ±1 步（±30s）时钟偏移
+// VerifyTOTP verifies the dynamic code, allowing ±1 step (±30s) of clock drift
 func VerifyTOTP(secret, code string) bool {
 	code = strings.TrimSpace(code)
 	if len(code) != totpDigits {
@@ -66,7 +66,7 @@ func VerifyTOTP(secret, code string) bool {
 	return false
 }
 
-// OTPAuthURL 生成验证器 App 扫码用的 otpauth:// 地址
+// OTPAuthURL builds an otpauth:// URL for authenticator apps to scan
 func OTPAuthURL(username, secret string) string {
 	label := url.PathEscape("JNexus:" + username)
 	q := url.Values{}

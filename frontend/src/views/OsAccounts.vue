@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <el-card>
@@ -82,7 +82,7 @@
       </el-table>
     </el-card>
 
-    <!-- 添加/编辑账号 -->
+    <!-- Add / edit account -->
     <el-dialog v-model="editVisible" :title="form.id ? $t('hosts.editHost') : $t('hosts.credAdd')" width="480px">
       <el-form label-width="110px">
         <el-form-item :label="$t('menu.hosts')">
@@ -131,7 +131,7 @@
       </template>
     </el-dialog>
 
-    <!-- 查看密码 -->
+    <!-- View password -->
     <el-dialog v-model="revealVisible" :title="$t('rot.viewTitle')" width="420px">
       <el-form label-width="90px">
         <el-form-item :label="$t('hosts.credUser')"><span class="mono">{{ revealData.username }}</span></el-form-item>
@@ -143,7 +143,7 @@
       </template>
     </el-dialog>
 
-    <!-- 批量添加账号 -->
+    <!-- Batch add accounts -->
     <el-dialog v-model="batchVisible" :title="$t('hosts.credBatch')" width="640px">
       <el-form label-width="110px">
         <el-form-item :label="$t('files.targetHosts')">
@@ -257,7 +257,7 @@ const rowClass = ({ row }) => (isFailed(row) ? 'fail-row' : '')
 
 const filtered = computed(() => {
   let list = [...rows.value]
-  // 失败优先
+  // Failed items first
   const w = r => (isFailed(r) ? 0 : 1)
   list.sort((a, b) => w(a) - w(b) || a.id - b.id)
   if (hostFilter.value) list = list.filter(r => r.host_id === hostFilter.value)

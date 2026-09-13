@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package middleware
 
@@ -23,17 +23,17 @@ func (w *bodyWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-// Audit 记录所有写操作到审计日志
+// Audit records all write operations to the audit log
 func Audit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method == http.MethodGet {
 			c.Next()
 			return
 		}
-		// 读取请求体做摘要（最多 1KB）
+		// Read the request body to build a summary (max 1KB)
 		var summary string
 		if c.Request.Body != nil {
-			// 完整读取后再回填，避免截断导致后续绑定失败（脚本内容等大请求体）
+			// Read the full body then refill it, so truncation never breaks later binding (large bodies like script content)
 			raw, _ := io.ReadAll(c.Request.Body)
 			summary = truncateText(sanitize(string(raw)), 1024)
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(raw))
@@ -60,7 +60,7 @@ func Audit() gin.HandlerFunc {
 	}
 }
 
-// truncateText 审计摘要只保留前 1KB（截断发生在回填之后，不影响业务请求）
+// truncateText keeps only the first 1KB of the audit summary (truncation happens after refill, so requests are unaffected)
 func truncateText(s string, max int) string {
 	if len(s) <= max {
 		return s
@@ -68,7 +68,7 @@ func truncateText(s string, max int) string {
 	return s[:max] + "...(truncated)"
 }
 
-// sanitize 屏蔽敏感字段
+// sanitize masks sensitive fields
 func sanitize(s string) string {
 	var m map[string]any
 	if err := json.Unmarshal([]byte(s), &m); err != nil {

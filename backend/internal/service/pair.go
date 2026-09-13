@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -11,8 +11,8 @@ import (
 
 const platformKeyName = "jnexus-platform"
 
-// EnsurePlatformKey 平台配对密钥（全局唯一、惰性创建）。
-// 所有自动配对共用此密钥：系统配置可查看其公钥，管理员亦可手动预装到目标机。
+// EnsurePlatformKey returns the platform pairing key (globally unique, lazily created).
+// All auto-pairing shares this key: its public key is viewable in system config, and admins can pre-install it on target machines manually.
 func EnsurePlatformKey() (*model.SSHKey, error) {
 	var k model.SSHKey
 	if err := model.DB.Where("name = ?", platformKeyName).First(&k).Error; err == nil {
@@ -21,7 +21,7 @@ func EnsurePlatformKey() (*model.SSHKey, error) {
 	if _, err := GenerateAndStoreKeyPair(platformKeyName, "jnexus-platform"); err != nil {
 		return nil, err
 	}
-	// 并发下重名则取已有记录
+	// on concurrent creation of a duplicate name, reuse the existing record
 	var k2 model.SSHKey
 	if err := model.DB.Where("name = ?", platformKeyName).First(&k2).Error; err != nil {
 		return nil, err
@@ -29,8 +29,8 @@ func EnsurePlatformKey() (*model.SSHKey, error) {
 	return &k2, nil
 }
 
-// PairAndCreateCredential 用密码登录主机推送平台公钥，成功后登记密钥凭据。
-// 配对成功返回 (true, cred, nil)；失败返回 (false, nil, err)，不产生任何凭据记录。
+// PairAndCreateCredential logs in to the host with a password to install the platform public key, then registers the key credential.
+// On success returns (true, cred, nil); on failure returns (false, nil, err) with no credential record created.
 func PairAndCreateCredential(host *model.Host, username, password, label string, makeDefault bool) (bool, *model.HostCredential, error) {
 	platformKey, err := EnsurePlatformKey()
 	if err != nil {

@@ -1,7 +1,7 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div class="scr">
-    <!-- 顶栏 -->
+    <!-- Top bar -->
     <header class="scr-head">
       <div class="scr-brand">
         <svg viewBox="0 0 32 32" width="24" height="24"><rect width="32" height="32" rx="7" fill="#0d1526"/><path d="M8 11l6 5-6 5" stroke="#22d3ee" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 21h8" stroke="#4f8cff" stroke-width="2.6" stroke-linecap="round"/></svg>
@@ -20,7 +20,7 @@
     </header>
 
     <main class="scr-body">
-      <!-- Overview：统计瓦片 -->
+      <!-- Overview: stat tiles -->
       <div class="g-section">{{ $t('screen.sectionOverview') }}</div>
       <section class="g-grid g-4">
         <div class="g-tile">
@@ -46,7 +46,7 @@
         </div>
       </section>
 
-      <!-- Trends：时间线面板 -->
+      <!-- Trends: timeline panels -->
       <div class="g-section">{{ $t('screen.sectionTrends') }}</div>
       <section class="g-grid g-3">
         <div class="g-panel">
@@ -87,7 +87,7 @@
         </div>
       </section>
 
-      <!-- Status：列表面板 -->
+      <!-- Status: list panels -->
       <div class="g-section">{{ $t('screen.sectionStatus') }}</div>
       <section class="g-grid g-3">
         <div class="g-panel">
@@ -146,7 +146,7 @@ const fmtTime = t => {
 }
 const hm = t => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:00` }
 
-// ---- 通用线图几何（Grafana 风格网格 + 多序列） ----
+// ---- Generic line-chart geometry (Grafana-style grid + multiple series) ----
 function lineGeom(rows, seriesDefs, yMax, xFmt) {
   const W = 600, H = 160, L = 34, R = 8, T = 8, B = 16
   const n = rows.length
@@ -216,7 +216,7 @@ const alertChart = computed(() => {
 const load = async () => {
   try {
     data.value = await api.get('/monitoring/screen')
-  } catch { /* 断线时保留上一帧数据 */ }
+  } catch { /* keep the previous frame on failure */ }
 }
 
 const tickClock = () => {
@@ -249,7 +249,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Grafana 风格：深灰面板 + 细边框 + 小标题色条 */
+/* Grafana style: dark gray panels, thin borders, colored underline for panel titles */
 .scr {
   min-height: 100vh; background: #111217; color: #ccccdc;
   font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -281,7 +281,7 @@ onBeforeUnmount(() => {
 .g-4 { grid-template-columns: repeat(4, 1fr); }
 .g-3 { grid-template-columns: repeat(3, 1fr); }
 
-/* 面板 */
+/* Panels */
 .g-panel, .g-tile {
   background: #181b1f; border: 1px solid #26292e; border-radius: 2px; padding: 10px 12px;
 }
@@ -298,7 +298,7 @@ onBeforeUnmount(() => {
 .g-legend i { width: 10px; height: 4px; display: inline-block; }
 .g-empty { color: #5f6368; font-size: 13px; padding: 18px 4px; }
 
-/* 统计瓦片 */
+/* Stat tiles */
 .g-tile { padding: 12px 14px 14px; }
 .g-tile-title { font-size: 12px; color: #8e8e8e; margin-bottom: 4px; }
 .g-tile-num b { font-size: 40px; font-weight: 800; line-height: 1.05; color: #fff; }
@@ -309,7 +309,7 @@ onBeforeUnmount(() => {
 .g-bar i { display: block; height: 100%; border-radius: 3px; }
 .g-spark { width: 100%; height: 26px; display: block; margin-top: 10px; }
 
-/* 列表行 */
+/* List rows */
 .g-row { display: flex; align-items: center; gap: 10px; padding: 6px 2px; border-bottom: 1px solid #26292e; font-size: 13.5px; }
 .g-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ccccdc; }
 .g-cnt { font-weight: 700; font-variant-numeric: tabular-nums; color: #ccccdc; }

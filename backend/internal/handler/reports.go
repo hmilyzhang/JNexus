@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -15,7 +15,7 @@ import (
 	"jnexus/internal/service"
 )
 
-// ListReportTemplates 预设报告模板列表
+// ListReportTemplates lists preset report templates
 func ListReportTemplates(c *gin.Context) {
 	out := make([]gin.H, 0, len(service.ReportTemplateList()))
 	for _, t := range service.ReportTemplateList() {
@@ -29,7 +29,7 @@ type reportReq struct {
 	HostIDs  []uint `json:"host_ids"`
 }
 
-// CreateReport 生成报告（按模板在目标主机采集，异步执行）
+// CreateReport generates a report (collects on target hosts by template, executed asynchronously)
 func CreateReport(c *gin.Context) {
 	var req reportReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -56,7 +56,7 @@ func findReport(c *gin.Context) (*model.Report, []model.ReportItem, bool) {
 	return &report, items, true
 }
 
-// GetReport 报告详情（含逐主机采集结果，失败的排前）
+// GetReport returns report details (with per-host collection results, failures first)
 func GetReport(c *gin.Context) {
 	report, items, ok := findReport(c)
 	if !ok {
@@ -65,7 +65,7 @@ func GetReport(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"report": report, "items": items})
 }
 
-// ListReports 报告列表
+// ListReports lists reports
 func ListReports(c *gin.Context) {
 	var reports []model.Report
 	q := model.DB
@@ -76,7 +76,7 @@ func ListReports(c *gin.Context) {
 	c.JSON(http.StatusOK, reports)
 }
 
-// DeleteReport 删除报告（仅系统管理员）
+// DeleteReport deletes a report (system admin only)
 func DeleteReport(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	model.DB.Where("report_id = ?", id).Delete(&model.ReportItem{})
@@ -84,7 +84,7 @@ func DeleteReport(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ExportReport 报告导出：?format=log（汇总文本）| csv（主机状态表）
+// ExportReport exports a report: ?format=log (summary text) | csv (host status table)
 func ExportReport(c *gin.Context) {
 	report, items, ok := findReport(c)
 	if !ok {
@@ -146,7 +146,7 @@ func ExportReport(c *gin.Context) {
 	c.Data(http.StatusOK, "application/octet-stream", []byte(sb.String()))
 }
 
-// ---- 跨主机账号对比（accounts 模板报告的 CSV 解析聚合） ----
+// ---- Cross-host account comparison (CSV parsing/aggregation of accounts template reports) ----
 
 type acctCSVRow struct {
 	Username     string
@@ -157,7 +157,7 @@ type acctCSVRow struct {
 	Type         string // human / system
 }
 
-// parseAccountsCSV 从报告条目内容中解析 == Accounts CSV == 段（v1.180+ 新格式）
+// parseAccountsCSV parses the == Accounts CSV == section from report item content (new format in v1.180+)
 func parseAccountsCSV(content string) []acctCSVRow {
 	inCSV := false
 	rows := []acctCSVRow{}
@@ -174,7 +174,7 @@ func parseAccountsCSV(content string) []acctCSVRow {
 			break
 		}
 		if strings.HasPrefix(line, "username,") {
-			continue // 表头
+			continue // header row
 		}
 		p := strings.Split(line, ",")
 		if len(p) < 8 {
@@ -193,7 +193,7 @@ func parseAccountsCSV(content string) []acctCSVRow {
 }
 
 // ReportAccountsMatrix GET /api/reports/accounts-matrix/:id
-// 输出：账号 × 主机 矩阵（present 为主机列下标）+ 可疑账号清单（UID0 非 root / 系统账号可登录 / UID 重复）
+// Output: account × host matrix (present holds host column indexes) + suspicious account list (UID 0 non-root / login-enabled system accounts / duplicate UIDs)
 func ReportAccountsMatrix(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var report model.Report

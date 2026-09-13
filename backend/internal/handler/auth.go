@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -31,7 +31,7 @@ func Login(c *gin.Context) {
 	var u model.User
 	err := model.DB.Where("username = ?", req.Username).First(&u).Error
 
-	// 本地账号：bcrypt 校验
+	// Local account: verify with bcrypt
 	if err == nil && u.AuthSource != "ldap" {
 		if u.Status != 1 {
 			c.JSON(http.StatusForbidden, gin.H{"error": "账号已被禁用"})
@@ -42,10 +42,10 @@ func Login(c *gin.Context) {
 			return
 		}
 	} else {
-		// LDAP 认证（用户不存在或为 LDAP 账号时）
+		// LDAP authentication (when the user does not exist or is an LDAP account)
 		ldapUser, ldapErr := tryLDAPLogin(req.Username, req.Password, err != nil)
 		if ldapErr != nil {
-			// 失败阶段写服务端日志便于排查（界面仍统一提示，避免暴露账号信息）
+			// Log the failure stage server-side for troubleshooting (UI still shows a unified message to avoid exposing account info)
 			if !errors.Is(ldapErr, errLDAPDisabled) {
 				log.Printf("[ldap] login failed for %q: %v", req.Username, ldapErr)
 			}
@@ -63,7 +63,7 @@ func Login(c *gin.Context) {
 		}
 	}
 
-	// 开启 MFA 的账号：密码通过后先发短时 mfa_token，验证动态码后才发正式 token
+	// MFA-enabled accounts: after the password passes, issue a short-lived mfa_token first; the real token is only issued after the code is verified
 	if u.MFAEnabled {
 		mfaToken, err := pkg.GenMFAToken(u.ID, u.Username, u.Role)
 		if err != nil {
@@ -90,7 +90,7 @@ func Login(c *gin.Context) {
 	})
 }
 
-// LoginMFA 登录第二步：校验 TOTP 动态码，换取正式 token
+// LoginMFA login step 2: verify the TOTP code and exchange it for the real token
 func LoginMFA(c *gin.Context) {
 	var req struct {
 		MFAToken string `json:"mfa_token" binding:"required"`
@@ -127,7 +127,7 @@ func LoginMFA(c *gin.Context) {
 	})
 }
 
-// tryLDAPLogin LDAP 登录；账号不存在时按默认角色自动建号
+// tryLDAPLogin LDAP login; auto-creates the account with the default role if it does not exist
 func tryLDAPLogin(username, password string, autoCreate bool) (model.User, error) {
 	settings := service.LoadLDAPSettings()
 	if !settings.Enabled {
@@ -179,7 +179,7 @@ func Me(c *gin.Context) {
 		"auth_source": u.AuthSource, "email": u.Email, "last_login_at": lastLogin})
 }
 
-// UpdateMe 当前用户自助维护基本信息（邮箱；LDAP/AD 用户由系统同步，不可改）
+// UpdateMe lets the current user maintain basic info (email; LDAP/AD users are synced by the system and cannot be changed here)
 func UpdateMe(c *gin.Context) {
 	u := currentUser(c)
 	if strings.EqualFold(u.AuthSource, "ldap") {

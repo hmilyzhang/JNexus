@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -15,7 +15,7 @@ import (
 func ListApps(c *gin.Context) {
 	var apps []model.Application
 	model.DB.Preload("AppHosts.Host").Order("id DESC").Find(&apps)
-	// 数据级过滤：非平台角色仅见所属用户组绑定的应用
+	// Data-level filtering: non-platform roles only see apps bound to their user groups
 	ids, unrestricted := service.VisibleAppIDs(currentUser(c))
 	if !unrestricted {
 		filtered := make([]model.Application, 0, len(apps))
@@ -111,7 +111,7 @@ func DeleteApp(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ---- 发布 ----
+// ---- Releases ----
 
 func ListReleases(c *gin.Context) {
 	var releases []model.Release

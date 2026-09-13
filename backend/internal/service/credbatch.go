@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -15,25 +15,25 @@ import (
 	"jnexus/internal/ws"
 )
 
-// BatchCredRequest 批量为存量主机添加 OS 账号
+// BatchCredRequest batch-add an OS account to existing hosts
 type BatchCredRequest struct {
 	HostIDs     []uint   `json:"host_ids"`
 	GroupID     *uint    `json:"group_id"`
 	IPs         []string `json:"ips"`
-	Username    string   `json:"username"` // 单账号模式必填（多账号模式忽略）
+	Username    string   `json:"username"` // required in single-account mode (ignored in multi-account mode)
 	Label       string   `json:"label"`
 	AuthType    string   `json:"auth_type"` // key / password
 	SSHKeyID    *uint    `json:"ssh_key_id"`
-	Password    string   `json:"password"` // 统一密码（自动配对或密码认证）
+	Password    string   `json:"password"` // shared password (for auto-pairing or password auth)
 	AutoPair    bool     `json:"auto_pair"`
-	IsLDAP      bool     `json:"is_ldap"` // 标记为域账号（排除轮换）
+	IsLDAP      bool     `json:"is_ldap"` // mark as domain account (excluded from rotation)
 	Concurrency int      `json:"concurrency"`
 
-	// 多账号模式：一台（组）服务器一次性挂多个账号；提供时忽略 Username/Password
+	// Multi-account mode: attach multiple accounts to one (group of) server(s) at once; Username/Password are ignored when provided
 	Accounts []BatchCredAccount `json:"accounts"`
 }
 
-// BatchCredAccount 多账号模式的单个账号（密码认证；域账号可标记 IsLDAP 排除轮换）
+// BatchCredAccount a single account in multi-account mode (password auth; domain accounts can set IsLDAP to be excluded from rotation)
 type BatchCredAccount struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
@@ -41,9 +41,9 @@ type BatchCredAccount struct {
 	IsLDAP   bool   `json:"is_ldap"`
 }
 
-// BatchAddCredentials 批量添加：创建任务后异步并发执行，进度经 WS 与任务记录可见
+// BatchAddCredentials batch add: creates a task then runs asynchronously and concurrently; progress is visible via WS and task records
 func BatchAddCredentials(operator *model.User, req BatchCredRequest) (uint, error) {
-	// 多账号模式：逐个账号走单账号流水线（每账号一个异步 cred 任务，进度在任务页逐条可见）
+	// Multi-account mode: run the single-account pipeline per account (one async cred task per account, each visible on the task page)
 	if len(req.Accounts) > 0 {
 		for i := range req.Accounts {
 			acc := req.Accounts[i]
@@ -53,7 +53,7 @@ func BatchAddCredentials(operator *model.User, req BatchCredRequest) (uint, erro
 			sub.Password = acc.Password
 			sub.Label = acc.Label
 			sub.AuthType = "password"
-			sub.AutoPair = false // 多账号场景不做密钥配对
+			sub.AutoPair = false // no key pairing in multi-account mode
 			sub.SSHKeyID = nil
 			sub.IsLDAP = acc.IsLDAP
 			if _, err := BatchAddCredentials(operator, sub); err != nil {
@@ -124,7 +124,7 @@ func runBatchCred(operator *model.User, req BatchCredRequest, username, authType
 			res := results[idx]
 			host := hosts[idx]
 
-			// 已存在同名账号则跳过
+			// Skip if an account with the same name already exists
 			var cnt int64
 			model.DB.Model(&model.HostCredential{}).
 				Where("host_id = ? AND username = ?", host.ID, username).Count(&cnt)
@@ -133,7 +133,7 @@ func runBatchCred(operator *model.User, req BatchCredRequest, username, authType
 				return
 			}
 
-			// 自动配对：密码登录推送平台公钥，成功仅登记密钥凭据
+			// Auto-pair: log in with the password and push the platform public key; on success only the key credential is registered
 			if req.AutoPair && req.Password != "" {
 				paired, _, perr := PairAndCreateCredential(&host, username, req.Password, req.Label, false)
 				if perr != nil {

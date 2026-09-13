@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -12,7 +12,7 @@ import (
 	"jnexus/internal/model"
 )
 
-// K8S Pod 级容量趋势 + 主机容量规划（百分比维度）
+// K8S per-Pod capacity trends + host capacity planning (percentage-based)
 
 type podTrend struct {
 	Namespace string          `json:"namespace"`
@@ -29,7 +29,7 @@ type podTrendPoint struct {
 }
 
 // K8sPodCapacity GET /:id/capacity/pods?hours=6|24|168|720|4320|8760
-// 逐 Pod 趋势（仅被 Top10 采样覆盖的 Pod），≤48h 原始样本 / 7d·30d 小时桶 / 180d·1y 天桶
+// Per-Pod trends (only pods covered by Top10 sampling); ≤48h raw samples / 7d·30d hourly buckets / 180d·1y daily buckets
 func K8sPodCapacity(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	if _, _, _, ok := k8sClusterAccess(c, id, "viewer"); !ok {
@@ -83,7 +83,7 @@ func K8sPodCapacity(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"hours": hours, "pods": out})
 }
 
-// podSlopePerDay 每日均值最小二乘斜率
+// podSlopePerDay least-squares slope per day
 func podSlopePerDay(points []podTrendPoint) (float64, float64) {
 	if len(points) < 2 {
 		return 0, 0
@@ -107,7 +107,7 @@ func podSlopePerDay(points []podTrendPoint) (float64, float64) {
 	return (n*sxyC - sx*syC) / den, (n*sxyM - sx*syM) / den
 }
 
-// ---- 主机容量规划 ----
+// ---- Host capacity planning ----
 
 type hostCapacityPoint struct {
 	Bucket      time.Time `json:"t"`
@@ -129,10 +129,10 @@ type hostForecast struct {
 }
 
 // HostCapacityHistory GET /api/monitoring/hosts/:id/capacity?days=30|180|365
-// 30d 走 raw 小时桶；更长走 hourly 表天桶；附达到 90% 水位预测
+// 30d uses raw hourly buckets; longer ranges use daily buckets from the hourly table; includes days-to-90% forecast
 func HostCapacityHistory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	// hours：6/24/168/720 走 raw 小时桶；4320/8760 走归档表天桶（对齐监控 6h/24h/7d/30d/180d/1y）
+	// hours: 6/24/168/720 use raw hourly buckets; 4320/8760 use daily buckets from the archive table (aligned with monitoring 6h/24h/7d/30d/180d/1y)
 	hours := 720
 	if h, e := strconv.Atoi(c.Query("hours")); e == nil {
 		switch h {
@@ -196,7 +196,7 @@ func HostCapacityHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"hours": hours, "points": points, "forecast": fc, "degraded": degraded})
 }
 
-// daysToThreshold 百分比指标到达阈值的天数；斜率非正返回 nil
+// daysToThreshold days until a percentage metric reaches the threshold; returns nil for non-positive slope
 func daysToThreshold(current, threshold, slopePerDay float64) *float64 {
 	if slopePerDay <= 0 {
 		return nil

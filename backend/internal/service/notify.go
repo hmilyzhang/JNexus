@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -10,7 +10,7 @@ import (
 	"jnexus/internal/model"
 )
 
-// NotifyTaskFinished 任务结束后按 SMTP 配置发送结果邮件（异步、失败静默）
+// NotifyTaskFinished sends a result email per the SMTP settings after a task finishes (async, silent on failure)
 func NotifyTaskFinished(taskID uint) {
 	go func() {
 		defer func() { recover() }()

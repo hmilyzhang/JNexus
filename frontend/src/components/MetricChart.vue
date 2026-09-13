@@ -1,33 +1,33 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div class="mc-wrap">
     <svg :viewBox="`0 0 ${W} ${H}`" class="mc-svg" @mousemove="onMove" @mouseleave="hover = null">
-      <!-- Y 轴刻度（按 yMax 换算 + 单位后缀；yMax=100 且单位 % 时即百分比刻度） -->
+      <!-- Y axis ticks (converted from yMax plus unit suffix; with yMax=100 and unit %, these are percentage ticks) -->
       <text v-for="p in [0, 25, 50, 75, 100]" :key="'y' + p" x="2" :y="yOf(p) + 4"
             class="mc-ylabel">{{ tickLabel(p) }}</text>
       <line v-for="p in [25, 50, 75, 100]" :key="'gl' + p" :x1="PAD.l" :x2="W - 6"
             :y1="yOf(p)" :y2="yOf(p)" class="mc-grid" stroke-width="1" />
-      <!-- 折线 -->
+      <!-- Line -->
       <polyline v-if="points.length > 1" :points="line" fill="none" :stroke="color" stroke-width="2"
                 stroke-linejoin="round" stroke-linecap="round" />
-      <!-- 预测外推线（红色虚线，从最后一个历史点起） -->
+      <!-- Forecast extrapolation line (red dashed, starting from the last historical point) -->
       <polyline v-if="forecastLine" :points="forecastLine" fill="none" :stroke="forecastColor" stroke-width="1.8"
                 stroke-dasharray="6 4" stroke-linejoin="round" stroke-linecap="round" />
-      <!-- 单点样本 -->
+      <!-- Single sample point -->
       <circle v-if="dotXY" :cx="dotXY.x" :cy="dotXY.y" r="4" :fill="color" stroke="#fff" stroke-width="1.5" />
-      <!-- 空数据：坐标轴网格保留，居中灰字提示（Zabbix 风格） -->
+      <!-- Empty data: keep the axis grid and show a centered gray hint (Zabbix style) -->
       <text v-if="!points.length && emptyText" :x="W / 2" :y="H / 2" text-anchor="middle" class="mc-empty">{{ emptyText }}</text>
-      <!-- 悬浮参考线 + 点 -->
+      <!-- Hover reference line + point -->
       <template v-if="hover">
         <line :x1="hover.x" :x2="hover.x" :y1="4" :y2="H - 4" stroke="#c0c4cc" stroke-dasharray="3 3" />
         <circle :cx="hover.x" :cy="hover.y" r="4" :fill="hover.f ? forecastColor : color" stroke="#fff" stroke-width="1.5" />
       </template>
     </svg>
-    <!-- X 轴时间标签：传入 range 时按范围固定 5 档刻度（有预测则延伸到预测末端），否则取数据点首/中/尾 -->
+    <!-- X axis time labels: with a range, fix 5 evenly spaced ticks over the range (extended to the forecast end when forecasting); otherwise take the first/middle/last data points -->
     <div class="mc-xlabels">
       <span v-for="(lb, i) in xTicks" :key="'x' + i">{{ lb }}</span>
     </div>
-    <!-- 悬浮提示 -->
+    <!-- Tooltip -->
     <div v-if="hover" class="mc-tip" :style="{ left: tipLeft }">
       <div>{{ hover.tLabel }}</div>
       <div class="mc-tip-v" :style="{ color: hover.f ? forecastColor : color }">{{ hover.vLabel }}</div>
@@ -42,12 +42,12 @@ const props = defineProps({
   points: { type: Array, default: () => [] }, // [{t: 'ISO'|epoch, v: number}]
   color: { type: String, default: '#409eff' },
   unit: { type: String, default: '%' },
-  yMax: { type: Number, default: 100 }, // Y 轴满刻度
-  range: { type: Array, default: null }, // [start, end]：X 轴按时间范围画刻度、数据按时间定位（空数据也显示完整坐标轴）
-  emptyText: { type: String, default: '' }, // 无数据时居中提示文字
-  forecast: { type: Array, default: () => [] }, // [{t, v}] 基于历史的外推预测点（红色虚线；X 轴自动延伸到预测末端）
+  yMax: { type: Number, default: 100 }, // Full Y axis scale
+  range: { type: Array, default: null }, // [start, end]: X axis ticks follow the time range, data is positioned by time (full axes shown even with no data)
+  emptyText: { type: String, default: '' }, // Centered hint text when there is no data
+  forecast: { type: Array, default: () => [] }, // [{t, v}] extrapolated forecast points based on history (red dashed; X axis auto-extends to the forecast end)
   forecastColor: { type: String, default: '#f56c6c' },
-  forecastTag: { type: String, default: '' }, // 悬浮预测值的标注后缀（如「（预测）」）
+  forecastTag: { type: String, default: '' }, // Annotation suffix for hovered forecast values (e.g. "(forecast)")
 })
 
 const W = 600, H = 110
@@ -58,7 +58,7 @@ const rangeMs = computed(() => {
   if (!props.range || props.range.length !== 2) return null
   let s = toMs(props.range[0]), e = toMs(props.range[1])
   if (s == null || e == null || e <= s) return null
-  // 有预测序列时，X 轴延伸到最后一个预测点
+  // When a forecast series exists, extend the X axis to the last forecast point
   const fl = props.forecast[props.forecast.length - 1]
   if (fl) {
     const fe = toMs(fl.t)
@@ -83,7 +83,7 @@ const line = computed(() => props.points.map((p, i) => `${xOf(p.t, i).toFixed(1)
 const dotXY = computed(() => (props.points.length === 1
   ? { x: xOf(props.points[0].t, 0).toFixed(1), y: yOf(props.points[0].v) } : null))
 
-// 预测线：锚定最后一个历史点，接外推点（需要时间定位模式）
+// Forecast line: anchored to the last historical point, followed by the extrapolated points (requires time positioning mode)
 const forecastLine = computed(() => {
   if (!rangeMs.value || !props.forecast.length || !props.points.length) return ''
   const last = props.points[props.points.length - 1]
@@ -111,7 +111,7 @@ const tipLeft = computed(() => {
   return `${Math.min(Math.max(x, 60), W - 60)}px`
 })
 
-// 悬浮定位：历史 + 预测合并取距光标最近的点（时间定位/等距定位均适用）
+// Hover positioning: merge history and forecast and pick the point nearest the cursor (works for both time and uniform positioning)
 function onMove(ev) {
   const n = props.points.length
   if (!n) { hover.value = null; return }

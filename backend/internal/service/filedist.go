@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package service
 
@@ -19,18 +19,18 @@ import (
 	"jnexus/internal/ws"
 )
 
-// DistributeRequest 批量分发请求
+// DistributeRequest batch distribution request
 type DistributeRequest struct {
 	HostIDs      []uint   `json:"host_ids"`
 	GroupID      *uint    `json:"group_id"`
-	IPs          []string `json:"ips"` // 多 IP 逗号分隔输入
+	IPs          []string `json:"ips"` // multiple IPs, comma-separated input
 	RemoteDir    string   `json:"remote_dir"`
-	RemoteName   string   `json:"remote_name"`   // 可选，重命名
-	LocalFile    string   `json:"local_file"`    // 已上传到服务端的文件名
-	CredentialID *uint    `json:"credential_id"` // 指定 OS 账号（可选）
+	RemoteName   string   `json:"remote_name"`   // optional, rename
+	LocalFile    string   `json:"local_file"`    // file name already uploaded to the server
+	CredentialID *uint    `json:"credential_id"` // specify OS account (optional)
 }
 
-// DistributeFile 把已上传的本地文件并发 SFTP 分发到目标主机
+// DistributeFile distributes an uploaded local file to target hosts concurrently over SFTP
 func DistributeFile(operator *model.User, localPath, localName string, req DistributeRequest) (uint, []string, error) {
 	if req.RemoteDir == "" {
 		return 0, nil, fmt.Errorf("目标目录不能为空")
@@ -103,7 +103,7 @@ func runDistribute(operator *model.User, credID *uint, taskID uint, localPath, l
 		}
 	}
 
-	// 并发上限：400+ 台分发时不做限流会瞬间打出同等数量的 SFTP 连接
+	// Concurrency cap: distributing to 400+ hosts without throttling would open that many SFTP connections instantly
 	sem := make(chan struct{}, 10)
 	for _, res := range results {
 		wg.Add(1)
@@ -138,7 +138,7 @@ func runDistribute(operator *model.User, credID *uint, taskID uint, localPath, l
 	wg.Wait()
 }
 
-// sftpUpload 上传文件（自动创建远程目录），返回日志与退出码
+// sftpUpload uploads the file (creating the remote directory as needed) and returns the log and exit code
 func sftpUpload(cli *gossh.Client, localPath, remoteDir, remoteName string, total int64, taskID, resID uint) (string, int) {
 	scli, err := sftp.NewClient(cli)
 	if err != nil {
@@ -190,7 +190,7 @@ func sftpUpload(cli *gossh.Client, localPath, remoteDir, remoteName string, tota
 			return "读取本地文件失败: " + rerr.Error(), -1
 		}
 	}
-	// 保持可执行权限（针对脚本/二进制）
+	// Preserve executable permission (for scripts/binaries)
 	mode := os.FileMode(0644)
 	if filepath.Ext(remoteName) == ".sh" {
 		mode = 0755
@@ -199,7 +199,7 @@ func sftpUpload(cli *gossh.Client, localPath, remoteDir, remoteName string, tota
 	return fmt.Sprintf("已上传 %s -> %s:%s (%d bytes)", localPath, remoteDir, remoteName, written), 0
 }
 
-// mkdirAll 递归创建远程目录
+// mkdirAll creates the remote directory recursively
 func mkdirAll(scli *sftp.Client, dir string) error {
 	if dir == "" || dir == "/" || dir == "." {
 		return nil
@@ -216,7 +216,7 @@ func mkdirAll(scli *sftp.Client, dir string) error {
 	return scli.Mkdir(dir)
 }
 
-// DownloadFromHost 从主机下载文件到本地临时目录，返回本地路径
+// DownloadFromHost downloads a file from the host to the local temp directory and returns the local path
 func DownloadFromHost(host *model.Host, remotePath string) (string, error) {
 	cli, err := sshpool.ClientFor(host)
 	if err != nil {

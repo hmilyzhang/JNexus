@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -13,14 +13,14 @@ import (
 	"jnexus/internal/service"
 )
 
-// 外部集成 API（/api/ext/*）：仅接受 API 密钥，以密钥属主用户身份执行，
-// 角色权限与数据级授权全部沿用现有体系。
+// External integration API (/api/ext/*): only accepts API keys, executes as the key owner user,
+// role permissions and data-level authorization fully reuse the existing system.
 
 func extOK(c *gin.Context, data any) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "data": data})
 }
 
-// ExtHosts GET /api/ext/hosts —— 主机列表 + 在线状态 + 最新资源
+// ExtHosts GET /api/ext/hosts — host list + online status + latest resources
 func ExtHosts(c *gin.Context) {
 	user := middleware.CurrentUser(c)
 	var hosts []model.Host
@@ -58,7 +58,7 @@ func userCanViewHost(user *model.User, h *model.Host) bool {
 	return user.Role == model.RoleViewer || user.Role == model.RoleAuditor
 }
 
-// ExtMonitors GET /api/ext/monitors —— 应用监控项 + 最新状态 + 24h 可用率
+// ExtMonitors GET /api/ext/monitors — app monitors + latest status + 24h uptime
 func ExtMonitors(c *gin.Context) {
 	var monitors []model.Monitor
 	model.DB.Order("id").Find(&monitors)
@@ -81,7 +81,7 @@ func ExtMonitors(c *gin.Context) {
 	extOK(c, out)
 }
 
-// ExtTask GET /api/ext/tasks/:id —— 任务结果（权限：admin/auditor 全部；他人仅本人任务）
+// ExtTask GET /api/ext/tasks/:id — task results (permissions: admin/auditor see all; others only their own tasks)
 func ExtTask(c *gin.Context) {
 	user := middleware.CurrentUser(c)
 	id, _ := strconv.Atoi(c.Param("id"))
@@ -110,7 +110,7 @@ func ExtTask(c *gin.Context) {
 	})
 }
 
-// ExtExec POST /api/ext/exec —— 触发批量命令执行（异步），返回任务 ID
+// ExtExec POST /api/ext/exec — triggers batch command execution (async), returns the task ID
 // body: {"host_ids":[1,2], "command":"uptime", "timeout_sec":60, "wait":false}
 func ExtExec(c *gin.Context) {
 	user := middleware.CurrentUser(c)
@@ -146,7 +146,7 @@ func ExtExec(c *gin.Context) {
 		extOK(c, gin.H{"task_id": taskID})
 		return
 	}
-	// wait=true：最长等 120 秒直到任务结束
+	// wait=true: wait up to 120 seconds until the task finishes
 	deadline := time.Now().Add(120 * time.Second)
 	for time.Now().Before(deadline) {
 		time.Sleep(2 * time.Second)
@@ -169,16 +169,16 @@ func ExtExec(c *gin.Context) {
 	extOK(c, gin.H{"task_id": taskID, "status": t.Status, "results": items})
 }
 
-// ---------- 密钥管理（系统设置，仅 admin） ----------
+// ---------- API key management (System Settings, admin only) ----------
 
 type apiKeyReq struct {
 	Name        string `json:"name" binding:"required"`
 	OwnerUserID uint   `json:"owner_user_id" binding:"required"`
-	ExpiresAt   string `json:"expires_at"` // RFC3339 或空
+	ExpiresAt   string `json:"expires_at"` // RFC3339 or empty
 	IPAllowlist string `json:"ip_allowlist"`
 }
 
-// ListApiKeys 密钥列表（不返回哈希）
+// ListApiKeys lists API keys (hashes are not returned)
 func ListApiKeys(c *gin.Context) {
 	var keys []model.ApiKey
 	model.DB.Order("id").Find(&keys)
@@ -194,7 +194,7 @@ func ListApiKeys(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// CreateApiKey 创建密钥：完整密钥仅此一次返回
+// CreateApiKey creates an API key: the full key is returned only this once
 func CreateApiKey(c *gin.Context) {
 	var req apiKeyReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -228,7 +228,7 @@ func CreateApiKey(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"id": key.ID, "key_id": keyID, "key": full})
 }
 
-// UpdateApiKey 启用/停用
+// UpdateApiKey enables/disables a key
 func UpdateApiKey(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var key model.ApiKey
@@ -247,7 +247,7 @@ func UpdateApiKey(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// DeleteApiKey 删除密钥
+// DeleteApiKey deletes a key
 func DeleteApiKey(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	model.DB.Delete(&model.ApiKey{}, id)

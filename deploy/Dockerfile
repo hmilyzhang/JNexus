@@ -1,4 +1,4 @@
-# ---- 前端构建 ----
+# ---- Frontend build ----
 FROM node:20-alpine AS fe
 WORKDIR /fe
 COPY frontend/package*.json ./
@@ -6,11 +6,11 @@ RUN npm install --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
-# ---- 后端构建 ----
-# 注意：镜像版本需 >= backend/go.mod 的 go 指令版本
-# APP_VERSION：构建时注入版本号（compose 从 JNEXUS_VERSION 透传），例如：
+# ---- Backend build ----
+# Note: the image version must be >= the go directive version in backend/go.mod
+# APP_VERSION: version injected at build time (compose passes JNEXUS_VERSION through), e.g.:
 #   JNEXUS_VERSION="1.$(git rev-list --count HEAD)" docker compose up -d --build
-# 不传时运行时回退链：JNEXUS_VERSION 环境变量 > 容器内 git > VERSION 文件 > 1.0
+# If unset, the runtime fallback chain is: JNEXUS_VERSION env var > git inside the container > VERSION file > 1.0
 FROM golang:1.25-alpine AS be
 ARG APP_VERSION
 WORKDIR /be
@@ -19,7 +19,7 @@ RUN go mod download
 COPY backend/ ./
 RUN CGO_ENABLED=0 go build -ldflags="-s -w -X jnexus/internal/buildinfo.Version=${APP_VERSION}" -o /jnexus-server ./cmd/server
 
-# ---- 运行镜像 ----
+# ---- Runtime image ----
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata && \
     adduser -D -u 10001 jnexus

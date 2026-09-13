@@ -1,5 +1,5 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
-// 顶栏随机一句话词库：jokes 笑话 / soulSoups 心灵鸡汤（仅中文，不上 i18n）
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
+// Word bank for the top bar's random one-liners: jokes for jokes / soulSoups for inspirational quotes (Chinese only, not in i18n)
 
 export const jokes = [
   '程序员最讨厌的四件事：写注释、写文档、别人不写注释、别人不写文档。',

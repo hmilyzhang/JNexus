@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <el-card :header="$t('report.generate')">
@@ -50,7 +50,7 @@
       </el-table>
     </el-card>
 
-    <!-- 报告详情 -->
+    <!-- Report detail -->
     <el-drawer v-model="detailVisible" :title="detail ? reportLabel(detail.report) : $t('report.detail')" size="780px">
       <template v-if="detail">
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px">
@@ -63,7 +63,7 @@
           <el-button size="small" @click="download('csv')">{{ $t('tasks.exportCsv') }}</el-button>
         </div>
 
-        <!-- 跨主机账号对比（accounts 模板专属） -->
+        <!-- Cross-host account comparison (accounts template only) -->
         <template v-if="detail?.report?.template === 'accounts'">
           <div style="display:flex; gap:10px; align-items:center; margin:6px 0 10px">
             <span style="font-weight:600">{{ $t('report.acctMatrixTitle') }}</span>
@@ -165,12 +165,12 @@ const generate = async () => {
 }
 
 const form = ref({ template: 'accounts', host_ids: [] })
-// 模板名/描述优先取语言包（report.tpl_<key>），无对应键时回退后端返回值
+// Template name/description prefer language-pack keys (report.tpl_<key>), falling back to backend values when missing
 const tplName = tpl => i18n.global.te(`report.tpl_${tpl.key}`)
   ? i18n.global.t(`report.tpl_${tpl.key}`) : tpl.name
 const tplDesc = tpl => i18n.global.te(`report.tpl_${tpl.key}_desc`)
   ? i18n.global.t(`report.tpl_${tpl.key}_desc`) : tpl.desc
-// 报告存库名称含中文模板名，展示时按 template 键重新本地化
+// Stored report names embed the localized template name; re-localize on display via the template key
 const fmtStamp = iso => {
   const d = iso ? new Date(iso) : null
   if (!d || isNaN(d)) return ''
@@ -182,7 +182,7 @@ const reportLabel = r => {
     return `${i18n.global.t(`report.tpl_${r.template}`)} ${fmtStamp(r.created_at)}`.trim()
   return r.name
 }
-// ---- 跨主机账号对比 ----
+// ---- Cross-host account comparison ----
 const acctMatrix = ref({})
 const acctDiffOnly = ref(false)
 const acctRows = computed(() => {
@@ -203,7 +203,7 @@ const loadAcctMatrix = async id => {
   acctDiffOnly.value = false
   try {
     acctMatrix.value = await api.get(`/reports/accounts-matrix/${id}`)
-  } catch { /* 旧报告无 CSV 时由 old_format 提示 */ }
+  } catch { /* old reports without a CSV are flagged via old_format */ }
 }
 const openDetail = async row => {
   detail.value = await api.get(`/reports/${row.id}`)

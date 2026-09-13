@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <el-container style="height: 100vh">
     <el-aside :width="collapsed ? '64px' : '210px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s; overflow-x:hidden; background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
@@ -84,7 +84,7 @@
     </template>
   </el-dialog>
 
-  <!-- MFA（TOTP 两步验证）自助管理 -->
+  <!-- MFA (TOTP two-step verification) self-service -->
   <el-dialog v-model="mfaVisible" :title="$t('layout.mfaSecurity')" width="440px" @open="loadMfa">
     <div v-if="mfaLoading" v-loading style="height:100px"></div>
     <template v-else>
@@ -113,7 +113,7 @@
     </template>
   </el-dialog>
 
-  <!-- 全站悬浮 AI 助手 -->
+  <!-- Site-wide floating AI assistant -->
   <transition name="ai-fade">
     <div v-if="aiOpen" class="ai-panel">
       <div class="ai-head">
@@ -179,7 +179,7 @@ const roleLabel = computed(() => ({
   auditor: t('layout.roleAuditor')
 })[store.role] || store.role)
 
-// 菜单由「角色设置」配置驱动（管理员恒为全部）
+// Menus are driven by role settings (admins always get everything)
 const menuItems = [
   { key: 'dashboard', path: '/dashboard', title: 'menu.dashboard', icon: 'Odometer' },
   { key: 'hosts', path: '/hosts', title: 'menu.hosts', icon: 'Monitor' },
@@ -214,7 +214,7 @@ const toggleCollapse = () => {
   localStorage.setItem('sidebar_collapsed', collapsed.value ? '1' : '0')
 }
 const jobsChildren = ['/exec', '/files', '/scripts']
-// 点击非「任务执行」子项的菜单时，自动收起该下拉
+// Collapse the "Jobs" dropdown when a non-child menu item is selected
 const onMenuSelect = index => {
   if (!jobsChildren.includes(index)) {
     try { menuRef.value?.close('jobs') } catch { /* ignore */ }
@@ -229,7 +229,7 @@ const menus = computed(() => {
   for (const m of menuItems) {
     if (m.children) {
       const kids = m.children.filter(c => allowed.has(c.key) ||
-        (c.key === 'logtail' && allowed.has('exec'))) // 日志输出跟随执行权限
+        (c.key === 'logtail' && allowed.has('exec'))) // log access follows exec permission
       if (kids.length) out.push({ ...m, children: kids })
     } else if (allowed.has(m.key)) {
       out.push(m)
@@ -238,7 +238,7 @@ const menus = computed(() => {
   return out
 })
 
-// ---- 深浅色主题（引导脚本在 index.html，避免首屏闪烁）----
+// ---- Light/dark theme (bootstrap script lives in index.html to avoid first-paint flicker) ----
 const isDark = ref(document.documentElement.classList.contains('dark'))
 const toggleTheme = () => {
   isDark.value = !isDark.value
@@ -249,7 +249,7 @@ const toggleTheme = () => {
 const localeLabel = computed(() => (locales.find(l => l.value === i18n.global.locale.value) || {}).label || '中文')
 const onLocale = v => setLocale(v)
 
-// ---- 顶栏随机一句话：笑话 / 心灵鸡汤（10 分钟自动轮换，10 分钟自动轮换）----
+// ---- Random header quote: jokes / soul soups (auto-rotated every 10 minutes) ----
 const QUOTE_POOLS = [
   { icon: '', pool: jokes },
   { icon: '', pool: soulSoups },
@@ -267,13 +267,13 @@ pickQuote()
 const quoteTimer = setInterval(pickQuote, 10 * 60 * 1000)
 onBeforeUnmount(() => clearInterval(quoteTimer))
 
-// ---- 全站悬浮 AI 对话框 ----
+// ---- Site-wide floating AI chat panel ----
 const aiOpen = ref(false)
 const aiBusy = ref(false)
 const aiInput = ref('')
 const aiMessages = ref([{ role: 'bot', text: t('ai.greeting') }])
 const aiMsgBox = ref(null)
-// AI 角色：登录后拉取列表，选择随对话提交，本地记住上次选择
+// AI roles: fetch list after login; send selected role with each chat; persist choice locally
 const aiRoles = ref([])
 const aiRole = ref(localStorage.getItem('ai_role') || 'general')
 const loadAiRoles = async () => {
@@ -290,7 +290,7 @@ loadAiRoles()
 const sendToAI = async () => {
   const text = aiInput.value.trim()
   if (!text || aiBusy.value) return
-  // 自动附带当前路由路径与所选角色作为上下文
+  // Automatically attach the current route path and selected role as context
   aiMessages.value.push({ role: 'user', text })
   aiBusy.value = true
   try {
@@ -325,7 +325,7 @@ const doChangePwd = async () => {
   pwdVisible.value = false
 }
 
-// ---- MFA（TOTP 两步验证）----
+// ---- MFA (TOTP two-step verification) ----
 const mfaVisible = ref(false)
 const mfaLoading = ref(false)
 const mfaEnabled = ref(false)
@@ -347,19 +347,19 @@ const mfaEnableNow = async () => {
     await api.post('/mfa/enable', { code: mfaCode.value })
     ElMessage.success(t('mfa.enableOk'))
     loadMfa()
-  } catch { /* 错误提示由拦截器展示 */ }
+  } catch { /* error toast shown by the interceptor */ }
 }
 const mfaDisableNow = async () => {
   try {
     await api.post('/mfa/disable', { code: mfaCode.value })
     ElMessage.success(t('mfa.disableOk'))
     loadMfa()
-  } catch { /* 错误提示由拦截器展示 */ }
+  } catch { /* error toast shown by the interceptor */ }
 }
 </script>
 
 <style>
-/* 折叠模式下拉出的子菜单与侧栏同色 */
+/* Submenu popper matches the sidebar color in collapsed mode */
 .sidebar-popper.el-menu--vertical {
   background-color: #1d2935;
   border: none;
@@ -378,7 +378,7 @@ const mfaDisableNow = async () => {
 </style>
 <style scoped>
 .logo-mini { text-align: center; padding-left: 0; padding-right: 0; padding-top: 10px; padding-bottom: 6px; font-size: 20px; }
-/* 紧凑菜单项：更长菜单在常规视口高度内不出现滚动条 */
+/* Compact menu items: longer menus fit common viewport heights without a scrollbar */
 aside :deep(.el-menu-item),
 aside :deep(.el-sub-menu__title) {
   height: 40px;
@@ -386,7 +386,7 @@ aside :deep(.el-sub-menu__title) {
   padding-left: 14px !important;
   padding-right: 10px !important;
 }
-/* 英文长标签不换行、超出省略，杜绝横向滚动条 */
+/* Long labels never wrap; ellipsize overflow to prevent horizontal scrollbars */
 aside :deep(.el-menu-item span),
 aside :deep(.el-sub-menu__title span) {
   white-space: nowrap;
@@ -397,7 +397,7 @@ aside :deep(.el-sub-menu__title span) {
 aside :deep(.el-menu) {
   overflow-x: hidden;
 }
-/* 子菜单项缩进 + 弱化样式：区分子菜单与主菜单 */
+/* Indent and de-emphasize submenu items to distinguish them from top-level items */
 aside :deep(.el-sub-menu .el-menu .el-menu-item) {
   padding-left: 42px !important;
   font-size: 13px;
@@ -408,7 +408,7 @@ aside :deep(.el-sub-menu .el-menu .el-menu-item) {
 aside :deep(.el-sub-menu .el-menu .el-menu-item.is-active) {
   color: #ffffff;
 }
-/* 滚动条视觉隐藏（保留滚动能力，极矮窗口仍可滚动到底） */
+/* Hide the scrollbar visually (scrolling still works, even in very short windows) */
 aside::-webkit-scrollbar {
   width: 0;
   display: none;
@@ -440,7 +440,7 @@ aside {
 .header-quote .q-icon { margin-right: 6px; }
 .user-info { cursor: pointer; display: flex; align-items: center; gap: 6px; color: #333; font-size: 14px; }
 
-/* ---- 全站悬浮 AI 助手 ---- */
+/* ---- Site-wide floating AI assistant ---- */
 .ai-fab {
   position: fixed; bottom: 22px; right: 22px; z-index: 2000;
   width: 48px; height: 48px; border-radius: 50%;

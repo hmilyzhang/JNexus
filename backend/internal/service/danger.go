@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package service
 
@@ -20,7 +20,7 @@ type compiledRule struct {
 	Re   *regexp.Regexp
 }
 
-// LoadDangerRules 重新加载规则缓存（规则增删改后调用）
+// LoadDangerRules reloads the rule cache (called after rules are added/removed/modified)
 func LoadDangerRules() error {
 	var rules []model.DangerRule
 	if err := model.DB.Where("enabled = ?", true).Find(&rules).Error; err != nil {
@@ -30,7 +30,7 @@ func LoadDangerRules() error {
 	for _, r := range rules {
 		re, err := regexp.Compile(r.Pattern)
 		if err != nil {
-			continue // 跳过非法正则
+			continue // skip invalid regex
 		}
 		compiled = append(compiled, compiledRule{ID: r.ID, Desc: r.Desc, Re: re})
 	}
@@ -40,7 +40,7 @@ func LoadDangerRules() error {
 	return nil
 }
 
-// CheckDanger 检查命令是否命中危险规则，返回命中的规则描述列表
+// CheckDanger checks whether a command matches any danger rule and returns the matched rule descriptions
 func CheckDanger(cmd string) []string {
 	rulesMu.RLock()
 	defer rulesMu.RUnlock()

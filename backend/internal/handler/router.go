@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -29,7 +29,7 @@ func SetupRouter() *gin.Engine {
 		api.POST("/login", Login)
 		api.POST("/login/mfa", LoginMFA)
 		api.GET("/system/info", SystemInfo)
-		// Web 终端（自带 token 鉴权，不走 hub）
+		// Web terminal (has its own token auth; does not go through the hub)
 		api.GET("/ws/term/:hostId", WebTerminal)
 		api.GET("/ws/tail", LogTailWS)
 		api.GET("/ws/k8s/:clusterId", K8sExecWS)
@@ -42,7 +42,7 @@ func SetupRouter() *gin.Engine {
 		}))
 	}
 
-	// 外部集成 API（仅 API 密钥认证；密码登录令牌不可用）
+	// External integration API (API key auth only; password login tokens are not accepted)
 	ext := api.Group("/ext", middleware.APIKeyAuth())
 	{
 		ext.GET("/hosts", ExtHosts)
@@ -57,13 +57,13 @@ func SetupRouter() *gin.Engine {
 		auth.PUT("/me", UpdateMe)
 		auth.POST("/change_password", ChangePassword)
 
-		// AI 助手：对话（登录可用）+ 角色列表（登录可读）+ 角色保存（admin）
+		// AI assistant: chat (any logged-in user) + role list (readable when logged in) + role save (admin)
 		auth.POST("/ai/chat", AIChat)
 		auth.GET("/ai/roles", GetAIRoles)
 		auth.POST("/ai/roles", middleware.RequireRole(model.RoleAdmin), UpdateAIRoles)
 
-		// MFA（TOTP 两步验证）自助管理
-		// 监控：应用监控项 + 主机资源
+		// MFA (TOTP two-step verification) self-service management
+		// Monitoring: app monitors + host resources
 		auth.GET("/monitoring/screen", middleware.RequireCap("monitor", "view"), MonitorScreen)
 		mon := auth.Group("/monitors", middleware.RequireCap("monitor", "view"))
 		{
@@ -87,7 +87,7 @@ func SetupRouter() *gin.Engine {
 			apikeys.DELETE("/:id", middleware.RequireRole(model.RoleAdmin), DeleteApiKey)
 		}
 
-		// K8S 集群管理（查看：所有登录用户中可见者；管理：角色权限/集群管理员）
+		// K8S cluster management (view: visible to any logged-in user; manage: role permission / cluster admins)
 		k8sg := auth.Group("/k8s/clusters")
 		{
 			_ = k8sg
@@ -116,7 +116,7 @@ func SetupRouter() *gin.Engine {
 			k8sg.GET("/:id/podlog", K8sPodLog)
 			k8sg.DELETE("/:id/pods/:namespace/:name", K8sDeletePod)
 			k8sg.POST("/:id/shell", K8sClusterShell)
-			// 管理页只读视图（概览 + 新增资源列表）
+			// Management page read-only views (summary + additional resource lists)
 			k8sg.GET("/:id/summary", K8sSummary)
 			k8sg.GET("/:id/daemonsets", K8sDaemonSets)
 			k8sg.GET("/:id/statefulsets", K8sStatefulSets)
@@ -126,7 +126,7 @@ func SetupRouter() *gin.Engine {
 			k8sg.GET("/:id/pvcs", K8sPVCs)
 			k8sg.GET("/:id/pvs", K8sPVs)
 			k8sg.GET("/:id/storageclasses", K8sStorageClasses)
-			// 二期：YAML 查看 / 伸缩 / 资源使用率 / Helm 发布
+			// Phase 2: YAML viewer / scaling / resource usage / Helm releases
 			k8sg.GET("/:id/yaml", K8sResourceYAML)
 			k8sg.POST("/:id/deployments/:namespace/:name/scale", K8sScaleDeployment)
 			k8sg.POST("/:id/statefulsets/:namespace/:name/scale", K8sScaleStatefulSet)
@@ -181,7 +181,7 @@ func SetupRouter() *gin.Engine {
 		auth.POST("/mfa/enable", MFAEnable)
 		auth.POST("/mfa/disable", MFADisable)
 
-		// 用户管理（admin）
+		// User management (admin)
 		users := auth.Group("/users", middleware.RequireRole())
 		{
 			users.GET("", ListUsers)
@@ -194,7 +194,7 @@ func SetupRouter() *gin.Engine {
 			users.POST("/ldap_sync_emails", SyncLdapEmails)
 		}
 
-		// 主机分组
+		// Host groups
 		groups := auth.Group("/host_groups", middleware.RequireCap("hosts", "view"))
 		{
 			groups.GET("", ListGroups)
@@ -203,7 +203,7 @@ func SetupRouter() *gin.Engine {
 			groups.DELETE("/:id", middleware.RequireCap("hosts", "delete"), DeleteGroup)
 		}
 
-		// SSH 密钥（admin / ops）
+		// SSH keys (admin / ops)
 		keys := auth.Group("/ssh_keys", middleware.RequireCap("keys", "manage"))
 		{
 			keys.GET("", ListKeys)
@@ -211,7 +211,7 @@ func SetupRouter() *gin.Engine {
 			keys.DELETE("/:id", DeleteKey)
 		}
 
-		// 主机
+		// Hosts
 		hosts := auth.Group("/hosts", middleware.RequireCap("hosts", "view"))
 		{
 			hosts.GET("", ListHosts)
@@ -222,14 +222,14 @@ func SetupRouter() *gin.Engine {
 			hosts.POST("/:id/rdp-token", RDPConnectToken)
 			hosts.POST("/import", ImportHosts)
 			hosts.POST("/probe", ProbeHostsHandler)
-			// OS 账号（凭据）管理
+			// OS account (credential) management
 			hosts.GET("/:id/credentials", middleware.RequireCap("credentials", "view"), ListHostCredentials)
 			hosts.POST("/:id/credentials", middleware.RequireRole(model.RoleOps), middleware.RequireCredPerm(), CreateHostCredential)
 		}
-		// 配对密钥列表：管理员/运维可见
+		// Paired credentials list: visible to admins/ops
 		auth.GET("/credentials/paired", middleware.RequireRole(), ListPairedCredentials)
 
-		// 报告模块：权限由角色设置「查看报告」控制
+		// Report module: access controlled by the role's "view reports" setting
 		reports := auth.Group("/reports", middleware.RequireReportPerm())
 		{
 			reports.GET("/templates", ListReportTemplates)
@@ -241,7 +241,7 @@ func SetupRouter() *gin.Engine {
 			reports.DELETE("/:id", middleware.RequireRole(), DeleteReport)
 		}
 
-		// 计划任务：管理员/运维可管理
+		// Cron jobs: manageable by admins/ops
 		crons := auth.Group("/crons", middleware.RequireCap("crons", "view"))
 		{
 			crons.GET("", ListCrons)
@@ -256,12 +256,12 @@ func SetupRouter() *gin.Engine {
 		creds := auth.Group("/credentials", middleware.RequireCap("credentials", "view"))
 		{
 			creds.GET("", ListAllCredentials)
-			// 凭据模板（添加主机/批量导入引用，免重复输密码）
+			// Credential templates (referenced by add host / batch import, avoids re-entering passwords)
 			creds.GET("/templates", ListCredentialTemplates)
 			creds.POST("/templates", middleware.RequireCap("credentials", "manage"), SaveCredentialTemplate)
 			creds.DELETE("/templates/:id", middleware.RequireCap("credentials", "manage"), DeleteCredentialTemplate)
 			creds.GET("/usable", UsableCredentialsHandler)
-			// OS 账号管理：需角色开启「账号管理」权限
+			// OS account management: requires the role to enable "account management" permission
 			creds.POST("/batch", middleware.RequireCap("credentials", "manage"), BatchAddCredentialsHandler)
 			creds.POST("/batch-delete", middleware.RequireCap("credentials", "manage"), BatchDeleteCredentials)
 			creds.PUT("/:id", middleware.RequireCap("credentials", "manage"), UpdateCredential)
@@ -269,18 +269,18 @@ func SetupRouter() *gin.Engine {
 			creds.POST("/:id/rotate", middleware.RequireCap("credentials", "manage"), RotateCredentialNow)
 			creds.POST("/rotate-batch", middleware.RequireCap("credentials", "manage"), RotateCredentialsBatch)
 			creds.GET("/rotate-batch/:batch", RotateCredentialsBatchStatus)
-			// 查看密码明文：仅系统管理员（记录审计）
+			// Reveal password plaintext: system admin only (audited)
 			creds.POST("/:id/reveal", middleware.RequireRole(), RevealCredentialPassword)
-			// 删除：仅系统管理员
+			// Delete: system admin only
 			creds.DELETE("/:id", middleware.RequireRole(), DeleteCredential)
 		}
 
-		// 批量执行
+		// Batch execution
 		exec := auth.Group("/exec", middleware.RequireCap("exec", "exec"))
 		{
 			exec.POST("", StartExec)
 		}
-		// 执行记录：管理员/审计员看全量，运维/发布员仅本人任务（handler 内过滤）
+		// Task records: admins/auditors see all; ops/publishers only their own tasks (filtered in the handler)
 		tasks := auth.Group("/tasks", middleware.RequireCap("tasks", "view"))
 		{
 			tasks.GET("", ListTasks)
@@ -288,14 +288,14 @@ func SetupRouter() *gin.Engine {
 			tasks.GET("/:id/export", middleware.RequireCap("tasks", "export"), ExportTask)
 		}
 
-		// 文件分发
+		// File distribution
 		files := auth.Group("/files", middleware.RequireCap("files", "distribute"))
 		{
 			files.POST("/upload", UploadFile)
 			files.POST("/distribute", Distribute)
 		}
 
-		// 脚本中心
+		// Script center
 		scripts := auth.Group("/scripts", middleware.RequireCap("scripts", "view"))
 		{
 			scripts.GET("", ListScripts)
@@ -305,7 +305,7 @@ func SetupRouter() *gin.Engine {
 			scripts.POST("/:id/exec", middleware.RequireCap("scripts", "exec"), ExecScript)
 		}
 
-		// 应用与发布
+		// Apps and releases
 		apps := auth.Group("/apps", middleware.RequireCap("apps", "view"))
 		{
 			apps.GET("", ListApps)
@@ -321,13 +321,13 @@ func SetupRouter() *gin.Engine {
 			releases.POST("/:id/rollback", middleware.RequireCap("releases", "rollback"), RollbackHandler)
 		}
 
-		// 审计日志：仅管理员/审计员
+		// Audit logs: admins/auditors only
 		audit := auth.Group("/audit", middleware.RequireRole(model.RoleAuditor))
 		{
 			audit.GET("", ListAudit)
 		}
 
-		// 危险命令规则（admin）
+		// Dangerous command rules (admin)
 		danger := auth.Group("/danger_rules", middleware.RequireRole())
 		{
 			danger.GET("", ListDangerRules)
@@ -336,10 +336,10 @@ func SetupRouter() *gin.Engine {
 			danger.DELETE("/:id", DeleteDangerRule)
 		}
 
-		// 权限分配数据源
+		// Data source for permission grants
 		auth.GET("/grants/options", GrantsOptions)
 
-		// 用户组管理（admin）
+		// User group management (admin)
 		ug := auth.Group("/user_groups", middleware.RequireRole())
 		{
 			ug.GET("", ListUserGroups)
@@ -353,12 +353,12 @@ func SetupRouter() *gin.Engine {
 		// Dashboard
 		auth.GET("/dashboard", Dashboard)
 
-		// 系统配置（admin）
+		// System config (admin)
 		auth.GET("/system/roles", GetSystemRoles)
 		auth.GET("/system/capabilities", GetSystemCapabilities)
 		auth.POST("/system/roles", middleware.RequireRole(), CreateRole)
 		auth.DELETE("/system/roles/:key", middleware.RequireRole(), DeleteRole)
-		auth.GET("/system/roles/:key/users", RoleUsers) // 所有登录用户可读（前端菜单渲染依赖）
+		auth.GET("/system/roles/:key/users", RoleUsers) // readable by any logged-in user (frontend menu rendering depends on it)
 		sysCfg := auth.Group("/system", middleware.RequireRole())
 		{
 			sysCfg.GET("/config", GetSystemConfig)
@@ -373,11 +373,11 @@ func SetupRouter() *gin.Engine {
 		}
 	}
 
-	// 托管前端 SPA（frontend/dist）：兼容本地开发（backend/ 下相对路径）与容器（/app/frontend/dist）
+	// Serve frontend SPA (frontend/dist): supports local dev (relative path under backend/) and container (/app/frontend/dist)
 	candidates := []string{
-		filepath.Join("..", "frontend", "dist"), // 本地：从 backend/ 启动
-		filepath.Join("frontend", "dist"),       // 容器：WORKDIR /app
-		"/app/frontend/dist",                    // 容器：绝对路径兜底
+		filepath.Join("..", "frontend", "dist"), // local: started from backend/
+		filepath.Join("frontend", "dist"),       // container: WORKDIR /app
+		"/app/frontend/dist",                    // container: absolute path fallback
 	}
 	for _, frontDist := range candidates {
 		abs, err := filepath.Abs(frontDist)
@@ -397,18 +397,18 @@ func SetupRouter() *gin.Engine {
 		}
 		r.NoRoute(func(c *gin.Context) {
 			p := c.Request.URL.Path
-			// 未知 API 路径返回 404 JSON，不能兜底成 SPA 页面
+			// Unknown API paths return 404 JSON; they must not fall back to the SPA page
 			if strings.HasPrefix(p, "/api/") {
 				c.JSON(http.StatusNotFound, gin.H{"error": "接口不存在"})
 				return
 			}
-			// 带 hash 的静态资源：长缓存
+			// Hashed static assets: long cache
 			if strings.HasPrefix(p, "/assets/") {
 				c.Header("Cache-Control", "public, max-age=31536000, immutable")
 				c.File(filepath.Join(abs, strings.TrimPrefix(p, "/")))
 				return
 			}
-			// 其余一律回 index.html 且禁止缓存：发版后浏览器立刻拿到新入口
+			// Everything else falls back to index.html with caching disabled: browsers get the new entry right after a release
 			c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 			c.File(filepath.Join(abs, "index.html"))
 		})

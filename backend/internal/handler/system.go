@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -15,7 +15,7 @@ import (
 	"jnexus/internal/service"
 )
 
-// 系统配置键
+// System config keys
 var editableConfigKeys = []string{
 	"system_name",
 	"ldap_enabled", "ldap_host", "ldap_port", "ldap_tls",
@@ -29,7 +29,7 @@ var editableConfigKeys = []string{
 	"ai_system_prompt",
 }
 
-// GetSystemConfig 读取系统配置（admin），密码字段打码
+// GetSystemConfig reads system config (admin); password fields are masked
 func GetSystemConfig(c *gin.Context) {
 	m := service.SystemConfigMap()
 	for _, k := range []string{"ldap_bind_password", "smtp_password", "ai_api_key"} {
@@ -40,7 +40,7 @@ func GetSystemConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, m)
 }
 
-// UpdateSystemConfig 更新系统配置（admin）；密码传空/打码则保持原值
+// UpdateSystemConfig updates system config (admin); empty/masked passwords keep the original value
 func UpdateSystemConfig(c *gin.Context) {
 	var req map[string]string
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -55,7 +55,7 @@ func UpdateSystemConfig(c *gin.Context) {
 			continue
 		}
 		if (k == "ldap_bind_password" || k == "smtp_password" || k == "ai_api_key") && (v == "" || v == "******") {
-			continue // 保持原值
+			continue // keep original value
 		}
 		filtered[k] = v
 	}
@@ -71,21 +71,21 @@ func UpdateSystemConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// GetSystemRoles 角色设置（所有登录用户可读，用于菜单/界面过滤）
+// GetSystemRoles returns role settings (readable by all logged-in users, used for menu/UI filtering)
 func GetSystemRoles(c *gin.Context) {
 	c.JSON(http.StatusOK, service.GetRoleSettings())
 }
 
-// UpdateSystemRoles 保存角色设置（admin）
-// ---- 自定义角色管理 ----
+// UpdateSystemRoles saves role settings (admin)
+// ---- Custom role management ----
 
-// builtinRoles 内置角色 key（禁止删除；admin 额外禁止一切写操作）
+// builtinRoles built-in role keys (cannot be deleted; admin additionally forbids all write operations)
 var builtinRoles = map[string]bool{
 	"admin": true, "ops": true, "publisher": true,
 	"viewer": true, "auditor": true, "k8s": true,
 }
 
-// CreateRole POST /api/system/roles  创建自定义角色（可复制现有角色的权限）
+// CreateRole POST /api/system/roles  creates a custom role (can copy permissions from an existing role)
 func CreateRole(c *gin.Context) {
 	var req struct {
 		Key    string              `json:"key" binding:"required"`
@@ -112,7 +112,7 @@ func CreateRole(c *gin.Context) {
 		return
 	}
 
-	// 基础配置：复制源角色 或 空白（仅 dashboard 菜单）
+	// Base config: copy the source role or start blank (dashboard menu only)
 	rp := service.RolePerm{Desc: req.Desc, Menus: []string{"dashboard"}, Perms: map[string][]string{}}
 	if req.CopyOf != "" {
 		if src, ok := settings[req.CopyOf]; ok {
@@ -127,7 +127,7 @@ func CreateRole(c *gin.Context) {
 			rp.K8sView, rp.K8sManage = src.K8sView, src.K8sManage
 		}
 	}
-	// 调用方显式提供的 perms 优先（前端矩阵可直接提交）
+	// Perms explicitly provided by the caller take precedence (frontend matrix can submit directly)
 	if len(req.Perms) > 0 {
 		rp.Perms = req.Perms
 	}
@@ -147,7 +147,7 @@ func CreateRole(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "key": key})
 }
 
-// DeleteRole DELETE /api/system/roles/:key  删除自定义角色（内置禁止；被用户引用禁止）
+// DeleteRole DELETE /api/system/roles/:key  deletes a custom role (built-in roles forbidden; roles still referenced by users forbidden)
 func DeleteRole(c *gin.Context) {
 	key := c.Param("key")
 	if builtinRoles[key] {
@@ -178,7 +178,7 @@ func DeleteRole(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// RoleUsers GET /api/system/roles/:key/users  该角色下的用户列表（删除前提示用）
+// RoleUsers GET /api/system/roles/:key/users  lists users under the role (used for pre-delete prompts)
 func RoleUsers(c *gin.Context) {
 	key := c.Param("key")
 	var users []model.User
@@ -186,7 +186,7 @@ func RoleUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
-// GetSystemCapabilities 角色设置矩阵的模块/操作声明（前端自动渲染）
+// GetSystemCapabilities returns module/action declarations for the role settings matrix (rendered automatically by the frontend)
 func GetSystemCapabilities(c *gin.Context) {
 	c.JSON(http.StatusOK, service.CapabilitiesForFront())
 }
@@ -197,7 +197,7 @@ func UpdateSystemRoles(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 		return
 	}
-	// admin 权限固定全开，防止误配置锁死
+	// Admin permissions are always fully enabled to prevent lockout from misconfiguration
 	admin := req[model.RoleAdmin]
 	admin.Host.View, admin.Host.Create, admin.Host.Edit, admin.Host.Delete = true, true, true, true
 	if len(admin.Menus) == 0 {
@@ -213,7 +213,7 @@ func UpdateSystemRoles(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// GetPlatformKey 平台配对密钥公钥信息（admin）
+// GetPlatformKey returns platform pairing key public key info (admin)
 func GetPlatformKey(c *gin.Context) {
 	k, err := service.EnsurePlatformKey()
 	if err != nil {
@@ -226,7 +226,7 @@ func GetPlatformKey(c *gin.Context) {
 	})
 }
 
-// TestSMTPConfig 发送测试邮件
+// TestSMTPConfig sends a test email
 func TestSMTPConfig(c *gin.Context) {
 	var req struct {
 		To string `json:"to"`
@@ -250,7 +250,7 @@ func TestSMTPConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// TestLDAPConfig 用当前已保存配置测试 LDAP 连通性
+// TestLDAPConfig tests LDAP connectivity with the currently saved config
 func TestLDAPConfig(c *gin.Context) {
 	if err := service.TestLDAP(service.LoadLDAPSettings()); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -259,7 +259,7 @@ func TestLDAPConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// SystemInfo 公开接口：登录页展示系统名称/版本/作者
+// SystemInfo public endpoint: login page shows system name/version/author
 func SystemInfo(c *gin.Context) {
 	m := service.SystemConfigMap()
 	c.JSON(http.StatusOK, gin.H{
@@ -269,7 +269,7 @@ func SystemInfo(c *gin.Context) {
 	})
 }
 
-// Dashboard 登录后首页统计
+// Dashboard post-login home page stats
 func Dashboard(c *gin.Context) {
 	u := currentUser(c)
 	count := func(dst any, where string, args ...any) int64 {
@@ -282,7 +282,7 @@ func Dashboard(c *gin.Context) {
 		return n
 	}
 	online := count(&model.Host{}, "status = ?", "online")
-	// 任务数范围：管理员/审计员看全量，其他人仅统计本人发起的任务
+	// Task count scope: admins/auditors see all; others count only tasks they started
 	taskQ := model.DB.Model(&model.Task{})
 	if !u.IsAdmin() && u.Role != model.RoleAuditor {
 		taskQ = taskQ.Where("operator = ?", u.Username)
@@ -290,7 +290,7 @@ func Dashboard(c *gin.Context) {
 	var taskCnt int64
 	taskQ.Count(&taskCnt)
 
-	// 拦截规则/用户数为管理员维度，非管理员返回 0（前端隐藏对应卡片）
+	// Danger rules/users are admin-scope; non-admins get 0 (frontend hides the corresponding cards)
 	dangerCnt, userCnt := count(&model.DangerRule{}, "enabled = ?", true), count(&model.User{}, "")
 	if !u.IsAdmin() {
 		dangerCnt, userCnt = 0, 0
@@ -312,9 +312,9 @@ func Dashboard(c *gin.Context) {
 	})
 }
 
-// ---- 密码轮换：适用账号列表 + 立即全部轮换 ----
+// ---- Password rotation: eligible account list + rotate all now ----
 
-// RotationAccounts GET /api/system/rotation/accounts — 适用账号列表（密码认证、非 LDAP）+ 到期状态
+// RotationAccounts GET /api/system/rotation/accounts — eligible accounts (password auth, non-LDAP) + due status
 func RotationAccounts(c *gin.Context) {
 	type row struct {
 		ID            uint       `json:"id"`
@@ -359,7 +359,7 @@ func RotationAccounts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"accounts": out, "policy_days": policy.Days})
 }
 
-// RotationRunNow POST /api/system/rotation/run-now — 立即轮换全部适用账号（复用异步批量，前端轮询进度）
+// RotationRunNow POST /api/system/rotation/run-now — rotates all eligible accounts immediately (reuses the async batch; frontend polls progress)
 func RotationRunNow(c *gin.Context) {
 	u := currentUser(c)
 	var creds []model.HostCredential

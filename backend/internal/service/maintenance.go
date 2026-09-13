@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -11,14 +11,14 @@ import (
 	"jnexus/internal/model"
 )
 
-// 全局维护窗口：窗口内的 downtime 不计入可用率、不触发告警。
-// 全局设置（对所有监控项生效），存系统配置 JSON。
-// 每个窗口 Type：
-//   once    单次：date_start/date_end 日历范围（含两端）
-//   daily   每天：每日生效
-//   weekly  每周：weekdays 命中的星期生效（0=周日..6=周六）
-//   monthly 每月月底：每月最后一天生效
-// start/end HH:MM，end < start 视为跨午夜。Type 为空按 once 兼容旧数据。
+// Global maintenance windows: downtime inside a window does not count against availability and does not trigger alerts.
+// Global setting (applies to all monitors), stored as JSON in system config.
+// Each window Type:
+//   once    one-shot: date_start/date_end calendar range (inclusive on both ends)
+//   daily   daily: active every day
+//   weekly  weekly: active on weekdays that match (0=Sunday..6=Saturday)
+//   monthly month-end: active on the last day of each month
+// start/end in HH:MM; end < start is treated as crossing midnight. Empty Type falls back to once for legacy data.
 
 const maintenanceKey = "maintenance_windows"
 
@@ -28,10 +28,10 @@ type MaintenanceWindow struct {
 	DateEnd   string `json:"date_end"`   // once: YYYY-MM-DD
 	Start     string `json:"start"`      // HH:MM
 	End       string `json:"end"`        // HH:MM
-	Weekdays  []int  `json:"weekdays"`   // weekly: 0=周日..6=周六
+	Weekdays  []int  `json:"weekdays"`   // weekly: 0=Sunday..6=Saturday
 }
 
-// LoadMaintenances 读取全局维护窗口
+// LoadMaintenances loads global maintenance windows
 func LoadMaintenances() []MaintenanceWindow {
 	m := SystemConfigMap()
 	raw := m[maintenanceKey]
@@ -45,7 +45,7 @@ func LoadMaintenances() []MaintenanceWindow {
 	return out
 }
 
-// SaveMaintenances 保存全局维护窗口
+// SaveMaintenances saves global maintenance windows
 func SaveMaintenances(wins []MaintenanceWindow) error {
 	b, err := json.Marshal(wins)
 	if err != nil {
@@ -82,7 +82,7 @@ func maintType(w MaintenanceWindow) string {
 	return w.Type
 }
 
-// ValidateMaintenances 校验前端提交的窗口列表（按类型分别校验）
+// ValidateMaintenances validates the window list submitted by the frontend (validated per type)
 func ValidateMaintenances(wins []MaintenanceWindow) (string, error) {
 	for i, w := range wins {
 		switch maintType(w) {
@@ -96,7 +96,7 @@ func ValidateMaintenances(wins []MaintenanceWindow) (string, error) {
 				return "", fmt.Errorf("窗口 %d：结束日期早于开始日期", i+1)
 			}
 		case "daily", "monthly":
-			// 每天每月底无需额外字段
+			// daily and month-end need no extra fields
 		case "weekly":
 			if len(w.Weekdays) == 0 {
 				return "", fmt.Errorf("窗口 %d：每周维护需选择生效星期", i+1)
@@ -123,13 +123,13 @@ func ValidateMaintenances(wins []MaintenanceWindow) (string, error) {
 	return string(b), nil
 }
 
-// isMonthEnd 是否当月最后一天
+// isMonthEnd reports whether t is the last day of its month
 func isMonthEnd(t time.Time) bool {
 	next := t.AddDate(0, 0, 1)
 	return next.Month() != t.Month()
 }
 
-// InMaintenanceWindow 判断时刻 t 是否处于任一全局维护窗口（对所有监控项生效）
+// InMaintenanceWindow reports whether time t falls within any global maintenance window (applies to all monitors)
 func InMaintenanceWindow(t time.Time) bool {
 	windows := LoadMaintenances()
 	if len(windows) == 0 {
@@ -169,7 +169,7 @@ func InMaintenanceWindow(t time.Time) bool {
 			if minutes >= sm && minutes < em {
 				return true
 			}
-		} else if minutes >= sm || minutes < em { // 跨午夜
+		} else if minutes >= sm || minutes < em { // crosses midnight
 			return true
 		}
 	}

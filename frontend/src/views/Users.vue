@@ -1,8 +1,8 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <el-card>
     <el-tabs v-model="activeTab">
-      <!-- Tab 1: 用户管理 -->
+      <!-- Tab 1: user management -->
       <el-tab-pane :label="$t('menu.users')" name="users">
         <div style="margin-bottom:12px; display:flex; gap:8px">
           <el-button type="primary" @click="dlg()">{{ $t('users.create') }}</el-button>
@@ -92,7 +92,7 @@
         <div style="margin-top:12px; color:#909399; font-size:12px; white-space:pre-line">{{ $t('users.roleDesc') }}</div>
       </el-tab-pane>
 
-      <!-- Tab 2: 组管理 -->
+      <!-- Tab 2: group management -->
       <el-tab-pane :label="$t('users.groupTab')" name="groups">
         <div style="margin-bottom:12px; display:flex; gap:8px">
           <el-button type="primary" @click="gDlg()">{{ $t('users.groupCreate') }}</el-button>
@@ -120,7 +120,7 @@
     </el-tabs>
   </el-card>
 
-  <!-- 用户 编辑/新增 -->
+  <!-- User edit / create -->
   <el-dialog v-model="visible" :title="form.id ? $t('common.edit') : $t('users.create')" width="440px">
     <el-form label-width="110px">
       <el-form-item :label="$t('users.username')"><el-input v-model="form.username" :disabled="!!form.id" /></el-form-item>
@@ -159,8 +159,8 @@
     </template>
   </el-dialog>
 
-  <!-- 用户组 编辑/新增 -->
-      <!-- 授权对话框 -->
+  <!-- User group edit / create -->
+      <!-- Grant dialog -->
     <el-dialog v-model="grantVisible" :title="`${$t('users.grant')}：${grantUser?.username}`" width="560px">
       <div style="font-weight:600; margin-bottom:8px">{{ $t('users.execGroups') }}</div>
       <el-table :data="grantForm.host_groups" size="small" border>
@@ -271,7 +271,7 @@ const allCreds = ref([])
 const credFilter = ref('')
 const gform = ref({ name: '', description: '', member_ids: [], host_ids: [], host_group_ids: [], credential_ids: [], rules: [], app_ids: [], restrict_visibility: false })
 
-// 批量快选：全选搜索结果 / 按主机分组全选
+// Bulk quick-select: select all search results / select all within a host group
 const selectFilteredCreds = () => {
   const kw = credFilter.value.trim().toLowerCase()
   const ids = new Set(gform.value.credential_ids)
@@ -294,7 +294,7 @@ const roleLabel = r => ({
   auditor: t('layout.roleAuditor'), k8s: t('layout.roleK8s')
 }[r] || r)
 
-// 自定义角色（内置 6 角色之外的 key）
+// Custom roles (keys other than the 6 built-in roles)
 const builtin = ['admin', 'ops', 'publisher', 'viewer', 'auditor', 'k8s']
 const customRoles = ref([])
 api.get('/system/roles').then(rs => {
@@ -326,7 +326,7 @@ const dlg = row => {
 }
 const save = async () => {
   if (form.value.id) {
-    // LDAP 用户邮箱由系统同步，编辑时不提交 email（避免触发后端 LDAP 邮箱保护）
+    // LDAP user emails are synced by the system; do not submit email when editing (avoids the backend LDAP email protection)
     const payload = { role: form.value.role, status: form.value.status, user_group_ids: form.value.user_group_ids }
     if (form.value.auth_source !== 'ldap') payload.email = form.value.email
     await api.put(`/users/${form.value.id}`, payload)
@@ -339,16 +339,16 @@ const save = async () => {
 }
 const del = async row => { await api.delete(`/users/${row.id}`); load() }
 
-// 从 AD/LDAP 批量同步邮箱
+// Bulk-sync emails from AD/LDAP
 const syncLdapEmails = async () => {
   try {
     const r = await api.post('/users/ldap_sync_emails')
     ElMessage.success(`${t('users.syncLdapEmail')}: ${r.updated} OK / ${r.missing} -`)
     load()
-  } catch { /* 错误提示由拦截器展示 */ }
+  } catch { /* error toast shown by the interceptor */ }
 }
 
-// 管理员重置用户 MFA（用户丢失验证器时解绑，重置后用户可重新绑定）
+// Admin resets a user's MFA (unbinds when the user loses their authenticator; the user can re-enroll afterwards)
 const resetMfa = async row => {
   await api.post(`/users/${row.id}/mfa_reset`)
   ElMessage.success(t('common.success'))
@@ -376,7 +376,7 @@ const saveGrants = async () => {
   grantVisible.value = false
 }
 
-// ---- 用户组 ----
+// ---- User groups ----
 const gDlg = async row => {
   if (row) {
     const d = await api.get(`/user_groups/${row.id}`)

@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package service
 
@@ -15,16 +15,16 @@ import (
 	"jnexus/internal/ws"
 )
 
-// CreateReleaseRequest 创建发布单
+// CreateReleaseRequest creates a release order
 type CreateReleaseRequest struct {
 	AppID       uint   `json:"app_id"`
-	PackageFile string `json:"package_file"` // 已上传到服务端暂存区的文件名
+	PackageFile string `json:"package_file"` // file name already uploaded to the server staging area
 	PackageName string `json:"package_name"`
 }
 
 var releaseSteps = []string{"stop", "backup", "upload", "start", "health"}
 
-// StartRelease 创建发布单并启动流水线
+// StartRelease creates a release order and starts the pipeline
 func StartRelease(operator *model.User, req CreateReleaseRequest) (uint, error) {
 	var app model.Application
 	if err := model.DB.Preload("AppHosts.Host").First(&app, req.AppID).Error; err != nil {
@@ -64,7 +64,7 @@ func StartRelease(operator *model.User, req CreateReleaseRequest) (uint, error) 
 	return rel.ID, nil
 }
 
-// runRelease 发布流水线：主机间并发，单主机内串行 步骤
+// runRelease runs the release pipeline: concurrent across hosts, sequential steps within a single host
 func runRelease(releaseID uint) {
 	var rel model.Release
 	if err := model.DB.First(&rel, releaseID).Error; err != nil {
@@ -97,7 +97,7 @@ func runRelease(releaseID uint) {
 	}
 	wg.Wait()
 
-	// 汇总状态
+	// aggregate status
 	var fails int64
 	model.DB.Model(&model.ReleaseItem{}).Where("release_id = ? AND status = ?", releaseID, "failed").Count(&fails)
 	status := "success"
@@ -109,7 +109,7 @@ func runRelease(releaseID uint) {
 	NotifyTaskFinished(100000 + releaseID)
 }
 
-// runHostPipeline 单台主机上的 步骤流水线
+// runHostPipeline runs the step pipeline on a single host
 func runHostPipeline(rel *model.Release, item model.ReleaseItem) {
 	var ah model.AppHost
 	if err := model.DB.Where("app_id = ? AND host_id = ?", rel.AppID, item.HostID).First(&ah).Error; err != nil {
@@ -150,7 +150,7 @@ func runHostPipeline(rel *model.Release, item model.ReleaseItem) {
 		return true
 	}
 
-	// 1. 停止服务
+	// 1. Stop service
 	stopCmd := ah.StopCmd
 	if stopCmd == "" {
 		stopCmd = fmt.Sprintf("pkill -f '%s' || true; sleep 2; pgrep -f '%s' && kill -9 $(pgrep -f '%s') || true",
@@ -160,7 +160,7 @@ func runHostPipeline(rel *model.Release, item model.ReleaseItem) {
 		return
 	}
 
-	// 2. 备份旧版本
+	// 2. Back up the old version
 	backupDir := ah.BackupDir
 	if backupDir == "" {
 		backupDir = path.Join(ah.DeployDir, "backup")
@@ -173,7 +173,7 @@ func runHostPipeline(rel *model.Release, item model.ReleaseItem) {
 		return
 	}
 
-	// 3. 上传新包
+	// 3. Upload the new package
 	localPath := LocalUploadPath(rel.PackageFile)
 	scliErr := uploadViaSSH(cli, localPath, ah.DeployDir, ah.JarName)
 	if scliErr != nil {
@@ -182,7 +182,7 @@ func runHostPipeline(rel *model.Release, item model.ReleaseItem) {
 	}
 	updateItem(item.ID, "upload", "success", fmt.Sprintf("已上传 %s -> %s/%s", rel.PackageName, ah.DeployDir, ah.JarName))
 
-	// 4. 启动服务
+	// 4. Start service
 	startCmd := ah.StartCmd
 	if startCmd == "" {
 		startCmd = fmt.Sprintf("cd '%s' && nohup java -jar '%s' > /dev/null 2>&1 &", ah.DeployDir, ah.JarName)
@@ -191,9 +191,9 @@ func runHostPipeline(rel *model.Release, item model.ReleaseItem) {
 		return
 	}
 
-	// 5. 健康检查
+	// 5. Health check
 	if ah.HealthCheckURL == "" {
-		// 无 URL 则通过进程是否存在来检查
+		// no URL configured: check by whether the process exists
 		checkCmd := fmt.Sprintf("sleep 3; pgrep -f '%s' >/dev/null && echo OK || echo NO", ah.JarName)
 		var buf strings.Builder
 		_, err := sshpool.RunCommand(context.Background(), cli, checkCmd, 2*time.Minute, func(s string) { buf.WriteString(s) })
@@ -211,7 +211,7 @@ func runHostPipeline(rel *model.Release, item model.ReleaseItem) {
 	}
 }
 
-// RollbackRelease 回滚：把最近一次备份覆盖回部署目录并重启
+// RollbackRelease rolls back: restores the most recent backup over the deploy directory and restarts
 func RollbackRelease(operator *model.User, releaseID uint) (uint, error) {
 	var rel model.Release
 	if err := model.DB.First(&rel, releaseID).Error; err != nil {
@@ -312,7 +312,7 @@ func runRollback(rel *model.Release) {
 	ws.H.Broadcast(fmt.Sprintf("release-%d", rel.ID), map[string]any{"type": "release_done", "status": st})
 }
 
-// resolveReleaseCredential 发布使用的 OS 账号：AppHost 指定优先，否则主机默认账号
+// resolveReleaseCredential picks the OS account for a release: the AppHost-specified one first, otherwise the host default credential
 func resolveReleaseCredential(ah *model.AppHost, host *model.Host) (*model.HostCredential, error) {
 	if ah.CredentialID != nil {
 		var cred model.HostCredential
@@ -353,19 +353,19 @@ func healthCheck(url string, retries int, interval time.Duration) bool {
 	return false
 }
 
-// UserCanDeployApp 用户是否可发布指定应用（admin / 被授权的运维、发布员）
+// UserCanDeployApp reports whether the user can deploy the given app (admin / authorized ops or releaser)
 func UserCanDeployApp(user *model.User, appID uint) bool {
 	if PlatformRole(user.Role) {
 		return true
 	}
-	// 自定义角色：拥有 releases 能力位（路由层已校验）即视为可发布主体，
-	// 数据级由用户组应用绑定决定（见 CanOperateApp）
-	// 个人授权（旧机制）
+	// Custom role: having the releases capability bit (already validated at the routing layer) counts as an authorized deployer;
+	// data-level access is determined by user-group app bindings (see CanOperateApp)
+	// Personal authorization (legacy mechanism)
 	var cnt int64
 	model.DB.Model(&model.UserApp{}).Where("user_id = ? AND app_id = ?", user.ID, appID).Count(&cnt)
 	if cnt > 0 {
 		return true
 	}
-	// 用户组应用绑定（团队授权）
+	// User-group app binding (team authorization)
 	return CanOperateApp(user, appID)
 }

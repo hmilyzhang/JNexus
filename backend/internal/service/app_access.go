@@ -1,26 +1,26 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
 	"jnexus/internal/model"
 )
 
-// 应用级数据权限：基于用户组 ↔ 应用绑定。
-// admin/ops 平台级角色不受限；其他角色（publisher/viewer/自定义）按所属用户组的应用绑定过滤。
+// App-level data permissions: based on user group ↔ app bindings.
+// Platform-level roles (admin/ops) are unrestricted; other roles (publisher/viewer/custom) are filtered by the app bindings of their user groups.
 
-// UserGroupIDsOf 用户所属的用户组 ID 列表
+// UserGroupIDsOf returns the IDs of the user groups the user belongs to
 func UserGroupIDsOf(userID uint) []uint {
 	var ids []uint
 	model.DB.Model(&model.UserGroupMember{}).Where("user_id = ?", userID).Pluck("user_group_id", &ids)
 	return ids
 }
 
-// PlatformRole 平台级角色（不受数据级过滤）：admin 恒真，ops 单独判断
+// PlatformRole platform-level roles (exempt from data-level filtering): admin always true, ops checked separately
 func PlatformRole(role string) bool {
 	return role == model.RoleAdmin || role == model.RoleOps
 }
 
-// VisibleAppIDs 用户可见的应用 ID 集合；unrestricted=true 表示不做过滤（admin/ops）
+// VisibleAppIDs set of app IDs visible to the user; unrestricted=true means no filtering (admin/ops)
 func VisibleAppIDs(user *model.User) (ids map[uint]bool, unrestricted bool) {
 	if PlatformRole(user.Role) {
 		return nil, true
@@ -30,7 +30,7 @@ func VisibleAppIDs(user *model.User) (ids map[uint]bool, unrestricted bool) {
 	if len(gids) == 0 {
 		return ids, false
 	}
-	// Pluck 目标必须是切片（map 会触发 Scan 错误）
+	// Pluck target must be a slice (a map triggers a Scan error)
 	var appIDs []uint
 	model.DB.Model(&model.UserGroupApp{}).Where("user_group_id IN ?", gids).Pluck("app_id", &appIDs)
 	for _, id := range appIDs {
@@ -39,21 +39,21 @@ func VisibleAppIDs(user *model.User) (ids map[uint]bool, unrestricted bool) {
 	return ids, false
 }
 
-// DebugAccess 月报排障用：输出用户组成员与应用绑定（临时）
+// DebugAccess for monthly-report troubleshooting: dumps user group membership and app bindings (temporary)
 func DebugAccess(userID uint) (gids []uint, apps []uint) {
 	gids = UserGroupIDsOf(userID)
 	model.DB.Model(&model.UserGroupApp{}).Where("user_group_id IN ?", gids).Pluck("app_id", &apps)
 	return
 }
 
-// CanAccessApp 用户能否访问（查看）指定应用
+// CanAccessApp whether the user can access (view) the given app
 func CanAccessApp(user *model.User, appID uint) bool {
 	ids, unrestricted := VisibleAppIDs(user)
 	return unrestricted || ids[appID]
 }
 
-// CanOperateApp 用户能否对应用执行写操作（更新配置/创建发布/回滚）：
-// 需 apps/releases 对应能力位（路由层已查）+ 所属用户组绑定了该应用
+// CanOperateApp whether the user can perform write operations on the app (update config / create release / rollback):
+// requires the corresponding apps/releases capability bits (checked at the router layer) + the user's group is bound to the app
 func CanOperateApp(user *model.User, appID uint) bool {
 	if PlatformRole(user.Role) {
 		return true
@@ -68,8 +68,8 @@ func CanOperateApp(user *model.User, appID uint) bool {
 	return cnt > 0
 }
 
-// HostVisibilityFilter 主机列表可见性：返回过滤后的主机切片。
-// admin/ops 或无 restrict_visibility 组的成员不受限；开启开关的组成员仅见本组绑定的主机/主机分组内主机。
+// HostVisibilityFilter host list visibility: returns the filtered host slice.
+// admin/ops and members of groups without restrict_visibility are unrestricted; members of groups with the switch on only see hosts bound to their groups / within their bound host groups.
 func HostVisibilityFilter(user *model.User, hosts []model.Host) []model.Host {
 	if PlatformRole(user.Role) {
 		return hosts
@@ -83,7 +83,7 @@ func HostVisibilityFilter(user *model.User, hosts []model.Host) []model.Host {
 	if restricted == 0 {
 		return hosts
 	}
-	// 允许的主机集合 = 直接绑定主机 + 绑定主机分组（含子分组）内的主机
+	// Allowed hosts = directly bound hosts + hosts within bound host groups (including sub-groups)
 	allowed := map[uint]bool{}
 	var direct []uint
 	model.DB.Model(&model.UserGroupHost{}).Where("user_group_id IN ?", gids).Pluck("host_id", &direct)
@@ -93,7 +93,7 @@ func HostVisibilityFilter(user *model.User, hosts []model.Host) []model.Host {
 	var hgIDs []uint
 	model.DB.Model(&model.UserGroupHostGroup{}).Where("user_group_id IN ?", gids).Pluck("host_group_id", &hgIDs)
 	if len(hgIDs) > 0 {
-		// 组下全部主机（含子分组级联）
+		// All hosts under the groups (including sub-group cascade)
 		var hostIDs []uint
 		model.DB.Table("hosts").
 			Joins("JOIN host_groups hg ON hosts.group_id = hg.id").

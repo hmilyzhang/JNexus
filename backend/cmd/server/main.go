@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package main
 
@@ -45,8 +45,8 @@ func main() {
 	if err := service.LoadDangerRules(); err != nil {
 		log.Fatalf("加载危险命令规则失败: %v", err)
 	}
-	service.StartScheduler() // 计划任务调度循环
-	service.StartMonitorLoop() // 监控调度循环（应用监控 + 主机资源采集）
+	service.StartScheduler()   // Cron job scheduler loop
+	service.StartMonitorLoop() // Monitor scheduling loop (app monitoring + host resource collection)
 
 	if err := os.MkdirAll(config.Cfg.Storage.UploadDir, 0755); err != nil {
 		log.Fatalf("创建上传目录失败: %v", err)

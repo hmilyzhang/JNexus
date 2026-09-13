@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -12,7 +12,7 @@ import (
 	"jnexus/internal/model"
 )
 
-// 运维月报：资产概况 / 告警统计 / 主机与 K8S 容量 / 配置变更，供管理层汇报
+// Monthly ops report: asset overview / alert stats / host & K8S capacity / config changes, for management reporting
 
 type dayRow struct {
 	HostID uint
@@ -69,7 +69,7 @@ type repPodRow struct {
 	AvgMem    float64 `json:"avg_mem_mi"`
 }
 
-// MonthlyReport GET /api/report/monthly?year=&month=（默认上个月）
+// MonthlyReport GET /api/report/monthly?year=&month= (defaults to last month)
 func MonthlyReport(c *gin.Context) {
 	now := time.Now()
 	year, month := now.Year(), int(now.Month())-1
@@ -85,7 +85,7 @@ func MonthlyReport(c *gin.Context) {
 	from := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
 	to := from.AddDate(0, 1, 0)
 
-	// ---- 资产概况 ----
+	// ---- Asset overview ----
 	var hostsTotal, hostsOnline int64
 	model.DB.Model(&model.Host{}).Count(&hostsTotal)
 	model.DB.Model(&model.Host{}).Where("status = ?", "online").Count(&hostsOnline)
@@ -94,7 +94,7 @@ func MonthlyReport(c *gin.Context) {
 	var monTotal int64
 	model.DB.Model(&model.Monitor{}).Count(&monTotal)
 
-	// ---- 告警统计 ----
+	// ---- Alert stats ----
 	var events []repAlertRow
 	model.DB.Table("alert_events").Where("fired_at >= ? AND fired_at < ?", from, to).
 		Order("fired_at DESC").Limit(2000).Scan(&events)
@@ -108,7 +108,7 @@ func MonthlyReport(c *gin.Context) {
 	totalAlerts := len(events)
 	topTargets := sortCountMap(topMap, 10)
 
-	// ---- 主机容量（hourly 归档 + raw 双表并集）----
+	// ---- Host capacity (union of hourly archive + raw tables) ----
 	var hostRows []repHostRow
 	model.DB.Raw(`SELECT h.id AS host_id, h.name, h.ip,
 			COALESCE(ROUND(AVG(t.cpu_percent)::numeric, 1), 0)::float8 AS avg_cpu,
@@ -125,7 +125,7 @@ func MonthlyReport(c *gin.Context) {
 		) t ON t.host_id = h.id
 		GROUP BY h.id, h.name, h.ip ORDER BY h.name`, from, to, from, to).Scan(&hostRows)
 
-	// 当月逐日序列（算斜率）+ 磁盘月末水位
+	// Daily series for the month (for slope calculation) + end-of-month disk level
 
 	var days []dayRow
 	model.DB.Raw(`SELECT host_id, date_trunc('day', collected_at) AS bucket,
@@ -150,7 +150,7 @@ func MonthlyReport(c *gin.Context) {
 		h.Risk = riskOf(h.DaysTo90C, h.DaysTo90M, h.Disk)
 	}
 
-	// ---- K8S 容量 ----
+	// ---- K8S capacity ----
 	var clusters []model.K8sCluster
 	model.DB.Where("enabled = ?", true).Find(&clusters)
 	k8sRows := make([]repK8sRow, 0, len(clusters))
@@ -174,7 +174,7 @@ func MonthlyReport(c *gin.Context) {
 			row.MemUsedEnd = float64(last.MemUsedMi)
 			row.CPUCapM, row.MemCapMi = last.CPUCapacityM, last.MemCapacityMi
 		}
-		// 月内日均值序列求斜率
+		// Slope from the in-month daily average series
 		var series []struct {
 			Bucket time.Time `json:"bucket"`
 			CPU    float64   `json:"cpu"`
@@ -206,18 +206,18 @@ func MonthlyReport(c *gin.Context) {
 		row.SlopeCPU = fc.SlopeCPUPct
 		row.DaysToFullC = daysToCapacity(row.CPUUsedEnd, float64(row.CPUCapM), fc.SlopeCPUPct)
 		row.DaysToFullM = daysToCapacity(row.MemUsedEnd, float64(row.MemCapMi), fc.SlopeMemPct)
-		// Top10 Pod（月均 CPU）
+		// Top 10 pods (by monthly average CPU)
 		model.DB.Raw(`SELECT namespace, pod, AVG(cpu_m) AS avg_cpu_m, AVG(mem_mi) AS avg_mem_mi
 			FROM k8s_pod_samples WHERE cluster_id = ? AND collected_at >= ? AND collected_at < ?
 			GROUP BY namespace, pod ORDER BY avg_cpu_m DESC LIMIT 10`, cl.ID, from, to).Scan(&row.TopPods)
-		// 节点数
+		// Node count
 		var nn int64
 		model.DB.Model(&model.K8sClusterMember{}).Where("cluster_id = ?", cl.ID).Count(&nn)
 		row.Nodes = int(nn)
 		k8sRows = append(k8sRows, row)
 	}
 
-	// ---- 配置变更摘要 ----
+	// ---- Config change summary ----
 	var hostsAdded, hostsDeleted, credsAdded int64
 	model.DB.Model(&model.AuditLog{}).Where("action = ? AND resource LIKE ? AND created_at >= ? AND created_at < ?", "POST", "%/hosts", from, to).Count(&hostsAdded)
 	model.DB.Model(&model.AuditLog{}).Where("action = ? AND resource LIKE ? AND created_at >= ? AND created_at < ?", "DELETE", "%/hosts/%", from, to).Count(&hostsDeleted)
@@ -281,7 +281,7 @@ type dayVal struct {
 	disk   float64
 }
 
-// slopeOf 逐日百分比序列的最小二乘斜率（% / 天）
+// slopeOf computes the least-squares slope of a daily percentage series (% per day)
 func slopeOf(series []dayRow, metric string) float64 {
 	if len(series) < 2 {
 		return 0

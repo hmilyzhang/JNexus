@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -16,7 +16,7 @@ import (
 	"jnexus/internal/service"
 )
 
-// BatchAddCredentials 批量为存量主机添加 OS 账号（异步任务）
+// BatchAddCredentials batch-adds OS accounts to existing hosts (async task)
 func BatchAddCredentialsHandler(c *gin.Context) {
 	var req service.BatchCredRequest
 	if err := c.ShouldBindJSON(&req); err != nil || (len(req.Accounts) == 0 && req.Username == "") {
@@ -31,8 +31,8 @@ func BatchAddCredentialsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
 }
 
-// ListAllCredentials 全局 OS 账号列表（跨主机，供账号管理页使用）
-// 筛选：host_id、keyword（账号/标签/主机名/IP）、rotation（failed/on/off）
+// ListAllCredentials global OS account list (across hosts, for the account management page)
+// Filters: host_id, keyword (account/label/hostname/IP), rotation (failed/on/off)
 func ListAllCredentials(c *gin.Context) {
 	var creds []model.HostCredential
 	model.DB.Preload("SSHKey").Order("host_id, is_default DESC, id ASC").Find(&creds)
@@ -92,7 +92,7 @@ func ListAllCredentials(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// ListHostCredentials 主机的 OS 账号列表
+// ListHostCredentials lists a host's OS accounts
 func ListHostCredentials(c *gin.Context) {
 	hostID, _ := strconv.Atoi(c.Param("id"))
 	var creds []model.HostCredential
@@ -100,12 +100,12 @@ func ListHostCredentials(c *gin.Context) {
 	c.JSON(http.StatusOK, creds)
 }
 
-// UsableCredentials 当前用户在各主机上可用的 OS 账号（执行/终端选择用）
+// UsableCredentials OS accounts available to the current user on each host (for exec/terminal selection)
 func UsableCredentialsHandler(c *gin.Context) {
 	u := currentUser(c)
 	var hosts []model.Host
 	model.DB.Find(&hosts)
-	// 批量预取（固定 5-6 条查询），避免 400+ 主机时的 N+1
+	// Batch prefetch (fixed 5-6 queries) to avoid N+1 with 400+ hosts
 	usable := service.UsableCredentialsAll(u, hosts)
 	out := []gin.H{}
 	for i := range hosts {
@@ -121,15 +121,15 @@ func UsableCredentialsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// ListPairedCredentials 配对密钥列表：全部密钥认证的 OS 账号，
-// 名称 = 主机名-账号，便于识别配对到哪台机器
+// ListPairedCredentials paired key list: all key-auth OS accounts,
+// name = hostname-account, to identify which machine each key is paired with
 func ListPairedCredentials(c *gin.Context) {
 	var creds []model.HostCredential
 	model.DB.Preload("SSHKey").Where("auth_type = ?", "key").Order("id DESC").Find(&creds)
 	type pairRow struct {
 		ID        uint   `json:"id"`
 		HostID    uint   `json:"host_id"`
-		Name      string `json:"name"` // 主机名-账号
+		Name      string `json:"name"` // hostname-account
 		HostName  string `json:"host_name"`
 		HostIP    string `json:"host_ip"`
 		Username  string `json:"username"`
@@ -175,10 +175,10 @@ type credReq struct {
 	Password      string `json:"password"`
 	Label         string `json:"label"`
 	IsDefault     bool   `json:"is_default"`
-	AutoPair      bool   `json:"auto_pair"`      // 密码+自动配对：推送平台公钥后仅保留密钥凭据
-	RotateEnabled bool   `json:"rotate_enabled"` // 密码定期轮换
+	AutoPair      bool   `json:"auto_pair"`      // password + auto-pair: push the platform public key and keep only the key credential
+	RotateEnabled bool   `json:"rotate_enabled"` // periodic password rotation
 	RotateDays    int    `json:"rotate_days"`
-	IsLDAP        bool   `json:"is_ldap"` // LDAP/域账号标记（排除轮换）
+	IsLDAP        bool   `json:"is_ldap"` // LDAP/domain account flag (excluded from rotation)
 }
 
 func (r *credReq) apply(cred *model.HostCredential) error {
@@ -190,7 +190,7 @@ func (r *credReq) apply(cred *model.HostCredential) error {
 	cred.SSHKeyID = r.SSHKeyID
 	cred.Label = r.Label
 	cred.RotateEnabled = r.RotateEnabled
-	cred.RotateDays = r.RotateDays // 0 = 跟随系统设置的全局周期
+	cred.RotateDays = r.RotateDays // 0 = follow the global period from system settings
 	cred.IsLDAP = r.IsLDAP
 	if r.Password != "" {
 		enc, err := pkg.Encrypt(r.Password)
@@ -202,7 +202,7 @@ func (r *credReq) apply(cred *model.HostCredential) error {
 	return nil
 }
 
-// 设为唯一默认
+// Set as the sole default
 func makeDefault(hostID, credID uint) {
 	model.DB.Model(&model.HostCredential{}).Where("host_id = ?", hostID).Update("is_default", false)
 	model.DB.Model(&model.HostCredential{}).Where("id = ?", credID).Update("is_default", true)
@@ -225,7 +225,7 @@ func CreateHostCredential(c *gin.Context) {
 		label = "默认"
 	}
 
-	// 密码 + 自动配对：推送平台公钥，成功仅登记密钥凭据；失败不产生记录
+	// Password + auto-pair: push the platform public key; on success only the key credential is recorded, on failure no record is created
 	if req.AutoPair && req.Password != "" {
 		paired, cred, err := service.PairAndCreateCredential(&host, req.Username, req.Password, label, req.IsDefault)
 		if err != nil {
@@ -285,7 +285,7 @@ func UpdateCredential(c *gin.Context) {
 	c.JSON(http.StatusOK, cred)
 }
 
-// BatchDeleteCredentials 批量删除 OS 賩号：逐条复用单删的引用校验
+// BatchDeleteCredentials batch-deletes OS accounts: reuses the single-delete reference check for each item
 func BatchDeleteCredentials(c *gin.Context) {
 	var req struct {
 		IDs []uint `json:"ids" binding:"required"`
@@ -325,7 +325,7 @@ func DeleteCredential(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// RotateCredentialNow 立即轮换一次 OS 账号密码
+// RotateCredentialNow rotates an OS account password immediately
 func RotateCredentialNow(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var cred model.HostCredential
@@ -359,7 +359,7 @@ func RotateCredentialNow(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": err == nil, "result": result})
 }
 
-// RevealCredentialPassword 管理员查看账号密码明文（记录审计）
+// RevealCredentialPassword lets an admin view the account password in plain text (audited)
 func RevealCredentialPassword(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var cred model.HostCredential
@@ -397,7 +397,7 @@ func SetDefaultCredential(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ---- 凭据模板（host_id = 0）：LDAP/域账号密码存一次，添加主机/批量导入时引用 ----
+// ---- Credential templates (host_id = 0): LDAP/domain account passwords stored once, referenced when adding hosts / batch importing ----
 
 // ListCredentialTemplates GET /api/credentials/templates
 func ListCredentialTemplates(c *gin.Context) {
@@ -413,7 +413,7 @@ func ListCredentialTemplates(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// SaveCredentialTemplate POST /api/credentials/templates（id 为空新建，否则更新密码）
+// SaveCredentialTemplate POST /api/credentials/templates (empty id creates; otherwise updates the password)
 func SaveCredentialTemplate(c *gin.Context) {
 	var req struct {
 		ID       *uint  `json:"id"`
@@ -483,7 +483,7 @@ func DeleteCredentialTemplate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// resolveTemplatePassword 取模板的解密密码（模板必须存在且属于当前用户可用的范围）
+// resolveTemplatePassword returns the decrypted template password (template must exist and be within the current user's usable scope)
 func resolveTemplatePassword(id uint) (username, password string, isLDAP bool, err error) {
 	var cr model.HostCredential
 	if e := model.DB.First(&cr, id).Error; e != nil || cr.HostID != 0 {
@@ -496,7 +496,7 @@ func resolveTemplatePassword(id uint) (username, password string, isLDAP bool, e
 	return cr.Username, plain, cr.IsLDAP, nil
 }
 
-// ---- 批量轮换 ----
+// ---- Batch rotation ----
 
 type rotateBatchState struct {
 	Total   int     `json:"total"`
@@ -513,7 +513,7 @@ var (
 )
 
 // RotateCredentialsBatch POST /api/credentials/rotate-batch  {ids: [credID...]}
-// 异步逐个轮换（300ms 错峰），进度经 /rotate-batch/:batch 查询。
+// Rotates asynchronously one by one (300ms stagger); progress is queried via /rotate-batch/:batch.
 func RotateCredentialsBatch(c *gin.Context) {
 	var req struct {
 		IDs []uint `json:"ids"`
@@ -531,13 +531,13 @@ func RotateCredentialsBatch(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"batch": batch, "total": len(req.IDs)})
 }
 
-// startRotationBatch 启动异步批量轮换（逐台串行，300ms 错峰），返回批次 ID
+// startRotationBatch starts an async batch rotation (serial per host, 300ms stagger); returns the batch ID
 func startRotationBatch(ids []uint, u *model.User, ip string) string {
 	batch := "rb-" + time.Now().Format("0102150405") + fmt.Sprintf("-%04d", time.Now().UnixNano()%10000)
 	st := &rotateBatchState{Total: len(ids), Running: true, Results: []gin.H{}}
 	rotateBatchesMu.Lock()
 	rotateBatches[batch] = st
-	for k := range rotateBatches { // 只保留最近 20 个批次
+	for k := range rotateBatches { // keep only the most recent 20 batches
 		if len(rotateBatches) > 20 {
 			delete(rotateBatches, k)
 		}
@@ -598,7 +598,7 @@ func startRotationBatch(ids []uint, u *model.User, ip string) string {
 				"id": id, "host": hostDisp, "username": cred.Username, "ok": ok, "result": result,
 			})
 			rotateBatchesMu.Unlock()
-			time.Sleep(300 * time.Millisecond) // 错峰，避免同时连爆目标机
+			time.Sleep(300 * time.Millisecond) // stagger to avoid hammering target hosts simultaneously
 		}
 		rotateBatchesMu.Lock()
 		st.Running = false
@@ -608,7 +608,7 @@ func startRotationBatch(ids []uint, u *model.User, ip string) string {
 	return batch
 }
 
-// RotateCredentialsBatchStatus GET /api/credentials/rotate-batch/:batch — 批量轮换进度
+// RotateCredentialsBatchStatus GET /api/credentials/rotate-batch/:batch — batch rotation progress
 func RotateCredentialsBatchStatus(c *gin.Context) {
 	rotateBatchesMu.Lock()
 	st, ok := rotateBatches[c.Param("batch")]

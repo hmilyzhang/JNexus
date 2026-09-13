@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package middleware
 
 import (
@@ -12,9 +12,9 @@ import (
 	"jnexus/internal/service"
 )
 
-// APIKeyAuth 外部 API 密钥认证：
+// APIKeyAuth external API key authentication:
 // Authorization: Bearer aok_<keyID>.<secret>
-// 校验顺序：限流 -> 密钥有效性 -> 属主账号；通过后写入 user 上下文并记录审计
+// Validation order: rate limit -> key validity -> owner account; on success stores the user in context and records an audit entry
 func APIKeyAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth := c.GetHeader("Authorization")
@@ -39,7 +39,7 @@ func APIKeyAuth() gin.HandlerFunc {
 		c.Set("user", user)
 		c.Set("api_key", key)
 		c.Next()
-		// 审计：记录密钥名、路径、状态码
+		// Audit: record key name, path, and status code
 		model.DB.Create(&model.AuditLog{
 			UserID: user.ID, Username: user.Username + " [key:" + key.Name + "]",
 			Action: "API", Resource: c.Request.Method + " " + c.FullPath(),
@@ -49,7 +49,7 @@ func APIKeyAuth() gin.HandlerFunc {
 	}
 }
 
-// ApiKeyFromContext 取当前请求的 API 密钥（无则 nil）
+// ApiKeyFromContext returns the current request's API key (nil if none)
 func ApiKeyFromContext(c *gin.Context) *model.ApiKey {
 	v, _ := c.Get("api_key")
 	k, _ := v.(*model.ApiKey)

@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <el-card :header="$t('files.title')">
@@ -87,7 +87,7 @@ let ws = null
 
 const groups = ref([])
 
-// 多级分组树：分组按 parent_id 嵌套，主机挂到所在分组节点
+// Multi-level group tree: groups nest by parent_id, hosts attach to their group node
 const treeData = computed(() => {
   const byId = new Map(groups.value.map(g => [g.id, { value: `g-${g.id}`, label: g.name, children: [] }]))
   const roots = []

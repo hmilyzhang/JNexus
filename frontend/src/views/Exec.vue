@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <el-card>
@@ -99,8 +99,8 @@ let ws = null
 
 const form = reactive({ mode: 'command', command: '', script_id: null, script_args: '', timeout_sec: 300, concurrency: 10 })
 
-// 树状选择数据：分组节点 value=g-<id>，主机节点 value=<id>
-// 多级分组树：分组按 parent_id 嵌套，主机挂到所在分组节点（未分组挂根）
+// Tree select data: group nodes use value=g-<id>, host nodes use value=<id>
+// Multi-level group tree: groups nest by parent_id, hosts attach to their group node (ungrouped hosts attach to root)
 const buildTree = (hosts, groups, leafOf) => {
   const byId = new Map(groups.map(g => [g.id, { value: `g-${g.id}`, label: g.name, children: [] }]))
   const roots = []
@@ -119,7 +119,7 @@ const buildTree = (hosts, groups, leafOf) => {
 
 const treeData = computed(() => buildTree(hosts.value, groups.value, h => ({ value: h.id, label: `${h.name} · ${h.ip}` })))
 
-// 展开选择：分组节点映射为其下主机 ID
+// Expand selection: map group nodes to the host IDs beneath them
 const resolveSelected = () => {
   const ids = new Set()
   const descendants = gid => {
@@ -230,6 +230,6 @@ const run = async () => {
     taskFailed.value = false
     liveResults.value = []
     await ensureWS()
-  } catch { /* 拦截等错误由拦截器提示 */ }
+  } catch { /* interception and other errors are surfaced by the interceptor */ }
 }
 </script>

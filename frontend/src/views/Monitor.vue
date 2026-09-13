@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
@@ -6,7 +6,7 @@
       <el-button size="small" type="warning" plain @click="$router.push('/screen')">{{ $t('monitor.bigScreen') }} →</el-button>
     </div>
     <el-tabs v-model="activeTab">
-      <!-- Tab 1: CMD 监控（CPU / 内存 / 磁盘） -->
+      <!-- Tab 1: CMD monitoring (CPU / memory / disk) -->
       <el-tab-pane :label="$t('monitor.tabCmd')" name="cmd">
         <el-card>
           <template #header>
@@ -57,7 +57,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 2: 应用监控 -->
+      <!-- Tab 2: application monitoring -->
       <el-tab-pane :label="$t('monitor.tabApp')" name="app">
         <el-card>
           <template #header>
@@ -118,7 +118,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 3: Alert 配置（通知通道） -->
+      <!-- Tab 3: alert settings (notification channels) -->
       <el-tab-pane :label="$t('monitor.tabAlert')" name="alert">
         <el-card>
           <template #header>
@@ -157,7 +157,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 4: 报警规则（全局） -->
+      <!-- Tab 4: alert rules (global) -->
       <el-tab-pane :label="$t('monitor.tabRules')" name="rules">
         <el-card>
           <template #header>
@@ -225,7 +225,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab: 维护窗口（全局，日历选择） -->
+      <!-- Tab: maintenance windows (global, calendar date range) -->
       <el-tab-pane :label="$t('monitor.tabMaint')" name="maint">
         <el-card>
           <template #header>
@@ -286,7 +286,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 5: 模板设置（左列表 + 右编辑） -->
+      <!-- Tab 5: template settings (list on the left, editor on the right) -->
       <el-tab-pane :label="$t('monitor.tabTpl')" name="templates">
         <el-card>
           <template #header>
@@ -326,7 +326,7 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- Tab 7: 运维月报 -->
+      <!-- Tab 7: monthly ops report -->
       <el-tab-pane :label="$t('mreport.tab')" name="report">
         <el-card>
           <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px">
@@ -469,7 +469,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 主机资源趋势 -->
+    <!-- Host resource trends -->
     <el-drawer v-model="trendVisible" :title="`${trendHost?.name} — ${$t('monitor.trend')}`" size="640px">
       <div style="display:flex; gap:6px; margin-bottom:14px">
         <el-radio-group v-model="trendHours" size="small" @change="loadTrend">
@@ -489,7 +489,7 @@
       </div>
     </el-drawer>
 
-    <!-- 新建/编辑监控项 -->
+    <!-- Create / edit monitor -->
     <el-dialog v-model="dlgVisible" :title="form.id ? $t('monitor.editMon') : $t('monitor.addMon')" width="520px">
       <el-form label-width="120px">
         <el-form-item :label="$t('monitor.monName')"><el-input v-model="form.name" /></el-form-item>
@@ -541,7 +541,7 @@
       </template>
     </el-dialog>
 
-    <!-- 模板模拟发送预览 -->
+    <!-- Template sample-send preview -->
     <el-dialog v-model="previewVisible" :title="$t('monitor.tplPreviewTitle')" width="560px">
       <div style="color:#909399; font-size:12px; margin-bottom:10px">{{ $t('monitor.tplPreviewNote') }}</div>
       <el-descriptions :column="1" border size="small">
@@ -552,7 +552,7 @@
       </el-descriptions>
     </el-dialog>
 
-    <!-- 新建/编辑通知通道 -->
+    <!-- Create / edit notification channel -->
     <el-dialog v-model="chDlgVisible" :title="chForm.id ? $t('monitor.chEdit') : $t('monitor.chAdd')" width="520px">
       <el-form label-width="120px">
         <el-form-item :label="$t('monitor.monName')"><el-input v-model="chForm.name" /></el-form-item>
@@ -677,7 +677,7 @@ const load = async () => {
 }
 const loadChannels = async () => { channels.value = await api.get('/alert_channels') }
 
-// ---- 主机趋势 ----
+// ---- Host trends ----
 const trendVisible = ref(false)
 const trendHost = ref(null)
 const trendRows = ref([])
@@ -702,7 +702,7 @@ const openHostTrend = async row => {
   trendVisible.value = true
 }
 
-// ---- 监控项 CRUD ----
+// ---- Monitor CRUD ----
 const openDlg = (m, channelIds) => {
   Object.assign(form, m || {}, {
     type: m?.type || 'http', method: m?.method || 'GET',
@@ -736,7 +736,7 @@ const testNow = async row => {
   load()
 }
 
-// ---- 模板模拟发送预览 ----
+// ---- Template sample-send preview ----
 const sampleVars = {
   level: 'P2', host: 'demo-01', ip: '10.0.0.8',
   metric: 'CPU', value: '91.5', threshold: '90',
@@ -777,8 +777,8 @@ const previewSection = key => {
   previewVisible.value = true
 }
 
-// ---- 全局默认模板 ----
-// 邮件专用模板的建议内容跟随界面语言
+// ---- Global default templates ----
+// Suggested email template content follows the UI language
 const EMAIL_DFT = {
   'zh-CN': {
     title: 'JNexus 告警通知 - {host}',
@@ -807,7 +807,7 @@ const EMAIL_DFT = {
 }
 const tplForm = reactive({})
 const tplSaving = ref(false)
-// 空字段按当前界面语言预填充建议内容
+// Prefill empty fields with suggested content for the current UI language
 const prefillEmailTpl = () => {
   const dft = EMAIL_DFT[i18n.global.locale.value] || EMAIL_DFT['en-US']
   if (!tplForm.email_title) tplForm.email_title = dft.title
@@ -817,7 +817,7 @@ const loadAlertTemplates = async () => {
   Object.assign(tplForm, await api.get('/alert_rules/templates'))
   prefillEmailTpl()
 }
-// 切换界面语言时，未被用户修改过的预填内容跟随切换
+// When the UI language changes, unmodified prefilled content follows the switch
 watch(() => i18n.global.locale.value, () => {
   const loc = i18n.global.locale.value
   const other = loc === 'zh-CN' ? 'en-US' : 'zh-CN'
@@ -834,7 +834,7 @@ const saveAlertTemplates = async () => {
   } finally { tplSaving.value = false }
 }
 
-// ---- 全局维护窗口（日历日期范围） ----
+// ---- Global maintenance windows (calendar date ranges) ----
 const maintWins = ref([])
 const maintSaving = ref(false)
 const maintAudit = ref([])
@@ -859,7 +859,7 @@ const saveMaintWindows = async () => {
     ElMessage.warning(t('monitor.maintEmptyWarning'))
     return
   }
-  // 按类型校验：单次需日期范围，每周需生效星期
+  // Validate by type: one-off windows need a date range, weekly windows need weekdays
   for (const w of maintWins.value) {
     if (w.type === 'once' && !(Array.isArray(w.dates) && w.dates[0] && w.dates[1])) {
       ElMessage.warning(t('monitor.maintFillDates'))
@@ -892,7 +892,7 @@ const loadMaintAudit = async () => {
   } finally { maintAuditLoading.value = false }
 }
 
-// ---- CMD 分级阈值 ----
+// ---- CMD tiered thresholds ----
 const cmdLevels = ref([])
 const cmdSaving = ref(false)
 const loadCmdLevels = async () => { cmdLevels.value = await api.get('/alert_rules/cmd') }
@@ -904,7 +904,7 @@ const saveCmdLevels = async () => {
   } finally { cmdSaving.value = false }
 }
 
-// ---- 报警规则（全局） ----
+// ---- Alert rules (global) ----
 const alertRule = reactive({ mode: 'grace', grace_sec: 60, notify_recovery: true })
 const ruleSaving = ref(false)
 const loadAlertRule = async () => {
@@ -924,8 +924,8 @@ const downFor = since => {
   return Math.floor(sec / 60) + 'm' + String(sec % 60).padStart(2, '0') + 's'
 }
 
-// ---- 通知通道 ----
-const onChTypeChange = () => { /* 切换类型时保留已填值由用户自行修改 */ }
+// ---- Notification channels ----
+const onChTypeChange = () => { /* keep entered values on type change; users adjust them as needed */ }
 const openChDlg = ch => {
   let cfg = {}
   try { cfg = JSON.parse(ch?.config || '{}') } catch { /* ignore */ }
@@ -963,7 +963,7 @@ const testChannel = async ch => {
   try {
     await api.post(`/alert_channels/${ch.id}/test`)
     ElMessage.success(t('monitor.chTestOk'))
-  } catch { /* 错误提示由拦截器展示 */ }
+  } catch { /* error toast shown by the interceptor */ }
 }
 
 onMounted(() => {
@@ -975,7 +975,7 @@ onMounted(() => {
   loadMaintAudit()
   timer = setInterval(load, 30000)
 })
-// ---- 运维月报 ----
+// ---- Monthly ops report ----
 const repMonth = ref(new Date().toISOString().slice(0, 7))
 const rep = ref(null)
 const repLoading = ref(false)
@@ -995,7 +995,7 @@ const capDaysText = d => {
   return d < 60 ? `~${Math.round(d)} ${i18n.global.t('k8s.capDays')}` : `~${(d / 30).toFixed(1)} ${i18n.global.t('k8s.capMonths')}`
 }
 const capDaysColor = d => (d == null ? '#67c23a' : d < 90 ? '#f56c6c' : d < 180 ? '#e6a23c' : '#67c23a')
-// 容量风险红绿灯合并视图（主机 + K8S 集群）
+// Combined capacity-risk traffic-light view (hosts + K8s clusters)
 const capRiskRows = computed(() => {
   const out = []
   for (const h of rep.value?.hosts || []) {
@@ -1076,7 +1076,7 @@ onUnmounted(() => clearInterval(timer))
 .stat { width: 62px; }
 .stat-val { font-weight: 600; }
 .stat-lbl { font-size: 11px; color: #909399; }
-/** 模板设置左侧条目 */
+/** Template settings left-side items */
 .tpl-item {
   padding: 10px 14px; cursor: pointer; border-radius: 4px; font-size: 14px;
   border: 1px solid transparent;
@@ -1090,7 +1090,7 @@ onUnmounted(() => clearInterval(timer))
 </style>
 
 <style>
-/* ---- 运维月报排版（跟随深浅色主题；打印时强制浅色） ---- */
+/* ---- Monthly ops report layout (follows light/dark theme; forced light when printing) ---- */
 #monthly-report {
   max-width: 980px; margin: 0 auto; background: var(--el-bg-color);
   padding: 36px 48px 40px; box-shadow: var(--el-box-shadow-light);

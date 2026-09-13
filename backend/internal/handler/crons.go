@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -83,11 +83,11 @@ func (r *cronJobReq) toJob(j *model.CronJob) error {
 	return nil
 }
 
-// ListCrons 计划任务列表（含下次/上次运行）
+// ListCrons lists scheduled jobs (with next/last run)
 func ListCrons(c *gin.Context) {
 	var jobs []model.CronJob
 	model.DB.Order("id DESC").Find(&jobs)
-	// 修正过期的下次运行时间展示
+	// Fix up stale next-run display times
 	now := time.Now()
 	out := make([]gin.H, 0, len(jobs))
 	for _, j := range jobs {
@@ -177,7 +177,7 @@ func DeleteCron(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ToggleCron 启用/禁用（禁用时清除下次运行时间）
+// ToggleCron enables/disables a job (clears next run time when disabled)
 func ToggleCron(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var job model.CronJob
@@ -198,7 +198,7 @@ func ToggleCron(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "enabled": enabled})
 }
 
-// RunCronNow 立即执行一次
+// RunCronNow runs the job once immediately
 func RunCronNow(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var job model.CronJob
@@ -242,7 +242,7 @@ func RunCronNow(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
 }
 
-// CronHistory 某计划任务的执行历史
+// CronHistory execution history of a scheduled job
 func CronHistory(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var tasks []model.Task

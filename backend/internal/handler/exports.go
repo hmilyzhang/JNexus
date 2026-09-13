@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -14,7 +14,7 @@ import (
 	"jnexus/internal/model"
 )
 
-// ExportTask 任务输出汇总导出：?format=log（汇总日志）| csv（表格）
+// ExportTask exports a task's aggregated output: ?format=log (summary log) | csv (table)
 func ExportTask(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	u := currentUser(c)
@@ -23,7 +23,7 @@ func ExportTask(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "任务不存在"})
 		return
 	}
-	// 范围：非管理员/审计员只能导出本人任务
+	// Scope: non-admin/auditor users can only export their own tasks
 	if !u.IsAdmin() && u.Role != model.RoleAuditor && task.Operator != u.Username {
 		c.JSON(http.StatusForbidden, gin.H{"error": "只能导出本人发起的任务"})
 		return
@@ -56,7 +56,7 @@ func ExportTask(c *gin.Context) {
 		return
 	}
 
-	// 汇总日志
+	// Summary log
 	var sb strings.Builder
 	okCnt, failCnt, runCnt := 0, 0, 0
 	for _, r := range results {

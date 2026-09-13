@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -7,9 +7,9 @@ import (
 	"jnexus/internal/model"
 )
 
-// UsableCredentials 用户在某主机上可用的 OS 账号列表：
-// 拥有主机级访问权限（个人授权/用户组关联主机）→ 该主机全部凭据；
-// 否则仅限通过用户组直接关联的凭据
+// UsableCredentials list of OS accounts usable by the user on a given host:
+// with host-level access (personal grant / user-group linked hosts) → all credentials of that host;
+// otherwise only credentials directly linked via user groups
 func UsableCredentials(user *model.User, host *model.Host) []model.HostCredential {
 	var creds []model.HostCredential
 	model.DB.Where("host_id = ?", host.ID).Order("is_default DESC, id ASC").Find(&creds)
@@ -19,7 +19,7 @@ func UsableCredentials(user *model.User, host *model.Host) []model.HostCredentia
 	if user.IsAdmin() || CanExecHost(user, host.ID, host.GroupID) {
 		return creds
 	}
-	// 用户组授权：直接关联的凭据 + 账号规则（主机分组范围 × 账号名）
+	// User group grants: directly linked credentials + account rules (host group scope × account name)
 	var linkedIDs []uint
 	model.DB.Table("user_group_credentials ugc").
 		Joins("JOIN user_group_members ugm ON ugm.user_group_id = ugc.user_group_id").
@@ -30,7 +30,7 @@ func UsableCredentials(user *model.User, host *model.Host) []model.HostCredentia
 		idSet[id] = true
 	}
 
-	// 用户所在组的账号规则
+	// Account rules of the user's groups
 	type credRule struct {
 		HostGroupID *uint
 		Username    string
@@ -42,7 +42,7 @@ func UsableCredentials(user *model.User, host *model.Host) []model.HostCredentia
 		Where("ugm.user_id = ?", user.ID).
 		Scan(&rules)
 
-	// 主机所在分组的祖先链：规则命中任一祖先分组即生效（多级级联）
+	// Ancestor chain of the host's group: a rule matching any ancestor group applies (multi-level cascade)
 	var ancestorSet map[uint]bool
 	if host.GroupID != nil {
 		ancestorSet = map[uint]bool{}
@@ -70,9 +70,9 @@ func UsableCredentials(user *model.User, host *model.Host) []model.HostCredentia
 	return usable
 }
 
-// UsableCredentialsAll 批量版 UsableCredentials：一次预取全部凭据与授权关系，
-// 供 400+ 主机规模的列表接口使用（原逐主机版本每台 1-4 条查询，400 台 = 400-1600 条 SQL）。
-// 返回 host_id -> 可用凭据列表。
+// UsableCredentialsAll batch version of UsableCredentials: prefetches all credentials and grant relations at once,
+// for list endpoints at 400+ host scale (the per-host version ran 1-4 queries per host; 400 hosts = 400-1600 SQL queries).
+// Returns host_id -> list of usable credentials.
 func UsableCredentialsAll(user *model.User, hosts []model.Host) map[uint][]model.HostCredential {
 	out := make(map[uint][]model.HostCredential, len(hosts))
 
@@ -91,7 +91,7 @@ func UsableCredentialsAll(user *model.User, hosts []model.Host) map[uint][]model
 
 	execOK := user.Role == model.RoleOps || user.Role == model.RolePublisher
 
-	// 个人主机分组授权（祖先分组级联，can_exec）
+	// Personal host group grants (ancestor group cascade, can_exec)
 	var personal []struct {
 		GroupID uint
 		CanExec bool
@@ -104,7 +104,7 @@ func UsableCredentialsAll(user *model.User, hosts []model.Host) map[uint][]model
 			personalSet[r.GroupID] = true
 		}
 	}
-	// 用户组直接关联主机
+	// Hosts directly linked by user groups
 	var ugHostIDs []uint
 	model.DB.Table("user_group_hosts ug_h").
 		Joins("JOIN user_group_members ug_m ON ug_m.user_group_id = ug_h.user_group_id").
@@ -113,7 +113,7 @@ func UsableCredentialsAll(user *model.User, hosts []model.Host) map[uint][]model
 	for _, id := range ugHostIDs {
 		ugHostSet[id] = true
 	}
-	// 用户组关联主机分组
+	// Host groups linked by user groups
 	var ugGroupIDs []uint
 	model.DB.Table("user_group_host_groups ug_g").
 		Joins("JOIN user_group_members ug_m ON ug_m.user_group_id = ug_g.user_group_id").
@@ -122,7 +122,7 @@ func UsableCredentialsAll(user *model.User, hosts []model.Host) map[uint][]model
 	for _, id := range ugGroupIDs {
 		ugGroupSet[id] = true
 	}
-	// 用户组直接关联凭据
+	// Credentials directly linked by user groups
 	var linkedIDs []uint
 	model.DB.Table("user_group_credentials ugc").
 		Joins("JOIN user_group_members ugm ON ugm.user_group_id = ugc.user_group_id").
@@ -131,7 +131,7 @@ func UsableCredentialsAll(user *model.User, hosts []model.Host) map[uint][]model
 	for _, id := range linkedIDs {
 		linkedSet[id] = true
 	}
-	// 用户组账号规则（主机分组范围 × 账号名）
+	// User group account rules (host group scope × account name)
 	type credRule struct {
 		HostGroupID *uint
 		Username    string
@@ -141,7 +141,7 @@ func UsableCredentialsAll(user *model.User, hosts []model.Host) map[uint][]model
 		Joins("JOIN user_group_members ugm ON ugm.user_group_id = ugr.user_group_id").
 		Select("ugr.host_group_id, ugr.username").
 		Where("ugm.user_id = ?", user.ID).Scan(&rules)
-	// 全部分组：内存计算祖先链（避免逐主机查库）
+	// All groups: compute ancestor chains in memory (avoids per-host DB queries)
 	var groups []model.HostGroup
 	model.DB.Find(&groups)
 	parent := map[uint]*uint{}
@@ -218,8 +218,8 @@ func UsableCredentialsAll(user *model.User, hosts []model.Host) map[uint][]model
 	return out
 }
 
-// ResolveCredential 为用户解析主机上要使用的 OS 账号：
-// 显式指定 credential_id 时必须可用；否则取默认可用账号
+// ResolveCredential resolves the OS account to use on a host for the user:
+// an explicit credential_id must be usable; otherwise the default usable account is picked
 func ResolveCredential(user *model.User, host *model.Host, explicitID *uint) (*model.HostCredential, error) {
 	usable := UsableCredentials(user, host)
 	if len(usable) == 0 {
@@ -231,7 +231,7 @@ func ResolveCredential(user *model.User, host *model.Host, explicitID *uint) (*m
 				return &usable[i], nil
 			}
 		}
-		// 显式指定的凭据不在可用列表：可能存在但无权
+		// Explicit credential is not in the usable list: it may exist but the user has no access
 		var cnt int64
 		model.DB.Model(&model.HostCredential{}).Where("id = ? AND host_id = ?", *explicitID, host.ID).Count(&cnt)
 		if cnt > 0 {
@@ -239,5 +239,5 @@ func ResolveCredential(user *model.User, host *model.Host, explicitID *uint) (*m
 		}
 		return nil, fmt.Errorf("OS 账号不存在或不属于该主机")
 	}
-	return &usable[0], nil // 默认账号优先（is_default DESC, id ASC）
+	return &usable[0], nil // default account first (is_default DESC, id ASC)
 }

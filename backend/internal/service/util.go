@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package service
 
@@ -17,13 +17,13 @@ import (
 
 var httpTimeoutClient = &http.Client{Timeout: 10 * time.Second}
 
-// LocalUploadPath 服务端暂存文件路径
+// LocalUploadPath returns the server-side staging file path
 func LocalUploadPath(name string) string {
-	// name 只取文件名，防路径穿越
+	// keep only the file name from name to prevent path traversal
 	return filepath.Join(config.Cfg.Storage.UploadDir, filepath.Base(name))
 }
 
-// uploadViaSSH 在已建立的 SSH 连接上通过 SFTP 上传文件
+// uploadViaSSH uploads a file over an established SSH connection via SFTP
 func uploadViaSSH(cli *gossh.Client, localPath, remoteDir, remoteName string) error {
 	scli, err := sftp.NewClient(cli)
 	if err != nil {
@@ -49,7 +49,7 @@ func uploadViaSSH(cli *gossh.Client, localPath, remoteDir, remoteName string) er
 	return nil
 }
 
-// FormatOutput 截断过长输出
+// FormatOutput truncates overly long output
 func FormatOutput(s string, max int) string {
 	if len(s) > max {
 		return s[:max] + fmt.Sprintf("\n...(输出过长，已截断，共 %d 字节)", len(s))

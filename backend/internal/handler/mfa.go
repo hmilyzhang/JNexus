@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -14,13 +14,13 @@ import (
 	"jnexus/internal/pkg"
 )
 
-// MFAStatus 当前账号 MFA 状态
+// MFAStatus returns the current account's MFA status
 func MFAStatus(c *gin.Context) {
 	u := currentUser(c)
 	c.JSON(http.StatusOK, gin.H{"enabled": u.MFAEnabled})
 }
 
-// MFASetup 生成 TOTP 密钥（待确认状态），返回密钥/otpauth 地址/二维码
+// MFASetup generates a TOTP secret (pending confirmation) and returns the secret/otpauth URL/QR code
 func MFASetup(c *gin.Context) {
 	u := currentUser(c)
 	if u.MFAEnabled {
@@ -54,7 +54,7 @@ func MFASetup(c *gin.Context) {
 	})
 }
 
-// MFAEnable 校验动态码后正式开启 MFA
+// MFAEnable verifies the one-time code and then enables MFA
 func MFAEnable(c *gin.Context) {
 	u := currentUser(c)
 	if u.MFAEnabled {
@@ -80,7 +80,7 @@ func MFAEnable(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// MFADisable 关闭 MFA（需当前动态码）
+// MFADisable disables MFA (requires the current one-time code)
 func MFADisable(c *gin.Context) {
 	u := currentUser(c)
 	if !u.MFAEnabled {
@@ -106,7 +106,7 @@ func MFADisable(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// AdminResetUserMFA 管理员重置用户 MFA（用户丢失验证器时解绑）
+// AdminResetUserMFA lets an admin reset a user's MFA (unbind when the user loses their authenticator)
 func AdminResetUserMFA(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var u model.User

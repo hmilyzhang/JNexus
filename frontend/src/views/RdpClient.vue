@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div class="rdp-page">
     <div class="rdp-bar">
@@ -28,13 +28,13 @@ let tunnel = null
 const setStatus = s => { status.value = s }
 
 const connect = () => {
-  // 网关地址兜底：后端默认回 localhost，远程访问时替换为当前页面主机名
+  // Gateway address fallback: backend defaults to localhost; replace it with the current page hostname for remote access
   let gw = route.query.gw || `ws://${location.hostname}:4823`
   try {
     const u = new URL(gw.replace(/^ws/, 'http'))
     if (['localhost', '127.0.0.1'].includes(u.hostname)) u.hostname = location.hostname
     gw = u.href.replace(/^http/, 'ws').replace(/\/$/, '')
-  } catch { /* 保持原值 */ }
+  } catch { /* keep the original value */ }
   const q = route.query.q || ''
   if (!q) { setStatus('missing query'); return }
 
@@ -50,9 +50,9 @@ const connect = () => {
     if (s === Guacamole.Tunnel.State.OPEN) setStatus('connected')
     else if (s === Guacamole.Tunnel.State.CLOSED) setStatus('closed')
   }
-  client.onsync = () => { /* 帧同步 */ }
+  client.onsync = () => { /* frame sync */ }
 
-  // 鼠标 / 键盘 / 剪贴板
+  // Mouse / keyboard / clipboard
   const mouse = new Guacamole.Mouse(client.getDisplay().getElement())
   mouse.onmousedown = mouse.onmouseup = mouse.onmousemove = m => client.sendMouseState(m)
   const keyboard = new Guacamole.Keyboard(window)

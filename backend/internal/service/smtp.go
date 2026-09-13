@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -9,18 +9,18 @@ import (
 	"strings"
 )
 
-// SMTPSettings 邮件服务器设置
+// SMTPSettings holds mail server settings
 type SMTPSettings struct {
 	Enabled    bool
 	Host       string
 	Port       int
-	SSL        bool // 直连 TLS (465)
+	SSL        bool // implicit TLS (465)
 	StartTLS   bool // STARTTLS (587/25)
 	Username   string
 	Password   string
 	From       string
 	Recipients []string
-	Notify     bool // 任务结束后发送通知
+	Notify     bool // send notification after a task finishes
 }
 
 func LoadSMTPSettings() SMTPSettings {
@@ -47,7 +47,7 @@ func LoadSMTPSettings() SMTPSettings {
 	return s
 }
 
-// SendMail 通过 SMTP 发送邮件（支持 SSL / STARTTLS / 认证）
+// SendMail sends an email via SMTP (supports SSL / STARTTLS / auth)
 func SendMail(s SMTPSettings, to []string, subject, htmlBody string) error {
 	if s.Host == "" || len(to) == 0 {
 		return fmt.Errorf("SMTP 未配置完整")
@@ -57,7 +57,7 @@ func SendMail(s SMTPSettings, to []string, subject, htmlBody string) error {
 		from = s.Username
 	}
 
-	// 主题 UTF-8 Base64 编码，避免中文乱码
+	// encode the subject as UTF-8 Base64 to avoid garbled non-ASCII text
 	encSubject := "=?UTF-8?B?" + base64.StdEncoding.EncodeToString([]byte(subject)) + "?="
 	msg := strings.Join([]string{
 		"From: " + from,

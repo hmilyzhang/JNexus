@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package config
 
@@ -20,7 +20,7 @@ type Config struct {
 	} `yaml:"database"`
 	Auth struct {
 		JWTSecret string `yaml:"jwt_secret"`
-		// 32 字节 base64 编码的主密钥，用于加密落库的 SSH 私钥
+		// 32-byte base64-encoded master key used to encrypt SSH private keys stored in the DB
 		AESKey string `yaml:"aes_key"`
 	} `yaml:"auth"`
 	Storage struct {
@@ -33,7 +33,7 @@ var Cfg Config
 func Load(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		// 容器部署可不带配置文件：环境变量提供数据库连接即可启动
+		// Container deployments may omit the config file: a DB connection via env vars is enough to start
 		if os.IsNotExist(err) && (os.Getenv("JNEXUS_DSN") != "" || os.Getenv("JNEXUS_DB_HOST") != "") {
 			data = nil
 		} else {
@@ -45,12 +45,12 @@ func Load(path string) error {
 			return fmt.Errorf("解析配置文件失败: %w", err)
 		}
 	}
-	// 环境变量覆盖
+	// Environment variable overrides
 	if v := os.Getenv("JNEXUS_DSN"); v != "" {
 		Cfg.Database.DSN = v
 	}
-	// 外部数据库分项配置：JNEXUS_DB_HOST/PORT/USER/PASSWORD/NAME
-	// 设置了 JNEXUS_DB_HOST 且未显式给 DSN 时，自动拼装 DSN
+	// External database individual settings: JNEXUS_DB_HOST/PORT/USER/PASSWORD/NAME
+	// If JNEXUS_DB_HOST is set and no explicit DSN given, assemble the DSN automatically
 	if Cfg.Database.DSN == "" && os.Getenv("JNEXUS_DB_HOST") != "" {
 		host := os.Getenv("JNEXUS_DB_HOST")
 		port := os.Getenv("JNEXUS_DB_PORT")
@@ -81,7 +81,7 @@ func Load(path string) error {
 	return nil
 }
 
-// AESKeyBytes 返回解码后的 32 字节主密钥
+// AESKeyBytes returns the decoded 32-byte master key
 func AESKeyBytes() ([]byte, error) {
 	raw, err := base64.StdEncoding.DecodeString(Cfg.Auth.AESKey)
 	if err != nil {

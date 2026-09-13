@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -11,9 +11,9 @@ import (
 	"jnexus/internal/model"
 )
 
-// K8S 二期能力接口：YAML 查看 / Deployment 伸缩 / 资源使用率 / Helm 发布视图
+// K8S phase 2 capability endpoints: YAML viewer / deployment scaling / resource usage / Helm release view
 
-// K8sResourceYAML 资源 YAML 查看（只读，viewer 即可）
+// K8sResourceYAML views resource YAML (read-only; viewer role is enough)
 func K8sResourceYAML(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -28,7 +28,7 @@ func K8sResourceYAML(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"yaml": yml})
 }
 
-// K8sScaleDeployment Deployment 副本伸缩（user 及以上，留痕）
+// K8sScaleDeployment scales deployment replicas (user role or above; audit-logged)
 func K8sScaleDeployment(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns, name := c.Param("namespace"), c.Param("name")
@@ -59,7 +59,7 @@ func K8sScaleDeployment(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// K8sNodeMetrics 节点资源用量（未装 metrics-server 返回空数组）
+// K8sNodeMetrics returns node resource usage (empty array if metrics-server is not installed)
 func K8sNodeMetrics(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -74,7 +74,7 @@ func K8sNodeMetrics(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sPodMetrics Pod 资源用量（?namespace=）
+// K8sPodMetrics returns pod resource usage (?namespace=)
 func K8sPodMetrics(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -89,7 +89,7 @@ func K8sPodMetrics(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sHelmReleases Helm 发布列表（只读）
+// K8sHelmReleases lists Helm releases (read-only)
 func K8sHelmReleases(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")

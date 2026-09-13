@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package middleware
 
 import (
@@ -9,7 +9,7 @@ import (
 	"jnexus/internal/service"
 )
 
-// RequireCap 统一能力位校验：RequireCap(module, action)
+// RequireCap unified capability check: RequireCap(module, action)
 func RequireCap(module, action string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u := CurrentUser(c)

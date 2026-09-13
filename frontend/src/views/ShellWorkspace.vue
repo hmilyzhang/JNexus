@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <el-row :gutter="12" class="shell-row">
     <el-col :span="6" v-show="!sideCollapsed">
@@ -70,7 +70,7 @@ const sessions = ref([])
 const activeId = ref(null)
 const termEls = {}
 
-// ---- 终端主题（流行配色）与全屏 ----
+// ---- Terminal themes (popular palettes) and fullscreen ----
 const termThemes = {
   '默认 Dark': { background: '#1e1e1e', foreground: '#cccccc', cursor: '#ffffff' },
   'Dracula': { background: '#282a36', foreground: '#f8f8f2', cursor: '#f8f8f0',
@@ -101,7 +101,7 @@ const fullScreen = ref(false)
 const termCardEl = ref(null)
 const toggleFull = () => {
   fullScreen.value = !fullScreen.value
-  // el-card 的 ref 是组件实例，实际 DOM 在 $el；浏览器全屏被拒绝时仍有 term-fullscreen 铺满视口
+  // The el-card ref is a component instance; the actual DOM is on $el. If browser fullscreen is denied, term-fullscreen still fills the viewport
   const root = termCardEl.value?.$el || termCardEl.value
   if (fullScreen.value && root?.requestFullscreen) {
     root.requestFullscreen().catch(() => {})
@@ -110,14 +110,14 @@ const toggleFull = () => {
   }
   setTimeout(() => sessions.value.forEach(sx => { if (sx.fit) sx.fit.fit() }), 150)
 }
-// ESC 退出浏览器全屏时同步按钮状态
+// Sync button state when ESC exits browser fullscreen
 const onFsChange = () => { if (!document.fullscreenElement) fullScreen.value = false }
 onMounted(() => document.addEventListener('fullscreenchange', onFsChange))
 onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFsChange))
 let seq = 0
 const encoder = new TextEncoder()
 
-// 多级分组树：分组按 parent_id 嵌套，主机挂到所在分组，OS 账号挂到主机下
+// Multi-level group tree: groups nest by parent_id, hosts attach to their group, OS accounts attach under hosts
 const treeData = computed(() => {
   const groups = hostGroups.value
   const byId = new Map(groups.map(g => [g.id, { key: `g-${g.id}`, type: 'group', label: g.name, children: [] }]))
@@ -129,7 +129,7 @@ const treeData = computed(() => {
   }
   for (const h of hosts.value) {
     const hostNode = { key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] }
-    // 终端优先密钥登录：仅展示密钥类型的可用账号；主机无密钥账号时回退展示全部
+    // Prefer key-based login: show only key-type usable accounts; fall back to all accounts when the host has none
     let creds = (usableCreds.value || []).filter(c => c.host_id === h.id && c.auth_type === 'key')
     if (!creds.length) creds = (usableCreds.value || []).filter(c => c.host_id === h.id)
     for (const c of creds) {
@@ -162,7 +162,7 @@ const loadHosts = async () => {
 
 onMounted(async () => {
   await loadHosts()
-  // 支持 /shell?host=ID 直接打开指定主机终端
+  // Support /shell?host=ID to open a terminal for the given host directly
   const q = Number(route.query.host)
   const qc = Number(route.query.credential_id)
   if (q) {

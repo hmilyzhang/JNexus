@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -15,7 +15,7 @@ import (
 	"jnexus/internal/pkg"
 )
 
-// chpasswd 安全字符集：不含单引号/反斜杠/$ 等 shell 敏感字符
+// chpasswd safe character set: excludes shell-sensitive characters such as single quotes, backslashes, and $
 const (
 	pwdUpper = "ABCDEFGHJKLMNPQRSTUVWXYZ"
 	pwdLower = "abcdefghijkmnopqrstuvwxyz"
@@ -23,19 +23,19 @@ const (
 	pwdSpec  = "#@%+_=."
 )
 
-// RotationPolicy 密码轮换策略（系统配置）
+// RotationPolicy is the password rotation policy (system config)
 type RotationPolicy struct {
 	Length     int
-	Complexity string // high: 大小写+数字+特殊字符；medium: 字母+数字；low: 小写+数字
-	Days       int    // 默认轮换周期（天）
+	Complexity string // high: upper+lower+digits+special; medium: letters+digits; low: lowercase+digits
+	Days       int    // default rotation period in days
 }
 
-// GetRotationEnabled 全局密码轮换开关
+// GetRotationEnabled returns the global password rotation switch
 func GetRotationEnabled() bool {
 	return SystemConfigMap()["rotation_enabled"] == "true"
 }
 
-// GetRotationPolicy 读取轮换策略（含默认值与边界修正）
+// GetRotationPolicy reads the rotation policy (with defaults and boundary corrections)
 func GetRotationPolicy() RotationPolicy {
 	m := SystemConfigMap()
 	p := RotationPolicy{Complexity: "high", Days: 90, Length: 20}
@@ -57,7 +57,7 @@ func GetRotationPolicy() RotationPolicy {
 	return p
 }
 
-// GenerateStrongPassword 按策略生成随机密码（保证每类字符至少一位，避开 shell 敏感字符）
+// GenerateStrongPassword generates a random password per the policy (guarantees at least one char per class, avoids shell-sensitive characters)
 func GenerateStrongPassword(p RotationPolicy) (string, error) {
 	classes := []string{pwdUpper, pwdLower, pwdDigit}
 	switch p.Complexity {
@@ -68,7 +68,7 @@ func GenerateStrongPassword(p RotationPolicy) (string, error) {
 	}
 	all := strings.Join(classes, "")
 	out := make([]byte, 0, p.Length)
-	// 每类至少一位
+	// at least one char per class
 	for _, cls := range classes {
 		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(cls))))
 		if err != nil {
@@ -83,7 +83,7 @@ func GenerateStrongPassword(p RotationPolicy) (string, error) {
 		}
 		out = append(out, all[n.Int64()])
 	}
-	// Fisher-Yates 洗牌
+	// Fisher-Yates shuffle
 	for i := len(out) - 1; i > 0; i-- {
 		n, err := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
 		if err != nil {
@@ -95,7 +95,7 @@ func GenerateStrongPassword(p RotationPolicy) (string, error) {
 	return string(out), nil
 }
 
-// runCapture 执行命令并捕获输出，返回 (输出, 退出码, 错误)
+// runCapture runs a command and captures output, returning (output, exit code, error)
 func runCapture(cli *gossh.Client, cmd string) (string, int, error) {
 	sess, err := cli.NewSession()
 	if err != nil {
@@ -105,7 +105,7 @@ func runCapture(cli *gossh.Client, cmd string) (string, int, error) {
 	out, err := sess.CombinedOutput(cmd)
 	code := 0
 	if err != nil {
-		// 兼容不发送退出码的服务端（ExitMissingError / EOF）：有输出即视为正常结束
+		// tolerate servers that never send an exit code (ExitMissingError / EOF): output present means normal completion
 		var eme *gossh.ExitMissingError
 		if ee, ok := err.(*gossh.ExitError); ok {
 			code = ee.ExitStatus()
@@ -118,9 +118,9 @@ func runCapture(cli *gossh.Client, cmd string) (string, int, error) {
 	return strings.TrimSpace(string(out)), code, nil
 }
 
-// RotateCredentialPassword 轮换单个 OS 账号密码：
-// 本地账号检测 → 生成随机密码 → chpasswd → 新密码加密落库。
-// LDAP/域账号（非 /etc/passwd 本地账号）自动跳过并返回 errLDAPSkip。
+// RotateCredentialPassword rotates a single OS account password:
+// local account detection → generate random password → chpasswd → store the new password encrypted.
+// LDAP/domain accounts (not local /etc/passwd accounts) are skipped automatically with errLDAPSkip.
 func RotateCredentialPassword(host *model.Host, cred *model.HostCredential) (string, error) {
 	if cred.AuthType != "password" || cred.Password == "" {
 		return "", fmt.Errorf("仅密码认证的账号支持轮换")
@@ -149,7 +149,7 @@ func RotateCredentialPassword(host *model.Host, cred *model.HostCredential) (str
 	if err != nil {
 		return "", err
 	}
-	// chpasswd 从 stdin 读取，密码不出现在命令行参数/进程列表中
+	// chpasswd reads from stdin so the password never appears in command-line args / process lists
 	out, code, err := runCapture(cli, fmt.Sprintf("printf '%%s\\n' '%s:%s' | chpasswd", cred.Username, newPwd))
 	if err != nil {
 		return "", fmt.Errorf("执行 chpasswd 失败: %w", err)
@@ -172,7 +172,7 @@ func RotateCredentialPassword(host *model.Host, cred *model.HostCredential) (str
 
 var errLDAPSkip = fmt.Errorf("LDAP/域账号，不执行本地密码轮换")
 
-// ScanDueRotations 到期轮换扫描（调度循环调用；全局开关关闭时不执行）
+// ScanDueRotations scans for due rotations (called by the scheduler loop; no-op when the global switch is off)
 func ScanDueRotations() {
 	defer func() { recover() }()
 	if !GetRotationEnabled() {
@@ -195,7 +195,7 @@ func ScanDueRotations() {
 			continue
 		}
 		go rotateOne(c.ID)
-		time.Sleep(500 * time.Millisecond) // 轻微错峰，避免同时连爆目标机
+		time.Sleep(500 * time.Millisecond) // slight staggering to avoid hammering target hosts simultaneously
 	}
 }
 
@@ -227,7 +227,7 @@ func rotateOne(credID uint) {
 	notifyRotation(cred, result)
 }
 
-// NotifyRotationResult 对外暴露的轮换结果通知（手动轮换也走这里）
+// NotifyRotationResult is the exported rotation result notification (manual rotation also goes through here)
 func NotifyRotationResult(cred model.HostCredential, result string, err error) {
 	if err != nil && result == "" {
 		result = "轮换失败: " + err.Error()

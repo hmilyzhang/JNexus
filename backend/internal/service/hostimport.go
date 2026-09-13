@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package service
 
@@ -15,7 +15,7 @@ import (
 	"jnexus/internal/pkg"
 )
 
-// GenerateKeyPairRaw 生成密钥对并落库，返回（可安装公钥行、密钥记录）
+// GenerateKeyPairRaw generates a key pair, stores it, and returns (installable public key line, key record)
 func GenerateKeyPairRaw(comment string) (string, *model.SSHKey, error) {
 	k, err := GenerateAndStoreKeyPair(fmt.Sprintf("%s-%s", comment, time.Now().Format("20060102150405")), comment)
 	if err != nil {
@@ -24,7 +24,7 @@ func GenerateKeyPairRaw(comment string) (string, *model.SSHKey, error) {
 	return KeyPairPublicLine(k), k, nil
 }
 
-// GenerateAndStoreKeyPair 生成 ed25519 密钥对并加密落库，返回 SSHKey 记录
+// GenerateAndStoreKeyPair generates an ed25519 key pair, encrypts and stores it, and returns the SSHKey record
 func GenerateAndStoreKeyPair(name, comment string) (*model.SSHKey, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -51,9 +51,9 @@ func GenerateAndStoreKeyPair(name, comment string) (*model.SSHKey, error) {
 	return key, nil
 }
 
-// KeyPairPublicLine 返回密钥记录的可安装公钥行（不含注释）
+// KeyPairPublicLine returns the installable public key line of the key record (without comment)
 func KeyPairPublicLine(key *model.SSHKey) string {
-	// PublicKey 存的是 "comment ssh-xxx base64..."，取最后一段类型+数据
+	// PublicKey stores "comment ssh-xxx base64..."; take the last type + data parts
 	pub := key.PublicKey
 	fields := splitFields(pub)
 	if len(fields) >= 2 {
@@ -81,8 +81,8 @@ func splitFields(s string) []string {
 	return out
 }
 
-// InstallPubKeyWithPassword 用账号密码登录目标机，把平台公钥写入 authorized_keys，
-// 之后目标机即可用该密钥免密登录。目标机为 Linux。
+// InstallPubKeyWithPassword logs in to the target machine with username/password and writes the platform public key
+// to authorized_keys, after which the target machine allows passwordless login with this key. The target is Linux.
 func InstallPubKeyWithPassword(ip string, port int, username, password, pubLine string) error {
 	if port == 0 {
 		port = 22
@@ -113,7 +113,7 @@ func InstallPubKeyWithPassword(ip string, port int, username, password, pubLine 
 	return nil
 }
 
-// RunCommandBackground 静默执行命令（不采集输出），返回退出码
+// RunCommandBackground runs the command silently (output not captured) and returns the exit code
 func RunCommandBackground(cli *gossh.Client, cmd string) (int, error) {
 	sess, err := cli.NewSession()
 	if err != nil {

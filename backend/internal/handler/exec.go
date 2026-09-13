@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -12,7 +12,7 @@ import (
 	"jnexus/internal/service"
 )
 
-// StartExec 批量执行命令
+// StartExec executes commands in batch
 func StartExec(c *gin.Context) {
 	var req service.ExecRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -32,7 +32,7 @@ func StartExec(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
 }
 
-// ExecScript 从脚本中心发起执行
+// ExecScript starts execution from the script center
 func ExecScript(c *gin.Context) {
 	var req service.ExecRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -60,7 +60,7 @@ func ExecScript(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"task_id": taskID})
 }
 
-// ---- 文件分发 ----
+// ---- File distribution ----
 
 func sanitizeFileName(name string) string {
 	name = strings.ReplaceAll(name, "\\", "/")

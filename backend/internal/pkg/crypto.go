@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package pkg
 
@@ -13,7 +13,7 @@ import (
 	"jnexus/internal/config"
 )
 
-// Encrypt 用主密钥 AES-GCM 加密，返回 base64
+// Encrypt encrypts with the master key using AES-GCM and returns base64
 func Encrypt(plain string) (string, error) {
 	key, err := config.AESKeyBytes()
 	if err != nil {
@@ -35,7 +35,7 @@ func Encrypt(plain string) (string, error) {
 	return base64.StdEncoding.EncodeToString(out), nil
 }
 
-// Decrypt 解密 base64 密文
+// Decrypt decrypts base64 ciphertext
 func Decrypt(cipherB64 string) (string, error) {
 	key, err := config.AESKeyBytes()
 	if err != nil {

@@ -1,6 +1,6 @@
-# 默认：捆绑 PostgreSQL。
-# 使用外部数据库：见 docker-compose.external.yml，或直接设置 JNEXUS_DB_* 环境变量后
-# 运行 `docker compose up -d jnexus`（数据库/表结构由程序启动时自动创建）。
+# Default: bundled PostgreSQL.
+# To use an external database: see docker-compose.external.yml, or set the JNEXUS_DB_* env vars and
+# run `docker compose up -d jnexus` (database/schema are created automatically at startup).
 services:
   postgres:
     image: postgres:16-alpine
@@ -24,20 +24,20 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
       args:
-        # 构建前 export JNEXUS_VERSION="1.$(git rev-list --count HEAD)" 可注入版本号
+        # export JNEXUS_VERSION="1.$(git rev-list --count HEAD)" before building to inject the version
         APP_VERSION: ${JNEXUS_VERSION:-}
     container_name: jnexus-server
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      # 外部数据库只需修改以下变量（或设置 JNEXUS_DSN 使用完整 DSN）
+      # For an external database, just change the variables below (or set JNEXUS_DSN with a full DSN)
       JNEXUS_DB_HOST: ${JNEXUS_DB_HOST:-postgres}
       JNEXUS_DB_PORT: ${JNEXUS_DB_PORT:-5432}
       JNEXUS_DB_USER: ${JNEXUS_DB_USER:-jnexus}
       JNEXUS_DB_PASSWORD: ${JNEXUS_DB_PASSWORD:-jnexus123}
       JNEXUS_DB_NAME: ${JNEXUS_DB_NAME:-jnexus}
-      # JWT/AES 密钥：不设置时由容器入口首次启动自动生成并持久化到 data 卷
+      # JWT/AES secrets: auto-generated and persisted to the data volume by the entrypoint on first start if unset
       JNEXUS_JWT_SECRET: ${JNEXUS_JWT_SECRET:-}
       JNEXUS_AES_KEY: ${JNEXUS_AES_KEY:-}
     ports:
@@ -45,11 +45,11 @@ services:
     volumes:
       - uploads:/app/uploads
       - data:/app/data
-      # 主机自定义 CA 证书目录（可选）：放入 .crt/.pem 文件即被容器信任（LDAPS/HTTPS/K8S 自签证书）
+      # Host custom CA certificate directory (optional): drop in .crt/.pem files to have them trusted (LDAPS/HTTPS/K8s self-signed certs)
       - ./cacerts:/cacerts:ro
     restart: unless-stopped
 
-  # RDP 图形桌面网关：浏览器 ←WS← guacamole-lite ← guacd ← Windows 3389
+  # RDP graphical desktop gateway: browser ←WS← guacamole-lite ← guacd ← Windows 3389
   guacd:
     image: guacamole/guacd:1.6.0
     container_name: jnexus-guacd
@@ -67,7 +67,7 @@ services:
       GUACD_HOST: guacd
       GUACD_PORT: "4822"
       GW_PORT: "4823"
-      # 密钥从共享 data 卷的 gw_secret 文件读取（与 jnexus-server 同卷），无需明文
+      # Secret is read from the gw_secret file on the shared data volume (same volume as jnexus-server), never stored in plaintext
     ports:
       - "4823:4823"
     depends_on:

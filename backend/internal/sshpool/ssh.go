@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package sshpool
 
@@ -18,7 +18,7 @@ import (
 	"jnexus/internal/pkg"
 )
 
-// ClientFor 根据主机记录建立 SSH 连接（使用主机默认凭据；无凭据时回退主机自带账号）
+// ClientFor builds an SSH connection from the host record (uses the host's default credential; falls back to the host's own account when none exists)
 func ClientFor(h *model.Host) (*gossh.Client, error) {
 	var cred model.HostCredential
 	if err := model.DB.Where("host_id = ?", h.ID).Order("is_default DESC, id ASC").First(&cred).Error; err == nil {
@@ -27,7 +27,7 @@ func ClientFor(h *model.Host) (*gossh.Client, error) {
 	return connect(h, h.Username, h.AuthType, h.SSHKeyID, h.Password)
 }
 
-// ClientForCredential 用指定的 OS 账号（凭据）连接主机
+// ClientForCredential connects to the host using the given OS account (credential)
 func ClientForCredential(h *model.Host, cred *model.HostCredential) (*gossh.Client, error) {
 	return connect(h, cred.Username, cred.AuthType, cred.SSHKeyID, cred.Password)
 }
@@ -66,7 +66,7 @@ func connect(h *model.Host, username, authType string, sshKeyID *uint, encPasswo
 	cfg := &gossh.ClientConfig{
 		User:            username,
 		Auth:            []gossh.AuthMethod{auth},
-		HostKeyCallback: gossh.InsecureIgnoreHostKey(), // 内网运维平台，忽略主机指纹校验
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(), // internal ops platform, host key verification skipped
 		Timeout:         10 * time.Second,
 	}
 	addr := fmt.Sprintf("%s:%d", h.IP, port)
@@ -77,10 +77,10 @@ func connect(h *model.Host, username, authType string, sshKeyID *uint, encPasswo
 	return cli, nil
 }
 
-// OutputWriter 命令输出回调
+// OutputWriter callback for command output
 type OutputWriter func(chunk string)
 
-// RunCommand 在主机上执行命令，实时回调输出；返回 exit code
+// RunCommand executes a command on the host with streaming output callbacks; returns the exit code
 func RunCommand(ctx context.Context, cli *gossh.Client, cmd string, timeout time.Duration, onOut OutputWriter) (int, error) {
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
@@ -152,7 +152,7 @@ func copyStream(onOut OutputWriter, r io.Reader) {
 	}
 }
 
-// Probe TCP 探测端口
+// Probe TCP port check
 func Probe(ip string, port int, timeout time.Duration) error {
 	if port == 0 {
 		port = 22
@@ -165,7 +165,7 @@ func Probe(ip string, port int, timeout time.Duration) error {
 	return nil
 }
 
-// ParsePrivateKeyFile 读取私钥文件并返回 PEM 内容与公钥字符串
+// ParsePrivateKeyFile reads a private key file and returns the PEM content and public key string
 func ParsePrivateKeyFile(path string) (privPEM, pubSSH string, err error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -174,12 +174,12 @@ func ParsePrivateKeyFile(path string) (privPEM, pubSSH string, err error) {
 	privPEM = string(data)
 	signer, err := gossh.ParsePrivateKey(data)
 	if err != nil {
-		// 可能是加密私钥，返回 PEM 让用户自行处理
+		// possibly an encrypted key; return the PEM and let the user handle it
 		return privPEM, "", nil
 	}
 	pubSSH = strings.TrimSpace(string(gossh.MarshalAuthorizedKey(signer.PublicKey())))
 	return privPEM, pubSSH, nil
 }
 
-// B64 帮助函数（保留给扩展使用）
+// B64 helper (kept for future extensions)
 func B64(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }

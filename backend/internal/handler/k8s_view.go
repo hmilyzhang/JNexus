@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// K8S 管理页只读视图接口（viewer 权限即可）
+// K8S management page read-only view endpoints (viewer permission is enough)
 
-// K8sSummary 集群概览统计
+// K8sSummary returns cluster overview stats
 func K8sSummary(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	cl, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -25,7 +25,7 @@ func K8sSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"cluster": cl.Name, "summary": s})
 }
 
-// K8sDaemonSets DaemonSet 列表
+// K8sDaemonSets lists DaemonSets
 func K8sDaemonSets(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -40,7 +40,7 @@ func K8sDaemonSets(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sStatefulSets StatefulSet 列表
+// K8sStatefulSets lists StatefulSets
 func K8sStatefulSets(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -55,7 +55,7 @@ func K8sStatefulSets(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sJobs Job 列表
+// K8sJobs lists Jobs
 func K8sJobs(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -70,7 +70,7 @@ func K8sJobs(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sServices Service 列表
+// K8sServices lists Services
 func K8sServices(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -85,7 +85,7 @@ func K8sServices(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sIngresses Ingress 列表
+// K8sIngresses lists Ingresses
 func K8sIngresses(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -100,7 +100,7 @@ func K8sIngresses(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sPVCs PVC 列表
+// K8sPVCs lists PVCs
 func K8sPVCs(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -115,7 +115,7 @@ func K8sPVCs(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sPVs PV 列表
+// K8sPVs lists PVs
 func K8sPVs(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -130,7 +130,7 @@ func K8sPVs(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// K8sStorageClasses StorageClass 列表
+// K8sStorageClasses lists StorageClasses
 func K8sStorageClasses(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")

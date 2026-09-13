@@ -1,21 +1,21 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
 	"jnexus/internal/model"
 )
 
-// 能力位统一权限模型：
-// 每个模块在 ModuleCapabilities 注册自己支持的操作，路由用 RequireCap(module, action) 校验，
-// 角色配置用 Perms[module] = [action...] 表达授权。菜单 key 与模块 key 同源，保证菜单与 API 一致。
+// Unified capability-bit permission model:
+// each module registers its supported actions in ModuleCapabilities, routes check via RequireCap(module, action),
+// and role config expresses grants as Perms[module] = [action...]. Menu keys share the module keys, keeping menus and APIs consistent.
 
-// CapModule 前端角色设置矩阵所需的模块/操作声明
+// CapModule module/action declaration for the frontend role settings matrix
 type CapModule struct {
 	Key     string   `json:"key"`
 	Actions []string `json:"actions"`
 }
 
-// ModuleCapabilities 全部模块能力注册表（新增模块在此加一行）
+// ModuleCapabilities registry of all module capabilities (add a row here for new modules)
 var ModuleCapabilities = []CapModule{
 	{Key: "hosts", Actions: []string{"view", "create", "edit", "delete"}},
 	{Key: "credentials", Actions: []string{"view", "manage"}},
@@ -32,14 +32,14 @@ var ModuleCapabilities = []CapModule{
 	{Key: "keys", Actions: []string{"manage"}},
 }
 
-// CapabilitiesForFront 返回给前端角色设置矩阵
+// CapabilitiesForFront returns the role settings matrix for the frontend
 func CapabilitiesForFront() []CapModule {
 	out := make([]CapModule, len(ModuleCapabilities))
 	copy(out, ModuleCapabilities)
 	return out
 }
 
-// HasCap 统一权限判断（admin 恒通过）
+// HasCap unified permission check (admin always passes)
 func HasCap(role, module, action string) bool {
 	if role == model.RoleAdmin {
 		return true
@@ -59,7 +59,7 @@ func HasCap(role, module, action string) bool {
 	return false
 }
 
-// legacyToPerms 旧散落字段 → Perms 映射（一次性迁移；新配置直接存 Perms）
+// legacyToPerms maps legacy scattered fields → Perms (one-time migration; new configs store Perms directly)
 func legacyToPerms(role string, rp RolePerm) map[string][]string {
 	inMenus := func(k string) bool {
 		for _, m := range rp.Menus {
@@ -101,7 +101,7 @@ func legacyToPerms(role string, rp RolePerm) map[string][]string {
 	}
 	p["k8s"] = k
 
-	// monitor：读跟菜单，管理=admin/ops（旧路由语义）
+	// monitor: read follows menus, manage=admin/ops (legacy route semantics)
 	mv := []string{}
 	if inMenus("monitor") {
 		mv = append(mv, "view")
@@ -111,7 +111,7 @@ func legacyToPerms(role string, rp RolePerm) map[string][]string {
 	}
 	p["monitor"] = mv
 
-	// apps / releases：读跟菜单，写=admin/ops/publisher（旧路由语义）
+	// apps / releases: read follows menus, write=admin/ops/publisher (legacy route semantics)
 	aw := role == model.RoleOps || role == model.RolePublisher
 	if inMenus("apps") {
 		p["apps"] = []string{"view"}
@@ -126,7 +126,7 @@ func legacyToPerms(role string, rp RolePerm) map[string][]string {
 		}
 	}
 
-	// crons：读跟菜单，管理=admin/ops（旧路由语义）
+	// crons: read follows menus, manage=admin/ops (legacy route semantics)
 	cv := []string{}
 	if inMenus("cron") {
 		cv = append(cv, "view")
@@ -136,7 +136,7 @@ func legacyToPerms(role string, rp RolePerm) map[string][]string {
 	}
 	p["crons"] = cv
 
-	// tasks：读跟菜单，导出=admin/auditor（旧路由语义）
+	// tasks: read follows menus, export=admin/auditor (legacy route semantics)
 	tv := []string{}
 	if inMenus("tasks") {
 		tv = append(tv, "view")
@@ -146,7 +146,7 @@ func legacyToPerms(role string, rp RolePerm) map[string][]string {
 	}
 	p["tasks"] = tv
 
-	// exec / files / scripts / keys：admin/ops（scripts/publisher 也用），读跟菜单
+	// exec / files / scripts / keys: admin/ops (publisher for scripts too), read follows menus
 	isOps := role == model.RoleOps
 	isPub := role == model.RolePublisher
 	if inMenus("exec") || isOps || isPub {

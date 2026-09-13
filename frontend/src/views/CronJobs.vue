@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <el-card>
@@ -55,7 +55,7 @@
       </el-table>
     </el-card>
 
-    <!-- 新建/编辑 -->
+    <!-- Create/Edit dialog -->
     <el-dialog v-model="visible" :title="form.id ? $t('cron.edit') : $t('cron.create')" width="640px">
       <el-form label-width="110px">
         <el-form-item :label="$t('cron.name')"><el-input v-model="form.name" /></el-form-item>
@@ -104,7 +104,7 @@
       </template>
     </el-dialog>
 
-    <!-- 执行历史 -->
+    <!-- Run history -->
     <el-drawer v-model="historyVisible" :title="`${$t('cron.history')}：${current?.name}`" size="560px">
       <el-table :data="history" v-loading="historyLoading" size="small" border>
         <el-table-column prop="id" label="ID" width="70" />

@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -15,9 +15,9 @@ import (
 	"jnexus/internal/service"
 )
 
-// K8S 三期：StatefulSet 伸缩 / YAML 更新 / Pod 日志实时跟随（WS 中继）
+// K8S phase 3: StatefulSet scaling / YAML update / real-time pod log streaming (WS relay)
 
-// K8sScaleStatefulSet StatefulSet 副本伸缩（user 及以上，留痕）
+// K8sScaleStatefulSet scales StatefulSet replicas (user role or above; audit-logged)
 func K8sScaleStatefulSet(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	ns, name := c.Param("namespace"), c.Param("name")
@@ -48,7 +48,7 @@ func K8sScaleStatefulSet(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// K8sUpdateYAML 用编辑后的 YAML 更新资源（user 及以上，留痕）
+// K8sUpdateYAML updates a resource with edited YAML (user role or above; audit-logged)
 func K8sUpdateYAML(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var req struct {
@@ -77,8 +77,7 @@ func K8sUpdateYAML(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-
-// K8sClusterUsage 集群资源概况（容量 + 用量 + 全部 Pod 用量，viewer 即可）
+// K8sClusterUsage returns the cluster resource overview (capacity + usage + all pod usage; viewer role is enough)
 func K8sClusterUsage(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	_, api, _, ok := k8sClusterAccess(c, id, "viewer")
@@ -93,8 +92,7 @@ func K8sClusterUsage(c *gin.Context) {
 	c.JSON(http.StatusOK, u)
 }
 
-
-// K8sCreateYAML 用 YAML 创建资源（user 及以上，留痕）
+// K8sCreateYAML creates a resource from YAML (user role or above; audit-logged)
 func K8sCreateYAML(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var req struct {
@@ -123,7 +121,7 @@ func K8sCreateYAML(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "created": created})
 }
 
-// K8sDeleteResource 通用资源删除（user 及以上，留痕；集群级资源拒绝）
+// K8sDeleteResource generic resource deletion (user role or above; audit-logged; cluster-scoped resources rejected)
 func K8sDeleteResource(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var req struct {
@@ -152,7 +150,7 @@ func K8sDeleteResource(c *gin.Context) {
 }
 
 // K8sLogWS GET /api/ws/k8s/logs/:clusterId?namespace=&pod=&container=&tail=&token=
-// Pod 日志实时跟随：集群 API(follow=true) 流式中继到浏览器 WS（viewer 即可）
+// Real-time pod log streaming: relays the cluster API stream (follow=true) to the browser WS (viewer role is enough)
 func K8sLogWS(c *gin.Context) {
 	token := c.Query("token")
 	if token == "" {
@@ -181,8 +179,8 @@ func K8sLogWS(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace/pod 必填"})
 		return
 	}
-	// WS 路由不在 JWT 中间件组内（浏览器 WS 无法带 Authorization 头），
-	// 这里基于已解析的用户手动做集群 viewer 授权
+	// WS routes are not in the JWT middleware group (browser WS cannot send an Authorization header),
+	// so cluster viewer authorization is done manually here using the parsed user
 	var mm model.K8sClusterMember
 	model.DB.Where("cluster_id = ? AND user_id = ?", cl.ID, user.ID).First(&mm)
 	myRole := mm.Role
@@ -214,7 +212,7 @@ func K8sLogWS(c *gin.Context) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	// 客户端断开 → 取消上游请求
+	// Client disconnect → cancel the upstream request
 	go func() {
 		for {
 			if _, _, err := ws.ReadMessage(); err != nil {

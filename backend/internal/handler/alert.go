@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package handler
 
 import (
@@ -25,14 +25,14 @@ var alertChannelTypes = map[string]bool{
 	"email": true, "webhook": true, "wecom": true, "dingtalk": true, "feishu": true, "telegram": true,
 }
 
-// ListAlertChannels 通道列表
+// ListAlertChannels lists channels
 func ListAlertChannels(c *gin.Context) {
 	var channels []model.AlertChannel
 	model.DB.Order("id").Find(&channels)
 	c.JSON(http.StatusOK, channels)
 }
 
-// CreateAlertChannel 新建通道
+// CreateAlertChannel creates a channel
 func CreateAlertChannel(c *gin.Context) {
 	var req alertChannelReq
 	if err := c.ShouldBindJSON(&req); err != nil || !alertChannelTypes[req.Type] {
@@ -50,7 +50,7 @@ func CreateAlertChannel(c *gin.Context) {
 	c.JSON(http.StatusOK, ch)
 }
 
-// UpdateAlertChannel 编辑通道
+// UpdateAlertChannel updates a channel
 func UpdateAlertChannel(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var ch model.AlertChannel
@@ -73,7 +73,7 @@ func UpdateAlertChannel(c *gin.Context) {
 	c.JSON(http.StatusOK, ch)
 }
 
-// DeleteAlertChannel 删除通道（解绑所有监控项）
+// DeleteAlertChannel deletes a channel (unbinds all monitors)
 func DeleteAlertChannel(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	model.DB.Where("channel_id = ?", id).Delete(&model.MonitorChannel{})
@@ -81,7 +81,7 @@ func DeleteAlertChannel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// TestAlertChannel 发送测试消息
+// TestAlertChannel sends a test message
 func TestAlertChannel(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var ch model.AlertChannel
@@ -103,12 +103,12 @@ func TestAlertChannel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// GetAlertRule 全局报警规则
+// GetAlertRule returns the global alert rule
 func GetAlertRule(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadAlertRule())
 }
 
-// UpdateAlertRule 保存全局报警规则（对所有监控项生效）
+// UpdateAlertRule saves the global alert rule (applies to all monitors)
 func UpdateAlertRule(c *gin.Context) {
 	var req struct {
 		GraceSec       int  `json:"grace_sec"`
@@ -126,12 +126,12 @@ func UpdateAlertRule(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadAlertRule())
 }
 
-// GetAlertTemplates 全局默认通知模板
+// GetAlertTemplates returns the global default notification templates
 func GetAlertTemplates(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadAlertTemplates())
 }
 
-// UpdateAlertTemplates 保存全局默认通知模板（字段留空 = 恢复内建默认）
+// UpdateAlertTemplates saves the global default notification templates (empty fields = restore built-in defaults)
 func UpdateAlertTemplates(c *gin.Context) {
 	var req service.AlertTemplates
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -145,7 +145,7 @@ func UpdateAlertTemplates(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadAlertTemplates())
 }
 
-// PreviewAlertTemplates 模拟发送：用示例数据渲染模板，返回标题与正文（不实际发送）
+// PreviewAlertTemplates dry-run: renders templates with sample data and returns title and body (no actual send)
 func PreviewAlertTemplates(c *gin.Context) {
 	var req struct {
 		Title string `json:"title"`
@@ -168,12 +168,12 @@ func PreviewAlertTemplates(c *gin.Context) {
 	})
 }
 
-// GetMaintenances 全局维护窗口列表
+// GetMaintenances lists global maintenance windows
 func GetMaintenances(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadMaintenances())
 }
 
-// UpdateMaintenances 保存全局维护窗口（对所有监控项生效）
+// UpdateMaintenances saves global maintenance windows (applies to all monitors)
 func UpdateMaintenances(c *gin.Context) {
 	var req []service.MaintenanceWindow
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -184,7 +184,7 @@ func UpdateMaintenances(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// 与当前配置相同的提交视为无效操作：不落库、不留痕
+	// Submissions identical to the current config are treated as no-ops: not persisted, not logged
 	cur := service.LoadMaintenances()
 	curJSON, _ := json.Marshal(cur)
 	newJSON, _ := json.Marshal(req)
@@ -196,7 +196,7 @@ func UpdateMaintenances(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
 		return
 	}
-	// 留痕：旧记录置为已失效，写入本次变更（操作人/IP/窗口内容/生效标记）
+	// Audit trail: mark old records inactive and write this change (operator/IP/windows/active flag)
 	now := time.Now()
 	model.DB.Model(&model.MaintenanceLog{}).Where("active = ?", true).Update("active", false)
 	windowsJSON, _ := json.Marshal(req)
@@ -207,7 +207,7 @@ func UpdateMaintenances(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadMaintenances())
 }
 
-// GetMaintenanceLogs 维护窗口变更留痕（最近 50 条，含生效状态）
+// GetMaintenanceLogs maintenance window change history (last 50 entries, with active status)
 func GetMaintenanceLogs(c *gin.Context) {
 	var logs []model.MaintenanceLog
 	model.DB.Order("id DESC").Limit(50).Find(&logs)
@@ -223,7 +223,7 @@ func GetMaintenanceLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// GetCmdLevels CMD 分级阈值配置
+// GetCmdLevels returns the CMD tiered threshold config
 func GetCmdLevels(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadCmdLevels())
 }
@@ -237,7 +237,7 @@ type cmdLevelReq struct {
 	ChannelIDs  []uint  `json:"channel_ids"`
 }
 
-// UpdateCmdLevels 保存 CMD 分级阈值配置（4 级整体保存）
+// UpdateCmdLevels saves the CMD tiered threshold config (all levels saved as a whole)
 func UpdateCmdLevels(c *gin.Context) {
 	var req []cmdLevelReq
 	if err := c.ShouldBindJSON(&req); err != nil || len(req) == 0 || len(req) > 8 {

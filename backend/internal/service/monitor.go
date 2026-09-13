@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -18,7 +18,7 @@ import (
 	"jnexus/internal/sshpool"
 )
 
-// 监控组件：应用监控（HTTP/TCP/Ping，Uptime Kuma 风格）+ 主机基础资源（CPU/内存/磁盘）
+// Monitoring components: app monitors (HTTP/TCP/Ping, Uptime Kuma style) + host base resources (CPU/memory/disk)
 
 func MonitorEnabled() bool { return SystemConfigMap()["monitor_enabled"] != "false" }
 func MonitorInterval() int {
@@ -30,9 +30,9 @@ func MonitorInterval() int {
 	return n
 }
 
-// ---------- 应用监控检查 ----------
+// ---------- App monitor checks ----------
 
-// statusAccepted 判定 HTTP 状态码是否在 accepted 范围（如 "200-299,301"）
+// statusAccepted checks whether an HTTP status code is within the accepted range (e.g. "200-299,301")
 func statusAccepted(code int, accepted string) bool {
 	spec := strings.TrimSpace(accepted)
 	if spec == "" {
@@ -56,7 +56,7 @@ func statusAccepted(code int, accepted string) bool {
 	return false
 }
 
-// CheckMonitor 执行一次监控项检查：返回 (是否正常, 响应毫秒, 错误信息)
+// CheckMonitor runs one monitor check: returns (ok, response ms, error message)
 func CheckMonitor(m *model.Monitor) (bool, int, string) {
 	timeout := time.Duration(m.TimeoutSec) * time.Second
 	if timeout <= 0 {
@@ -167,8 +167,8 @@ func checkPing(m *model.Monitor, timeout time.Duration, start time.Time) (bool, 
 	return true, ms, ""
 }
 
-// RunMonitorOnce 执行监控项并落库（状态 + 心跳样本），再按报警规则评估是否推送。
-// 维护窗口内：down 样本记为 maint（不计可用率、灰色心跳），不触发告警评估。
+// RunMonitorOnce runs the monitor check, persists the result (status + heartbeat sample), then evaluates alert rules for push.
+// Inside a maintenance window: a down sample is recorded as maint (excluded from availability, gray heartbeat) and no alert evaluation runs.
 func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 	up, ms, errMsg := CheckMonitor(m)
 	status := "down"
@@ -193,10 +193,10 @@ func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 	return up, ms, errMsg
 }
 
-// EvaluateAlertRules 报警规则引擎（全局规则，对所有监控项生效）：
-//   - 监控故障：持续满「阈值」秒仍未恢复才告警；阈值 0 = 首次故障立即告警
-//   - 恢复通知仅在本次故障周期内实际发过告警时发送（全局开关）
-//   - 主机系统重启由采集流程自动检测并独立立即推送（与阈值告警并存，互不影响）
+// EvaluateAlertRules is the global alert rule engine (applies to all monitors):
+//   - monitor down: alert only after the failure persists for the "grace" seconds; grace 0 = alert on first failure
+//   - recovery notification is sent only if an alert was actually fired during the current failure period (global switch)
+//   - host system reboot is detected automatically by the collection flow and pushed immediately and independently (coexists with threshold alerts, no interference)
 func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errMsg string, now time.Time) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -209,7 +209,7 @@ func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errM
 			m.DownSince = &now
 			model.DB.Model(m).Update("down_since", now)
 		}
-		grace := time.Duration(rule.GraceSec) * time.Second // 阈值 0 = 立即
+		grace := time.Duration(rule.GraceSec) * time.Second // grace 0 = immediate
 		fire := !m.AlertFired && now.Sub(*m.DownSince) >= grace
 		if fire {
 			m.AlertFired = true
@@ -218,7 +218,7 @@ func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errM
 		}
 		return
 	}
-	// 恢复：清空故障计时；若本次故障周期内实际发过告警，按全局开关发送恢复通知
+	// Recovery: reset failure timers; if an alert was actually fired during this failure period, send a recovery notification per the global switch
 	if m.AlertFired && rule.NotifyRecovery {
 		SendMonitorAlert(m, "up", ms, errMsg)
 	}
@@ -227,13 +227,13 @@ func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errM
 	model.DB.Model(m).Updates(map[string]any{"alert_fired": false, "down_since": nil})
 }
 
-// AlertRule 全局报警规则（存系统配置，对所有监控项生效）
+// AlertRule is the global alert rule (stored in system config, applies to all monitors)
 type AlertRule struct {
-	GraceSec       int  `json:"grace_sec"`       // 持续故障阈值（秒），0 = 立即
-	NotifyRecovery bool `json:"notify_recovery"` // 恢复通知开关
+	GraceSec       int  `json:"grace_sec"`       // down threshold in seconds, 0 = immediate
+	NotifyRecovery bool `json:"notify_recovery"` // recovery notification switch
 }
 
-// LoadAlertRule 读取全局报警规则
+// LoadAlertRule reads the global alert rule
 func LoadAlertRule() AlertRule {
 	m := SystemConfigMap()
 	r := AlertRule{NotifyRecovery: m["alert_rule_notify_recovery"] != "false"}
@@ -244,7 +244,7 @@ func LoadAlertRule() AlertRule {
 	return r
 }
 
-// SaveAlertRule 保存全局报警规则
+// SaveAlertRule saves the global alert rule
 func SaveAlertRule(r AlertRule) error {
 	if r.GraceSec < 0 || r.GraceSec > 86400 {
 		return fmt.Errorf("阈值超出范围（0-86400 秒）")
@@ -260,7 +260,7 @@ func SaveAlertRule(r AlertRule) error {
 	return nil
 }
 
-// ScanDueMonitors 到期监控扫描（调度循环调用）
+// ScanDueMonitors scans monitors that are due (called by the scheduler loop)
 func ScanDueMonitors() {
 	if !MonitorEnabled() {
 		return
@@ -288,11 +288,11 @@ func ScanDueMonitors() {
 	}
 }
 
-// ---------- 主机基础资源采集（CPU / 内存 / 磁盘） ----------
+// ---------- Host base resource collection (CPU / memory / disk) ----------
 
-// ---------- 主机基础资源采集（CPU / 内存 / 磁盘） ----------
+// ---------- Host base resource collection (CPU / memory / disk) ----------
 
-// 资源采集命令：一次 SSH 会话取齐 boot_id（重启检测）+ 三块资源数据，解析在服务端完成
+// Resource collection command: one SSH session gathers boot_id (reboot detection) plus all three resource datasets; parsing happens server-side
 const metricCmd = `cat /proc/sys/kernel/random/boot_id 2>/dev/null; echo ---BOOT---; grep '^cpu ' /proc/stat; sleep 1; grep '^cpu ' /proc/stat; echo ---MEM---; head -5 /proc/meminfo; echo ---DISK---; df -P 2>/dev/null`
 
 type hostSample struct {
@@ -316,7 +316,7 @@ func parseMetricOutput(out string) (hostSample, bool) {
 	}
 	cpuLines := strings.Split(strings.TrimSpace(parts[0]), "\n")
 	if len(cpuLines) >= 2 {
-		// 标准 CPU 占用算法（与 top 一致）：100 - 空闲时间占比；iowait 计入空闲
+		// Standard CPU usage algorithm (same as top): 100 - idle ratio; iowait counts as idle
 		f := func(line string) (idle, total uint64) {
 			fl := strings.Fields(line)
 			if len(fl) < 5 || fl[0] != "cpu" {
@@ -386,11 +386,11 @@ func parseMetricOutput(out string) (hostSample, bool) {
 
 func round1(v float64) float64 { return float64(int(v*10+0.5)) / 10 }
 
-// lastMetricRun 记录每台主机上次采集时间（多协程并发访问，须持锁）
+// lastMetricRun tracks the last collection time per host (accessed concurrently, must hold the lock)
 var lastMetricMu sync.Mutex
 var lastMetricRun = map[uint]time.Time{}
 
-// CollectHostMetrics 采集全部主机的 CPU/内存/磁盘（按全局间隔节流）
+// CollectHostMetrics collects CPU/memory/disk for all hosts (throttled by the global interval)
 func CollectHostMetrics() {
 	if !MonitorEnabled() {
 		return
@@ -417,17 +417,17 @@ func CollectHostMetrics() {
 		wg.Add(1)
 		go func(h model.Host) {
 			defer wg.Done()
-			defer func() { recover() }() // 单台采集失败不影响进程与其余主机
+			defer func() { recover() }() // a failed host must not affect the process or other hosts
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			// Windows 主机：WinRM 采集（无 SSH 通道）
+			// Windows host: collect via WinRM (no SSH channel)
 			if IsWindows(&h) {
 				collectWindowsMetrics(&h)
 				return
 			}
 			cli, err := sshpool.ClientFor(&h)
 			if err != nil {
-				return // 连接失败（如主机关机）：本轮无数据，不写样本
+				return // connection failed (e.g. host down): no data this round, no sample written
 			}
 			out, _, err := runCapture(cli, metricCmd)
 			cli.Close()
@@ -440,7 +440,7 @@ func CollectHostMetrics() {
 					CollectedAt: time.Now(),
 				})
 				EvaluateCmdAlerts(&h, s, time.Now())
-				// 主机重启自动检测：boot_id 与上次不同（且非首次采集）即推送
+				// Automatic host reboot detection: push when boot_id differs from the last one (and this is not the first collection)
 				if s.BootID != "" {
 					if h.LastBootID != "" && s.BootID != h.LastBootID {
 						SendHostRebootAlert(&h, s.BootID)
@@ -457,7 +457,7 @@ func CollectHostMetrics() {
 	wg.Wait()
 }
 
-// PruneMonitorData 清理过期采样（主机指标与监控样本均保留 30 天）
+// PruneMonitorData prunes expired samples (host metrics and monitor samples are both kept for 30 days)
 func PruneMonitorData() {
 	ArchiveHostMetrics()
 	model.DB.Where("collected_at < ?", time.Now().Add(-30*24*time.Hour)).Delete(&model.HostMetric{})
@@ -465,7 +465,7 @@ func PruneMonitorData() {
 	PruneK8sCapacitySamples()
 }
 
-// StartMonitorLoop 监控调度循环（每 15 秒检查到期项）
+// StartMonitorLoop starts the monitor scheduling loop (checks for due items every 15 seconds)
 func StartMonitorLoop() {
 	go func() {
 		lastPrune := time.Time{}
@@ -475,7 +475,7 @@ func StartMonitorLoop() {
 				go ScanDueMonitors()
 				go CollectHostMetrics()
 				go CollectK8sClusters()
-		go CollectK8sUsage()
+				go CollectK8sUsage()
 				if time.Since(lastPrune) >= time.Hour {
 					PruneMonitorData()
 					lastPrune = time.Now()

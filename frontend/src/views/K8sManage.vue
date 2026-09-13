@@ -1,7 +1,7 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div class="km-page">
-    <!-- 左侧集群菜单 -->
+    <!-- Left cluster menu -->
     <aside class="km-side">
       <div class="km-brand">JNexus <span>K8S</span></div>
       <div class="km-cluster mono" v-if="cluster">{{ cluster.name }}</div>
@@ -53,7 +53,7 @@
       </el-menu>
     </aside>
 
-    <!-- 主区域 -->
+    <!-- Main area -->
     <main class="km-main">
       <header class="km-top">
         <el-button size="small" @click="$router.push('/k8s')">
@@ -80,7 +80,7 @@
       </header>
 
       <section class="km-body">
-        <!-- 概览 -->
+        <!-- Overview -->
         <template v-if="active === 'overview'">
           <div class="km-cards">
             <div v-for="card in cards" :key="card.key" class="km-card" :style="{ '--c': card.color }" @click="active = card.go">
@@ -161,7 +161,7 @@
           </el-table>
         </template>
 
-        <!-- 容量规划 -->
+        <!-- Capacity planning -->
         <template v-else-if="active === 'capacity'">
           <div class="km-toolbar">
             <h4 class="km-h4" style="margin:0">{{ $t('k8s.capacity') }}</h4>
@@ -244,7 +244,7 @@
           </div>
         </template>
 
-        <!-- 资源列表（通用表格） -->
+        <!-- Resource list (generic table) -->
         <template v-else>
           <div class="km-toolbar">
             <h4 class="km-h4" style="margin:0">{{ sectionTitle }}</h4>
@@ -276,7 +276,7 @@
             </el-table-column>
             <el-table-column :label="$t('common.operation')" :width="opWidth" fixed="right">
               <template #default="{ row }">
-                <!-- YAML 查看（Helm 行除外） -->
+                <!-- YAML view (all rows except Helm releases) -->
                 <el-button v-if="kindOf[active]" size="small" link type="info" @click="showYAML(row)">{{ $t('k8s.yaml') }}</el-button>
                 <!-- Pods -->
                 <template v-if="active === 'pods'">
@@ -312,7 +312,7 @@
       </section>
     </main>
 
-    <!-- YAML 查看 / 编辑 -->
+    <!-- YAML view / edit -->
     <el-dialog v-model="yamlVisible" :title="yamlTitle" width="780px" top="5vh">
       <pre v-if="!yamlEditing" class="mono" style="background:#1e2a35; color:#d8e4f0; padding:14px; border-radius:6px; max-height:520px; overflow:auto; font-size:12px; line-height:1.6">{{ yamlText }}</pre>
       <el-input v-else v-model="yamlEdit" type="textarea" :rows="24" class="mono"
@@ -330,7 +330,7 @@
       </template>
     </el-dialog>
 
-    <!-- YAML 创建 -->
+    <!-- YAML create -->
     <el-dialog v-model="createVisible" :title="`${$t('k8s.yamlCreate')} · ${createKind}`" width="780px" top="5vh">
       <el-input v-model="createText" type="textarea" :rows="22" class="mono" spellcheck="false" />
       <template #footer>
@@ -339,7 +339,7 @@
       </template>
     </el-dialog>
 
-    <!-- 实时日志抽屉 -->
+    <!-- Live log drawer -->
     <el-drawer v-model="followVisible" size="58%" destroy-on-close :title="followTitle">
       <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px">
         <el-tag size="small" :type="followStatus === 'connected' ? 'success' : followStatus === 'closed' ? 'info' : 'danger'">
@@ -351,17 +351,17 @@
       <div ref="followBox" class="follow-box mono"></div>
     </el-drawer>
 
-    <!-- Pod Shell（页内抽屉，不再新开窗口） -->
+    <!-- Pod shell (in-page drawer, no separate window) -->
     <el-drawer v-model="shellDrawer" size="62%" :with-header="false" destroy-on-close>
       <K8sShell v-if="shellDrawer" :cluster-id="id" :namespace="shellPod.namespace" :pod="shellPod.name" />
     </el-drawer>
 
-    <!-- Pod 日志 -->
+    <!-- Pod logs -->
     <el-dialog v-model="logVisible" :title="logTitle" width="820px">
       <pre class="mono" style="background:#1e2a35; color:#d8e4f0; padding:14px; border-radius:6px; max-height:480px; overflow:auto; font-size:12px; line-height:1.6">{{ logText }}</pre>
     </el-dialog>
 
-    <!-- CronJob 创建 -->
+    <!-- CronJob create -->
     <el-dialog v-model="cronDlgVisible" :title="$t('k8s.cronAdd')" width="520px">
       <el-form label-width="110px">
         <el-form-item :label="$t('k8s.cronName')"><el-input v-model="cronForm.name" /></el-form-item>
@@ -377,7 +377,7 @@
       </template>
     </el-dialog>
 
-    <!-- SA 创建 -->
+    <!-- ServiceAccount create -->
     <el-dialog v-model="saDlgVisible" :title="$t('k8s.saAdd')" width="460px">
       <el-form label-width="110px">
         <el-form-item :label="$t('k8s.saName')"><el-input v-model="saForm.name" /></el-form-item>
@@ -425,7 +425,7 @@ const canOp = computed(() => !!cluster.value && cluster.value.my_role !== 'viewe
 const namespacedActive = computed(() => !['nodes', 'pvs', 'storageclasses', 'overview'].includes(active.value))
 const nsParams = () => (ns.value ? { params: { namespace: ns.value } } : {})
 
-// ---- 各区块表格列定义（label 为 i18n key 或字面量） ----
+// ---- Table column definitions per section (label is an i18n key or literal) ----
 const statusTag = v => (v === 'Ready' || v === 'Bound' || v === 'Available' || v === 'Active' || v === 'Running' ? 'success' : v === 'Pending' ? 'warning' : 'danger')
 const colDefs = {
   nodes: [
@@ -526,7 +526,7 @@ const sectionTitle = computed(() => {
   }
   return names[active.value] || active.value
 })
-// 各区块对应的 YAML 查看资源类型（helmreleases 无对应单体路径，不提供）
+// YAML view resource kind per section (helmreleases has no single-resource path, so none is provided)
 const kindOf = {
   nodes: 'node', pods: 'pod', deployments: 'deployment', daemonsets: 'daemonset',
   statefulsets: 'statefulset', jobs: 'job', cronjobs: 'cronjob', services: 'service',
@@ -538,7 +538,7 @@ const delConfirmKey = computed(() => ({
   configmaps: 'monitor.configDelConfirm', secrets: 'monitor.configDelConfirm', serviceaccounts: 'k8s.podDelConfirm',
 }[active.value] || ''))
 
-// ---- 工具栏：全文搜索 / 批量选择 / 导出 ----
+// ---- Toolbar: full-text search / batch selection / export ----
 const search = ref('')
 const selectedRows = ref([])
 const creatable = new Set(['deployments', 'daemonsets', 'statefulsets', 'jobs', 'cronjobs',
@@ -576,7 +576,7 @@ const batchDelete = async () => {
   load()
 }
 
-// ---- YAML 创建 ----
+// ---- YAML create ----
 const createVisible = ref(false)
 const createKind = ref('')
 const createText = ref('')
@@ -757,7 +757,7 @@ const submitCreate = async () => {
   } finally { createSaving.value = false }
 }
 
-// ---- 集群资源概况 ----
+// ---- Cluster resource usage ----
 const usagePercent = computed(() => {
   const u = usage.value
   if (!u || !u.cpu_capacity_m || !u.mem_capacity_mi) return { cpu: 0, mem: 0 }
@@ -773,12 +773,12 @@ const fmtReqLimC = (req, lim) => (lim ? `${fmtCoresV(req)} / ${fmtCoresV(lim)}` 
 const fmtMem = mi => { const v = Number(mi) || 0; return v >= 1024 ? `${(v / 1024).toFixed(1)}Gi` : `${Math.round(v)}Mi` }
 const fmtReqLim = (req, lim) => (lim ? `${fmtMem(req)} / ${fmtMem(lim)}` : fmtMem(req))
 
-// ---- 容量规划 ----
+// ---- Capacity planning ----
 const cap = ref(null)
 const capHours = ref(720)
 const capRange = computed(() => [Date.now() - capHours.value * 3600000, Date.now()])
 
-// 图表统一使用 MetricChart 组件：集群曲线以最新集群容量为 100% 的百分比量纲
+// Charts all use the MetricChart component: cluster curves are in percent, with the latest cluster capacity as 100%
 const capPctPoints = kind => {
   const pts = cap.value?.points || []
   const denom = kind === 'cpu' ? cap.value?.forecast?.cpu_capacity_m : cap.value?.forecast?.mem_capacity_mi
@@ -792,7 +792,7 @@ const capLastPct = kind => {
   const arr = capPctPoints(kind)
   return arr.length ? arr[arr.length - 1].v.toFixed(1) : '0.0'
 }
-// 预测外推：+90 天虚线，基于回归斜率换算为百分比量纲，触顶 100% 精确截断
+// Forecast extrapolation: +90-day dashed line, regression slope converted to percent scale, truncated exactly at the 100% cap
 const HORIZON_DAYS = 90, DAY_MS = 86400000
 const capForecastSeries = kind => {
   const pts = capPctPoints(kind)
@@ -830,7 +830,7 @@ const capDaysLeftText = (days, kind) => {
 }
 const capDaysLeftColor = d => (d == null ? '#67c23a' : d < 90 ? '#f56c6c' : d < 180 ? '#e6a23c' : '#67c23a')
 
-// ---- Pod 级容量趋势 ----
+// ---- Pod-level capacity trends ----
 const capPods = ref([])
 const capPodSel = ref('')
 const capPodTrend = computed(() => capPods.value.find(p => p.namespace + '/' + p.name === capPodSel.value) || null)
@@ -842,7 +842,7 @@ const loadCapacity = async () => {
     capPodSel.value = capPods.value[0].namespace + '/' + capPods.value[0].name
   }
 }
-// Pod 级趋势图（绝对量纲：CPU millicore / 内存 Mi，Y 轴按自身峰值缩放）
+// Pod-level trend charts (absolute units: CPU millicores / memory Mi; Y axis scaled to own peak)
 const podPoints = field => (capPodTrend.value?.points || []).map(p => ({ t: p.t, v: p[field] }))
 const podForecast = field => {
   const t = capPodTrend.value
@@ -874,7 +874,7 @@ const capPodSlopeText = computed(() => {
 })
 const fmtGi = mi => (mi ? `${(mi / 1024).toFixed(1)} Gi` : '-')
 
-// ---- 概览卡片 ----
+// ---- Overview cards ----
 const cards = computed(() => {
   const s = summary.value
   if (!s) return []
@@ -897,8 +897,8 @@ const cards = computed(() => {
   ]
 })
 
-// ---- 数据加载 ----
-// metrics-server 用量合并进列表；未安装 metrics-server 时列为 '-'
+// ---- Data loading ----
+// Merge metrics-server usage into lists; columns show '-' when metrics-server is not installed
 const mergeMetrics = (list, metrics, keyFn) => {
   const m = Object.fromEntries((metrics || []).map(x => [keyFn(x), x]))
   return list.map(r => ({
@@ -912,7 +912,7 @@ const loaders = {
     const [r, metrics] = await Promise.all([
       api.get(`${P}/nodes`), api.get(`${P}/nodemetrics`).catch(() => []),
     ])
-    // 后端返回 {cluster, nodes} 包裹结构
+    // Backend returns a {cluster, nodes} wrapper
     return mergeMetrics(r.nodes || [], metrics, x => x.name)
   },
   namespaces: async () => (await api.get(`${P}/namespaces`)).map(n => ({ name: n })),
@@ -961,7 +961,7 @@ const load = async () => {
 watch(active, () => load())
 watch(ns, () => { if (active.value !== 'overview') load() })
 
-// ---- Pods 操作 ----
+// ---- Pod operations ----
 const logVisible = ref(false)
 const logTitle = ref('')
 const logText = ref('')
@@ -978,7 +978,7 @@ const openShell = row => {
   shellPod.name = row.name
   shellDrawer.value = true
 }
-// ---- 集群 Shell：临时 busybox Pod，关闭终端自动清理 ----
+// ---- Cluster shell: ephemeral busybox pod, auto-cleaned when the terminal closes ----
 const shellStarting = ref(false)
 const clusterShellPod = reactive({ namespace: '', name: '' })
 const openClusterShell = async () => {
@@ -990,7 +990,7 @@ const openClusterShell = async () => {
     shellPod.namespace = r.namespace
     shellPod.name = r.name
     shellDrawer.value = true
-  } catch { /* 错误提示由拦截器展示 */ } finally { shellStarting.value = false }
+  } catch { /* error toast shown by the interceptor */ } finally { shellStarting.value = false }
 }
 watch(shellDrawer, v => {
   if (!v && clusterShellPod.name) {
@@ -1004,7 +1004,7 @@ const deletePod = async row => {
   load()
 }
 
-// ---- YAML 查看 / 编辑 / 下载 ----
+// ---- YAML view / edit / download ----
 const yamlVisible = ref(false)
 const yamlTitle = ref('')
 const yamlText = ref('')
@@ -1045,7 +1045,7 @@ const downloadYAML = () => {
   URL.revokeObjectURL(a.href)
 }
 
-// ---- 实时日志（WS 流式跟随） ----
+// ---- Live logs (streaming follow over WebSocket) ----
 const followVisible = ref(false)
 const followTitle = ref('')
 const followStatus = ref('')
@@ -1075,7 +1075,7 @@ const connectFollow = () => {
   followWs.onmessage = ev => {
     const data = typeof ev.data === 'string' ? ev.data : new TextDecoder().decode(new Uint8Array(ev.data))
     box.appendChild(document.createTextNode(data))
-    // 长时间跟随会无限堆积 DOM 节点：超过 500 个文本块时丢弃最早的
+    // Long-running follows would grow DOM nodes without bound: drop the oldest beyond 500 text blocks
     while (box.childNodes.length > 500) box.removeChild(box.firstChild)
     box.scrollTop = box.scrollHeight
   }
@@ -1085,7 +1085,7 @@ const connectFollow = () => {
 const clearFollow = () => connectFollow()
 onBeforeUnmount(() => { if (followWs) followWs.close() })
 
-// ---- Deployment / StatefulSet 伸缩 ----
+// ---- Deployment / StatefulSet scaling ----
 const scaleWorkload = async row => {
   try {
     const { value } = await ElMessageBox.prompt(t('k8s.scaleTip'), `${t('k8s.scale')} · ${row.namespace}/${row.name}`, {
@@ -1095,7 +1095,7 @@ const scaleWorkload = async row => {
     await api.post(`${P}/${active.value}/${row.namespace}/${row.name}/scale`, { replicas: parseInt(value, 10) })
     ElMessage.success(t('common.success'))
     load()
-  } catch { /* 取消 */ }
+  } catch { /* cancelled */ }
 }
 
 // ---- Deployments ----
@@ -1105,7 +1105,7 @@ const restartDeployment = async row => {
   load()
 }
 
-// ---- CronJobs / SA / Config 删除与创建 ----
+// ---- CronJobs / ServiceAccount / Config delete and create ----
 const deleteCron = async row => {
   await api.delete(`${P}/cronjobs/${row.namespace}/${row.name}`)
   ElMessage.success(t('common.success'))

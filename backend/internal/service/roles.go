@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -8,7 +8,7 @@ import (
 	"jnexus/internal/model"
 )
 
-// RolePerm 角色可配置权限：描述 + 可见菜单 + 主机细粒度权限 + OS 账号管理
+// RolePerm holds configurable role permissions: description + visible menus + fine-grained host permissions + OS account management
 type RolePerm struct {
 	Desc  string   `json:"desc"`
 	Menus []string `json:"menus"`
@@ -18,24 +18,24 @@ type RolePerm struct {
 		Edit   bool `json:"edit"`
 		Delete bool `json:"delete"`
 	} `json:"host"`
-	Cred bool `json:"cred"` // OS 账号管理（新增/编辑/设默认；删除恒为 admin）
+	Cred bool `json:"cred"` // OS account management (create/edit/set default; delete is always admin)
 
-	Report bool `json:"report"` // 报告模块（生成/查看/导出）
+	Report bool `json:"report"` // report module (generate/view/export)
 
-	K8sView   bool `json:"k8s_view"`   // K8S 集群查看
-	K8sManage bool `json:"k8s_manage"` // K8S 集群管理
+	K8sView   bool `json:"k8s_view"`   // K8S cluster view
+	K8sManage bool `json:"k8s_manage"` // K8S cluster management
 
-	// 统一能力位（新）：模块 → 允许的操作。为空时从上面的旧字段迁移（见 legacyToPerms）。
-	// 新前端角色设置矩阵读写此字段；旧字段保留用于 JSON 兼容，最终废弃。
+	// Unified capability bits (new): module → allowed operations. When empty, migrated from the legacy fields above (see legacyToPerms).
+	// The new frontend role settings matrix reads/writes this field; legacy fields are kept for JSON compatibility and eventually deprecated.
 	Perms map[string][]string `json:"perms,omitempty"`
 }
 
 const roleSettingsKey = "role_settings"
 
-// allMenuKeys 全部菜单键（admin 默认全量；新增菜单键时须同步）
+// allMenuKeys lists all menu keys (admin gets all by default; keep in sync when adding menu keys)
 var allMenuKeys = []string{"dashboard", "shell", "hosts", "osaccounts", "paired", "exec", "tasks", "cron", "reports", "monitor", "files", "scripts", "apps", "releases", "users", "danger", "audit", "system"}
 
-// DefaultRoleSettings 角色默认配置（首次使用时写入）
+// DefaultRoleSettings returns default role settings (persisted on first use)
 func DefaultRoleSettings() map[string]RolePerm {
 	mk := func(desc string, menus []string, v, c, e, d, cred, report bool) RolePerm {
 		r := RolePerm{Desc: desc, Menus: menus}
@@ -51,7 +51,7 @@ func DefaultRoleSettings() map[string]RolePerm {
 		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit", "reports"}, true, false, false, false, false, true),
 		model.RoleK8s:       mk("K8S 集群运维（Pod/计划任务/服务账号）", []string{"dashboard", "k8s"}, true, false, false, false, false, false),
 	}
-	// K8S 权限：admin 查看+管理；ops 查看
+	// K8S permissions: admin view+manage; ops view only
 	a := out[model.RoleAdmin]
 	a.K8sView, a.K8sManage = true, true
 	out[model.RoleAdmin] = a
@@ -64,7 +64,7 @@ func DefaultRoleSettings() map[string]RolePerm {
 	return out
 }
 
-// GetRoleSettings 读取角色配置（无则落库默认值）
+// GetRoleSettings reads role settings (persists defaults when none exist)
 func GetRoleSettings() map[string]RolePerm {
 	var sc model.SystemConfig
 	if err := model.DB.Where("key = ?", roleSettingsKey).First(&sc).Error; err != nil || sc.Value == "" {
@@ -76,7 +76,7 @@ func GetRoleSettings() map[string]RolePerm {
 	if err := json.Unmarshal([]byte(sc.Value), &out); err != nil {
 		return DefaultRoleSettings()
 	}
-	// 补齐新增角色的默认值；存量配置缺 cred 字段时按默认值回填（避免旧数据静默失权）
+	// fill in defaults for newly added roles; backfill the cred field with defaults for stored configs missing it (avoiding silent permission loss on old data)
 	def := DefaultRoleSettings()
 	legacy := !strings.Contains(sc.Value, "\"cred\"")
 	for role, d := range def {
@@ -84,9 +84,9 @@ func GetRoleSettings() map[string]RolePerm {
 			out[role] = d
 			continue
 		}
-		rp := out[role] // map 取出的结构体需复制后修改
+		rp := out[role] // struct fetched from the map must be copied before modifying
 		if legacy || !strings.Contains(sc.Value, "\"k8s_view\"") {
-			// K8S 权限为后加字段：按角色默认回填（admin 管理，ops 查看）
+			// K8S permissions are a later-added field: backfill per role defaults (admin manage, ops view)
 			switch role {
 			case model.RoleAdmin:
 				rp.K8sView, rp.K8sManage = true, true
@@ -100,11 +100,11 @@ func GetRoleSettings() map[string]RolePerm {
 			rp.Cred = d.Cred
 			rp.Report = d.Report
 		}
-		// 统一能力位回填：存量配置无 Perms 时从旧字段迁移一次
+		// Unified capability bit backfill: migrate once from legacy fields when stored config has no Perms
 		if len(rp.Perms) == 0 {
 			rp.Perms = legacyToPerms(role, rp)
 		}
-		// 新增菜单自动补进 admin/ops/auditor（admin 恒见全部）
+		// auto-add new menus to admin/ops/auditor (admin always sees everything)
 		if role == model.RoleAdmin || role == model.RoleOps || role == model.RoleAuditor {
 			for _, nm := range []string{"cron", "osaccounts", "reports", "monitor", "k8s"} {
 				has := false
@@ -119,7 +119,7 @@ func GetRoleSettings() map[string]RolePerm {
 				}
 			}
 		}
-		// admin 菜单集合补齐为全量（admin 不受菜单限制，仅保持显示一致）
+		// complete the admin menu set to the full list (admin is not restricted by menus; kept only for display consistency)
 		if role == model.RoleAdmin {
 			for _, nm := range allMenuKeys {
 				has := false
@@ -139,22 +139,22 @@ func GetRoleSettings() map[string]RolePerm {
 	return out
 }
 
-// HasK8sPerm K8S 权限检查（kind: view / manage；委托统一能力位）
+// HasK8sPerm checks K8S permissions (kind: view / manage; delegates to unified capability bits)
 func HasK8sPerm(role, kind string) bool {
 	return HasCap(role, "k8s", kind)
 }
 
-// HasCredPerm 角色是否拥有 OS 账号管理权限（委托统一能力位）
+// HasCredPerm reports whether the role has OS account management permission (delegates to unified capability bits)
 func HasCredPerm(role string) bool {
 	return HasCap(role, "credentials", "manage")
 }
 
-// HasReportPerm 角色是否可使用报告模块（委托统一能力位）
+// HasReportPerm reports whether the role can use the report module (delegates to unified capability bits)
 func HasReportPerm(role string) bool {
 	return HasCap(role, "reports", "view")
 }
 
-// SetRoleSettings 保存角色配置
+// SetRoleSettings saves role settings
 func SetRoleSettings(m map[string]RolePerm) error {
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -163,7 +163,7 @@ func SetRoleSettings(m map[string]RolePerm) error {
 	return model.DB.Save(&model.SystemConfig{Key: roleSettingsKey, Value: string(b)}).Error
 }
 
-// HasHostPerm 检查角色是否拥有主机操作权限（admin 恒通过）
+// HasHostPerm checks whether the role has the host operation permission (admin always passes)
 func HasHostPerm(role, action string) bool {
 	if role == model.RoleAdmin {
 		return true

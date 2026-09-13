@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <el-card>
@@ -32,7 +32,7 @@
       </el-table>
     </el-card>
 
-    <!-- 发起发布 -->
+    <!-- Start a release -->
     <el-dialog v-model="relVisible" :title="$t('releases.create')" width="520px">
       <el-form label-width="110px">
         <el-form-item :label="$t('releases.app')">
@@ -53,7 +53,7 @@
       </template>
     </el-dialog>
 
-    <!-- 发布详情（实时） -->
+    <!-- Release detail (live) -->
     <el-drawer v-model="detailVisible" :title="`${$t('releases.releaseOrder')} #${relId}`" size="680px">
       <div v-for="item in items" :key="item.id" style="margin-bottom:16px">
         <div style="font-weight:600; font-size:14px; margin-bottom:6px">

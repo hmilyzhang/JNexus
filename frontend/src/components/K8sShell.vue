@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div class="k8s-exec-page">
     <div class="exec-header">
@@ -28,7 +28,7 @@ import '@xterm/xterm/css/xterm.css'
 import api from '../api'
 import i18n from '../i18n'
 
-// Pod Shell 终端（可复用组件）：独立页 /k8s/exec 与 K8S 管理页抽屉共用
+// Pod shell terminal (reusable component): shared by the standalone /k8s/exec page and the K8S management page drawer
 const props = defineProps({
   clusterId: { type: [String, Number], required: true },
   namespace: { type: String, default: '' },
@@ -60,7 +60,7 @@ function makeTerm(el, getSock) {
   t.loadAddon(f)
   t.open(el)
   f.fit()
-  // PTY 尺寸同步：xterm 尺寸变化 → v4 通道 4 resize 帧（sock 取各自终端的连接）
+  // PTY size sync: on xterm resize, send a v4 channel-4 resize frame (each terminal uses its own socket)
   t.onResize(({ cols, rows }) => sendResize(getSock(), cols, rows))
   return { term: t, fit: f }
 }
@@ -75,7 +75,7 @@ const sendResize = (sock, cols, rows) => {
   }
 }
 
-// onMsg：返回该连接的输出终端（分屏第二终端用）；t：用于打开后同步 PTY 初始尺寸
+// onMsg: returns the output terminal for that connection (used by the second terminal in split view); t: used to sync the PTY initial size after opening
 function connect(containerName, onMsg, t) {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   const q = new URLSearchParams({
@@ -87,7 +87,7 @@ function connect(containerName, onMsg, t) {
   const sink = () => (onMsg ? onMsg() : term)
   sock.onopen = () => {
     status.value = $t('k8s.shellConnected') || 'connected'
-    // makeTerm 首次 fit 时连接还没建立，首帧 resize 会被丢弃，这里补发一次
+    // The connection is not yet established when makeTerm does its first fit, so the first resize frame is dropped; resend it here
     if (t) sendResize(sock, t.cols, t.rows)
     if (onMsg) onMsg(); else term.focus()
   }
@@ -152,16 +152,16 @@ onMounted(async () => {
   term = inst.term
   fit = inst.fit
   term.onData(sendInput)
-  // 拉取容器列表（多容器选择）
+  // Fetch the container list (for multi-container selection)
   try {
     const pods = await api.get(`/k8s/clusters/${props.clusterId}/pods`, { params: { namespace: props.namespace } })
     const target = pods.find(p => p.name === props.pod)
     containers.value = target?.containers || []
     if (containers.value.length && !container.value) container.value = containers.value[0]
-  } catch { /* 忽略：无容器列表也可用默认容器 */ }
+  } catch { /* Ignore: the default container still works without a container list */ }
   ws = connect(container.value, null, term)
   window.addEventListener('resize', onResize)
-  // 宿主容器（如抽屉）展开动画完成后重新适配尺寸
+  // Refit after the host container (e.g. drawer) finishes its expand animation
   setTimeout(() => { if (fit) fit.fit(); if (fit2) fit2.fit() }, 250)
 })
 onBeforeUnmount(() => {

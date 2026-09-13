@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -16,12 +16,12 @@ import (
 	"jnexus/internal/service"
 )
 
-// ---- 主机分组 ----
+// ---- Host groups ----
 
 func ListGroups(c *gin.Context) {
 	var groups []model.HostGroup
 	model.DB.Find(&groups)
-	// 附带每组主机数量
+	// Attach the host count for each group
 	type groupCnt struct {
 		GroupID *uint `json:"group_id"`
 		Cnt     int64 `json:"cnt"`
@@ -35,7 +35,7 @@ func ListGroups(c *gin.Context) {
 			direct[*x.GroupID] = x.Cnt
 		}
 	}
-	// 主机总数含后代分组（多级树）
+	// Total host count includes descendant groups (multi-level tree)
 	total := map[uint]int64{}
 	for _, g := range groups {
 		for _, id := range service.GroupAndDescendants(g.ID) {
@@ -97,7 +97,7 @@ func UpdateGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"id": g.ID, "name": req.Name, "parent_id": req.ParentID})
 }
 
-// wouldCycle 检查把 group 挂到 newParent 下是否形成环
+// wouldCycle checks whether attaching a group under newParent would form a cycle
 func wouldCycle(groupID uint, newParentID uint) bool {
 	var groups []model.HostGroup
 	model.DB.Find(&groups)
@@ -136,7 +136,7 @@ func DeleteGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ---- 主机 ----
+// ---- Hosts ----
 
 func ListHosts(c *gin.Context) {
 	var hosts []model.Host
@@ -149,7 +149,7 @@ func ListHosts(c *gin.Context) {
 		q = q.Where("name ILIKE ? OR ip ILIKE ?", like, like)
 	}
 	q.Order("id").Find(&hosts)
-	// 数据级可见性：开启 restrict_visibility 的组成员仅见本组绑定的主机
+	// Data-level visibility: group members with restrict_visibility enabled only see hosts bound to their group
 	hosts = service.HostVisibilityFilter(currentUser(c), hosts)
 	c.JSON(http.StatusOK, hosts)
 }
@@ -158,17 +158,17 @@ type hostReq struct {
 	Name       string `json:"name"`
 	IP         string `json:"ip" binding:"required"`
 	Port       int    `json:"port"`
-	OSType     string `json:"os_type"`     // linux / windows
-	WinRMPort  int    `json:"winrm_port"`  // Windows: 5985/5986
-	RDPPort    int    `json:"rdp_port"`    // Windows: 3389
-	Username   string `json:"username"`    // 可由凭据模板提供，CreateHost 内统一校验
+	OSType     string `json:"os_type"`    // linux / windows
+	WinRMPort  int    `json:"winrm_port"` // Windows: 5985/5986
+	RDPPort    int    `json:"rdp_port"`   // Windows: 3389
+	Username   string `json:"username"`   // may come from a credential template; validated uniformly in CreateHost
 	AuthType   string `json:"auth_type"`
 	SSHKeyID   *uint  `json:"ssh_key_id"`
 	Password   string `json:"password"`
 	GroupID    *uint  `json:"group_id"`
-	CredLabel  string `json:"credential_label"` // 生成 OS 账号的用途标签
-	AutoPair   bool   `json:"auto_pair"`        // 密码创建后自动配对密钥
-	TemplateID *uint  `json:"template_id"`      // 凭据模板：选用后忽略手输密码，取模板用户名/密码
+	CredLabel  string `json:"credential_label"` // purpose label for the generated OS account
+	AutoPair   bool   `json:"auto_pair"`        // auto-pair keys after creating with a password
+	TemplateID *uint  `json:"template_id"`      // credential template: when set, ignores the manually entered password and uses the template username/password
 }
 
 func (r *hostReq) toHost(h *model.Host) error {
@@ -216,7 +216,7 @@ func CreateHost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（IP、用户名必填）"})
 		return
 	}
-	// 凭据模板：把模板的用户名/密码注入请求（优先于手输）
+	// Credential template: inject the template username/password into the request (takes precedence over manual input)
 	if req.TemplateID != nil && *req.TemplateID > 0 {
 		tu, tp, isLDAP, terr := resolveTemplatePassword(*req.TemplateID)
 		if terr != nil {
@@ -234,7 +234,7 @@ func CreateHost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "err.needUser"})
 		return
 	}
-	// 防重复添加：同 IP+端口+登录用户 已存在时拒绝（连点/重复提交兜底）
+	// Duplicate guard: reject when the same IP+port+login user already exists (safeguard against double clicks/re-submissions)
 	var dup model.Host
 	if err := model.DB.Where("ip = ? AND port = ? AND username = ?", req.IP, req.Port, req.Username).First(&dup).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "err.hostExists", "host": gin.H{"id": dup.ID, "name": dup.Name}})
@@ -251,7 +251,7 @@ func CreateHost(c *gin.Context) {
 	}
 
 	resp := gin.H{}
-	// 密码认证且要求自动配对：用平台密钥推送公钥，成功仅保留密钥凭据；失败回退密码凭据
+	// Password auth with auto-pair requested: push the public key via the platform key; on success keep only the key credential, on failure fall back to the password credential
 	if h.AuthType == "password" && req.Password != "" {
 		label := strings.TrimSpace(req.CredLabel)
 		if label == "" {
@@ -281,7 +281,7 @@ func CreateHost(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// platformKeyID 平台密钥 ID（配对成功后回填主机默认密钥）
+// platformKeyID platform key ID (fills the host default key after successful pairing)
 func platformKeyID() *uint {
 	k, err := service.EnsurePlatformKey()
 	if err != nil {
@@ -326,7 +326,7 @@ func DeleteHost(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// BatchDeleteHosts 批量删除主机：逐台复用单删的引用校验，返回失败明细
+// BatchDeleteHosts batch-deletes hosts: reuses the single-delete reference check per host, returns failure details
 func BatchDeleteHosts(c *gin.Context) {
 	var req struct {
 		IDs []uint `json:"ids" binding:"required"`
@@ -354,7 +354,7 @@ func BatchDeleteHosts(c *gin.Context) {
 
 func sshKeyIDOf(k *model.SSHKey) *uint { id := k.ID; return &id }
 
-// ensureGroupPath 按 / 分隔的分组路径逐级创建分组（存在则复用），返回末级分组 ID
+// ensureGroupPath creates groups level by level along a / separated group path (reusing existing ones); returns the leaf group ID
 func ensureGroupPath(path string) (*uint, error) {
 	var parentID *uint
 	for _, seg := range strings.Split(path, "/") {
@@ -382,7 +382,7 @@ func ensureGroupPath(path string) (*uint, error) {
 	return parentID, nil
 }
 
-// createDefaultCred 为导入的主机生成默认 OS 账号（与主机自带账号一致）
+// createDefaultCred creates a default OS account for an imported host (matching the host's own account)
 func createDefaultCred(hostID uint, username, authType string, sshKeyID *uint, encPassword, label string) {
 	if strings.TrimSpace(label) == "" {
 		label = "默认"
@@ -398,10 +398,10 @@ func createDefaultCred(hostID uint, username, authType string, sshKeyID *uint, e
 	})
 }
 
-// ImportHosts 批量导入：每行 名称,IP,端口,用户名,分组名（推荐，名称必填）
-// 兼容旧格式：首列为 IP 时按 旧格式 解析（ip,port,username[,password],group），名称默认取 IP
-// 页面级统一密码放在请求字段中（不写入 CSV，JSON 传输不经 shell 转义），
-// 提供 password（统一或行内）且开启 auto_pair 时：自动生成密钥对并推送公钥，成功后切换密钥认证
+// ImportHosts batch import: each line is name,IP,port,username,group (recommended, name required)
+// Legacy format compatible: when the first column is an IP, parse in the legacy format (ip,port,username[,password],group); name defaults to the IP
+// The page-level shared password goes in the request fields (not written into CSV; JSON transport avoids shell escaping),
+// When password (shared or per-line) is provided and auto_pair is enabled: auto-generate a key pair and push the public key, switching to key auth on success
 var ipv4Re = regexp.MustCompile(`^\d{1,3}(\.\d{1,3}){3}$`)
 
 func ImportHosts(c *gin.Context) {
@@ -409,11 +409,11 @@ func ImportHosts(c *gin.Context) {
 		Content    string `json:"content" binding:"required"`
 		SSHKeyID   *uint  `json:"ssh_key_id"`
 		AuthType   string `json:"auth_type"`
-		Username   string `json:"username"`         // 可作为默认用户名
-		Password   string `json:"password"`         // 页面统一密码（原样使用，不做 trim/转义）
-		CredLabel  string `json:"credential_label"` // 生成的 OS 账号标签
+		Username   string `json:"username"`         // can serve as the default username
+		Password   string `json:"password"`         // page-level shared password (used as-is, no trim/escaping)
+		CredLabel  string `json:"credential_label"` // label for the generated OS accounts
 		AutoPair   bool   `json:"auto_pair"`
-		TemplateID *uint  `json:"template_id"` // 凭据模板：覆盖统一用户名/密码
+		TemplateID *uint  `json:"template_id"` // credential template: overrides the shared username/password
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
@@ -425,7 +425,7 @@ func ImportHosts(c *gin.Context) {
 	if req.Username == "" {
 		req.Username = "root"
 	}
-	// 凭据模板：整批注入模板用户名/密码（优先于页面统一密码）
+	// Credential template: inject the template username/password for the whole batch (takes precedence over the page-level shared password)
 	if req.TemplateID != nil && *req.TemplateID > 0 {
 		tu, tp, _, terr := resolveTemplatePassword(*req.TemplateID)
 		if terr != nil {
@@ -437,7 +437,7 @@ func ImportHosts(c *gin.Context) {
 		req.AuthType = "password"
 	}
 
-	// 自动配对模式：整批共用一对密钥
+	// Auto-pair mode: the whole batch shares one key pair
 	credLabel := strings.TrimSpace(req.CredLabel)
 	if credLabel == "" {
 		credLabel = "默认"
@@ -455,7 +455,7 @@ func ImportHosts(c *gin.Context) {
 			continue
 		}
 		parts := strings.Split(line, ",")
-		// 首列不是 IPv4 → 新格式：名称,IP,...
+		// First column is not an IPv4 → new format: name,IP,...
 		hostName := ""
 		if len(parts) >= 2 && !ipv4Re.MatchString(strings.TrimSpace(parts[0])) {
 			hostName = strings.TrimSpace(parts[0])
@@ -470,17 +470,17 @@ func ImportHosts(c *gin.Context) {
 			continue
 		}
 		if hostName == "" {
-			hostName = ip // 旧格式回退
+			hostName = ip // legacy format fallback
 		}
 		port := 22
 		username := req.Username
 		password := ""
 		groupName := ""
-		// 按字段数解析，避免歧义（含可选名称列时已前移）：
-		// 1段: ip  2段: ip,port  3段: ip,port,user  4段: ip,port,user,group  5段: ip,port,user,password,group
+		// Parse by field count to avoid ambiguity (already shifted when the optional name column is present):
+		// 1 field: ip  2: ip,port  3: ip,port,user  4: ip,port,user,group  5: ip,port,user,password,group
 		switch len(parts) {
 		case 1:
-			// 仅 IP，其余全用默认值
+			// IP only; everything else uses defaults
 		case 2:
 			if v, err := strconv.Atoi(strings.TrimSpace(parts[1])); err == nil {
 				port = v
@@ -498,7 +498,7 @@ func ImportHosts(c *gin.Context) {
 				username = strings.TrimSpace(parts[2])
 			}
 			groupName = strings.TrimSpace(parts[3])
-		default: // 5 段及以上
+		default: // 5 fields or more
 			port, _ = strconv.Atoi(strings.TrimSpace(parts[1]))
 			if strings.TrimSpace(parts[2]) != "" {
 				username = strings.TrimSpace(parts[2])
@@ -515,7 +515,7 @@ func ImportHosts(c *gin.Context) {
 		}
 		var groupID *uint
 		if groupName != "" {
-			// 支持 / 分隔的多级分组路径，如 生产/数据库
+			// Supports / separated multi-level group paths, e.g. production/database
 			gid, gerr := ensureGroupPath(groupName)
 			if gerr != nil {
 				errors = append(errors, fmt.Sprintf("%s: %v", ip, gerr))
@@ -524,7 +524,7 @@ func ImportHosts(c *gin.Context) {
 			groupID = gid
 		}
 
-		// 密码优先级：行内密码 > 页面统一密码
+		// Password precedence: per-line password > page-level shared password
 		effectivePassword := password
 		if effectivePassword == "" {
 			effectivePassword = req.Password
@@ -533,7 +533,7 @@ func ImportHosts(c *gin.Context) {
 		h := model.Host{Name: hostName, IP: ip, Port: port, Username: username,
 			AuthType: req.AuthType, SSHKeyID: req.SSHKeyID, GroupID: groupID, Status: "unknown"}
 
-		// 密码 + 自动配对：密码建主机 → 平台密钥推送公钥 → 仅保留密钥凭据；失败回退密码凭据
+		// Password + auto-pair: create host with password → push public key via platform key → keep only the key credential; on failure fall back to the password credential
 		if effectivePassword != "" && req.AutoPair {
 			h.AuthType = "password"
 			enc, err := pkg.Encrypt(effectivePassword)
@@ -561,7 +561,7 @@ func ImportHosts(c *gin.Context) {
 			continue
 		}
 
-		// 密码认证（不配对）
+		// Password auth (no pairing)
 		if effectivePassword != "" && req.AuthType == "password" {
 			enc, err := pkg.Encrypt(effectivePassword)
 			if err != nil {
@@ -583,7 +583,7 @@ func ImportHosts(c *gin.Context) {
 	})
 }
 
-// ProbeHostsHandler 并发探测
+// ProbeHostsHandler probes hosts concurrently
 func ProbeHostsHandler(c *gin.Context) {
 	var req struct {
 		HostIDs []uint `json:"host_ids"`
@@ -593,7 +593,7 @@ func ProbeHostsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"online": online})
 }
 
-// ---- SSH 密钥 ----
+// ---- SSH keys ----
 
 func ListKeys(c *gin.Context) {
 	var keys []model.SSHKey
@@ -636,13 +636,13 @@ func DeleteKey(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ---- 任务查询 ----
+// ---- Task queries ----
 
 func ListTasks(c *gin.Context) {
 	u := currentUser(c)
 	var tasks []model.Task
 	q := model.DB
-	// 范围：管理员/审计员看全量，其他人仅本人任务
+	// Scope: admins/auditors see all, others only their own tasks
 	if !u.IsAdmin() && u.Role != model.RoleAuditor {
 		q = q.Where("operator = ?", u.Username)
 	}
@@ -661,7 +661,7 @@ func GetTask(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "任务不存在"})
 		return
 	}
-	// 范围：非管理员/审计员只能查看本人任务
+	// Scope: non-admin/auditor users can only view their own tasks
 	if !u.IsAdmin() && u.Role != model.RoleAuditor && task.Operator != u.Username {
 		c.JSON(http.StatusForbidden, gin.H{"error": "只能查看本人发起的任务"})
 		return

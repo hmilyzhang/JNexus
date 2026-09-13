@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <el-card>
@@ -33,10 +33,10 @@
       </el-table>
     </el-card>
 
-    <!-- 任务控制台（聚合视图） -->
+    <!-- Task console (aggregated view) -->
     <el-drawer v-model="detailVisible" :title="`${$t('tasks.detail')} #${detail?.task?.id}`" size="820px">
       <template v-if="detail">
-        <!-- 汇总统计 -->
+        <!-- Summary stats -->
         <div class="sum-line">
           <el-tag size="small">{{ typeText(detail.task.type) }}</el-tag>
           <span class="sum-op">{{ detail.task.operator }}</span>
@@ -49,7 +49,7 @@
         </div>
         <div class="sum-params mono">{{ detail.task.params }}</div>
 
-        <!-- 工具栏 -->
+        <!-- Toolbar -->
         <div class="toolbar">
           <el-switch v-model="onlyFailed" style="margin-right:4px" />
           <span style="font-size:13px; margin-right:10px">{{ $t('tasks.onlyFailed') }}</span>
@@ -59,7 +59,7 @@
           <el-button size="small" @click="download('csv')">{{ $t('tasks.exportCsv') }}</el-button>
         </div>
 
-        <!-- 主机汇总表格 -->
+        <!-- Host summary table -->
         <el-table :data="filteredResults" size="small" border highlight-current-row
                   :row-class-name="rowClass" @row-click="selectRow" style="margin-top:10px">
           <el-table-column :label="$t('menu.hosts')" min-width="180">
@@ -81,7 +81,7 @@
           </el-table-column>
         </el-table>
 
-        <!-- 输出面板 -->
+        <!-- Output panel -->
         <template v-if="selected">
           <div class="out-title">
             {{ selected.host_name }}（{{ selected.host_ip }}）
@@ -126,7 +126,7 @@ const cnt = computed(() => {
   }
 })
 
-// 失败优先排序 + 只看失败 + 关键字过滤（主机名/IP/输出）
+// Failed-first sorting + failed-only filter + keyword filter (host name/IP/output)
 const filteredResults = computed(() => {
   let list = [...(detail.value?.results || [])]
   const weight = s => (s === 'failed' ? 0 : s === 'running' ? 1 : 2)
@@ -165,7 +165,7 @@ const openDetail = async row => {
   detailVisible.value = true
 }
 
-// blob 下载（带认证头）
+// Blob download (with auth header)
 const download = async format => {
   const data = await api.get(`/tasks/${detailTaskId.value}/export`, { params: { format }, responseType: 'blob' })
   const url = URL.createObjectURL(new Blob([data]))

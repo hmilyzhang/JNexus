@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package model
 
@@ -40,7 +40,7 @@ func Connect(dsn string) error {
 	return nil
 }
 
-// MigrateHostCredentials 存量主机自动迁移：每台已有账号的主机生成一个默认凭据
+// MigrateHostCredentials auto-migration for existing hosts: creates a default credential for each host that already has an account
 func MigrateHostCredentials() error {
 	var hosts []Host
 	DB.Find(&hosts)
@@ -59,7 +59,7 @@ func MigrateHostCredentials() error {
 	return nil
 }
 
-// SeedConfig 初始化系统配置默认值
+// SeedConfig initializes system config defaults
 func SeedConfig() error {
 	defaults := map[string]string{
 		"system_name":                "JNexus 运维平台",
@@ -109,7 +109,7 @@ func SeedConfig() error {
 	return nil
 }
 
-// Seed 初始化默认管理员、危险命令规则
+// Seed initializes the default admin and dangerous command rules
 func Seed() error {
 	var cnt int64
 	DB.Model(&User{}).Count(&cnt)
@@ -144,7 +144,7 @@ func Seed() error {
 	return nil
 }
 
-// GenAESKey 生成 32 字节 base64 主密钥（工具函数）
+// GenAESKey generates a 32-byte base64 master key (utility)
 func GenAESKey() string {
 	b := make([]byte, 32)
 	_, _ = rand.Read(b)

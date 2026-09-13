@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <div>
     <el-card>
@@ -73,7 +73,7 @@
       <div style="color:#909399; font-size:12px; margin-top:10px">{{ $t('k8s.certTip') }}</div>
     </el-card>
 
-    <!-- 添加/编辑集群 -->
+    <!-- Add/Edit cluster -->
     <el-dialog v-model="dlgVisible" :title="form.id ? $t('common.edit') : $t('k8s.addCluster')" width="560px">
       <el-form label-width="120px">
         <el-form-item :label="$t('k8s.clusterName')"><el-input v-model="form.name" /></el-form-item>
@@ -99,7 +99,7 @@
       </template>
     </el-dialog>
 
-    <!-- 成员管理 -->
+    <!-- Member management -->
     <el-dialog v-model="memberDlgVisible" :title="`${$t('k8s.members')}：${memberCluster?.name}`" width="520px">
       <div v-for="(m, i) in memberRows" :key="i" style="display:flex; gap:8px; align-items:center; margin-bottom:8px">
         <el-select v-model="m.user_id" filterable size="small" style="flex:1" :placeholder="$t('users.username')">
@@ -141,7 +141,7 @@ const memberRows = ref([])
 const form = reactive({})
 const canManage = computed(() => store.isAdmin)
 
-// ---- 列自定义（localStorage 持久化） ----
+// ---- Column customization (persisted in localStorage) ----
 const colDefs = [
   { key: 'cluster', label: 'k8s.cluster' },
   { key: 'description', label: 'scripts.desc' },
@@ -203,7 +203,7 @@ const testNow = async row => {
   load()
 }
 
-// ---- 成员管理 ----
+// ---- Member management ----
 const openMembers = async row => {
   memberCluster.value = row
   const ms = await api.get(`/k8s/clusters/${row.id}/members`)

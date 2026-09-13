@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -14,14 +14,14 @@ import (
 	"jnexus/internal/model"
 )
 
-// K8S 资源管理与日志：通过已存凭据代理调用集群 API
+// K8S resource management and logs: proxy calls to the cluster API using stored credentials
 
 type K8sAPI struct {
 	cli    *http.Client
 	Server string
 }
 
-// K8sClientFor 构造指定集群的 API 客户端
+// K8sClientFor builds the API client for the given cluster
 func K8sClientFor(c *model.K8sCluster) (*K8sAPI, error) {
 	caPEM, certPEM, keyPEM := decryptK8sCreds(c)
 	cli, err := k8sTLSClient(caPEM, certPEM, keyPEM, 30*time.Second)
@@ -58,7 +58,7 @@ func (k *K8sAPI) do(method, path string, body []byte, out any) error {
 	return nil
 }
 
-// K8sNodeInfo 节点信息
+// K8sNodeInfo node info
 type K8sNodeInfo struct {
 	Name       string `json:"name"`
 	Status     string `json:"status"`
@@ -67,7 +67,7 @@ type K8sNodeInfo struct {
 	Roles      string `json:"roles"`
 }
 
-// K8sNodes 节点列表
+// K8sNodes node list
 func (k *K8sAPI) Nodes() ([]K8sNodeInfo, error) {
 	var list struct {
 		Items []struct {
@@ -122,7 +122,7 @@ func (k *K8sAPI) Nodes() ([]K8sNodeInfo, error) {
 	return out, nil
 }
 
-// K8sPodInfo Pod 信息
+// K8sPodInfo pod info
 type K8sPodInfo struct {
 	Namespace  string   `json:"namespace"`
 	Name       string   `json:"name"`
@@ -131,10 +131,10 @@ type K8sPodInfo struct {
 	IP         string   `json:"ip"`
 	Restarts   int      `json:"restarts"`
 	StartedAt  string   `json:"started_at"`
-	Containers []string `json:"containers"` // 容器名列表（多容器选择）
+	Containers []string `json:"containers"` // container name list (for multi-container selection)
 }
 
-// K8sPods Pod 列表（namespace 为空 = 全部命名空间）
+// K8sPods pod list (empty namespace = all namespaces)
 func (k *K8sAPI) Pods(namespace string) ([]K8sPodInfo, error) {
 	path := "/api/v1/pods"
 	if namespace != "" {
@@ -187,12 +187,12 @@ func (k *K8sAPI) Pods(namespace string) ([]K8sPodInfo, error) {
 	return out, nil
 }
 
-// DeletePod 删除 Pod
+// DeletePod deletes a pod
 func (k *K8sAPI) DeletePod(namespace, name string) error {
 	return k.do("DELETE", "/api/v1/namespaces/"+namespace+"/pods/"+name, nil, nil)
 }
 
-// CreateShellPod 创建临时集群 Shell Pod（busybox sleep，供终端接入）
+// CreateShellPod creates a temporary shell pod in the cluster (busybox sleep, for terminal access)
 func (k *K8sAPI) CreateShellPod(namespace, name string) error {
 	manifest := map[string]any{
 		"apiVersion": "v1",
@@ -215,7 +215,7 @@ func (k *K8sAPI) CreateShellPod(namespace, name string) error {
 	return k.do("POST", "/api/v1/namespaces/"+namespace+"/pods", b, nil)
 }
 
-// GetPodPhase 查询 Pod Phase（Pending/Running/Succeeded/Failed/Unknown）
+// GetPodPhase queries the pod phase (Pending/Running/Succeeded/Failed/Unknown)
 func (k *K8sAPI) GetPodPhase(namespace, name string) string {
 	var st struct {
 		Status struct {
@@ -228,7 +228,7 @@ func (k *K8sAPI) GetPodPhase(namespace, name string) string {
 	return st.Status.Phase
 }
 
-// RestartDeployment 重启 Deployment（kubectl rollout restart 语义）
+// RestartDeployment restarts a Deployment (kubectl rollout restart semantics)
 func (k *K8sAPI) RestartDeployment(namespace, name string) error {
 	patch := map[string]any{
 		"spec": map[string]any{
@@ -261,7 +261,7 @@ func (k *K8sAPI) RestartDeployment(namespace, name string) error {
 	return nil
 }
 
-// K8sDeploymentInfo Deployment 信息
+// K8sDeploymentInfo deployment info
 type K8sDeploymentInfo struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
@@ -270,7 +270,7 @@ type K8sDeploymentInfo struct {
 	Available int    `json:"available"`
 }
 
-// K8sDeployments Deployment 列表（namespace 为空 = 全部）
+// K8sDeployments deployment list (empty namespace = all)
 func (k *K8sAPI) Deployments(namespace string) ([]K8sDeploymentInfo, error) {
 	path := "/apis/apps/v1/deployments"
 	if namespace != "" {
@@ -302,7 +302,7 @@ func (k *K8sAPI) Deployments(namespace string) ([]K8sDeploymentInfo, error) {
 	return out, nil
 }
 
-// PodLog 读取 Pod 日志
+// PodLog reads pod logs
 func (k *K8sAPI) PodLog(namespace, name, container string, tail int) (string, error) {
 	path := "/api/v1/namespaces/" + namespace + "/pods/" + name + "/log"
 	q := []string{}
@@ -327,7 +327,7 @@ func (k *K8sAPI) PodLog(namespace, name, container string, tail int) (string, er
 	return string(b), nil
 }
 
-// K8sNamespaces 命名空间列表
+// K8sNamespaces namespace list
 func (k *K8sAPI) Namespaces() ([]string, error) {
 	var list struct {
 		Items []struct {
@@ -346,7 +346,7 @@ func (k *K8sAPI) Namespaces() ([]string, error) {
 	return out, nil
 }
 
-// K8sEventInfo 事件
+// K8sEventInfo event
 type K8sEventInfo struct {
 	Namespace string `json:"namespace"`
 	Type      string `json:"type"`
@@ -357,7 +357,7 @@ type K8sEventInfo struct {
 	LastSeen  string `json:"last_seen"`
 }
 
-// K8sEvents 最近事件
+// K8sEvents recent events
 func (k *K8sAPI) Events(limit int) ([]K8sEventInfo, error) {
 	path := "/api/v1/events?limit=" + strconv.Itoa(limit)
 	var list struct {
@@ -390,7 +390,7 @@ func (k *K8sAPI) Events(limit int) ([]K8sEventInfo, error) {
 	return out, nil
 }
 
-// K8sConfigInfo ConfigMap / Secret 条目
+// K8sConfigInfo ConfigMap / Secret entry
 type K8sConfigInfo struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
@@ -447,24 +447,24 @@ func (k *K8sAPI) Secrets(namespace string) ([]K8sConfigInfo, error) {
 	out := []K8sConfigInfo{}
 	for _, it := range list.Items {
 		if strings.HasSuffix(it.Type, "helm.sh/release.v1") {
-			continue // Helm release secrets 噪音过大，默认隐藏
+			continue // Helm release secrets are too noisy; hidden by default
 		}
 		out = append(out, K8sConfigInfo{Namespace: it.Metadata.Namespace, Name: it.Metadata.Name, Age: it.Metadata.CreationTimestamp})
 	}
 	return out, nil
 }
 
-// DeleteConfigMap 删除 ConfigMap
+// DeleteConfigMap deletes a ConfigMap
 func (k *K8sAPI) DeleteConfigMap(namespace, name string) error {
 	return k.do("DELETE", "/api/v1/namespaces/"+namespace+"/configmaps/"+name, nil, nil)
 }
 
-// DeleteSecret 删除 Secret
+// DeleteSecret deletes a Secret
 func (k *K8sAPI) DeleteSecret(namespace, name string) error {
 	return k.do("DELETE", "/api/v1/namespaces/"+namespace+"/secrets/"+name, nil, nil)
 }
 
-// K8sNodeAbnormal 返回 NotReady 节点名列表（在线集群）
+// K8sNodeAbnormal returns the list of NotReady node names (online clusters)
 func (k *K8sAPI) NotReadyNodes() ([]string, error) {
 	nodes, err := k.Nodes()
 	if err != nil {
@@ -479,7 +479,7 @@ func (k *K8sAPI) NotReadyNodes() ([]string, error) {
 	return bad, nil
 }
 
-// K8sCronJobInfo 计划任务信息
+// K8sCronJobInfo cronjob info
 type K8sCronJobInfo struct {
 	Namespace    string `json:"namespace"`
 	Name         string `json:"name"`
@@ -489,7 +489,7 @@ type K8sCronJobInfo struct {
 	LastSchedule string `json:"last_schedule"`
 }
 
-// K8sCronJobs 计划任务列表
+// K8sCronJobs cronjob list
 func (k *K8sAPI) CronJobs(namespace string) ([]K8sCronJobInfo, error) {
 	path := "/apis/batch/v1/cronjobs"
 	if namespace != "" {
@@ -507,8 +507,8 @@ func (k *K8sAPI) CronJobs(namespace string) ([]K8sCronJobInfo, error) {
 				Suspend  bool   `json:"suspend"`
 			} `json:"spec"`
 			Status struct {
-				// batch/v1（K8S ≥1.21）的 active 是 ObjectReference 数组，取长度作为活跃 Job 数
-				Active       []struct {
+				// In batch/v1 (K8S >=1.21) active is an ObjectReference array; its length is the active job count
+				Active []struct {
 					Name string `json:"name"`
 				} `json:"active"`
 				LastSchedule string `json:"lastScheduleTime"`
@@ -529,7 +529,7 @@ func (k *K8sAPI) CronJobs(namespace string) ([]K8sCronJobInfo, error) {
 	return out, nil
 }
 
-// CreateCronJob 创建计划任务（busybox 执行 shell 命令）
+// CreateCronJob creates a cronjob (busybox running a shell command)
 func (k *K8sAPI) CreateCronJob(namespace, name, schedule, command string) error {
 	manifest := map[string]any{
 		"apiVersion": "batch/v1",
@@ -557,7 +557,7 @@ func (k *K8sAPI) CreateCronJob(namespace, name, schedule, command string) error 
 	return k.do("POST", "/apis/batch/v1/namespaces/"+namespace+"/cronjobs", b, nil)
 }
 
-// SuspendCronJob 暂停/恢复计划任务
+// SuspendCronJob suspends/resumes a cronjob
 func (k *K8sAPI) SuspendCronJob(namespace, name string, suspend bool) error {
 	b, _ := json.Marshal(map[string]any{"spec": map[string]any{"suspend": suspend}})
 	req, err := http.NewRequest("PATCH",
@@ -578,12 +578,12 @@ func (k *K8sAPI) SuspendCronJob(namespace, name string, suspend bool) error {
 	return nil
 }
 
-// DeleteCronJob 删除计划任务
+// DeleteCronJob deletes a cronjob
 func (k *K8sAPI) DeleteCronJob(namespace, name string) error {
 	return k.do("DELETE", "/apis/batch/v1/namespaces/"+namespace+"/cronjobs/"+name, nil, nil)
 }
 
-// K8sSAInfo 服务账号信息
+// K8sSAInfo service account info
 type K8sSAInfo struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
@@ -591,7 +591,7 @@ type K8sSAInfo struct {
 	Age       string `json:"age"`
 }
 
-// K8sServiceAccounts 服务账号列表
+// K8sServiceAccounts service account list
 func (k *K8sAPI) ServiceAccounts(namespace string) ([]K8sSAInfo, error) {
 	path := "/api/v1/serviceaccounts"
 	if namespace != "" {
@@ -620,7 +620,7 @@ func (k *K8sAPI) ServiceAccounts(namespace string) ([]K8sSAInfo, error) {
 	return out, nil
 }
 
-// CreateServiceAccount 创建服务账号
+// CreateServiceAccount creates a service account
 func (k *K8sAPI) CreateServiceAccount(namespace, name string) error {
 	manifest := map[string]any{
 		"apiVersion": "v1",
@@ -631,7 +631,7 @@ func (k *K8sAPI) CreateServiceAccount(namespace, name string) error {
 	return k.do("POST", "/api/v1/namespaces/"+namespace+"/serviceaccounts", b, nil)
 }
 
-// DeleteServiceAccount 删除服务账号
+// DeleteServiceAccount deletes a service account
 func (k *K8sAPI) DeleteServiceAccount(namespace, name string) error {
 	return k.do("DELETE", "/api/v1/namespaces/"+namespace+"/serviceaccounts/"+name, nil, nil)
 }

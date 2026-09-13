@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package service
 
@@ -17,14 +17,14 @@ import (
 	"jnexus/internal/ws"
 )
 
-const maxOutputSize = 512 * 1024 // 单主机输出上限 512KB
+const maxOutputSize = 512 * 1024 // per-host output cap 512KB
 
-// ExecRequest 批量执行请求
+// ExecRequest batch execution request
 type ExecRequest struct {
 	HostIDs      []uint   `json:"host_ids"`
 	GroupID      *uint    `json:"group_id"`
-	IPs          []string `json:"ips"`           // 多 IP 逗号分隔输入
-	CredentialID *uint    `json:"credential_id"` // 指定 OS 账号（可选，默认取各主机默认可用账号）
+	IPs          []string `json:"ips"`           // multiple IPs, comma-separated input
+	CredentialID *uint    `json:"credential_id"` // specify OS account (optional; defaults to each host's default usable account)
 	Command      string   `json:"command"`
 	ScriptID     *uint    `json:"script_id"`
 	ScriptArgs   string   `json:"script_args"`
@@ -32,7 +32,7 @@ type ExecRequest struct {
 	Concurrency  int      `json:"concurrency"`
 }
 
-// StartBatchExec 创建任务并并发执行命令/脚本；返回 task id（或拦截原因）
+// StartBatchExec creates a task and concurrently runs the command/script; returns the task id (or interception reasons)
 func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, error) {
 	command := req.Command
 	if req.ScriptID != nil {
@@ -49,7 +49,7 @@ func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, erro
 		return 0, nil, fmt.Errorf("命令不能为空")
 	}
 
-	// 危险命令拦截
+	// Dangerous command interception
 	if hits := CheckDanger(command); len(hits) > 0 {
 		return 0, hits, fmt.Errorf("危险命令已被拦截: %s", strings.Join(hits, "、"))
 	}
@@ -62,7 +62,7 @@ func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, erro
 		return 0, nil, fmt.Errorf("未选择任何有权限的目标主机")
 	}
 
-	// 指定 OS 账号时在提交阶段即校验使用权，避免任务创建后才失败
+	// When an OS account is specified, verify usage rights at submission time to avoid failing after the task is created
 	if req.CredentialID != nil {
 		var cred model.HostCredential
 		if err := model.DB.First(&cred, *req.CredentialID).Error; err != nil {
@@ -102,7 +102,7 @@ func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, erro
 		return 0, nil, err
 	}
 
-	// 初始化结果行
+	// Initialize result rows
 	results := make([]model.TaskHostResult, 0, len(hosts))
 	for _, h := range hosts {
 		results = append(results, model.TaskHostResult{
@@ -117,7 +117,7 @@ func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, erro
 	return task.ID, nil, nil
 }
 
-// resolveHosts 根据主机 ID / 分组 / IP 列表解析目标主机并做权限过滤
+// resolveHosts resolves target hosts from host IDs / group / IP list and applies permission filtering
 func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint, ips []string) ([]model.Host, error) {
 	var hosts []model.Host
 	if len(hostIDs) > 0 {
@@ -125,12 +125,12 @@ func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint, ips []str
 			return nil, err
 		}
 	} else if groupID != nil {
-		// 含全部后代分组（多级树级联）
+		// Include all descendant groups (multi-level tree cascade)
 		if err := model.DB.Preload("Group").Where("group_id IN ?", GroupAndDescendants(*groupID)).Find(&hosts).Error; err != nil {
 			return nil, err
 		}
 	} else if len(ips) > 0 {
-		// 前端已按逗号拆分；此处再做一次容错拆分
+		// The frontend already splits by comma; do a fault-tolerant split here as well
 		var flat []string
 		for _, s := range ips {
 			for _, p := range strings.Split(s, ",") {
@@ -149,10 +149,10 @@ func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint, ips []str
 	} else {
 		return nil, fmt.Errorf("请选择目标主机或分组")
 	}
-	// 数据级权限过滤
+	// Data-level permission filtering
 	allowed := hosts[:0]
 	for i := range hosts {
-		// 主机级权限（个人授权/用户组关联主机）或拥有该主机的可用 OS 账号（用户组关联凭据）
+		// Host-level permission (personal grant / user-group linked hosts) or a usable OS account on that host (user-group linked credentials)
 		if CanExecHost(operator, hosts[i].ID, hosts[i].GroupID) || len(UsableCredentials(operator, &hosts[i])) > 0 {
 			allowed = append(allowed, hosts[i])
 		}
@@ -160,8 +160,8 @@ func resolveHosts(operator *model.User, hostIDs []uint, groupID *uint, ips []str
 	return allowed, nil
 }
 
-// CanExecHost 判断用户能否在指定主机上执行：
-// admin 全通过；运维/发布员通过「个人分组授权」或「用户组（直接关联主机/关联主机分组）」获得权限
+// CanExecHost whether the user can execute on the given host:
+// admin is always allowed; ops/publisher gain access via "personal group grants" or "user groups (directly linked hosts / linked host groups)"
 func CanExecHost(user *model.User, hostID uint, groupID *uint) bool {
 	if user.IsAdmin() {
 		return true
@@ -169,7 +169,7 @@ func CanExecHost(user *model.User, hostID uint, groupID *uint) bool {
 	if user.Role != model.RoleOps && user.Role != model.RolePublisher {
 		return false
 	}
-	// 个人授权：所在主机分组（含祖先分组级联）
+	// Personal grant: the host's group (including ancestor group cascade)
 	if groupID != nil {
 		chain := GroupAncestors(*groupID)
 		var cnt int64
@@ -180,7 +180,7 @@ func CanExecHost(user *model.User, hostID uint, groupID *uint) bool {
 			return true
 		}
 	}
-	// 用户组直接关联主机
+	// Hosts directly linked by user groups
 	var cnt int64
 	model.DB.Table("user_group_hosts ug_h").
 		Joins("JOIN user_group_members ug_m ON ug_m.user_group_id = ug_h.user_group_id").
@@ -189,7 +189,7 @@ func CanExecHost(user *model.User, hostID uint, groupID *uint) bool {
 	if cnt > 0 {
 		return true
 	}
-	// 用户组关联主机分组（命中主机分组的任一祖先即生效）
+	// Host groups linked by user groups (applies if any ancestor of the host's group matches)
 	if groupID != nil {
 		chain := GroupAncestors(*groupID)
 		model.DB.Table("user_group_host_groups ug_g").
@@ -203,7 +203,7 @@ func CanExecHost(user *model.User, hostID uint, groupID *uint) bool {
 	return false
 }
 
-// runTask 并发执行任务，实时推送输出
+// runTask executes the task concurrently, streaming output in real time
 func runTask(operator *model.User, reqCredID *uint, taskID uint, command string, results []model.TaskHostResult, concurrency int, timeout time.Duration) {
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
@@ -251,7 +251,7 @@ func runTask(operator *model.User, reqCredID *uint, taskID uint, command string,
 				pushTaskStatus()
 				return
 			}
-			// Windows 主机：WinRM 执行（无流式输出，完成后一次性推送）
+			// Windows host: run via WinRM (no streaming output; pushed in one shot after completion)
 			if IsWindows(&host) {
 				model.DB.Model(&model.TaskHostResult{}).Where("id = ?", res.ID).Update("os_user", cred.Username)
 				ws.H.Broadcast(taskTopic(taskID), map[string]any{"type": "os_user", "result_id": res.ID, "os_user": cred.Username})
@@ -334,7 +334,7 @@ func finishResult(id uint, code int, out, status string) {
 
 func taskTopic(taskID uint) string { return fmt.Sprintf("task-%d", taskID) }
 
-// ProbeHosts 并发探测主机连通性并更新状态
+// ProbeHosts probes host connectivity concurrently and updates their status
 func ProbeHosts(hostIDs []uint) int {
 	var hosts []model.Host
 	q := model.DB

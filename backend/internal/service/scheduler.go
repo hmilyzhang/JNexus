@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -11,7 +11,7 @@ import (
 	"jnexus/internal/model"
 )
 
-// ValidateCronExpr 校验 cron 表达式（5 段标准格式）
+// ValidateCronExpr validates a cron expression (5-field standard format)
 func ValidateCronExpr(expr string) error {
 	if _, err := cronlib.ParseStandard(expr); err != nil {
 		return fmt.Errorf("非法 cron 表达式: %w", err)
@@ -19,7 +19,7 @@ func ValidateCronExpr(expr string) error {
 	return nil
 }
 
-// NextCronTime 计算表达式在 base 之后的下一次触发时间
+// NextCronTime computes the next fire time of the expression after base
 func NextCronTime(expr string, base time.Time) (*time.Time, error) {
 	sched, err := cronlib.ParseStandard(expr)
 	if err != nil {
@@ -29,7 +29,7 @@ func NextCronTime(expr string, base time.Time) (*time.Time, error) {
 	return &next, nil
 }
 
-// StartScheduler 启动计划任务调度循环（每 20 秒扫描一次到期任务）
+// StartScheduler starts the cron job scheduling loop (scans due jobs every 20 seconds)
 func StartScheduler() {
 	go func() {
 		for {
@@ -41,7 +41,7 @@ func StartScheduler() {
 
 func tick() {
 	defer func() { recover() }()
-	go ScanDueRotations() // 密码轮换扫描
+	go ScanDueRotations() // password rotation scan
 	var jobs []model.CronJob
 	if err := model.DB.Where("enabled = ?", true).Find(&jobs).Error; err != nil {
 		return
@@ -50,17 +50,17 @@ func tick() {
 	for _, job := range jobs {
 		next, err := NextCronTime(job.CronExpr, now)
 		if err != nil {
-			continue // 表达式非法，跳过
+			continue // invalid expression, skip
 		}
-		// 首次见到：只设置下次触发时间，不立即执行
+		// first sighting: only set the next fire time, do not run immediately
 		if job.NextRunAt == nil {
 			model.DB.Model(&job).Update("next_run_at", next)
 			continue
 		}
 		if now.Before(*job.NextRunAt) {
-			continue // 未到期
+			continue // not due yet
 		}
-		// 到期：立即更新下次触发时间（防止重复触发），异步执行
+		// due: update the next fire time immediately (prevents duplicate firing), run async
 		model.DB.Model(&job).Updates(map[string]any{
 			"next_run_at": next,
 			"last_run_at": now,
@@ -69,7 +69,7 @@ func tick() {
 	}
 }
 
-// executeCronJob 触发一次计划任务（以创建者身份执行，留痕于任务记录）
+// executeCronJob fires a cron job once (executed as the creator, recorded in the task log)
 func executeCronJob(job model.CronJob, firedAt time.Time) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -77,13 +77,13 @@ func executeCronJob(job model.CronJob, firedAt time.Time) {
 		}
 	}()
 
-	// 重新读取（期间可能被修改/禁用/删除）
+	// re-read (it may have been modified/disabled/deleted in the meantime)
 	var fresh model.CronJob
 	if err := model.DB.First(&fresh, job.ID).Error; err != nil || !fresh.Enabled {
 		return
 	}
 
-	// 以创建者身份执行（合成用户，权限全通过；操作人显示为创建者，便于审计）
+	// execute as the creator (synthesized user, all permissions pass; operator shown as creator for auditability)
 	operator := &model.User{Username: fresh.CreatedBy, Role: model.RoleAdmin, Status: 1}
 
 	req := ExecRequest{
@@ -112,7 +112,7 @@ func executeCronJob(job model.CronJob, firedAt time.Time) {
 
 	taskID, _, err := StartBatchExec(operator, req)
 	if err != nil {
-		// 目标不可用等情况：记录一条失败任务便于排查
+		// targets unavailable and similar cases: record a failed task for troubleshooting
 		task := model.Task{
 			Type: model.TaskCommand, Operator: fresh.CreatedBy,
 			Params: fmt.Sprintf(`{"cron":"%s","error":"%v"}`, fresh.Name, err),

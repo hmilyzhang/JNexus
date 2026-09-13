@@ -1,4 +1,4 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <el-row :gutter="16">
     <el-col :span="6">
@@ -87,7 +87,7 @@
     </el-col>
   </el-row>
 
-  <!-- 新增/编辑主机 -->
+  <!-- Add/Edit host -->
   <el-dialog v-model="hostVisible" :title="hostForm.id ? $t('hosts.editHost') : $t('hosts.addHostTitle')" width="460px">
     <el-form label-width="100px">
       <el-form-item :label="$t('hosts.name')"><el-input v-model="hostForm.name" :placeholder="$t('hosts.namePlaceholder')" /></el-form-item>
@@ -148,7 +148,7 @@
     </template>
   </el-dialog>
 
-  <!-- 批量导入 -->
+  <!-- Bulk import -->
   <el-dialog v-model="importVisible" :title="$t('hosts.importTitle')" width="560px">
     <el-form label-width="130px">
       <el-form-item :label="$t('hosts.importFile')">
@@ -192,7 +192,7 @@
     </template>
   </el-dialog>
 
-  <!-- 分组管理 -->
+  <!-- Group management -->
   <el-dialog v-model="groupVisible" :title="$t('hosts.groupMgmt')" width="520px">
     <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center; flex-wrap:wrap">
       <el-select v-model="newGroupParent" :placeholder="$t('hosts.parentGroup')" style="width:180px" clearable>
@@ -230,7 +230,7 @@
     </el-dialog>
   </el-dialog>
 
-  <!-- SSH 密钥管理 -->
+  <!-- SSH key management -->
   <el-drawer v-model="showKeys" :title="$t('hosts.keyMgmt')" size="480px">
     <div style="margin-bottom:12px">
       <el-button type="primary" size="small" @click="keyDlgVisible = true">{{ $t('hosts.importKeyTitle') }}</el-button>
@@ -261,7 +261,7 @@
     </template>
   </el-dialog>
 
-  <!-- 账号模板管理 -->
+  <!-- Account template management -->
   <el-drawer v-model="showTemplates" :title="$t('hosts.tplMgmt')" size="480px">
     <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap">
       <el-input v-model="tplForm.username" :placeholder="$t('users.username')" style="width:140px" />
@@ -289,7 +289,7 @@
     <div style="margin-top:12px; color:#909399; font-size:12px">{{ $t('hosts.tplTip') }}</div>
   </el-drawer>
 
-  <!-- 容量规划抽屉 -->
+  <!-- Capacity planning drawer -->
   <el-drawer v-model="capVisible" size="56%" :title="`${$t('k8s.capacity')} · ${capHost?.name || ''}`" destroy-on-close>
     <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px">
       <el-radio-group v-model="capHours" size="small" @change="loadCap">
@@ -337,7 +337,7 @@ import { useUserStore } from '../store'
 
 const { t } = i18n.global
 
-// ---- 容量规划抽屉（30d raw / 180d·1y 小时聚合，线性预测到 90% 水位） ----
+// ---- Capacity planning drawer (30d raw / 180d·1y hourly aggregation, linear forecast to the 90% watermark) ----
 const capVisible = ref(false)
 const capHost = ref(null)
 const capHours = ref(720)
@@ -349,7 +349,7 @@ const openCapacity = row => {
   capVisible.value = true
   loadCap()
 }
-// ---- RDP 远程桌面（guacamole-lite 网关，加密连接串 5 分钟有效） ----
+// ---- RDP remote desktop (guacamole-lite gateway, encrypted connection string valid for 5 minutes) ----
 const rdpWin = ref(null)
 const openRDP = async row => {
   try {
@@ -358,7 +358,7 @@ const openRDP = async row => {
     const q = encodeURIComponent(r.query)
     window.open(`${location.origin}/rdp?gw=${gw}&q=${q}&host=${encodeURIComponent(row.name)}&ip=${encodeURIComponent(row.ip)}`,
       '_blank', `width=1300,height=780`)
-  } catch { /* 拦截器提示 */ }
+  } catch { /* surfaced by the interceptor */ }
 }
 
 const loadCap = async () => {
@@ -377,7 +377,7 @@ const pctChartPoints = m => {
   const key = m === 'cpu' ? 'cpu_percent' : m === 'mem' ? 'mem_percent' : 'disk_percent'
   return pts.map(p => ({ t: p.t || p.collected_at, v: p[key] }))
 }
-// 预测外推：+90 天虚线（百分比量纲），触顶 100% 精确截断
+// Forecast extrapolation: +90-day dashed line (percentage scale), precisely truncated at 100%
 const capForecastSeries = m => {
   const pts = pctChartPoints(m)
   const fc = cap.value?.forecast
@@ -427,8 +427,8 @@ const showKeys = ref(false)
 const keyDlgVisible = ref(false)
 const keyForm = ref({ name: '', public_key: '', private_key: '' })
 
-// 树状数据：分组 → 主机，未分组单独一层
-// 多级分组树：按 parent_id 递归构建
+// Tree data: groups → hosts, with ungrouped hosts on their own level
+// Multi-level group tree: built recursively by parent_id
 const buildGroupTree = (groups, hosts) => {
   const byId = new Map(groups.map(g => [g.id, {
     key: 'g-' + g.id, type: 'group', groupId: g.id, label: g.name,
@@ -473,7 +473,7 @@ const treeData = computed(() => {
 const onTreeNode = node => {
   if (node.type === 'group') {
     groupFilter.value = node.groupId || undefined
-    keyword.value = '' // 切到分组时清掉残留的 IP 搜索词，否则过滤结果为空
+    keyword.value = '' // clear leftover IP search term when switching to a group, otherwise the filter yields nothing
   } else {
     groupFilter.value = undefined
     keyword.value = node.host.ip
@@ -484,7 +484,7 @@ const onTreeNode = node => {
 const load = async () => {
   loading.value = true
   try {
-    // 单次全量请求，表格筛选在前端完成（左侧树同样使用全量数据），避免双份 /hosts 载荷
+    // Single full fetch; table filtering is done client-side (the left tree also uses the full data), avoiding a double /hosts payload
     const all = await api.get('/hosts')
     allHosts.value = all
     let list = all
@@ -505,12 +505,12 @@ onMounted(() => {
   loadTemplates()
 })
 
-// 终端：跳转到 Web Shell 终端工作台，可带主机直接连接
+// Terminal: jump to the Web Shell workspace, optionally connecting straight to a host
 const openTerminal = row => {
   router.push(`/shell?host=${row.id}`)
 }
 
-// 行操作下拉分发
+// Row action dropdown dispatcher
 const onRowCmd = async (cmd, row) => {
   if (cmd === 'terminal') openTerminal(row)
   else if (cmd === 'rdp') openRDP(row)
@@ -529,7 +529,7 @@ const dlgHost = row => {
   hostForm.value = row ? { ...row, password: '', template_id: null } : { name: '', ip: '', port: 22, os_type: 'linux', winrm_port: 5985, rdp_port: 3389, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null, auto_pair: true, template_id: null }
   hostVisible.value = true
 }
-// ---- OS 账号权限（下拉项显隐），管理功能在「OS 账号」页面 ----
+// ---- OS account permissions (dropdown item visibility); management lives on the "OS Accounts" page ----
 const roleSettings = ref({})
 const canManageCreds = computed(() => {
   if (store.isAdmin) return true
@@ -537,7 +537,7 @@ const canManageCreds = computed(() => {
 })
 api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
 
-// ---- 凭据模板（LDAP/域账号存一次，添加/导入引用） ----
+// ---- Credential templates (store LDAP/domain accounts once, referenced when adding/importing) ----
 const showTemplates = ref(false)
 const templates = ref([])
 const tplForm = ref({ username: '', password: '', label: '', is_ldap: false })
@@ -555,7 +555,7 @@ const saveTpl = async () => {
 }
 const delTpl = async row => { await api.delete(`/credentials/templates/${row.id}`); loadTemplates() }
 
-// 添加主机：选中模板后联动用户名/认证方式
+// Add host: picking a template fills in username/auth type
 const onTplPick = id => {
   const tp = templates.value.find(x => x.id === id)
   if (tp) {
@@ -593,7 +593,7 @@ const savingHost = ref(false)
 const saveHost = async () => {
   if (!hostForm.value.name || !hostForm.value.ip || !hostForm.value.username) { ElMessage.warning(t('hosts.needNameIpUser')); return }
   if (hostForm.value.auth_type === 'key' && !hostForm.value.ssh_key_id) { ElMessage.warning(t('hosts.needKey')); return }
-  if (savingHost.value) return // 防连点：密码认证时后端要 SSH 配对，可能耗时数十秒
+  if (savingHost.value) return // guard against double-click: password auth requires backend SSH pairing, which can take tens of seconds
   savingHost.value = true
   try {
   if (hostForm.value.id) {
@@ -601,7 +601,7 @@ const saveHost = async () => {
     ElMessage.success(t('hosts.saved'))
   } else {
     const res = await api.post('/hosts', hostForm.value)
-    // 密钥认证：同步创建默认 OS 账号；密码认证：后端已建账号并按 auto_pair 尝试配对
+    // Key auth: create the default OS account synchronously; password auth: backend already created the account and attempts pairing per auto_pair
     if (hostForm.value.auth_type === 'key' && hostForm.value.ssh_key_id) {
       await api.post(`/hosts/${res.host.id}/credentials`, {
         username: hostForm.value.username, auth_type: 'key', ssh_key_id: hostForm.value.ssh_key_id, is_default: true
@@ -632,7 +632,7 @@ const probeAll = async () => {
 
 const dlgImport = () => { importVisible.value = true }
 
-// 读取 CSV/TXT 文件内容填入文本框（每行一台主机）
+// Read the CSV/TXT file content into the textarea (one host per line)
 const onImportFile = ev => {
   const file = ev.target.files[0]
   if (!file) return

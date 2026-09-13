@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -27,7 +27,7 @@ import (
 	"jnexus/internal/sshpool"
 )
 
-// compileCheck 校验正则合法性
+// compileCheck validates a regular expression
 func compileCheck(pattern string) (*regexp.Regexp, error) {
 	return regexp.Compile(pattern)
 }
@@ -50,10 +50,10 @@ var termUpgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-// WebTerminal Web 终端：WS 双向桥接 SSH shell
-// 路由: GET /api/ws/term/:hostId?token=xxx
+// WebTerminal web terminal: bidirectional WS bridge to an SSH shell
+// Route: GET /api/ws/term/:hostId?token=xxx
 func WebTerminal(c *gin.Context) {
-	// 鉴权
+	// Authentication
 	token := c.Query("token")
 	if token == "" {
 		if auth := c.GetHeader("Authorization"); len(auth) > 7 {
@@ -85,12 +85,12 @@ func WebTerminal(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
 		return
 	}
-	// 数据级权限：主机级授权 或 拥有该主机的可用 OS 账号（用户组关联凭据）
+	// Data-level permission: host-level grant or an available OS account for the host (credentials linked via user groups)
 	if !service.CanExecHost(&user, host.ID, host.GroupID) && len(service.UsableCredentials(&user, &host)) == 0 {
 		c.JSON(http.StatusForbidden, gin.H{"error": "无该主机的访问权限"})
 		return
 	}
-	// OS 账号选择：?credential_id= 指定，否则主机默认可用账号
+	// OS account selection: specified via ?credential_id=, otherwise the host's default usable account
 	var credPtr *model.HostCredential
 	if cid, ok := atoiParam(c.Query("credential_id")); ok {
 		cid64 := uint(cid)
@@ -127,7 +127,7 @@ func WebTerminal(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	sess.Stderr = nil // stderr 合并到 stdout
+	sess.Stderr = nil // stderr is merged into stdout
 
 	modes := gossh.TerminalModes{gossh.ECHO: 1, gossh.TTY_OP_ISPEED: 14400, gossh.TTY_OP_OSPEED: 14400}
 	if err := sess.RequestPty("xterm-256color", 40, 120, modes); err != nil {
@@ -172,7 +172,7 @@ func WebTerminal(c *gin.Context) {
 		}
 	}()
 
-	// WS -> SSH（文本为输入，JSON 消息为 resize）
+	// WS -> SSH (text is input, JSON messages are resize)
 	for {
 		mt, data, err := wsConn.ReadMessage()
 		if err != nil {
@@ -196,8 +196,8 @@ func WebTerminal(c *gin.Context) {
 }
 
 // RDPConnectToken POST /api/hosts/:id/rdp-token
-// 校验能力位与数据级权限后签发一次性连接令牌（5 分钟有效），
-// guacamole-lite 网关用该 token 换取真实 RDP 凭据（凭据不经过浏览器）
+// Issues a one-time connection token (valid for 5 minutes) after checking capability and data-level permissions;
+// the guacamole-lite gateway exchanges this token for real RDP credentials (credentials never pass through the browser)
 func RDPConnectToken(c *gin.Context) {
 	u := currentUser(c)
 	hostID, ok := atoiParam(c.Param("id"))
@@ -222,7 +222,7 @@ func RDPConnectToken(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "无该主机的访问权限"})
 		return
 	}
-	// 取主机默认可用凭据
+	// Get the host's default usable credential
 	cred, err := service.ResolveCredential(u, &host, nil)
 	if err != nil || cred == nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": "无可用 OS 账号"})
@@ -233,7 +233,7 @@ func RDPConnectToken(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": derr.Error()})
 		return
 	}
-	// 生成 guacamole-lite 加密查询串（AES-256-CBC，GW_SECRET 共享密钥，短时有效）
+	// Generate the guacamole-lite encrypted query string (AES-256-CBC, GW_SECRET shared key, short-lived)
 	qs, err := buildGuacQueryString(host.IP, rdpPortOf(&host), cred.Username, pass)
 	if derr != nil {
 		_ = derr
@@ -248,7 +248,7 @@ func RDPConnectToken(c *gin.Context) {
 	})
 }
 
-// rdpTokens 连接令牌（进程内存储；单实例部署足够）
+// rdpTokens connection tokens (in-process storage; sufficient for single-instance deployments)
 type rdpTokenData struct {
 	Host     string
 	Port     int
@@ -263,9 +263,9 @@ var (
 	rdpTokens   = map[string]rdpTokenData{}
 )
 
-// ConsumeRDPtoken guacamole-lite 回调：token 换凭据（一次性，取后即焚）
+// ConsumeRDPtoken guacamole-lite callback: exchanges token for credentials (one-time, discarded after use)
 func ConsumeRDPtoken(c *gin.Context) {
-	// 仅信任本地网关
+	// Only trust the local gateway
 	if c.ClientIP() != "127.0.0.1" && c.ClientIP() != "::1" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
 		return
@@ -313,7 +313,7 @@ func rdpPortOf(h *model.Host) int {
 	return 3389
 }
 
-// buildGuacQueryString 生成 guacamole-lite queryEncryption 兼容的加密连接串
+// buildGuacQueryString generates an encrypted connection string compatible with guacamole-lite queryEncryption
 func buildGuacQueryString(ip string, port int, user, pass string) (string, error) {
 	key := os.Getenv("GW_SECRET")
 	if key == "" {

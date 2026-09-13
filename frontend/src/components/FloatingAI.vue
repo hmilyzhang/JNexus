@@ -1,8 +1,8 @@
-<!-- JNexus 运维平台 — By JJ Zhang, Version 1.0 -->
-<!-- 可复用悬浮 AI 对话组件：任何页面引入即可使用 -->
+<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
+<!-- Reusable floating AI chat component: import it into any page to use it -->
 <template>
   <div>
-    <!-- 对话面板 -->
+    <!-- Chat panel -->
     <transition name="ai-slide">
       <div v-if="open" class="ai-chat-panel">
         <div class="ai-chat-head">
@@ -28,7 +28,7 @@
         </div>
       </div>
     </transition>
-    <!-- 浮动按钮 -->
+    <!-- Floating button -->
     <transition name="ai-fab-pop">
       <div v-if="!open" class="ai-float-btn" @click="open = true" :title="$t('ai.assistantTitle')">
         <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -52,7 +52,7 @@ const busy = ref(false)
 const input = ref('')
 const messages = ref([{ role: 'bot', text: i18n.global.t('ai.greeting') }])
 const msgBox = ref(null)
-// AI 角色：登录后拉取列表，选择随对话提交，本地记住上次选择
+// AI roles: fetch the list after login; the selection is submitted with each chat and remembered locally
 const roles = ref([])
 const role = ref(localStorage.getItem('ai_role') || 'general')
 const loadRoles = async () => {

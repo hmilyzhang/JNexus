@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 package service
 
 import (
@@ -9,23 +9,24 @@ import (
 	"jnexus/internal/model"
 )
 
-// CMD 资源（CPU/内存/磁盘）P1-P4 分级阈值告警：
-// 任一指标越过某级阈值即进入该级（取最严重级），持续满级内时长后向该级绑定通道推送；
-// 级别变化时对旧级别发恢复（受全局恢复开关约束）；模板支持占位符自定义。
+// P1-P4 tiered threshold alerting for CMD resources (CPU/memory/disk):
+// any metric crossing a level's threshold puts the host at that level (most severe wins); once it persists
+// for the level's duration, notifications are pushed to the channels bound to that level;
+// when the level changes, a recovery is sent for the old level (subject to the global recovery switch); templates support placeholder customization.
 
 const cmdLevelsKey = "cmd_alert_levels"
 
-// CmdLevel 单个告警级别配置
+// CmdLevel configuration for a single alert level
 type CmdLevel struct {
 	Level       string  `json:"level"` // P1 / P2 / P3 / P4
-	CPU         float64 `json:"cpu"`   // 阈值 %，0 = 该指标不参与
+	CPU         float64 `json:"cpu"`   // threshold %, 0 = metric not checked
 	Mem         float64 `json:"mem"`
 	Disk        float64 `json:"disk"`
-	DurationSec int     `json:"duration_sec"` // 持续时长（秒），0 = 立即
+	DurationSec int     `json:"duration_sec"` // duration in seconds, 0 = immediate
 	ChannelIDs  []uint  `json:"channel_ids"`
 }
 
-// DefaultCmdLevels P1 最严重 → P4 提示
+// DefaultCmdLevels P1 most severe → P4 informational
 func DefaultCmdLevels() []CmdLevel {
 	return []CmdLevel{
 		{Level: "P1", CPU: 95, Mem: 95, Disk: 95, DurationSec: 60},
@@ -35,7 +36,7 @@ func DefaultCmdLevels() []CmdLevel {
 	}
 }
 
-// LoadCmdLevels 读取分级配置（无配置时落库默认值）
+// LoadCmdLevels loads the level config (persists defaults when none exists)
 func LoadCmdLevels() []CmdLevel {
 	m := SystemConfigMap()
 	raw := m[cmdLevelsKey]
@@ -51,7 +52,7 @@ func LoadCmdLevels() []CmdLevel {
 	return levels
 }
 
-// SaveCmdLevels 保存分级配置
+// SaveCmdLevels saves the level config
 func SaveCmdLevels(levels []CmdLevel) error {
 	b, err := json.Marshal(levels)
 	if err != nil {
@@ -60,7 +61,7 @@ func SaveCmdLevels(levels []CmdLevel) error {
 	return model.DB.Save(&model.SystemConfig{Key: cmdLevelsKey, Value: string(b)}).Error
 }
 
-// matchLevel 返回命中的最严重级别与越阈最显著的指标（P1 优先）
+// matchLevel returns the most severe matched level and the metric exceeding its threshold by the largest margin (P1 first)
 func matchLevel(host *model.Host, s hostSample, levels []CmdLevel) (CmdLevel, string, float64, float64, bool) {
 	for _, lv := range levels {
 		type cand struct {
@@ -86,7 +87,7 @@ func matchLevel(host *model.Host, s hostSample, levels []CmdLevel) (CmdLevel, st
 	return CmdLevel{}, "", 0, 0, false
 }
 
-// EvaluateCmdAlerts 对一台主机的最新采样做分级评估（采集流程调用）
+// EvaluateCmdAlerts evaluates the latest sample of one host against the levels (called by the collection pipeline)
 func EvaluateCmdAlerts(h *model.Host, s hostSample, now time.Time) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -108,7 +109,7 @@ func EvaluateCmdAlerts(h *model.Host, s hostSample, now time.Time) {
 		curLevel = st.Level
 	}
 	if curLevel == newLevel {
-		// 级别未变化：未发过告警且持续满时长则触发
+		// Level unchanged: trigger if not yet fired and the duration has been met
 		if matched && hasState && !st.Fired && st.Since != nil &&
 			now.Sub(*st.Since) >= time.Duration(lv.DurationSec)*time.Second {
 			st.Fired = true
@@ -118,13 +119,13 @@ func EvaluateCmdAlerts(h *model.Host, s hostSample, now time.Time) {
 		return
 	}
 
-	// 级别变化（升级/降级/恢复）：旧级别已告警则发恢复（受全局恢复开关约束）
+	// Level changed (escalate/degrade/recover): send recovery for the old level if it had fired (subject to the global recovery switch)
 	if hasState && curLevel != "" && st.Fired && LoadAlertRule().NotifyRecovery {
 		old := findLevel(levels, curLevel)
 		SendCmdLevelAlert(h, old, metric, value, th, true)
 	}
 
-	// 写入新级别状态
+	// Persist the new level state
 	st.HostID = h.ID
 	st.Level = newLevel
 	if matched {
@@ -135,7 +136,7 @@ func EvaluateCmdAlerts(h *model.Host, s hostSample, now time.Time) {
 	st.Fired = false
 	model.DB.Save(&st)
 
-	// 新级别时长为 0：立即触发
+	// New level has zero duration: fire immediately
 	if matched && lv.DurationSec <= 0 {
 		st.Fired = true
 		model.DB.Model(&st).Update("fired", true)
@@ -152,7 +153,7 @@ func findLevel(levels []CmdLevel, key string) CmdLevel {
 	return CmdLevel{Level: key}
 }
 
-// SendCmdLevelAlert 发送某级别的告警/恢复通知到该级别绑定的通道
+// SendCmdLevelAlert sends the alert/recovery notification for a level to its bound channels
 func SendCmdLevelAlert(h *model.Host, lv CmdLevel, metric string, value, th float64, recovery bool) {
 	var channels []model.AlertChannel
 	if len(lv.ChannelIDs) > 0 {
@@ -168,7 +169,7 @@ func SendCmdLevelAlert(h *model.Host, lv CmdLevel, metric string, value, th floa
 		"metric": metric, "value": fmt.Sprintf("%.1f", value), "threshold": fmt.Sprintf("%.0f", th),
 		"time": now,
 	}
-	// 告警事件历史
+	// Alert event history
 	if recovery {
 		LogAlertRecovery("cmd_level", h.Name, time.Now())
 	} else {

@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from './store'
 
@@ -39,7 +39,7 @@ const routes = [
 
 const router = createRouter({ history: createWebHistory(), routes })
 
-// 与主菜单同源的角色菜单配置（首次导航前拉取；拉不到时放行由后端兜底）
+// Role menu config sourced from the main menu (fetched before the first navigation; if the fetch fails, allow through — the backend is the final guard)
 let roleMenus = null
 const loadRoleMenus = async () => {
   if (roleMenus) return roleMenus
@@ -57,14 +57,15 @@ router.beforeEach(async to => {
   if (!to.meta.public && !store.token) return '/login'
   if (to.meta.adminOnly && !store.isAdmin) return '/dashboard'
   if (to.meta.auditOnly && !(store.isAdmin || store.isAuditor)) return '/dashboard'
-  // 非管理角色：页面不在「角色设置」的可见菜单里时回仪表盘（菜单仅控制界面，此为前端一致性守卫）
+  // Non-admin roles: redirect to the dashboard if the page is not in the role's visible menu
+  // (menus only control the UI; this is a frontend consistency guard)
   if (!to.meta.public && !store.isAdmin && to.name) {
     const rs = await loadRoleMenus()
     const conf = rs?.[store.role]
     if (conf && Array.isArray(conf.menus)) {
       const allowed = new Set(conf.menus)
-      // 路由 name 与菜单 key 的对应（menus key: exec/files/scripts 等与路由 name 一致）
-      // 路由 name 与角色菜单 key 的映射差异（crons→cron、os-accounts→osaccounts）
+      // Correspondence between route names and menu keys (menu keys such as exec/files/scripts match route names)
+      // Route name to role menu key mapping differences (crons→cron, os-accounts→osaccounts)
       const nameToKey = { crons: 'cron', 'os-accounts': 'osaccounts' }
       const key = nameToKey[to.name] || to.name
       const alwaysAllowed = ['dashboard', 'profile', 'k8s-exec', 'k8s-manage', 'shell', 'login']

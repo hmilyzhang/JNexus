@@ -1,4 +1,4 @@
-// JNexus 运维平台 — By JJ Zhang, Version 1.0
+// JNexus Ops Platform — By JJ Zhang, Version 1.0
 
 package handler
 
@@ -16,7 +16,7 @@ import (
 	"jnexus/internal/service"
 )
 
-// ---- 用户管理 ----
+// ---- User management ----
 
 func ListUsers(c *gin.Context) {
 	var users []model.User
@@ -49,7 +49,7 @@ func CreateUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（用户名≥2位，密码≥6位）"})
 		return
 	}
-	// 角色合法性：内置角色 或 已存在的自定义角色（角色设置中定义）
+	// Role validity: built-in roles or existing custom roles (defined in role settings)
 	validRoles := map[string]bool{model.RoleAdmin: true, model.RoleOps: true, model.RolePublisher: true, model.RoleViewer: true, model.RoleAuditor: true, model.RoleK8s: true}
 	if !validRoles[req.Role] {
 		if _, ok := service.GetRoleSettings()[req.Role]; !ok {
@@ -70,7 +70,7 @@ func CreateUser(c *gin.Context) {
 	c.JSON(http.StatusOK, u)
 }
 
-// SyncLdapEmails 从 AD/LDAP 批量同步所有 LDAP 用户的邮箱（mail 属性）
+// SyncLdapEmails bulk-syncs emails (mail attribute) of all LDAP users from AD/LDAP
 func SyncLdapEmails(c *gin.Context) {
 	settings := service.LoadLDAPSettings()
 	if !settings.Enabled {
@@ -126,7 +126,8 @@ func UpdateUser(c *gin.Context) {
 	op := currentUser(c).Username
 	updates := map[string]any{"updated_by": op, "updated_at": time.Now()}
 	if req.Email != nil {
-		// LDAP 用户邮箱由系统同步：仅在值确实变化时才拦截（原样回传视为未修改，避免误伤角色更新）
+		// LDAP user email is synced by the system: only block when the value actually changed
+		// (echoing the current value back counts as unmodified, avoiding false blocks on role updates)
 		changed := !strings.EqualFold(strings.TrimSpace(*req.Email), u.Email)
 		if changed && strings.EqualFold(u.AuthSource, "ldap") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "LDAP/AD 用户邮箱由系统自动同步，不可手动修改"})
@@ -148,11 +149,11 @@ func UpdateUser(c *gin.Context) {
 	}
 	if req.Status != nil {
 		updates["status"] = *req.Status
-		if *req.Status == 0 { // 禁用：记录操作人与时间
+		if *req.Status == 0 { // disable: record operator and time
 			now := time.Now()
 			updates["disabled_at"] = now
 			updates["disabled_by"] = op
-		} else { // 启用：清空
+		} else { // enable: clear
 			updates["disabled_at"] = nil
 			updates["disabled_by"] = ""
 		}
@@ -181,7 +182,7 @@ func DeleteUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ---- 数据级授权 ----
+// ---- Data-level grants ----
 
 type grantsReq struct {
 	HostGroups []struct {
@@ -230,7 +231,7 @@ func doSetGrants(tx *gorm.DB, userID uint, req *grantsReq) error {
 	return nil
 }
 
-// refreshUserAudit 刷新用户「最近修改」审计字段
+// refreshUserAudit refreshes the user's "last modified" audit fields
 func refreshUserAudit(c *gin.Context, userID uint) {
 	model.DB.Model(&model.User{}).Where("id = ?", userID).
 		Updates(map[string]any{"updated_by": currentUser(c).Username, "updated_at": time.Now()})
@@ -245,7 +246,7 @@ func GetUserGrants(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"host_groups": hgs, "apps": apps})
 }
 
-// GrantsOptions 提供授权下拉数据（分组列表 + 应用列表）
+// GrantsOptions provides dropdown data for grants (group list + app list)
 func GrantsOptions(c *gin.Context) {
 	var groups []model.HostGroup
 	model.DB.Find(&groups)
