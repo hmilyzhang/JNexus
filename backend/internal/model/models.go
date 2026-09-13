@@ -61,22 +61,26 @@ type SSHKey struct {
 }
 
 type Host struct {
-	LastBootID string     `gorm:"size:64" json:"-"` // Last collected boot_id (used to detect system reboots)
-	ID         uint       `gorm:"primaryKey" json:"id"`
-	Name       string     `gorm:"size:128" json:"name"`
-	IP         string     `gorm:"size:64;index" json:"ip"`
-	Port       int        `json:"port"`
-	OSType     string     `gorm:"size:16;default:linux" json:"os_type"` // linux / windows
-	WinRMPort  int        `json:"winrm_port"`                           // Windows: 5985(HTTP) / 5986(HTTPS)
-	RDPPort    int        `json:"rdp_port"`                             // Windows: 3389
-	Username   string     `gorm:"size:64" json:"username"`
-	AuthType   string     `gorm:"size:16;default:key" json:"auth_type"` // key / password
-	SSHKeyID   *uint      `json:"ssh_key_id"`
-	Password   string     `json:"-"` // AES-GCM encrypted
-	GroupID    *uint      `gorm:"index" json:"group_id"`
-	Status     string     `gorm:"size:16;default:unknown" json:"status"` // online / offline / unknown
-	LastSeen   *time.Time `json:"last_seen"`
-	CreatedAt  time.Time  `json:"created_at"`
+	LastBootID string `gorm:"size:64" json:"-"` // Last collected boot_id (used to detect system reboots)
+	ID         uint   `gorm:"primaryKey" json:"id"`
+	Name       string `gorm:"size:128" json:"name"`
+	IP         string `gorm:"size:64;index" json:"ip"`
+	Port       int    `json:"port"`
+	OSType     string `gorm:"size:16;default:linux" json:"os_type"` // linux / windows
+	WinRMPort  int    `json:"winrm_port"`                           // Windows: 5985(HTTP) / 5986(HTTPS)
+	RDPPort    int    `json:"rdp_port"`                             // Windows: 3389
+	// Kerberos auth (Windows, domain environments): preferred over NTLM for CIS-hardened
+	// domains. Requires WinRM HTTPS (5986), a krb5.conf reachable by the server, and an SPN.
+	WinRMKerberos bool       `json:"winrm_kerberos"`            // use Kerberos (gokrb5) instead of NTLM/Basic
+	WinRMSPN      string     `gorm:"size:128" json:"winrm_spn"` // SPN override, default WSMAN/<name>
+	Username      string     `gorm:"size:64" json:"username"`
+	AuthType      string     `gorm:"size:16;default:key" json:"auth_type"` // key / password
+	SSHKeyID      *uint      `json:"ssh_key_id"`
+	Password      string     `json:"-"` // AES-GCM encrypted
+	GroupID       *uint      `gorm:"index" json:"group_id"`
+	Status        string     `gorm:"size:16;default:unknown" json:"status"` // online / offline / unknown
+	LastSeen      *time.Time `json:"last_seen"`
+	CreatedAt     time.Time  `json:"created_at"`
 
 	Group  *HostGroup `gorm:"foreignKey:GroupID" json:"group,omitempty"`
 	SSHKey *SSHKey    `gorm:"foreignKey:SSHKeyID" json:"ssh_key,omitempty"`

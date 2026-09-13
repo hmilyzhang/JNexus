@@ -153,7 +153,7 @@ docker compose -f docker-compose.external.yml up -d --build
 ## Windows 接入（WinRM + RDP）
 
 1. 添加主机时 **OS 类型选 Windows**（默认 WinRM 5985、RDP 3389），账号填本地或域账号（支持 `DOMAIN\user`）。
-2. 命令执行、指标采集与告警走 **WinRM**；传输自动协商——5986(HTTPS) 可达时优先加密通道（Basic 认证，不受 NTLM 硬化策略影响），否则回退 HTTP 5985（NTLM 认证，本地/域账号皆可）。
+2. 命令执行、指标采集与告警走 **WinRM**；传输自动协商——5986(HTTPS) 可达时优先加密通道（Basic 认证，不受 NTLM 硬化策略影响），否则回退 HTTP 5985（NTLM 认证，本地/域账号皆可）。**Kerberos（域环境，CIS 合规）**：主机表单启用「Kerberos 认证」开关（账号用 `user@REALM` 格式，Realm 自动取 UPN 后缀或系统配置 `winrm_krb5_realm`，可选 SPN 覆盖）。Kerberos 经 WinRM HTTPS + gokrb5 运行——不用 Basic、不用 NTLM、目标机无需放开 UAC 过滤；服务器需能读取 `krb5.conf`（挂载进容器或配置 `winrm_krb5_config`）。
 3. **浏览器内 RDP**：依赖 `guacd` + `rdp-gateway` 两个 sidecar 容器（compose 已内置）。点击 Windows 主机行的 **RDP** —— 平台签发 5 分钟有效的加密连接串，凭据全程不经过浏览器明文。
 4. 目标机一次性配置（管理员 PowerShell）：
 

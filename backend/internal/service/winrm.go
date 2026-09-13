@@ -53,6 +53,14 @@ func WinRMClientFor(h *model.Host, username, password string) (*winrm.Client, er
 
 	params := winrm.DefaultParameters
 
+	// Kerberos (domain environments): preferred over NTLM for CIS-hardened domains —
+	// no Basic auth, no NTLM, works over TLS so targets keep AllowUnencrypted=false.
+	// Requires: WinRM HTTPS listener on 5986 (AD CS auto-enrolled cert via GPO), a krb5.conf
+	// reachable by the server, and a resolvable SPN (WSMAN/<fqdn>).
+	if h.WinRMKerberos {
+		return winRMKerberosClient(h, user, pass)
+	}
+
 	// auto-negotiation: prefer encryption when 5986 (HTTPS) is reachable; otherwise fall back to HTTP
 	if tcpOpen(h.IP, 5986) {
 		return winrm.NewClientWithParameters(
@@ -62,6 +70,49 @@ func WinRMClientFor(h *model.Host, username, password string) (*winrm.Client, er
 	params.TransportDecorator = func() winrm.Transporter { return winrm.NewClientNTLMWithDial(params.Dial) }
 	return winrm.NewClientWithParameters(
 		winrm.NewEndpoint(h.IP, WinRMPortOf(h), false, true, nil, nil, nil, 0), user, pass, params)
+}
+
+// winRMKerberosClient builds the Kerberos transport for a domain-joined Windows host.
+// Realm comes from the account UPN suffix (user@GLBANK.COM) or the winrm_krb5_realm setting.
+func winRMKerberosClient(h *model.Host, user, pass string) (*winrm.Client, error) {
+	if !tcpOpen(h.IP, 5986) {
+		return nil, fmt.Errorf("Kerberos 认证需要 WinRM HTTPS（5986）：请在目标机配置 HTTPS 监听与企业证书")
+	}
+	realm := ""
+	if i := strings.IndexByte(user, '@'); i >= 0 {
+		realm = strings.ToUpper(user[i+1:])
+		user = user[:i]
+	}
+	if realm == "" {
+		realm = strings.ToUpper(strings.TrimSpace(SystemConfigMap()["winrm_krb5_realm"]))
+	}
+	if realm == "" {
+		return nil, fmt.Errorf("Kerberos 缺少域（Realm）：账号需为 user@REALM 格式，或在系统配置 winrm_krb5_realm 中指定")
+	}
+	spn := strings.TrimSpace(h.WinRMSPN)
+	if spn == "" {
+		spn = "WSMAN/" + h.Name
+	}
+	port := 5986
+	if h.WinRMPort == 5986 {
+		port = h.WinRMPort
+	}
+	params := winrm.DefaultParameters
+	params.TransportDecorator = func() winrm.Transporter {
+		return winrm.NewClientKerberos(&winrm.Settings{
+			WinRMUsername: user,
+			WinRMPassword: pass,
+			KrbRealm:      realm,
+			KrbSpn:        spn,
+			KrbConfig:     SystemConfigMap()["winrm_krb5_config"], // e.g. /etc/krb5.conf; empty = OS default path
+			WinRMProto:    "https",
+			WinRMPort:     port,
+			WinRMHost:     h.IP,
+			WinRMInsecure: true,
+		})
+	}
+	return winrm.NewClientWithParameters(
+		winrm.NewEndpoint(h.IP, port, true, true, nil, nil, nil, 0), user, pass, params)
 }
 
 // tcpOpen quickly probes TCP port reachability (intranet refusal returns immediately; firewall drops take up to 1.5s)

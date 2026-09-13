@@ -155,20 +155,22 @@ func ListHosts(c *gin.Context) {
 }
 
 type hostReq struct {
-	Name       string `json:"name"`
-	IP         string `json:"ip" binding:"required"`
-	Port       int    `json:"port"`
-	OSType     string `json:"os_type"`    // linux / windows
-	WinRMPort  int    `json:"winrm_port"` // Windows: 5985/5986
-	RDPPort    int    `json:"rdp_port"`   // Windows: 3389
-	Username   string `json:"username"`   // may come from a credential template; validated uniformly in CreateHost
-	AuthType   string `json:"auth_type"`
-	SSHKeyID   *uint  `json:"ssh_key_id"`
-	Password   string `json:"password"`
-	GroupID    *uint  `json:"group_id"`
-	CredLabel  string `json:"credential_label"` // purpose label for the generated OS account
-	AutoPair   bool   `json:"auto_pair"`        // auto-pair keys after creating with a password
-	TemplateID *uint  `json:"template_id"`      // credential template: when set, ignores the manually entered password and uses the template username/password
+	Name          string `json:"name"`
+	IP            string `json:"ip" binding:"required"`
+	Port          int    `json:"port"`
+	OSType        string `json:"os_type"`        // linux / windows
+	WinRMPort     int    `json:"winrm_port"`     // Windows: 5985/5986
+	RDPPort       int    `json:"rdp_port"`       // Windows: 3389
+	WinRMKerberos bool   `json:"winrm_kerberos"` // Windows: use Kerberos (domain) auth
+	WinRMSPN      string `json:"winrm_spn"`      // Windows: SPN override, default WSMAN/<name>
+	Username      string `json:"username"`       // may come from a credential template; validated uniformly in CreateHost
+	AuthType      string `json:"auth_type"`
+	SSHKeyID      *uint  `json:"ssh_key_id"`
+	Password      string `json:"password"`
+	GroupID       *uint  `json:"group_id"`
+	CredLabel     string `json:"credential_label"` // purpose label for the generated OS account
+	AutoPair      bool   `json:"auto_pair"`        // auto-pair keys after creating with a password
+	TemplateID    *uint  `json:"template_id"`      // credential template: when set, ignores the manually entered password and uses the template username/password
 }
 
 func (r *hostReq) toHost(h *model.Host) error {
@@ -194,6 +196,8 @@ func (r *hostReq) toHost(h *model.Host) error {
 	}
 	h.WinRMPort = r.WinRMPort
 	h.RDPPort = r.RDPPort
+	h.WinRMKerberos = r.WinRMKerberos && r.OSType == "windows"
+	h.WinRMSPN = r.WinRMSPN
 	h.AuthType = r.AuthType
 	if h.AuthType == "" {
 		h.AuthType = "key"

@@ -131,7 +131,7 @@ Env precedence: `JNEXUS_DSN` > `JNEXUS_DB_HOST/PORT/USER/PASSWORD/NAME` > `confi
 ## Windows Access (WinRM + RDP)
 
 1. Add the host with **OS type = Windows** (WinRM port 5985, RDP 3389 by default) and a local or domain account (`DOMAIN\user` works).
-2. Command execution, metrics collection and alerting run over **WinRM**; the transport is auto-negotiated - HTTPS 5986 is preferred when reachable (Basic auth, immune to NTLM hardening policies), otherwise HTTP 5985 (NTLM auth, works for local and domain accounts).
+2. Command execution, metrics collection and alerting run over **WinRM**; the transport is auto-negotiated - HTTPS 5986 is preferred when reachable (Basic auth, immune to NTLM hardening policies), otherwise HTTP 5985 (NTLM auth, works for local and domain accounts). **Kerberos (domain environments, CIS-compliant)**: enable the per-host "Kerberos" switch (account in `user@REALM` form, realm auto-derived from the UPN suffix or the `winrm_krb5_realm` setting, optional SPN override). Kerberos runs over WinRM HTTPS with gokrb5 - no Basic, no NTLM, no UAC-filter changes on targets; the server needs a `krb5.conf` (mount into the container or set `winrm_krb5_config`).
 3. **In-browser RDP**: requires the `guacd` + `rdp-gateway` sidecars (already in both compose files). Click **RDP** on a Windows host row - the platform signs a 5-minute encrypted connection string; credentials never reach the browser in plaintext.
 4. Target machine one-time setup (admin PowerShell):
 

@@ -28,6 +28,7 @@ var editableConfigKeys = []string{
 	"ai_enabled", "ai_base_url", "ai_api_key", "ai_model", "ai_timeout_sec",
 	"ai_system_prompt",
 	"oo_enabled", "oo_url", "oo_org", "oo_token", "oo_integrations",
+	"winrm_krb5_realm", "winrm_krb5_config",
 }
 
 // GetSystemConfig reads system config (admin); password fields are masked

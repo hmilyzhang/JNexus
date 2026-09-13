@@ -108,6 +108,15 @@
           <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('hosts.winrmAutoTip') }}</div>
         </div>
       </el-form-item>
+      <el-form-item v-if="hostForm.os_type === 'windows'" :label="$t('hosts.kerberos')">
+        <div style="width:100%">
+          <el-switch v-model="hostForm.winrm_kerberos" />
+          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('hosts.kerberosTip') }}</div>
+        </div>
+      </el-form-item>
+      <el-form-item v-if="hostForm.os_type === 'windows' && hostForm.winrm_kerberos" :label="$t('hosts.spn')">
+        <el-input v-model="hostForm.winrm_spn" class="mono" :placeholder="'WSMAN/' + hostForm.name" />
+      </el-form-item>
       <el-form-item :label="$t('hosts.user')"><el-input v-model="hostForm.username" /></el-form-item>
       <el-form-item :label="$t('hosts.authType')">
         <el-radio-group v-model="hostForm.auth_type">
@@ -548,7 +557,7 @@ const onRowCmd = async (cmd, row) => {
 }
 
 const dlgHost = row => {
-  hostForm.value = row ? { ...row, password: '', template_id: null } : { name: '', ip: '', port: 22, os_type: 'linux', winrm_port: 5985, rdp_port: 3389, username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null, auto_pair: true, template_id: null }
+  hostForm.value = row ? { ...row, password: '', template_id: null } : { name: '', ip: '', port: 22, os_type: 'linux', winrm_port: 5985, rdp_port: 3389, winrm_kerberos: false, winrm_spn: '', username: 'root', auth_type: 'key', ssh_key_id: keys.value[0]?.id, group_id: null, auto_pair: true, template_id: null }
   hostVisible.value = true
 }
 // ---- OS account permissions (dropdown item visibility); management lives on the "OS Accounts" page ----
