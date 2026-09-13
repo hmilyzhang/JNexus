@@ -24,6 +24,7 @@ const routes = [
       { path: 'crons', name: 'crons', component: () => import('./views/CronJobs.vue'), meta: { title: 'menu.cron', icon: 'Timer' } },
       { path: 'reports', name: 'reports', component: () => import('./views/Reports.vue'), meta: { title: 'menu.reports', icon: 'DataAnalysis' } },
       { path: 'monitor', name: 'monitor', component: () => import('./views/Monitor.vue'), meta: { title: 'menu.monitor', icon: 'Cpu' } },
+      { path: 'observe', name: 'observe', component: () => import('./views/Observe.vue'), meta: { title: 'menu.observe', icon: 'DataLine' } },
       { path: 'files', name: 'files', component: () => import('./views/Files.vue'), meta: { title: 'menu.files', icon: 'FolderOpened' } },
       { path: 'scripts', name: 'scripts', component: () => import('./views/Scripts.vue'), meta: { title: 'menu.scripts', icon: 'Document' } },
       { path: 'logtail', name: 'logtail', component: () => import('./views/LogTail.vue'), meta: { title: 'menu.logtail', icon: 'View' } },

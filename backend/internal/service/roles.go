@@ -33,7 +33,7 @@ type RolePerm struct {
 const roleSettingsKey = "role_settings"
 
 // allMenuKeys lists all menu keys (admin gets all by default; keep in sync when adding menu keys)
-var allMenuKeys = []string{"dashboard", "shell", "hosts", "osaccounts", "paired", "exec", "tasks", "cron", "reports", "monitor", "files", "scripts", "apps", "releases", "users", "danger", "audit", "system"}
+var allMenuKeys = []string{"dashboard", "shell", "hosts", "osaccounts", "paired", "exec", "tasks", "cron", "reports", "monitor", "observe", "files", "scripts", "apps", "releases", "users", "danger", "audit", "system"}
 
 // DefaultRoleSettings returns default role settings (persisted on first use)
 func DefaultRoleSettings() map[string]RolePerm {
@@ -45,10 +45,10 @@ func DefaultRoleSettings() map[string]RolePerm {
 	}
 	out := map[string]RolePerm{
 		model.RoleAdmin:     mk("Full access incl. users & system", append([]string{}, allMenuKeys...), true, true, true, true, true, true),
-		model.RoleOps:       mk("主机、执行、文件、脚本、发布", []string{"dashboard", "hosts", "paired", "exec", "tasks", "cron", "files", "scripts", "apps", "releases", "reports"}, true, true, true, true, true, true),
+		model.RoleOps:       mk("主机、执行、文件、脚本、发布", []string{"dashboard", "hosts", "paired", "exec", "tasks", "cron", "files", "scripts", "apps", "releases", "reports", "monitor", "observe"}, true, true, true, true, true, true),
 		model.RolePublisher: mk("执行与发布（需数据授权）", []string{"dashboard", "hosts", "exec", "tasks", "files", "apps", "releases"}, true, false, false, false, false, false),
 		model.RoleViewer:    mk("只读查看", []string{"dashboard"}, true, false, false, false, false, false),
-		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit", "reports"}, true, false, false, false, false, true),
+		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit", "reports", "observe"}, true, false, false, false, false, true),
 		model.RoleK8s:       mk("K8S 集群运维（Pod/计划任务/服务账号）", []string{"dashboard", "k8s"}, true, false, false, false, false, false),
 	}
 	// K8S permissions: admin view+manage; ops view only
@@ -106,7 +106,7 @@ func GetRoleSettings() map[string]RolePerm {
 		}
 		// auto-add new menus to admin/ops/auditor (admin always sees everything)
 		if role == model.RoleAdmin || role == model.RoleOps || role == model.RoleAuditor {
-			for _, nm := range []string{"cron", "osaccounts", "reports", "monitor", "k8s"} {
+			for _, nm := range []string{"cron", "osaccounts", "reports", "monitor", "k8s", "observe"} {
 				has := false
 				for _, m := range rp.Menus {
 					if m == nm {

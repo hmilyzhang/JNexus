@@ -565,6 +565,7 @@ const menuKeys = [
   { key: 'cron', label: 'menu.cron' },
   { key: 'reports', label: 'menu.reports' },
   { key: 'monitor', label: 'menu.monitor' },
+  { key: 'observe', label: 'menu.observe' },
   { key: 'k8s', label: 'k8s.title' },
   { key: 'files', label: 'menu.files' },
   { key: 'scripts', label: 'menu.scripts' },
