@@ -45,7 +45,7 @@ type aiMessage struct {
 // AIChat 调用 OpenAI 兼容的 /chat/completions，返回回复文本
 func AIChat(s AISettings, systemPrompt, userPrompt string) (string, error) {
 	if s.BaseURL == "" || s.Model == "" {
-		return "", fmt.Errorf("AI 未配置：请先在系统设置中填写服务地址与模型")
+		return "", fmt.Errorf("AI is not configured: set the base URL and model in System Settings first")
 	}
 	payload := map[string]any{
 		"model": s.Model,
@@ -70,7 +70,7 @@ func AIChat(s AISettings, systemPrompt, userPrompt string) (string, error) {
 	client := &http.Client{Timeout: s.Timeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("AI 服务连接失败: %w", err)
+		return "", fmt.Errorf("AI service connection failed: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -85,16 +85,16 @@ func AIChat(s AISettings, systemPrompt, userPrompt string) (string, error) {
 		} `json:"error"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return "", fmt.Errorf("AI 响应解析失败(HTTP %d)", resp.StatusCode)
+		return "", fmt.Errorf("failed to parse AI response (HTTP %d)", resp.StatusCode)
 	}
 	if out.Error != nil && out.Error.Message != "" {
-		return "", fmt.Errorf("AI 服务错误: %s", out.Error.Message)
+		return "", fmt.Errorf("AI service error: %s", out.Error.Message)
 	}
 	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("AI 服务返回 HTTP %d", resp.StatusCode)
+		return "", fmt.Errorf("AI service returned HTTP %d", resp.StatusCode)
 	}
 	if len(out.Choices) == 0 || strings.TrimSpace(out.Choices[0].Message.Content) == "" {
-		return "", fmt.Errorf("AI 服务返回了空回复")
+		return "", fmt.Errorf("AI service returned an empty reply")
 	}
 	return strings.TrimSpace(out.Choices[0].Message.Content), nil
 }

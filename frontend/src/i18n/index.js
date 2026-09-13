@@ -11,7 +11,7 @@ export const locales = [
 const i18n = createI18n({
   legacy: false,
   locale: localStorage.getItem('locale') || 'en-US',
-  fallbackLocale: 'zh-CN',
+  fallbackLocale: 'en-US',
   messages: {
     'zh-CN': zhCN,
     'en-US': enUS
