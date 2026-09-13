@@ -138,20 +138,27 @@
               </el-form-item>
             </el-form>
           </template>
-          <!-- 角色设置 -->
+          <!-- 角色设置：可添加/删除/编辑的角色列表 -->
           <template v-if="aiTabSection === 'role'">
             <div style="font-weight:600; font-size:15px; margin-bottom:16px">{{ $t('ai.roleTitle') }}</div>
             <el-form label-width="130px" style="max-width:520px">
               <el-form-item :label="$t('ai.roleLabel')">
-                <el-select v-model="aiRole" style="width:100%" @change="onRoleChange">
-                  <el-option v-for="r in aiRolePresets" :key="r.key" :value="r.key" :label="$t('ai.' + r.labelKey)" />
-                </el-select>
+                <div style="display:flex; gap:8px; width:100%">
+                  <el-select v-model="aiRole" style="flex:1" @change="syncRoleEditor">
+                    <el-option v-for="r in aiRoles" :key="r.key" :value="r.key" :label="r.name" />
+                  </el-select>
+                  <el-button @click="addAiRole">{{ $t('ai.addRole') }}</el-button>
+                  <el-button :disabled="!currentAiRole" @click="delAiRole">{{ $t('ai.delRole') }}</el-button>
+                </div>
+              </el-form-item>
+              <el-form-item :label="$t('ai.roleName')">
+                <el-input v-model="currentAiRoleName" :placeholder="currentAiRole ? currentAiRole.key : ''" />
               </el-form-item>
               <el-form-item :label="$t('ai.systemPrompt')">
                 <el-input v-model="aiSystemPromptEdit" type="textarea" :rows="6" class="mono" />
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+                <el-button type="primary" :loading="aiRolesSaving" @click="saveAiRoles">{{ $t('common.save') }}</el-button>
               </el-form-item>
             </el-form>
           </template>
@@ -450,7 +457,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import api from '../api'
 import i18n from '../i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import Paired from './Paired.vue'
 
 const { t } = i18n.global
@@ -667,26 +674,68 @@ const revealAcct = async row => {
   } catch { /* interceptor shows the error */ }
 }
 
-// ---- AI 助手：配置 + 连通性测试 + 测试对话 + 角色设置 ----
+// ---- AI 助手：配置 + 连通性测试 + 测试对话 + 角色设置（后端 ai_roles，可增删） ----
 const aiTabSection = ref('conn')
 const aiTesting = ref(false)
 const aiSending = ref(false)
 const aiTimeoutNum = ref(120)
 const aiPrompt = ref('')
 const aiReply = ref('')
-const aiRole = ref('general')
-const aiSystemPromptEdit = ref('')
-const aiRolePresets = [
-  { key: 'sre', labelKey: 'roleSre', prompt: '你是一名资深 SRE（站点可靠性工程师），擅长故障排查、根因分析、容量规划和 SLO 制定。回答注重可操作性，给出具体命令和排查步骤。' },
-  { key: 'dba', labelKey: 'roleDba', prompt: '你是一名资深数据库管理员（DBA），擅长 MySQL/PostgreSQL/Redis 的运维、SQL 优化、备份恢复、主从复制和慢查询分析。回答注重安全性，涉及破坏性操作时提醒确认。' },
-  { key: 'devops', labelKey: 'roleDevops', prompt: '你是一名 DevOps 工程师，擅长 CI/CD、容器化、基础设施即代码和自动化运维。回答注重效率和最佳实践。' },
-  { key: 'security', labelKey: 'roleSecurity', prompt: '你是一名安全分析师，擅长漏洞评估、入侵检测、加固建议和合规审计。回答注重风险等级和修复优先级。' },
-  { key: 'general', labelKey: 'roleGeneral', prompt: '你是一名通用运维助手，能回答各类技术问题和运维场景咨询。' },
-]
+const aiRoles = ref([])
+const aiRole = ref('')
+const aiRolesSaving = ref(false)
 
-const onRoleChange = key => {
-  const preset = aiRolePresets.find(r => r.key === key)
-  if (preset) aiSystemPromptEdit.value = preset.prompt
+const currentAiRole = computed(() => aiRoles.value.find(r => r.key === aiRole.value))
+const currentAiRoleName = computed({
+  get: () => currentAiRole.value?.name || '',
+  set: v => { if (currentAiRole.value) currentAiRole.value.name = v }
+})
+const aiSystemPromptEdit = computed({
+  get: () => currentAiRole.value?.prompt || '',
+  set: v => { if (currentAiRole.value) currentAiRole.value.prompt = v }
+})
+
+const loadAiRoles = async () => {
+  try {
+    aiRoles.value = await api.get('/ai/roles') || []
+    if (!aiRoles.value.some(r => r.key === aiRole.value)) {
+      aiRole.value = aiRoles.value.some(r => r.key === 'general') ? 'general' : (aiRoles.value[0]?.key || '')
+    }
+  } catch { /* ignore */ }
+}
+
+const syncRoleEditor = () => { /* v-model computed 已双向绑定，仅占位供 select @change */ }
+
+const addAiRole = async () => {
+  let value = ''
+  try {
+    ({ value } = await ElMessageBox.prompt(t('ai.roleNameTip'), t('ai.addRole'), {
+      inputPlaceholder: 'e.g. Network Engineer',
+      inputPattern: /\S+/,
+      inputErrorMessage: t('ai.roleNameTip')
+    }))
+  } catch { return }
+  const key = 'custom_' + Date.now()
+  aiRoles.value.push({ key, name: value.trim(), prompt: '' })
+  aiRole.value = key
+}
+
+const delAiRole = async () => {
+  const cur = currentAiRole.value
+  if (!cur) return
+  try {
+    await ElMessageBox.confirm(t('ai.roleDeleteConfirm', { name: cur.name }), t('ai.delRole'), { type: 'warning' })
+  } catch { return }
+  aiRoles.value = aiRoles.value.filter(r => r.key !== cur.key)
+  aiRole.value = aiRoles.value.some(r => r.key === 'general') ? 'general' : (aiRoles.value[0]?.key || '')
+}
+
+const saveAiRoles = async () => {
+  aiRolesSaving.value = true
+  try {
+    await api.post('/ai/roles', aiRoles.value)
+    ElMessage.success(t('system.saved'))
+  } catch { /* interceptor shows the error */ } finally { aiRolesSaving.value = false }
 }
 
 const loadAiConfig = async () => {
@@ -698,7 +747,6 @@ const loadAiConfig = async () => {
     form.ai_timeout_sec = cfg.ai_timeout_sec || '120'
     aiTimeoutNum.value = Number(cfg.ai_timeout_sec) || 120
     form.ai_api_key = cfg.ai_api_key === '******' ? '******' : (cfg.ai_api_key || '')
-    aiSystemPromptEdit.value = cfg.ai_system_prompt || aiRolePresets[aiRolePresets.length - 1].prompt
   } catch { /* ignore */ }
 }
 
@@ -728,6 +776,7 @@ onMounted(async () => {
   } catch { /* ignore */ }
   loadRotAccounts()
   loadAiConfig()
+  loadAiRoles()
   try {
     const cfg = await api.get('/system/config')
     for (const k of Object.keys(form)) {

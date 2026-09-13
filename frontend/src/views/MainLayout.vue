@@ -118,6 +118,10 @@
     <div v-if="aiOpen" class="ai-panel">
       <div class="ai-head">
         <span style="font-weight:700">{{ $t('ai.assistantTitle') }}</span>
+        <el-select v-model="aiRole" size="small" style="flex:1; margin:0 6px"
+                   :placeholder="$t('ai.roleLabel')" :title="$t('ai.roleLabel')" @change="onChatRoleChange">
+          <el-option v-for="r in aiRoles" :key="r.key" :value="r.key" :label="r.name" />
+        </el-select>
         <el-button text size="small" style="color:#909399" @click="aiOpen = false">
           <el-icon><Close /></el-icon>
         </el-button>
@@ -269,15 +273,28 @@ const aiBusy = ref(false)
 const aiInput = ref('')
 const aiMessages = ref([{ role: 'bot', text: t('ai.greeting') }])
 const aiMsgBox = ref(null)
+// AI 角色：登录后拉取列表，选择随对话提交，本地记住上次选择
+const aiRoles = ref([])
+const aiRole = ref(localStorage.getItem('ai_role') || 'general')
+const loadAiRoles = async () => {
+  try {
+    aiRoles.value = await api.get('/ai/roles') || []
+    if (!aiRoles.value.some(r => r.key === aiRole.value)) {
+      aiRole.value = aiRoles.value.some(r => r.key === 'general') ? 'general' : (aiRoles.value[0]?.key || '')
+    }
+  } catch { aiRoles.value = [] }
+}
+const onChatRoleChange = () => localStorage.setItem('ai_role', aiRole.value)
+loadAiRoles()
 
 const sendToAI = async () => {
   const text = aiInput.value.trim()
   if (!text || aiBusy.value) return
-  // 自动附带当前路由路径作为页面上下文
+  // 自动附带当前路由路径与所选角色作为上下文
   aiMessages.value.push({ role: 'user', text })
   aiBusy.value = true
   try {
-    const r = await api.post('/ai/chat', { prompt: text, page: router.currentRoute.value.path })
+    const r = await api.post('/ai/chat', { prompt: text, page: router.currentRoute.value.path, role: aiRole.value })
     aiMessages.value.push({ role: 'bot', text: r.reply || '…' })
   } catch {
     aiMessages.value.push({ role: 'bot', text: t('ai.error') })

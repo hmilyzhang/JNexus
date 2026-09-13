@@ -32,7 +32,6 @@ func SetupRouter() *gin.Engine {
 		// Web 终端（自带 token 鉴权，不走 hub）
 		api.GET("/ws/term/:hostId", WebTerminal)
 		api.GET("/ws/tail", LogTailWS)
-		api.POST("/ai/chat", AIChat)
 		api.GET("/ws/k8s/:clusterId", K8sExecWS)
 		api.GET("/ws/k8s/logs/:clusterId", K8sLogWS)
 		api.GET("/ws/task/:id", ws.Handler(func(c *gin.Context) string {
@@ -57,6 +56,11 @@ func SetupRouter() *gin.Engine {
 		auth.GET("/me", Me)
 		auth.PUT("/me", UpdateMe)
 		auth.POST("/change_password", ChangePassword)
+
+		// AI 助手：对话（登录可用）+ 角色列表（登录可读）+ 角色保存（admin）
+		auth.POST("/ai/chat", AIChat)
+		auth.GET("/ai/roles", GetAIRoles)
+		auth.POST("/ai/roles", middleware.RequireRole(model.RoleAdmin), UpdateAIRoles)
 
 		// MFA（TOTP 两步验证）自助管理
 		// 监控：应用监控项 + 主机资源

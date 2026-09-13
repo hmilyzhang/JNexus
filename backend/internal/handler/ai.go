@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -13,7 +14,97 @@ import (
 
 const aiDefaultSystemPrompt = "你是 JNexus 运维平台的 AI 助手。回答简洁、专业、可执行；使用与用户提问相同的语言。"
 
-// getSystemPrompt 读取管理员配置的自定义 System Prompt，无则用默认
+// ---- AI 角色（存于系统配置 ai_roles，JSON 数组；可添加/删除/编辑） ----
+
+type aiRole struct {
+	Key    string `json:"key"`
+	Name   string `json:"name"`
+	Prompt string `json:"prompt"`
+}
+
+// aiBuiltinRoles 内置角色种子（仅 ai_roles 尚未写入时播种一次，之后以配置为准，均可编辑删除）
+func aiBuiltinRoles() []aiRole {
+	return []aiRole{
+		{Key: "sre", Name: "SRE 可靠性工程师", Prompt: "你是一名资深 SRE（站点可靠性工程师），擅长故障排查、根因分析、容量规划和 SLO 制定。回答注重可操作性，给出具体命令和排查步骤。"},
+		{Key: "dba", Name: "DBA 数据库管理员", Prompt: "你是一名资深数据库管理员（DBA），擅长 MySQL/PostgreSQL/Redis 的运维、SQL 优化、备份恢复、主从复制和慢查询分析。回答注重安全性，涉及破坏性操作时提醒确认。"},
+		{Key: "devops", Name: "DevOps 工程师", Prompt: "你是一名 DevOps 工程师，擅长 CI/CD、容器化、基础设施即代码和自动化运维。回答注重效率和最佳实践。"},
+		{Key: "security", Name: "安全分析师", Prompt: "你是一名安全分析师，擅长漏洞评估、入侵检测、加固建议和合规审计。回答注重风险等级和修复优先级。"},
+		{Key: "general", Name: "通用助手", Prompt: "你是一名通用运维助手，能回答各类技术问题和运维场景咨询。"},
+	}
+}
+
+// aiRoleList 读取角色列表；ai_roles 缺失时用内置角色播种（迁移旧 ai_system_prompt 到 general）
+func aiRoleList() []aiRole {
+	m := service.SystemConfigMap()
+	if raw := strings.TrimSpace(m["ai_roles"]); raw != "" {
+		var roles []aiRole
+		if json.Unmarshal([]byte(raw), &roles) == nil {
+			return roles
+		}
+	}
+	roles := aiBuiltinRoles()
+	if p := strings.TrimSpace(m["ai_system_prompt"]); p != "" {
+		for i := range roles {
+			if roles[i].Key == "general" {
+				roles[i].Prompt = p
+			}
+		}
+	}
+	if b, err := json.Marshal(roles); err == nil {
+		_ = service.SetSystemConfigs(map[string]string{"ai_roles": string(b)})
+	}
+	return roles
+}
+
+// aiRolePrompt 按 key 取角色 Prompt，未命中返回空
+func aiRolePrompt(key string) string {
+	for _, r := range aiRoleList() {
+		if r.Key == key {
+			return r.Prompt
+		}
+	}
+	return ""
+}
+
+// GetAIRoles GET /api/ai/roles — 角色列表（登录用户可读，供对话选择）
+func GetAIRoles(c *gin.Context) {
+	c.JSON(http.StatusOK, aiRoleList())
+}
+
+// UpdateAIRoles POST /api/ai/roles — 整表保存角色（admin，前端添加/删除/改名/改 Prompt 后提交）
+func UpdateAIRoles(c *gin.Context) {
+	var roles []aiRole
+	if err := c.ShouldBindJSON(&roles); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	out := make([]aiRole, 0, len(roles))
+	seen := map[string]bool{}
+	for _, r := range roles {
+		r.Key = strings.TrimSpace(r.Key)
+		r.Name = strings.TrimSpace(r.Name)
+		if r.Key == "" || seen[r.Key] {
+			continue
+		}
+		seen[r.Key] = true
+		if r.Name == "" {
+			r.Name = r.Key
+		}
+		out = append(out, r)
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if err := service.SetSystemConfigs(map[string]string{"ai_roles": string(b)}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "roles": out})
+}
+
+// getSystemPrompt 读取默认 System Prompt（未选角色时使用），无则用内置默认
 func getSystemPrompt() string {
 	m := service.SystemConfigMap()
 	if p := strings.TrimSpace(m["ai_system_prompt"]); p != "" {
@@ -47,12 +138,14 @@ var pageContexts = map[string]string{
 	"/k8s/manage":  "K8S 集群管理：节点、工作负载、Pod、服务、配置、Helm、容量规划",
 }
 
-// AIChat POST /api/ai/chat  {prompt, page} — AI 对话
+// AIChat POST /api/ai/chat  {prompt, page, role} — AI 对话
 // page: 前端自动传入的当前路由路径（如 /monitor），让 AI 感知用户所在模块
+// role: 前端对话框选择的角色 key，命中则用该角色的 System Prompt
 func AIChat(c *gin.Context) {
 	var req struct {
 		Prompt string `json:"prompt"`
 		Page   string `json:"page"`
+		Role   string `json:"role"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Prompt) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "prompt 必填"})
@@ -65,6 +158,11 @@ func AIChat(c *gin.Context) {
 	}
 
 	systemP := getSystemPrompt()
+	if req.Role != "" {
+		if p := aiRolePrompt(req.Role); p != "" {
+			systemP = p
+		}
+	}
 	// 页面感知：根据当前路由注入模块上下文
 	if desc, ok := pageContexts[req.Page]; ok {
 		systemP += "\n\n[用户当前所在页面] " + desc

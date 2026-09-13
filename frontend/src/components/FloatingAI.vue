@@ -7,6 +7,10 @@
       <div v-if="open" class="ai-chat-panel">
         <div class="ai-chat-head">
           <span class="ai-chat-title">{{ $t('ai.assistantTitle') }}</span>
+          <el-select v-model="role" size="small" style="flex:1; margin:0 6px"
+                     :placeholder="$t('ai.roleLabel')" :title="$t('ai.roleLabel')" @change="onRoleChange">
+            <el-option v-for="r in roles" :key="r.key" :value="r.key" :label="r.name" />
+          </el-select>
           <el-button text size="small" style="color:inherit" @click="open = false">
             <el-icon :size="16"><Close /></el-icon>
           </el-button>
@@ -48,6 +52,19 @@ const busy = ref(false)
 const input = ref('')
 const messages = ref([{ role: 'bot', text: i18n.global.t('ai.greeting') }])
 const msgBox = ref(null)
+// AI 角色：登录后拉取列表，选择随对话提交，本地记住上次选择
+const roles = ref([])
+const role = ref(localStorage.getItem('ai_role') || 'general')
+const loadRoles = async () => {
+  try {
+    roles.value = await api.get('/ai/roles') || []
+    if (!roles.value.some(r => r.key === role.value)) {
+      role.value = roles.value.some(r => r.key === 'general') ? 'general' : (roles.value[0]?.key || '')
+    }
+  } catch { roles.value = [] }
+}
+const onRoleChange = () => localStorage.setItem('ai_role', role.value)
+loadRoles()
 
 const send = async () => {
   const text = input.value.trim()
@@ -55,10 +72,10 @@ const send = async () => {
   messages.value.push({ role: 'user', text })
   busy.value = true
   try {
-    const r = await api.post('/ai/chat', { prompt: text })
+    const r = await api.post('/ai/chat', { prompt: text, role: role.value })
     messages.value.push({ role: 'bot', text: r.reply || '…' })
   } catch {
-    messages.value.push({ role: 'bot', text: '…' })
+    messages.value.push({ role: 'bot', text: i18n.global.t('ai.error') })
   } finally {
     input.value = ''
     busy.value = false
