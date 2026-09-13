@@ -63,6 +63,9 @@ func SetupRouter() *gin.Engine {
 		auth.GET("/ai/roles", GetAIRoles)
 		auth.POST("/ai/roles", middleware.RequireRole(model.RoleAdmin), UpdateAIRoles)
 
+		// OpenObserve enabled flag (any logged-in user; drives the Log Search menu visibility)
+		auth.GET("/observe/state", OOState)
+
 		// MFA (TOTP two-step verification) self-service management
 		// Monitoring: app monitors + host resources
 		auth.GET("/monitoring/screen", middleware.RequireCap("monitor", "view"), MonitorScreen)

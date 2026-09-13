@@ -841,6 +841,8 @@ const save = async () => {
     await api.put('/system/config', payload)
     localStorage.setItem('system_name', form.system_name)
     document.title = form.system_name
+    // notify MainLayout so the Log Search menu appears/disappears immediately
+    window.dispatchEvent(new CustomEvent('oo-state-changed', { detail: form.oo_enabled === 'true' }))
     ElMessage.success(t('system.saved'))
   } finally { saving.value = false }
 }

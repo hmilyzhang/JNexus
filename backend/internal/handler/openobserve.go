@@ -23,6 +23,12 @@ func OOConfigTest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// OOState GET /api/observe/state — lightweight enabled flag for menu visibility
+// (any logged-in user; leaks nothing but the boolean)
+func OOState(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"enabled": service.LoadOOSettings().Enabled})
+}
+
 // OOAdminStatus GET /api/system/oo/status — connection health + per-stream push stats (admin)
 func OOAdminStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, service.OOStatus())

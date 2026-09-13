@@ -209,6 +209,14 @@ const menuItems = [
 const roleSettings = ref({})
 api.get('/system/roles').then(rs => { roleSettings.value = rs }).catch(() => {})
 
+// Log Search menu visibility follows the OpenObserve enabled flag (system settings);
+// SystemConfig dispatches 'oo-state-changed' after saving so the menu refreshes live.
+const ooEnabled = ref(true)
+const loadOOState = () => api.get('/observe/state').then(r => { ooEnabled.value = !!r.enabled }).catch(() => {})
+loadOOState()
+const ooStateListener = e => { ooEnabled.value = !!e.detail }
+window.addEventListener('oo-state-changed', ooStateListener)
+
 const menuRef = ref(null)
 const collapsed = ref(localStorage.getItem('sidebar_collapsed') === '1')
 const toggleCollapse = () => {
@@ -224,16 +232,18 @@ const onMenuSelect = index => {
 }
 
 const menus = computed(() => {
-  if (store.isAdmin) return menuItems
+  const visible = list => list.filter(m => m.key !== 'observe' || ooEnabled.value)
+  if (store.isAdmin) return visible(menuItems)
   const conf = roleSettings.value[store.role]
   const allowed = new Set(conf?.menus || [])
   const out = []
   for (const m of menuItems) {
     if (m.children) {
-      const kids = m.children.filter(c => allowed.has(c.key) ||
-        (c.key === 'logtail' && allowed.has('exec'))) // log access follows exec permission
+      const kids = m.children.filter(c => (allowed.has(c.key) ||
+        (c.key === 'logtail' && allowed.has('exec'))) && // log access follows exec permission
+        (c.key !== 'observe' || ooEnabled.value))
       if (kids.length) out.push({ ...m, children: kids })
-    } else if (allowed.has(m.key)) {
+    } else if (allowed.has(m.key) && (m.key !== 'observe' || ooEnabled.value)) {
       out.push(m)
     }
   }
@@ -267,7 +277,10 @@ const pickQuote = () => {
 }
 pickQuote()
 const quoteTimer = setInterval(pickQuote, 10 * 60 * 1000)
-onBeforeUnmount(() => clearInterval(quoteTimer))
+onBeforeUnmount(() => {
+  clearInterval(quoteTimer)
+  window.removeEventListener('oo-state-changed', ooStateListener)
+})
 
 // ---- Site-wide floating AI chat panel ----
 const aiOpen = ref(false)
