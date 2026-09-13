@@ -24,6 +24,8 @@
         <div class="oa-kv"><span>{{ $t('oo.org') }}</span><b class="mono">{{ st.org || '—' }}</b></div>
         <div class="oa-kv"><span>{{ $t('oo.token') }}</span><b>{{ st.token_set ? $t('oa.tokenSet') : $t('oa.tokenMissing') }}</b></div>
         <div v-if="st.error" class="oa-kv"><span>{{ $t('oa.lastError') }}</span><b style="color:var(--el-color-danger)">{{ st.error }}</b></div>
+        <div v-if="st.enabled && !st.reachable && /(^|\.)?(localhost|127\.0\.0\.1)(:|\/|$)/.test(st.url || '')"
+             class="oa-kv"><span>{{ $t('oa.containerHint') }}</span><b>{{ $t('oa.containerHintText') }}</b></div>
       </div>
     </el-card>
 

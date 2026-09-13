@@ -9,8 +9,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"os"
 	"regexp"
 	"strconv"
@@ -244,7 +246,7 @@ func RDPConnectToken(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"query": qs, "host": host.Name, "ip": host.IP,
-		"gateway": cfgGwURL(),
+		"gateway": gwURLForRequest(c),
 	})
 }
 
@@ -343,9 +345,20 @@ func buildGuacQueryString(ip string, port int, user, pass string) (string, error
 	return hex.EncodeToString(append(iv, out...)), nil
 }
 
-func cfgGwURL() string {
+// gwURLForRequest derives the browser-facing RDP gateway address from the incoming
+// request (same hostname, gateway port 4823), so deployments behind domains/proxies work
+// without editing config. RDP_GATEWAY_URL wins when explicitly set.
+func gwURLForRequest(c *gin.Context) string {
 	if v := os.Getenv("RDP_GATEWAY_URL"); v != "" {
 		return v
 	}
-	return "http://localhost:4823"
+	scheme := "http"
+	if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
+		scheme = "https"
+	}
+	host := c.Request.Host // hostname[:port] the browser used for JNexus
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	return scheme + "://" + host + ":4823"
 }

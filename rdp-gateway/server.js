@@ -30,10 +30,22 @@ const SECRET_KEY = process.env.GW_SECRET || readSecret();
 
 // guacamole-lite 标准模式：连接参数以 AES-256-CBC 加密的查询串从浏览器传入。
 // JNexus 后端签发该加密串（短时有效、一次性语义由短时效保证），浏览器不接触明文凭据。
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ status: 'ok', service: 'jnexus-rdp-gateway' }));
-});
+// Optional TLS: set GW_TLS_CERT + GW_TLS_KEY to serve wss:// (required when the
+// JNexus page is served over HTTPS, otherwise browsers block ws:// mixed content)
+let server;
+if (process.env.GW_TLS_CERT && process.env.GW_TLS_KEY) {
+  const options = { cert: fs.readFileSync(process.env.GW_TLS_CERT), key: fs.readFileSync(process.env.GW_TLS_KEY) };
+  server = require('https').createServer(options, (req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', service: 'jnexus-rdp-gateway', tls: true }));
+  });
+  console.log('[rdp-gateway] TLS enabled');
+} else {
+  server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', service: 'jnexus-rdp-gateway' }));
+  });
+}
 
 new GuacamoleLite(server, { host: GUACD_HOST, port: GUACD_PORT }, {
   crypt: { cypher: 'AES-256-CBC', key: process.env.GW_SECRET || 'JnexusRdpGatewaySecretKey-123456' },
