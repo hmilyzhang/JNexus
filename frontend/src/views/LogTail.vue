@@ -35,7 +35,7 @@
       <div class="term-shell">
         <div ref="termEl" class="term-box"></div>
       </div>
-      <div style="color:#909399; font-size:12px; margin-top:8px">{{ $t('logtail.tip') }}</div>
+      <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:8px">{{ $t('logtail.hint') }}</div>
     </el-card>
   </div>
 </template>

@@ -267,7 +267,7 @@ onBeforeUnmount(() => clearInterval(quoteTimer))
 const aiOpen = ref(false)
 const aiBusy = ref(false)
 const aiInput = ref('')
-const aiMessages = ref([{ role: 'bot', text: '' }])
+const aiMessages = ref([{ role: 'bot', text: t('ai.greeting') }])
 const aiMsgBox = ref(null)
 
 const sendToAI = async () => {

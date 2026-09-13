@@ -41,11 +41,12 @@
 <script setup>
 import { ref } from 'vue'
 import api from '../api'
+import i18n from '../i18n'
 
 const open = ref(false)
 const busy = ref(false)
 const input = ref('')
-const messages = ref([])
+const messages = ref([{ role: 'bot', text: i18n.global.t('ai.greeting') }])
 const msgBox = ref(null)
 
 const send = async () => {
