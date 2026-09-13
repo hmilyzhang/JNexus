@@ -4,7 +4,7 @@
     <el-col :span="6">
       <el-card :header="$t('hosts.treeView')" v-loading="loading">
         <el-tree ref="treeRef" :data="treeData" node-key="key" highlight-current
-                 :default-expanded-keys="expandedKeys"
+                 :default-expanded-keys="expandedKeys" :auto-expand-parent="false"
                  @node-click="onTreeNode" @node-expand="onNodeExpand" @node-collapse="onNodeCollapse">
           <template #default="{ data }">
             <span class="tree-node">
@@ -474,6 +474,10 @@ const treeData = computed(() => {
 // Group expansion survives data reloads: any node click refetches hosts/groups and rebuilds
 // treeData, and el-tree re-creates every node, so expansion state must be fed back explicitly.
 // seenGroupKeys prevents a freshly collapsed group from being re-expanded by the seed pass.
+// IMPORTANT: mutate expandedKeys in place — reassigning a new array fires el-tree's
+// default-expanded-keys watcher, whose setDefaultExpandedKeys() re-runs node.expand(null,
+// autoExpandParent) for every key, forcing ancestors back open (a child group's key would
+// instantly re-expand its collapsed parent, e.g. perfgrp/hhi).
 const expandedKeys = ref([])
 const seenGroupKeys = new Set()
 const collectGroupKeys = nodes => nodes.flatMap(n => n.type === 'group' ? [n.key, ...collectGroupKeys(n.children || [])] : [])
@@ -483,7 +487,10 @@ watch(treeData, nodes => {
   }
 }, { immediate: true })
 const onNodeExpand = data => { if (!expandedKeys.value.includes(data.key)) expandedKeys.value.push(data.key) }
-const onNodeCollapse = data => { expandedKeys.value = expandedKeys.value.filter(k => k !== data.key) }
+const onNodeCollapse = data => {
+  const i = expandedKeys.value.indexOf(data.key)
+  if (i !== -1) expandedKeys.value.splice(i, 1)
+}
 
 const onTreeNode = node => {
   if (node.type === 'group') {
