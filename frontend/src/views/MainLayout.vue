@@ -202,7 +202,8 @@ const menuItems = [
     { key: 'users', path: '/users', title: 'menu.users', icon: 'User' },
     { key: 'danger', path: '/danger', title: 'menu.danger', icon: 'Warning' },
     { key: 'audit', path: '/audit', title: 'menu.audit', icon: 'Notebook' },
-    { key: 'system', path: '/system', title: 'menu.system', icon: 'Setting' }
+    { key: 'system', path: '/system', title: 'menu.system', icon: 'Setting' },
+    { key: 'oo-admin', path: '/oo-admin', title: 'menu.observeAdmin', icon: 'DataLine' }
   ] }
 ]
 const roleSettings = ref({})

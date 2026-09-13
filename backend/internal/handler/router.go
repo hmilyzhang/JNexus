@@ -49,6 +49,7 @@ func SetupRouter() *gin.Engine {
 		ext.GET("/monitors", ExtMonitors)
 		ext.GET("/tasks/:id", ExtTask)
 		ext.POST("/exec", ExtExec)
+		ext.POST("/oo/:stream", ExtOOPush)
 	}
 
 	auth := api.Group("", middleware.JWT())
@@ -75,6 +76,7 @@ func SetupRouter() *gin.Engine {
 			mon.GET("/:id/history", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), MonitorHistory)
 			// OpenObserve search proxy (long-term storage / full-text log search)
 			mon.POST("/oo/search", OOSearchProxy)
+			mon.GET("/oo/streams", OOMonitorStreams)
 		}
 		arule := auth.Group("/alert_rules", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
 		{
@@ -371,6 +373,9 @@ func SetupRouter() *gin.Engine {
 			sysCfg.POST("/rotation/run-now", RotationRunNow)
 			sysCfg.POST("/ai/test", middleware.RequireRole(model.RoleAdmin), AITest)
 			sysCfg.POST("/oo/test", middleware.RequireRole(model.RoleAdmin), OOConfigTest)
+			sysCfg.GET("/oo/status", middleware.RequireRole(model.RoleAdmin), OOAdminStatus)
+			sysCfg.POST("/oo/integrations", middleware.RequireRole(model.RoleAdmin), OOAdminToggle)
+			sysCfg.POST("/oo/push", middleware.RequireRole(model.RoleAdmin), OOAdminPush)
 			sysCfg.GET("/platform_key", GetPlatformKey)
 			sysCfg.PUT("/roles", UpdateSystemRoles)
 		}

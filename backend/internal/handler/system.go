@@ -27,7 +27,7 @@ var editableConfigKeys = []string{
 	"rotation_enabled", "rotation_length", "rotation_complexity", "rotation_days",
 	"ai_enabled", "ai_base_url", "ai_api_key", "ai_model", "ai_timeout_sec",
 	"ai_system_prompt",
-	"oo_enabled", "oo_url", "oo_org", "oo_token",
+	"oo_enabled", "oo_url", "oo_org", "oo_token", "oo_integrations",
 }
 
 // GetSystemConfig reads system config (admin); password fields are masked

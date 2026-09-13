@@ -161,8 +161,14 @@ const search = async () => {
   } finally { busy.value = false }
 }
 
-onMounted(() => {
+onMounted(async () => {
   sql.value = defaultSQL(stream.value)
   search()
+  // Discover streams present in OpenObserve (custom streams become queryable in the picker)
+  try {
+    const r = await api.get('/monitors/oo/streams')
+    const builtins = new Set(presetStreams.map(s => s.value))
+    customStreams.value = (r.streams || []).filter(s => !builtins.has(s))
+  } catch { /* disabled → preset streams only */ }
 })
 </script>

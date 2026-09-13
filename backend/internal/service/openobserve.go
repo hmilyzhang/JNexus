@@ -12,8 +12,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -142,18 +144,185 @@ func truncateOO(b []byte) string {
 	return s
 }
 
+// ---- Push stats + per-stream toggles (in-process; resets on restart by design) ----
+
+// OOStreamStat push counters for one stream
+type OOStreamStat struct {
+	Pushed      int64      `json:"pushed"`
+	Failed      int64      `json:"failed"`
+	LastPushAt  *time.Time `json:"last_push_at"`
+	LastError   string     `json:"last_error,omitempty"`
+	LastErrorAt *time.Time `json:"last_error_at"`
+}
+
+var ooStatsMu sync.Mutex
+var ooStats = map[string]*OOStreamStat{}
+
+func ooStat(stream string) *OOStreamStat {
+	ooStatsMu.Lock()
+	defer ooStatsMu.Unlock()
+	st := ooStats[stream]
+	if st == nil {
+		st = &OOStreamStat{}
+		ooStats[stream] = st
+	}
+	return st
+}
+
+// ooIntegrationEnabled reads the per-stream toggle from oo_integrations config
+// (JSON map; a missing entry defaults to enabled for the builtin streams)
+var ooBuiltinStreams = []string{"host_metrics", "task_logs", "alert_events"}
+
+func ooIntegrationEnabled(stream string) bool {
+	m := SystemConfigMap()
+	cfg := map[string]bool{}
+	_ = json.Unmarshal([]byte(m["oo_integrations"]), &cfg)
+	if v, ok := cfg[stream]; ok {
+		return v
+	}
+	for _, b := range ooBuiltinStreams {
+		if b == stream {
+			return true
+		}
+	}
+	return false // unknown/custom streams default off until explicitly enabled
+}
+
+// OOSetIntegration persists one stream toggle into oo_integrations config
+func OOSetIntegration(stream string, enabled bool) error {
+	m := SystemConfigMap()
+	cfg := map[string]bool{}
+	_ = json.Unmarshal([]byte(m["oo_integrations"]), &cfg)
+	cfg[stream] = enabled
+	b, _ := json.Marshal(cfg)
+	return SetSystemConfigs(map[string]string{"oo_integrations": string(b)})
+}
+
+// OOStats returns a copy of the push statistics for all streams
+func OOStats() map[string]OOStreamStat {
+	ooStatsMu.Lock()
+	defer ooStatsMu.Unlock()
+	out := make(map[string]OOStreamStat, len(ooStats))
+	for k, v := range ooStats {
+		out[k] = *v
+	}
+	return out
+}
+
+// OOListStreams returns the stream names present in OpenObserve
+func OOListStreams() ([]string, error) {
+	s := LoadOOSettings()
+	if !s.Enabled || s.BaseURL == "" {
+		return nil, fmt.Errorf("OpenObserve is not enabled (System Settings → Observability)")
+	}
+	code, data, err := ooHTTP(10*time.Second, http.MethodGet, s.BaseURL+"/api/"+s.Org+"/streams", s.authHeader(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("connection failed: %w", err)
+	}
+	if code >= 400 {
+		return nil, fmt.Errorf("OpenObserve HTTP %d: %s", code, truncateOO(data))
+	}
+	var out struct {
+		List []struct {
+			Name string `json:"name"`
+		} `json:"list"`
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return nil, fmt.Errorf("failed to parse streams response")
+	}
+	names := make([]string, 0, len(out.List))
+	for _, it := range out.List {
+		names = append(names, it.Name)
+	}
+	return names, nil
+}
+
+// OOStatus aggregates connection health + push stats for the admin page
+func OOStatus() map[string]any {
+	s := LoadOOSettings()
+	out := map[string]any{
+		"enabled":      s.Enabled,
+		"url":          s.BaseURL,
+		"org":          s.Org,
+		"token_set":    s.Token != "",
+		"integrations": SystemConfigMap()["oo_integrations"],
+		"stats":        OOStats(),
+	}
+	if s.Enabled && s.BaseURL != "" {
+		start := time.Now()
+		code, _, err := ooHTTP(5*time.Second, http.MethodGet, s.BaseURL+"/api/"+s.Org+"/streams", s.authHeader(), nil)
+		out["reachable"] = err == nil && code < 400
+		out["latency_ms"] = time.Since(start).Milliseconds()
+		if err != nil {
+			out["error"] = err.Error()
+		} else if code >= 400 {
+			out["error"] = fmt.Sprintf("HTTP %d", code)
+		}
+		if names, err := OOListStreams(); err == nil {
+			out["streams"] = names
+		}
+	} else {
+		out["reachable"] = false
+	}
+	return out
+}
+
+var ooStreamNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,100}$`)
+
+// OOStreamNameValid reports whether a custom stream name is safe to use
+func OOStreamNameValid(stream string) bool { return ooStreamNameRe.MatchString(stream) }
+
+// OOIngestCustom validates a custom stream name and pushes arbitrary records
+func OOIngestCustom(stream string, records []map[string]any) (int, error) {
+	if !ooStreamNameRe.MatchString(stream) {
+		return 0, fmt.Errorf("invalid stream name (allowed: letters, digits, _ and -, max 100)")
+	}
+	if len(records) == 0 {
+		return 0, fmt.Errorf("records is empty")
+	}
+	if err := OOIngestJSON(stream, records); err != nil {
+		st := ooStat(stream)
+		ooStatsMu.Lock()
+		st.Failed += int64(len(records))
+		now := time.Now()
+		st.LastError, st.LastErrorAt = err.Error(), &now
+		ooStatsMu.Unlock()
+		return 0, err
+	}
+	st := ooStat(stream)
+	ooStatsMu.Lock()
+	st.Pushed += int64(len(records))
+	now := time.Now()
+	st.LastPushAt = &now
+	ooStatsMu.Unlock()
+	return len(records), nil
+}
+
 // ooPushAsync fire-and-forget push so collection paths never block or fail on OO hiccups;
-// silently no-ops when OpenObserve is disabled
+// silently no-ops when OpenObserve is disabled or the stream toggle is off
 func ooPushAsync(stream string, record map[string]any) {
-	if !LoadOOSettings().Enabled {
+	if !LoadOOSettings().Enabled || !ooIntegrationEnabled(stream) {
 		return
 	}
 	go func() {
 		defer func() { recover() }()
 		record["_timestamp"] = time.Now().UnixMilli()
 		if err := OOIngestJSON(stream, []map[string]any{record}); err != nil {
+			st := ooStat(stream)
+			ooStatsMu.Lock()
+			st.Failed++
+			now := time.Now()
+			st.LastError, st.LastErrorAt = err.Error(), &now
+			ooStatsMu.Unlock()
 			fmt.Println("[openobserve] push", stream, "failed:", err.Error())
+			return
 		}
+		st := ooStat(stream)
+		ooStatsMu.Lock()
+		st.Pushed++
+		now := time.Now()
+		st.LastPushAt = &now
+		ooStatsMu.Unlock()
 	}()
 }
 

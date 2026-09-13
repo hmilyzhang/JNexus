@@ -5,6 +5,7 @@ package handler
 // (monitor viewers) so end users never talk to OpenObserve directly.
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -20,6 +21,93 @@ func OOConfigTest(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// OOAdminStatus GET /api/system/oo/status — connection health + per-stream push stats (admin)
+func OOAdminStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, service.OOStatus())
+}
+
+// OOAdminToggle POST /api/system/oo/integrations {stream, enabled} — per-stream toggle (admin)
+func OOAdminToggle(c *gin.Context) {
+	var req struct {
+		Stream  string `json:"stream"`
+		Enabled bool   `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Stream == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "stream is required"})
+		return
+	}
+	if !service.OOStreamNameValid(req.Stream) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid stream name"})
+		return
+	}
+	if err := service.OOSetIntegration(req.Stream, req.Enabled); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// OOAdminPush POST /api/system/oo/push {stream, records} — test push from the admin page
+func OOAdminPush(c *gin.Context) {
+	var req struct {
+		Stream  string           `json:"stream"`
+		Records []map[string]any `json:"records"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Stream == "" || len(req.Records) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "stream and records are required"})
+		return
+	}
+	if !service.OOStreamNameValid(req.Stream) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid stream name"})
+		return
+	}
+	n, err := service.OOIngestCustom(req.Stream, req.Records)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "successful": n})
+}
+
+// OOMonitorStreams GET /api/monitors/oo/streams — stream discovery for the search page
+func OOMonitorStreams(c *gin.Context) {
+	names, err := service.OOListStreams()
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"streams": names})
+}
+
+// ExtOOPush POST /api/ext/oo/:stream — external custom push with API-key auth
+func ExtOOPush(c *gin.Context) {
+	stream := c.Param("stream")
+	if !service.OOStreamNameValid(stream) {
+		c.JSON(http.StatusBadRequest, gin.H{"ok": false, "error": "invalid stream name"})
+		return
+	}
+	raw, err := c.GetRawData()
+	if err != nil || len(raw) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"ok": false, "error": "JSON body required"})
+		return
+	}
+	var records []map[string]any
+	if json.Unmarshal(raw, &records) != nil {
+		var one map[string]any
+		if json.Unmarshal(raw, &one) != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"ok": false, "error": "body must be a JSON object or array of objects"})
+			return
+		}
+		records = []map[string]any{one}
+	}
+	n, err := service.OOIngestCustom(stream, records)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"ok": false, "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "successful": n})
 }
 
 // OOSearchProxy POST /api/monitors/oo/search — proxy a SQL search to OpenObserve.
