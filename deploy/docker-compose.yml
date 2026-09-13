@@ -40,6 +40,8 @@ services:
       # JWT/AES secrets: auto-generated and persisted to the data volume by the entrypoint on first start if unset
       JNEXUS_JWT_SECRET: ${JNEXUS_JWT_SECRET:-}
       JNEXUS_AES_KEY: ${JNEXUS_AES_KEY:-}
+      # RDP gateway WebSocket proxy target (same-origin /rdp-gw is proxied through JNexus)
+      RDP_GW_TARGET: rdp-gateway:4823
     ports:
       - "8080:8080"
     volumes:

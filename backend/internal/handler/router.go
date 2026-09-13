@@ -22,6 +22,9 @@ func SetupRouter() *gin.Engine {
 	r.Use(middleware.Audit())
 
 	r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+	// RDP gateway WebSocket proxy (same-origin: browser needs no direct gateway access;
+	// the one-time encrypted q= token is the credential)
+	r.GET("/rdp-gw", ProxyRDPGateway)
 	r.Static("/uploads", config.Cfg.Storage.UploadDir)
 
 	api := r.Group("/api")

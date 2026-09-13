@@ -28,12 +28,18 @@ let tunnel = null
 const setStatus = s => { status.value = s }
 
 const connect = () => {
-  // Gateway address fallback: backend defaults to localhost; replace it with the current page hostname for remote access
+  // Gateway address: backend default is the same-origin path /rdp-gw (proxied by
+  // JNexus itself); legacy values pointing at localhost are rewritten to the page
+  // hostname for remote access
   let gw = route.query.gw || `ws://${location.hostname}:4823`
   try {
-    const u = new URL(gw.replace(/^ws/, 'http'))
-    if (['localhost', '127.0.0.1'].includes(u.hostname)) u.hostname = location.hostname
-    gw = u.href.replace(/^http/, 'ws').replace(/\/$/, '')
+    if (gw.startsWith('/')) {
+      gw = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${gw}`
+    } else {
+      const u = new URL(gw.replace(/^ws/, 'http'))
+      if (['localhost', '127.0.0.1'].includes(u.hostname)) u.hostname = location.hostname
+      gw = u.href.replace(/^http/, 'ws').replace(/\/$/, '')
+    }
   } catch { /* keep the original value */ }
   const q = route.query.q || ''
   if (!q) { setStatus('missing query'); return }
