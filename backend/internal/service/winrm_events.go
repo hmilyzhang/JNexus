@@ -17,17 +17,23 @@ import (
 	"jnexus/internal/pkg"
 )
 
-const winEventQueryMax = 50 // per host per round
+const winEventQueryMax = 50 // System/Application errors+warnings per host per round
+const winEventSecMax = 30   // Security audit events per host per round
 
-// buildWinEventCmd renders the PowerShell event-log query (PS 5.1 compatible)
+// buildWinEventCmd renders the PowerShell event-log query (PS 5.1 compatible).
+// System/Application: errors & warnings only. Security: all audit events (logons,
+// account management...) are Informational-level, so no level filter — capped lower.
 func buildWinEventCmd(sinceMs int64) string {
 	since := "[DateTime]::Parse('1970-01-01T00:00:00Z').ToUniversalTime().AddMilliseconds(" +
 		strconv.FormatInt(sinceMs, 10) + ")"
+	toRow := "ForEach-Object { $m = $_.Message; if ($m) { $m = ($m -replace \"`r`n\", ' ') -replace \"`n\", ' '; if ($m.Length -gt 400) { $m = $m.Substring(0, 400) } }; " +
+		"[pscustomobject]@{ time = $_.TimeCreated.ToUniversalTime().Subtract([DateTime]'1970-01-01').TotalMilliseconds; log = $_.LogName; level = $_.LevelDisplayName; id = $_.Id; provider = $_.ProviderName; msg = $m } }"
 	return `[Console]::OutputEncoding=[Text.Encoding]::UTF8; ` +
-		"$e = @(Get-WinEvent -FilterHashtable @{LogName=@('System','Application'); Level=1,2,3; StartTime=" + since + "} -MaxEvents " +
-		strconv.Itoa(winEventQueryMax) + " -ErrorAction SilentlyContinue | " +
-		"ForEach-Object { $m = $_.Message; if ($m) { $m = ($m -replace \"`r`n\", ' ') -replace \"`n\", ' '; if ($m.Length -gt 400) { $m = $m.Substring(0, 400) } }; " +
-		"[pscustomobject]@{ time = $_.TimeCreated.ToUniversalTime().Subtract([DateTime]'1970-01-01').TotalMilliseconds; log = $_.LogName; level = $_.LevelDisplayName; id = $_.Id; provider = $_.ProviderName; msg = $m } }); " +
+		"$sys = @(Get-WinEvent -FilterHashtable @{LogName=@('System','Application'); Level=1,2,3; StartTime=" + since + "} -MaxEvents " +
+		strconv.Itoa(winEventQueryMax) + " -ErrorAction SilentlyContinue | " + toRow + "); " +
+		"$sec = @(Get-WinEvent -FilterHashtable @{LogName='Security'; StartTime=" + since + "} -MaxEvents " +
+		strconv.Itoa(winEventSecMax) + " -ErrorAction SilentlyContinue | " + toRow + "); " +
+		"$e = @($sys) + @($sec); " +
 		"ConvertTo-Json -InputObject $e -Compress"
 }
 

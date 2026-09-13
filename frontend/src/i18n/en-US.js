@@ -1144,7 +1144,7 @@ logtail: {
     descHostMetrics: 'Host CPU/memory/disk samples (dual-written by the SSH + WinRM collectors)',
     descTaskLogs: 'Task execution output (per-host status / exit code / full output)',
     descAlertEvents: 'Alert events (written when alerts fire)',
-    descWindowsEvents: 'Windows event logs (System/Application errors & warnings, incremental WinRM pull)',
+    descWindowsEvents: 'Windows event logs (System/Application errors & warnings + Security audit events, incremental WinRM pull)',
     descDbAudit: 'Database audit trail (platform PostgreSQL audit_log, written in real time)',
   },
   ai: {
