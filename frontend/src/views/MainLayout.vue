@@ -36,8 +36,6 @@
     <el-container>
       <el-header class="header">
         <div style="display:flex; align-items:center; gap:12px">
-          <img :src="headerLogo" alt="JNexus"
-               style="height:30px; width:auto" />
           <el-button text @click="toggleCollapse" style="padding:6px">
             <el-icon :size="18"><component :is="collapsed ? 'Expand' : 'Fold'" /></el-icon>
           </el-button>
@@ -165,8 +163,6 @@ import api from '../api'
 import i18n, { locales, setLocale } from '../i18n'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../store'
-import logoOnDark from '../assets/logo-on-dark.png'
-import logoOnLight from '../assets/logo-on-light.png'
 import logoMark from '../assets/logo-mark.png'
 import { jokes, soulSoups } from '../data/quotations'
 
@@ -262,7 +258,6 @@ const menus = computed(() => {
 
 // ---- Light/dark theme (bootstrap script lives in index.html to avoid first-paint flicker) ----
 const isDark = ref(document.documentElement.classList.contains('dark'))
-const headerLogo = computed(() => (isDark.value ? logoOnDark : logoOnLight))
 const toggleTheme = () => {
   isDark.value = !isDark.value
   document.documentElement.classList.toggle('dark', isDark.value)
