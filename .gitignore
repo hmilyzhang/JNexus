@@ -36,3 +36,5 @@ test-data/
 
 # Deployment secrets
 deploy/.env
+
+rdp-gateway/node_modules/

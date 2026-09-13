@@ -30,22 +30,26 @@
 
       <!-- Inline edit: connection settings without leaving the page -->
       <el-divider style="margin:14px 0" />
-      <el-form label-width="150px" style="max-width:520px" @submit.prevent>
-        <el-form-item :label="$t('oo.url')">
+      <div style="max-width:520px">
+        <div class="oa-edit-row">
+          <span class="oa-edit-label">{{ $t('oo.url') }}</span>
           <el-input v-model="edit.url" class="mono" placeholder="http://openobserve:5080" />
-        </el-form-item>
-        <el-form-item :label="$t('oo.org')">
+        </div>
+        <div class="oa-edit-row">
+          <span class="oa-edit-label">{{ $t('oo.org') }}</span>
           <el-input v-model="edit.org" class="mono" placeholder="default" />
-        </el-form-item>
-        <el-form-item :label="$t('oo.token')">
+        </div>
+        <div class="oa-edit-row">
+          <span class="oa-edit-label">{{ $t('oo.token') }}</span>
           <el-input v-model="edit.token" type="password" show-password class="mono"
                     :placeholder="$t('oa.tokenEditPlaceholder')" />
-        </el-form-item>
-        <el-form-item>
+        </div>
+        <div class="oa-edit-row">
+          <span class="oa-edit-label"></span>
           <el-button type="primary" :loading="savingConn" @click="saveConn">{{ $t('common.save') }}</el-button>
-          <span style="color:var(--el-text-color-secondary); font-size:12px; margin-left:10px">{{ $t('oa.tokenEditHint') }}</span>
-        </el-form-item>
-      </el-form>
+          <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oa.tokenEditHint') }}</span>
+        </div>
+      </div>
     </el-card>
 
     <!-- Built-in integrations -->
@@ -382,6 +386,8 @@ onMounted(load)
 .oa-kv { display: flex; gap: 10px; font-size: 13px; align-items: baseline; }
 .oa-kv span { color: var(--el-text-color-secondary); flex-shrink: 0; }
 .oa-kv b { word-break: break-all; }
+.oa-edit-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.oa-edit-label { width: 140px; flex-shrink: 0; text-align: right; color: var(--el-text-color-regular); font-size: 13px; }
 .oa-code {
   background: var(--el-fill-color-light); border: 1px solid var(--el-border-color-lighter);
   border-radius: 6px; padding: 10px 12px; font-size: 12px; line-height: 1.7;

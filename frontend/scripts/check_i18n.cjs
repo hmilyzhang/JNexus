@@ -49,6 +49,14 @@ const missingZh = [...used].filter(k => !(k in zh))
 const missingEn = [...used].filter(k => !(k in en))
 const localeFiles = Object.keys(zh).length + ' zh keys, ' + Object.keys(en).length + ' en keys, ' + used.size + ' used'
 console.log('Locale stats:', localeFiles)
+// Raw "@" inside message values breaks vue-i18n linked-message compilation
+const rawAt = [];
+for (const [file, flat] of [['zh-CN', zh], ['en-US', en]]) {
+  for (const [k, v] of Object.entries(flat)) {
+    if (typeof v === 'string' && /(^|[^'])\@(?!['}])/.test(v)) rawAt.push(`${file}:${k}`);
+  }
+}
+console.log('Raw @ in messages:', rawAt.length ? rawAt : 'none');
 console.log('Missing in zh-CN:', missingZh.length ? missingZh : 'none')
 console.log('Missing in en-US:', missingEn.length ? missingEn : 'none')
 // keys defined in one locale but not the other
