@@ -4,6 +4,7 @@ package service
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -72,6 +73,20 @@ func WinRMClientFor(h *model.Host, username, password string) (*winrm.Client, er
 		winrm.NewEndpoint(h.IP, WinRMPortOf(h), false, true, nil, nil, nil, 0), user, pass, params)
 }
 
+// krb5ConfigPath resolves the krb5.conf to feed gokrb5: the configured path first,
+// then the platform defaults (/etc/krb5.conf on Linux, C:\Windows\krb5.ini on Windows).
+func krb5ConfigPath() (string, error) {
+	if p := strings.TrimSpace(SystemConfigMap()["winrm_krb5_config"]); p != "" {
+		return p, nil
+	}
+	for _, p := range []string{"/etc/krb5.conf", `C:\Windows\krb5.ini`} {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+	return "", fmt.Errorf("Kerberos 需要 krb5.conf：请挂载到 /etc/krb5.conf（容器）或配置 winrm_krb5_config")
+}
+
 // winRMKerberosClient builds the Kerberos transport for a domain-joined Windows host.
 // Realm comes from the account UPN suffix (user@GLBANK.COM) or the winrm_krb5_realm setting.
 func winRMKerberosClient(h *model.Host, user, pass string) (*winrm.Client, error) {
@@ -93,6 +108,10 @@ func winRMKerberosClient(h *model.Host, user, pass string) (*winrm.Client, error
 	if spn == "" {
 		spn = "WSMAN/" + h.Name
 	}
+	conf, err := krb5ConfigPath()
+	if err != nil {
+		return nil, err
+	}
 	port := 5986
 	if h.WinRMPort == 5986 {
 		port = h.WinRMPort
@@ -104,7 +123,7 @@ func winRMKerberosClient(h *model.Host, user, pass string) (*winrm.Client, error
 			WinRMPassword: pass,
 			KrbRealm:      realm,
 			KrbSpn:        spn,
-			KrbConfig:     SystemConfigMap()["winrm_krb5_config"], // e.g. /etc/krb5.conf; empty = OS default path
+			KrbConfig:     conf,
 			WinRMProto:    "https",
 			WinRMPort:     port,
 			WinRMHost:     h.IP,
