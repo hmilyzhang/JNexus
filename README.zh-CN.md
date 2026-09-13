@@ -203,6 +203,10 @@ deploy/      docker-compose.yml（捆绑库）+ docker-compose.external.yml（�
 
 ## 开源协议
 
-[MIT](LICENSE) © 2026 hmilyzhang
+[GNU AGPL-3.0](LICENSE) © 2026 hmilyzhang
+
+JNexus 是自由软件：你可以在 GNU Affero 通用公共许可证 v3.0 的条款下运行、研究、修改与再分发。
+若你修改 JNexus 并将其作为网络服务对外提供，必须以同一许可证公开修改后的源码（AGPL §13）。
+可选的 [OpenObserve](https://openobserve.ai) 后端同为 AGPL-3.0（仅通过 HTTP 调用——与之并列部署不会带来额外义务）。
 
 <div align="right"><a href="README.md">English</a></div>

@@ -180,6 +180,12 @@ deploy/      docker-compose.yml (bundled DB) + docker-compose.external.yml + Doc
 
 ## License
 
-[MIT](LICENSE) © 2026 hmilyzhang
+[GNU AGPL-3.0](LICENSE) © 2026 hmilyzhang
+
+JNexus is free software: you can run, study, modify and redistribute it under the terms of the
+GNU Affero General Public License v3.0. If you modify JNexus and offer it as a network service,
+you must make your modified source available under the same license (AGPL §13).
+The optional [OpenObserve](https://openobserve.ai) backend is likewise AGPL-3.0 (invoked over
+HTTP only — deploying it alongside JNexus imposes no additional obligations).
 
 <div align="right"><a href="README.zh-CN.md">中文文档</a></div>
