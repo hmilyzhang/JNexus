@@ -144,7 +144,7 @@
             <el-form label-width="130px" style="max-width:520px">
               <el-form-item :label="$t('ai.roleLabel')">
                 <el-select v-model="aiRole" style="width:100%" @change="onRoleChange">
-                  <el-option v-for="r in aiRolePresets" :key="r.key" :value="r.key" :label="r.label" />
+                  <el-option v-for="r in aiRolePresets" :key="r.key" :value="r.key" :label="$t('ai.' + r.labelKey)" />
                 </el-select>
               </el-form-item>
               <el-form-item :label="$t('ai.systemPrompt')">
@@ -677,11 +677,11 @@ const aiReply = ref('')
 const aiRole = ref('general')
 const aiSystemPromptEdit = ref('')
 const aiRolePresets = [
-  { key: 'sre', label: 'SRE 可靠性工程师', prompt: '你是一名资深 SRE（站点可靠性工程师），擅长故障排查、根因分析、容量规划和 SLO 制定。回答注重可操作性，给出具体命令和排查步骤。' },
-  { key: 'dba', label: 'DBA 数据库管理员', prompt: '你是一名资深数据库管理员（DBA），擅长 MySQL/PostgreSQL/Redis 的运维、SQL 优化、备份恢复、主从复制和慢查询分析。回答注重安全性，涉及破坏性操作时提醒确认。' },
-  { key: 'devops', label: 'DevOps 工程师', prompt: '你是一名 DevOps 工程师，擅长 CI/CD、容器化、基础设施即代码和自动化运维。回答注重效率和最佳实践。' },
-  { key: 'security', label: '安全分析师', prompt: '你是一名安全分析师，擅长漏洞评估、入侵检测、加固建议和合规审计。回答注重风险等级和修复优先级。' },
-  { key: 'general', label: '通用助手', prompt: '你是一名通用运维助手，能回答各类技术问题和运维场景咨询。' },
+  { key: 'sre', labelKey: 'roleSre', prompt: '你是一名资深 SRE（站点可靠性工程师），擅长故障排查、根因分析、容量规划和 SLO 制定。回答注重可操作性，给出具体命令和排查步骤。' },
+  { key: 'dba', labelKey: 'roleDba', prompt: '你是一名资深数据库管理员（DBA），擅长 MySQL/PostgreSQL/Redis 的运维、SQL 优化、备份恢复、主从复制和慢查询分析。回答注重安全性，涉及破坏性操作时提醒确认。' },
+  { key: 'devops', labelKey: 'roleDevops', prompt: '你是一名 DevOps 工程师，擅长 CI/CD、容器化、基础设施即代码和自动化运维。回答注重效率和最佳实践。' },
+  { key: 'security', labelKey: 'roleSecurity', prompt: '你是一名安全分析师，擅长漏洞评估、入侵检测、加固建议和合规审计。回答注重风险等级和修复优先级。' },
+  { key: 'general', labelKey: 'roleGeneral', prompt: '你是一名通用运维助手，能回答各类技术问题和运维场景咨询。' },
 ]
 
 const onRoleChange = key => {

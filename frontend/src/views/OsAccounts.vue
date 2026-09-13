@@ -387,7 +387,7 @@ const revealPwd = async row => {
 }
 const runBatch = async () => {
   if (!batchForm.value.host_ids.length) { ElMessage.warning(t('exec.needHosts')); return }
-  if (!batchForm.value.username || !batchForm.value.password) { ElMessage.warning(t('hosts.needIpUser')); return }
+  if (!batchForm.value.username || !batchForm.value.password) { ElMessage.warning(t('osac.needUserPwd')); return }
   batchRunning.value = true
   try {
     const res = await api.post('/credentials/batch', { ...batchForm.value, auto_pair: true })
