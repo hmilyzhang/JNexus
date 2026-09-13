@@ -20,7 +20,7 @@ export default {
     apps: 'Applications',
     releases: 'Release Center',
     users: 'User Management',
-    danger: 'Dangerous Commands',
+    danger: 'Dangerous Cmds',
     audit: 'Audit Log',
     system: 'System Settings',
     logtail: "Log Viewer",

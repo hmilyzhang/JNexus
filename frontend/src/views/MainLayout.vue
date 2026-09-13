@@ -1,7 +1,7 @@
 <!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <el-container style="height: 100vh">
-    <el-aside :width="collapsed ? '64px' : '165px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s; overflow-x:hidden; background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
+    <el-aside :width="collapsed ? '64px' : '176px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s; overflow-x:hidden; background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
       <div class="logo" v-if="!collapsed">
         <img :src="logoMark" alt="logo" style="width:26px; height:26px; flex-shrink:0" />
         <span>{{ systemName }}</span>
@@ -420,11 +420,16 @@ aside :deep(.el-menu) {
 }
 /* Indent and de-emphasize submenu items to distinguish them from top-level items */
 aside :deep(.el-sub-menu .el-menu .el-menu-item) {
-  padding-left: 42px !important;
-  font-size: 13px;
+  padding-left: 24px !important;
+  padding-right: 6px !important;
+  font-size: 12px;
   height: 34px;
   line-height: 34px;
   color: #93a1b5;
+}
+aside :deep(.el-sub-menu .el-menu .el-menu-item .el-icon) {
+  font-size: 14px;
+  margin-right: 4px;
 }
 aside :deep(.el-sub-menu .el-menu .el-menu-item.is-active) {
   color: #ffffff;
