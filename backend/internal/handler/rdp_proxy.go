@@ -8,6 +8,7 @@ package handler
 // query token (q=...) issued by the token endpoint stays the only key material.
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -38,13 +39,19 @@ func ProxyRDPGateway(c *gin.Context) {
 	defer clientConn.Close()
 
 	dialer := &websocket.Dialer{HandshakeTimeout: 10 * time.Second}
-	gwConn, _, err := dialer.Dial("ws://"+rdpGwTarget()+"/?"+c.Request.URL.RawQuery, nil)
+	gwConn, resp, err := dialer.Dial("ws://"+rdpGwTarget()+"/?"+c.Request.URL.RawQuery, nil)
 	if err != nil {
+		msg := err.Error()
+		if resp != nil {
+			msg += fmt.Sprintf(" (gateway HTTP %d)", resp.StatusCode)
+		}
+		fmt.Println("[rdp-gw] dial failed:", msg)
 		clientConn.WriteControl(websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "gateway unreachable: "+err.Error()),
+			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "gateway unreachable: "+msg),
 			time.Now().Add(time.Second))
 		return
 	}
+	fmt.Println("[rdp-gw] gateway dialed ok")
 	defer gwConn.Close()
 
 	done := make(chan struct{}, 2)

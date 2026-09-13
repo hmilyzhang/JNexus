@@ -44,7 +44,8 @@ const connect = () => {
   const q = route.query.q || ''
   if (!q) { setStatus('missing query'); return }
 
-  const wsUrl = `${gw}/?${q}`
+  // guacamole-lite reads the encrypted connection string from the `token` query param
+  const wsUrl = gw.startsWith('/') ? `${gw}?token=${encodeURIComponent(q)}` : `${gw}/?token=${encodeURIComponent(q)}`
   tunnel = new Guacamole.WebSocketTunnel(wsUrl)
   client = new Guacamole.Client(tunnel)
 

@@ -25,6 +25,7 @@ func SetupRouter() *gin.Engine {
 	// RDP gateway WebSocket proxy (same-origin: browser needs no direct gateway access;
 	// the one-time encrypted q= token is the credential)
 	r.GET("/rdp-gw", ProxyRDPGateway)
+	r.GET("/rdp-gw/", ProxyRDPGateway) // tolerate the trailing-slash variant (a 301 here would kill the WS handshake)
 	r.Static("/uploads", config.Cfg.Storage.UploadDir)
 
 	api := r.Group("/api")

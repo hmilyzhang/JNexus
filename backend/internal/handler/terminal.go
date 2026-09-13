@@ -7,10 +7,10 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -316,19 +316,32 @@ func rdpPortOf(h *model.Host) int {
 
 // buildGuacQueryString generates an encrypted connection string compatible with guacamole-lite queryEncryption
 func buildGuacQueryString(ip string, port int, user, pass string) (string, error) {
-	key := os.Getenv("GW_SECRET")
-	if key == "" {
-		key = "JnexusRdpGatewaySecretKey-123456"
+	key := []byte(gwSecret())
+
+	// guacamole-lite expects the token plaintext as
+	// {connection: {type: "rdp", settings: {...}}} (see guacamole-lite README)
+	settings := map[string]any{
+		"hostname":      ip,
+		"port":          strconv.Itoa(port),
+		"username":      user,
+		"password":      pass,
+		"ignore-cert":   true,
+		"resize-method": "reconnect",
+		"enable-drive":  false,
+		"enable-audio":  false,
+		"security":      "any",
+		"width":         1280,
+		"height":        720,
+		"dpi":           96,
 	}
-	key = key[:32]
-	plaintext := "guac.hostname=" + url.QueryEscape(ip) +
-		"&guac.port=" + strconv.Itoa(port) +
-		"&guac.username=" + url.QueryEscape(user) +
-		"&guac.password=" + url.QueryEscape(pass) +
-		"&guac.protocol=rdp&guac.ignore-cert=true" +
-		"&guac.resize-method=reconnect&guac.enable-drive=false&guac.enable-audio=false" +
-		"&width=1280&height=720&dpi=96"
-	block, err := aes.NewCipher([]byte(key))
+	plaintext, err := json.Marshal(map[string]any{
+		"connection": map[string]any{"type": "rdp", "settings": settings},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", err
 	}
@@ -341,7 +354,56 @@ func buildGuacQueryString(ip string, port int, user, pass string) (string, error
 	mode := cipher.NewCBCEncrypter(block, iv)
 	out := make([]byte, len(padded))
 	mode.CryptBlocks(out, padded)
-	return hex.EncodeToString(append(iv, out...)), nil
+
+	// token = base64(JSON({iv: base64(iv), value: base64(ciphertext)})) — guacamole-lite format
+	payload := map[string]string{
+		"iv":    base64.StdEncoding.EncodeToString(iv),
+		"value": base64.StdEncoding.EncodeToString(out),
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(raw), nil
+}
+
+// gwSecret resolves the shared AES key for the guacamole-lite query string.
+// Priority: GW_SECRET env → /data/gw_secret (shared volume with rdp-gateway) →
+// generated once and persisted to the data dir so both sides converge on the same key.
+func gwSecret() string {
+	if v := os.Getenv("GW_SECRET"); v != "" {
+		if len(v) > 32 {
+			v = v[:32]
+		}
+		return v
+	}
+	for _, f := range []string{"/data/gw_secret", "./data/gw_secret", "data/gw_secret"} {
+		if b, err := os.ReadFile(f); err == nil {
+			if v := strings.TrimSpace(string(b)); len(v) >= 32 {
+				return v[:32]
+			}
+		}
+	}
+	// generate & persist next to the uploads dir (same convention as other data files)
+	v := strings.TrimSpace(os.Getenv("RDP_GW_SECRET")) // pre-seeded installs
+	if v == "" {
+		b := make([]byte, 16)
+		if _, err := rand.Read(b); err != nil {
+			return "JnexusRdpGatewaySecretKey-123456"[:32]
+		}
+		v = hex.EncodeToString(b)
+	}
+	for _, dir := range []string{"./data", "data", "."} {
+		if err := os.MkdirAll(dir, 0o755); err == nil {
+			if err := os.WriteFile(dir+"/gw_secret", []byte(v), 0o600); err == nil {
+				break
+			}
+		}
+	}
+	if len(v) > 32 {
+		v = v[:32]
+	}
+	return v
 }
 
 // gwURLForRequest returns the browser-facing RDP gateway address. Default: the
@@ -356,5 +418,5 @@ func gwURLForRequest(c *gin.Context) string {
 	if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
 		scheme = "wss"
 	}
-	return scheme + "://" + c.Request.Host + "/rdp-gw"
+	return scheme + "://" + c.Request.Host + "/rdp-gw" // no trailing slash: gin would 301 and the WS handshake cannot follow redirects
 }
