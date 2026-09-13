@@ -63,6 +63,7 @@ func collectWindowsMetrics(h *model.Host) {
 		HostID: h.ID, CPUPercent: s.CPU, MemPercent: s.Mem, DiskPercent: s.Disk,
 		CollectedAt: time.Now(),
 	})
+	OOPushHostMetric(h.ID, h.Name, s.CPU, s.Mem, s.Disk, time.Now())
 	// Windows reboot detection: push when the boot time changes
 	if h.LastBootID != "" && s.BootID != "" && s.BootID != h.LastBootID {
 		SendHostRebootAlert(h, s.BootID)

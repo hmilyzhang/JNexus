@@ -439,6 +439,7 @@ func CollectHostMetrics() {
 					HostID: h.ID, CPUPercent: s.CPU, MemPercent: s.Mem, DiskPercent: s.Disk,
 					CollectedAt: time.Now(),
 				})
+				OOPushHostMetric(h.ID, h.Name, s.CPU, s.Mem, s.Disk, time.Now())
 				EvaluateCmdAlerts(&h, s, time.Now())
 				// Automatic host reboot detection: push when boot_id differs from the last one (and this is not the first collection)
 				if s.BootID != "" {

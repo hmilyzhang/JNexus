@@ -467,6 +467,37 @@
           <el-empty v-else :description="$t('mreport.pickMonthFirst')" />
         </el-card>
       </el-tab-pane>
+
+      <!-- Tab 8: OpenObserve log search (long-term storage / full-text) -->
+      <el-tab-pane :label="$t('oo.searchTab')" name="oosearch">
+        <el-card>
+          <el-alert v-if="ooErr" type="warning" :title="ooErr" :closable="false" style="margin-bottom:12px" show-icon />
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px">
+            <el-select v-model="ooStream" style="width:170px">
+              <el-option value="host_metrics" :label="$t('oo.streamHostMetrics')" />
+              <el-option value="task_logs" :label="$t('oo.streamTaskLogs')" />
+              <el-option value="alert_events" :label="$t('oo.streamAlertEvents')" />
+            </el-select>
+            <el-select v-model="ooRange" style="width:130px" @change="ooSearch">
+              <el-option value="1" :label="$t('oo.range1h')" />
+              <el-option value="24" :label="$t('oo.range24h')" />
+              <el-option value="168" :label="$t('oo.range7d')" />
+              <el-option value="720" :label="$t('oo.range30d')" />
+            </el-select>
+            <el-button type="primary" :loading="ooBusy" @click="ooSearch">{{ $t('oo.run') }}</el-button>
+            <span style="flex:1"></span>
+            <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oo.sqlTip') }}</span>
+          </div>
+          <el-input v-model="ooSQL" type="textarea" :rows="3" class="mono"
+                    :placeholder="'SELECT host, cpu_percent FROM host_metrics WHERE cpu_percent > 90'" />
+          <el-table v-if="ooCols.length" :data="ooRows" size="small" border style="margin-top:12px" max-height="480">
+            <el-table-column v-for="c in ooCols" :key="c" :prop="c" :label="c" min-width="140" show-overflow-tooltip>
+              <template #default="{ row }">{{ formatOOCell(row[c]) }}</template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-else-if="!ooBusy && !ooErr" :description="$t('oo.empty')" />
+        </el-card>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- Host resource trends -->
@@ -611,6 +642,63 @@ import MetricChart from '../components/MetricChart.vue'
 const { t } = i18n.global
 const $router = useRouter()
 const activeTab = ref('cmd')
+
+// ---- OpenObserve log search (queries via the backend proxy; disabled → friendly notice) ----
+const ooStream = ref('host_metrics')
+const ooRange = ref('24')
+const ooSQL = ref('')
+const ooBusy = ref(false)
+const ooErr = ref('')
+const ooRows = ref([])
+const ooCols = ref([])
+
+const ooDefaultSQL = stream => ({
+  host_metrics: 'SELECT host, cpu_percent, mem_percent, disk_percent FROM host_metrics ORDER BY _timestamp DESC',
+  task_logs: 'SELECT task_id, host, os_user, status, exit_code, output FROM task_logs ORDER BY _timestamp DESC',
+  alert_events: 'SELECT kind, level, target, message FROM alert_events ORDER BY _timestamp DESC',
+}[stream] || `SELECT * FROM ${stream} LIMIT 100`)
+
+const formatOOCell = v => {
+  if (v === null || v === undefined) return '-'
+  if (typeof v === 'object') return JSON.stringify(v)
+  const s = String(v)
+  if (/^\d{16,}$/.test(s)) { // _timestamp is epoch microseconds
+    const d = new Date(Number(s) / 1000)
+    if (!isNaN(d)) return d.toLocaleString()
+  }
+  return s
+}
+
+const ooSearch = async () => {
+  ooBusy.value = true
+  ooErr.value = ''
+  try {
+    const sql = (ooSQL.value || ooDefaultSQL(ooStream.value)).trim()
+    const end = Date.now()
+    const start = end - Number(ooRange.value) * 3600 * 1000
+    const r = await api.post('/monitors/oo/search', { sql, start_ms: start, end_ms: end, from: 0, size: 200 })
+    const hits = r.hits || []
+    const cols = new Set()
+    for (const h of hits.slice(0, 50)) Object.keys(h).forEach(k => { if (k !== '_timestamp') cols.add(k) })
+    ooCols.value = [...cols]
+    ooRows.value = hits
+    if (!hits.length) ooErr.value = t('oo.emptyResult')
+  } catch (e) {
+    ooRows.value = []
+    ooCols.value = []
+    ooErr.value = e?.response?.data?.error || t('oo.notEnabled')
+  } finally { ooBusy.value = false }
+}
+
+// Seed the SQL placeholder and auto-run on first entry of the tab
+watch(activeTab, tab => {
+  if (tab === 'oosearch') {
+    if (!ooSQL.value) ooSQL.value = ooDefaultSQL(ooStream.value)
+    if (!ooRows.value.length && !ooErr.value) ooSearch()
+  }
+})
+watch(ooStream, () => { ooSQL.value = ooDefaultSQL(ooStream.value) })
+
 const hostsLoading = ref(false)
 const hostRows = ref([])
 const hostKw = ref('')

@@ -73,6 +73,8 @@ func SetupRouter() *gin.Engine {
 			mon.DELETE("/:id", middleware.RequireCap("monitor", "manage"), DeleteMonitor)
 			mon.POST("/:id/test", middleware.RequireCap("monitor", "manage"), TestMonitor)
 			mon.GET("/:id/history", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), MonitorHistory)
+			// OpenObserve search proxy (long-term storage / full-text log search)
+			mon.POST("/oo/search", OOSearchProxy)
 		}
 		arule := auth.Group("/alert_rules", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
 		{
@@ -368,6 +370,7 @@ func SetupRouter() *gin.Engine {
 			sysCfg.GET("/rotation/accounts", RotationAccounts)
 			sysCfg.POST("/rotation/run-now", RotationRunNow)
 			sysCfg.POST("/ai/test", middleware.RequireRole(model.RoleAdmin), AITest)
+			sysCfg.POST("/oo/test", middleware.RequireRole(model.RoleAdmin), OOConfigTest)
 			sysCfg.GET("/platform_key", GetPlatformKey)
 			sysCfg.PUT("/roles", UpdateSystemRoles)
 		}

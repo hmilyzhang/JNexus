@@ -75,7 +75,26 @@ services:
       - guacd
     restart: unless-stopped
 
+  # Optional observability backend (AGPL-3.0, single binary): long-term metric/log storage + full-text search.
+  # Start with: docker compose --profile observability up -d
+  # Then enable it in JNexus: System Settings → Observability (URL http://openobserve:5080,
+  # org default, credentials admin@example.com / Complexpass@123 — change the password on first login).
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    container_name: jnexus-openobserve
+    profiles: ["observability"]
+    environment:
+      ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:-admin@example.com}
+      ZO_ROOT_USER_PASSWORD: ${ZO_ROOT_USER_PASSWORD:-Complexpass@123}
+      ZO_DATA_DIR: /data
+    volumes:
+      - oo-data:/data
+    ports:
+      - "5080:5080"
+    restart: unless-stopped
+
 volumes:
   pgdata:
   uploads:
   data:
+  oo-data:

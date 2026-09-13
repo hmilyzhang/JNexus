@@ -318,6 +318,12 @@ func runTask(operator *model.User, reqCredID *uint, taskID uint, command string,
 				status = "failed"
 			}
 			finishResult(res.ID, code, out, status)
+			var taskType, operator string
+			var task model.Task
+			if model.DB.Select("type", "operator").First(&task, taskID).Error == nil {
+				taskType, operator = task.Type, task.Operator
+			}
+			OOPushTaskLog(taskID, taskType, operator, res.HostName, res.OsUser, status, code, out)
 			pushTaskStatus()
 		}(results[i])
 	}

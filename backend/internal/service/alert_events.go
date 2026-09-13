@@ -14,6 +14,7 @@ func LogAlertEvent(kind, level, target, message string) {
 	model.DB.Create(&model.AlertEvent{
 		Kind: kind, Level: level, Target: target, Message: message, FiredAt: time.Now(),
 	})
+	OOPushAlertEvent(kind, level, target, message)
 }
 
 // LogAlertRecovery records a recovery event: fills in the recovery time on the latest unrecovered event with the same kind+target

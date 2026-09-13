@@ -27,12 +27,13 @@ var editableConfigKeys = []string{
 	"rotation_enabled", "rotation_length", "rotation_complexity", "rotation_days",
 	"ai_enabled", "ai_base_url", "ai_api_key", "ai_model", "ai_timeout_sec",
 	"ai_system_prompt",
+	"oo_enabled", "oo_url", "oo_org", "oo_token",
 }
 
 // GetSystemConfig reads system config (admin); password fields are masked
 func GetSystemConfig(c *gin.Context) {
 	m := service.SystemConfigMap()
-	for _, k := range []string{"ldap_bind_password", "smtp_password", "ai_api_key"} {
+	for _, k := range []string{"ldap_bind_password", "smtp_password", "ai_api_key", "oo_token"} {
 		if m[k] != "" {
 			m[k] = "******"
 		}
@@ -54,7 +55,7 @@ func UpdateSystemConfig(c *gin.Context) {
 		if !ok {
 			continue
 		}
-		if (k == "ldap_bind_password" || k == "smtp_password" || k == "ai_api_key") && (v == "" || v == "******") {
+		if (k == "ldap_bind_password" || k == "smtp_password" || k == "ai_api_key" || k == "oo_token") && (v == "" || v == "******") {
 			continue // keep original value
 		}
 		filtered[k] = v

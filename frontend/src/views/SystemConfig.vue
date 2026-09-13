@@ -167,6 +167,31 @@
     </el-card>
     </el-tab-pane>
 
+    <el-tab-pane :label="$t('oo.tab')" name="oo">
+    <el-card>
+      <el-alert type="info" :title="$t('oo.tip')" :closable="false" style="margin-bottom:16px" />
+      <el-form label-width="150px" style="max-width:560px">
+        <el-form-item :label="$t('oo.enabled')"><el-switch v-model="form.oo_enabled" active-value="true" inactive-value="false" /></el-form-item>
+        <template v-if="form.oo_enabled === 'true'">
+          <el-form-item :label="$t('oo.url')">
+            <el-input v-model="form.oo_url" class="mono" placeholder="http://openobserve:5080" />
+          </el-form-item>
+          <el-form-item :label="$t('oo.org')">
+            <el-input v-model="form.oo_org" class="mono" placeholder="default" />
+          </el-form-item>
+          <el-form-item :label="$t('oo.token')">
+            <el-input v-model="form.oo_token" type="password" show-password class="mono" :placeholder="$t('oo.tokenTip')" />
+            <div style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oo.tokenHelp') }}</div>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+            <el-button :loading="ooTesting" @click="testOO">{{ $t('ai.testConn') }}</el-button>
+          </el-form-item>
+        </template>
+      </el-form>
+    </el-card>
+    </el-tab-pane>
+
     <el-tab-pane :label="$t('system.ldap')" name="ldap">
     <el-card>
       <el-form label-width="140px">
@@ -474,7 +499,8 @@ const form = reactive({
   smtp_enabled: 'false', smtp_host: '', smtp_port: '25', smtp_ssl: 'false', smtp_tls: 'true',
   smtp_username: '', smtp_password: '', smtp_from: '', smtp_recipients: '', smtp_notify: 'true',
   rotation_enabled: 'false',
-  ai_enabled: 'false', ai_base_url: '', ai_api_key: '', ai_model: '', ai_timeout_sec: '120'
+  ai_enabled: 'false', ai_base_url: '', ai_api_key: '', ai_model: '', ai_timeout_sec: '120',
+  oo_enabled: 'false', oo_url: '', oo_org: 'default', oo_token: ''
 })
 const rotationLength = ref(20)
 const rotationComplexity = ref('high')
@@ -806,12 +832,27 @@ const save = async () => {
       ai_api_key: form.ai_api_key === '******' ? '' : form.ai_api_key,
       ai_model: form.ai_model,
       ai_timeout_sec: String(aiTimeoutNum.value),
-      ai_system_prompt: aiSystemPromptEdit.value }
+      ai_system_prompt: aiSystemPromptEdit.value,
+      oo_enabled: String(form.oo_enabled),
+      oo_url: form.oo_url,
+      oo_org: form.oo_org,
+      oo_token: form.oo_token === '******' ? '' : form.oo_token }
     await api.put('/system/config', payload)
     localStorage.setItem('system_name', form.system_name)
     document.title = form.system_name
     ElMessage.success(t('system.saved'))
   } finally { saving.value = false }
+}
+
+// OpenObserve connection test: save first, then round-trip a tiny search
+const ooTesting = ref(false)
+const testOO = async () => {
+  await save()
+  ooTesting.value = true
+  try {
+    await api.post('/system/oo/test')
+    ElMessage.success(t('system.saved'))
+  } catch { /* interceptor shows the error */ } finally { ooTesting.value = false }
 }
 
 const testSmtp = async () => {
