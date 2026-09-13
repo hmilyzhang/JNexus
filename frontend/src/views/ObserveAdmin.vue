@@ -27,6 +27,25 @@
         <div v-if="st.enabled && !st.reachable && /(^|\.)?(localhost|127\.0\.0\.1)(:|\/|$)/.test(st.url || '')"
              class="oa-kv"><span>{{ $t('oa.containerHint') }}</span><b>{{ $t('oa.containerHintText') }}</b></div>
       </div>
+
+      <!-- Inline edit: connection settings without leaving the page -->
+      <el-divider style="margin:14px 0" />
+      <el-form label-width="150px" style="max-width:520px" @submit.prevent>
+        <el-form-item :label="$t('oo.url')">
+          <el-input v-model="edit.url" class="mono" placeholder="http://openobserve:5080" />
+        </el-form-item>
+        <el-form-item :label="$t('oo.org')">
+          <el-input v-model="edit.org" class="mono" placeholder="default" />
+        </el-form-item>
+        <el-form-item :label="$t('oo.token')">
+          <el-input v-model="edit.token" type="password" show-password class="mono"
+                    :placeholder="$t('oa.tokenEditPlaceholder')" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="savingConn" @click="saveConn">{{ $t('common.save') }}</el-button>
+          <span style="color:var(--el-text-color-secondary); font-size:12px; margin-left:10px">{{ $t('oa.tokenEditHint') }}</span>
+        </el-form-item>
+      </el-form>
     </el-card>
 
     <!-- Built-in integrations -->
@@ -240,13 +259,34 @@ const stat = s => (st.value?.stats || {})[s] || { pushed: 0, failed: 0 }
 
 const fmtTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '—')
 
+const edit = ref({ url: '', org: '', token: '' })
+const savingConn = ref(false)
+
 const load = async () => {
   loading.value = true
   try {
     st.value = await api.get('/system/oo/status')
     discovered.value = st.value.streams || []
+    edit.value.url = st.value.url || ''
+    edit.value.org = st.value.org || ''
   } finally { loading.value = false }
   loadDbSources()
+}
+
+// save connection settings from the admin page; empty token keeps the stored one
+const saveConn = async () => {
+  savingConn.value = true
+  try {
+    await api.put('/system/config', {
+      oo_enabled: st.value.enabled ? 'true' : 'false',
+      oo_url: edit.value.url,
+      oo_org: edit.value.org,
+      oo_token: edit.value.token,
+    })
+    ElMessage.success(t('system.saved'))
+    edit.value.token = ''
+    await load()
+  } catch { /* interceptor shows the error */ } finally { savingConn.value = false }
 }
 
 const testConn = async () => {

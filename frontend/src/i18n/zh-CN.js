@@ -1132,6 +1132,8 @@ logtail: {
     lastError: '最近错误',
     containerHint: '部署提示',
     containerHintText: '容器部署时 127.0.0.1 指向 JNexus 容器自身——请将服务地址改为 http://openobserve:5080（compose 内部服务名）',
+    tokenEditPlaceholder: '留空保持已存凭据；格式 user@example.com:password',
+    tokenEditHint: '留空 = 保持已存凭据不变；保存后自动重测连接',
     builtinTitle: '内置集成（推送统计与开关）',
     descCol: '说明',
     enabledCol: '启用',

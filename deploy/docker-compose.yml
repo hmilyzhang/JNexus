@@ -42,6 +42,10 @@ services:
       JNEXUS_AES_KEY: ${JNEXUS_AES_KEY:-}
       # RDP gateway WebSocket proxy target (same-origin /rdp-gw is proxied through JNexus)
       RDP_GW_TARGET: rdp-gateway:4823
+      # OpenObserve root credentials (same as the openobserve service below): auto-seeds
+      # the Observability integration at startup — set both or neither
+      ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:-admin@example.com}
+      ZO_ROOT_USER_PASSWORD: ${ZO_ROOT_USER_PASSWORD:-Complexpass@123}
     ports:
       - "8080:8080"
     volumes:

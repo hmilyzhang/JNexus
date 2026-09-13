@@ -45,6 +45,7 @@ func main() {
 	if err := service.LoadDangerRules(); err != nil {
 		log.Fatalf("加载危险命令规则失败: %v", err)
 	}
+	service.AutoConfigureOO()  // seed OpenObserve settings from ZO_ROOT_USER_* env (compose)
 	service.StartScheduler()   // Cron job scheduler loop
 	service.StartMonitorLoop() // Monitor scheduling loop (app monitoring + host resource collection)
 

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -207,6 +208,41 @@ func OOStats() map[string]OOStreamStat {
 		out[k] = *v
 	}
 	return out
+}
+
+// AutoConfigureOO seeds the OpenObserve integration from ZO_ROOT_USER_EMAIL /
+// ZO_ROOT_USER_PASSWORD environment variables (compose injects the same values into
+// the jnexus container as into openobserve). Runs at startup; only fills in what is
+// missing, so manually configured values are never overwritten.
+func AutoConfigureOO() {
+	email, pass := os.Getenv("ZO_ROOT_USER_EMAIL"), os.Getenv("ZO_ROOT_USER_PASSWORD")
+	if email == "" || pass == "" {
+		return
+	}
+	m := SystemConfigMap()
+	if strings.TrimSpace(m["oo_token"]) != "" {
+		return // already configured
+	}
+	url := strings.TrimSpace(m["oo_url"])
+	if url == "" {
+		url = "http://openobserve:5080" // compose service name
+	}
+	org := strings.TrimSpace(m["oo_org"])
+	if org == "" {
+		org = "default"
+	}
+	enabled := m["oo_enabled"]
+	if enabled == "" {
+		enabled = "true"
+	}
+	if err := SetSystemConfigs(map[string]string{
+		"oo_enabled": enabled, "oo_url": url, "oo_org": org,
+		"oo_token": email + ":" + pass,
+	}); err != nil {
+		fmt.Println("[openobserve] auto-config failed:", err.Error())
+		return
+	}
+	fmt.Println("[openobserve] integration auto-configured from ZO_ROOT_USER_* environment")
 }
 
 // OOListStreams returns the stream names present in OpenObserve

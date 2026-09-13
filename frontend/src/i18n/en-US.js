@@ -1131,6 +1131,8 @@ logtail: {
     lastError: 'Last error',
     containerHint: 'Deployment hint',
     containerHintText: 'Inside a container, 127.0.0.1 refers to the JNexus container itself — set the URL to http://openobserve:5080 (compose service name)',
+    tokenEditPlaceholder: 'Leave empty to keep the stored credential; format user@example.com:password',
+    tokenEditHint: 'Empty = keep the stored credential; the connection is re-tested after saving',
     builtinTitle: 'Built-in integrations (push stats & toggles)',
     descCol: 'Description',
     enabledCol: 'Enabled',
