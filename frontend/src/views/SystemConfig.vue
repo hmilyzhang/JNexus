@@ -98,10 +98,10 @@
     <!-- AI 助手：左侧导航 + 右侧内容 -->
     <el-tab-pane :label="$t('ai.tab')" name="ai">
     <el-card>
-      <div style="display:flex; gap:0; min-height:420px">
+      <div style="display:flex; gap:18px; min-height:420px">
         <!-- 左侧导航 -->
         <div class="ai-side-nav">
-          <div style="font-weight:600; font-size:14px; margin-bottom:12px; color:var(--el-text-color-primary)">{{ $t('ai.tab') }}</div>
+          <div class="ai-side-nav-title">{{ $t('ai.tab') }}</div>
           <div class="ai-nav-item" :class="{ active: aiTabSection === 'conn' }" @click="aiTabSection = 'conn'">
             <el-icon><Connection /></el-icon> {{ $t('ai.navConn') }}
           </div>
@@ -783,3 +783,24 @@ const testLdap = async () => {
   } finally { testing.value = false }
 }
 </script>
+
+<style scoped>
+/* AI 助手 tab：左侧导航（与监控中心模板设置左列表同风格） */
+.ai-side-nav { width: 180px; flex-shrink: 0; }
+.ai-side-nav-title {
+  font-weight: 600; font-size: 14px; color: var(--el-text-color-primary);
+  padding: 0 14px; margin-bottom: 10px;
+}
+.ai-nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; margin-bottom: 4px;
+  font-size: 14px; border-radius: 4px; cursor: pointer;
+  color: var(--el-text-color-regular); border: 1px solid transparent;
+  transition: background .15s, color .15s;
+}
+.ai-nav-item:hover { background: var(--el-fill-color-light); }
+.ai-nav-item.active {
+  background: var(--el-color-primary-light-9); color: var(--el-color-primary);
+  font-weight: 600; border-color: var(--el-color-primary-light-7);
+}
+</style>
