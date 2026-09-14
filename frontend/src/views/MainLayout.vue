@@ -1,7 +1,7 @@
 <!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
   <el-container style="height: 100vh">
-    <el-aside :width="collapsed ? '64px' : '176px'" style="background:#1d2935; display:flex; flex-direction:column; transition: width .2s; overflow-x:hidden; background:#1d2935; display:flex; flex-direction:column; transition: width .2s">
+    <el-aside :width="collapsed ? '64px' : '176px'" style="background:#1d2935; display:flex; flex-direction:column; overflow-x:hidden">
       <div class="logo" v-if="!collapsed">
         <img :src="logoMark" alt="logo" style="width:26px; height:26px; flex-shrink:0" />
         <span>{{ systemName }}</span>
@@ -406,6 +406,8 @@ aside :deep(.el-sub-menu__title) {
   line-height: 40px;
   padding-left: 14px !important;
   padding-right: 10px !important;
+  /* near-instant hover feedback: EP's default 0.3s color transition reads as lag on dark bg */
+  transition: background-color .06s linear, color .06s linear !important;
 }
 /* Long labels never wrap; ellipsize overflow to prevent horizontal scrollbars */
 aside :deep(.el-menu-item span),

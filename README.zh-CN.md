@@ -95,6 +95,24 @@ docker compose --profile observability up -d --build
 # 集成启用且可达后，「日志检索」菜单自动出现。
 ```
 
+#### 反向代理（HTTPS）——必须支持 WebSocket
+
+如果你通过反向代理以 HTTPS 对外提供 JNexus，代理必须转发 **WebSocket 升级**——Web 终端、任务实时输出、日志跟随与 RDP 网关代理（`/rdp-gw`）均使用 WebSocket。nginx 示例：
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;      # 必需：WebSocket 升级
+    proxy_set_header Connection "upgrade";       # 必需：WebSocket 升级
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;    # 告知 JNexus 当前为 HTTPS
+    proxy_read_timeout 3600s;
+}
+```
+
+缺少 `Upgrade`/`Connection` 转发时，登录与页面正常，但 RDP/Web Shell 会立即断开。
+
 外部 PostgreSQL——启动时自动创建全部表结构（仅需预先建库）：
 
 ```bash

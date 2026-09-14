@@ -94,6 +94,26 @@ docker compose --profile observability up -d --build
 # The Log Search menu appears automatically once the integration is enabled and reachable.
 ```
 
+#### Reverse proxy (HTTPS) — WebSocket support required
+
+If JNexus is served behind a reverse proxy with HTTPS, the proxy must also forward
+**WebSocket upgrades** — the Web Shell, live task output, log tail and the RDP gateway
+proxy (`/rdp-gw`) all use WebSocket. nginx example:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;      # required: WebSocket upgrade
+    proxy_set_header Connection "upgrade";       # required: WebSocket upgrade
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;    # tells JNexus the page is HTTPS
+    proxy_read_timeout 3600s;
+}
+```
+
+Without `Upgrade`/`Connection` forwarding, login and pages work but RDP/Web Shell disconnect immediately.
+
 External PostgreSQL — tables are created automatically on startup (only the database itself must exist):
 
 ```bash
