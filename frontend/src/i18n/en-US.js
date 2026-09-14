@@ -198,7 +198,7 @@ export default {
     tplFromPlaceholder: 'Pick a credential template (optional)',
     tplFromTip: 'Picking a template fills account/password/label; in multi-account mode it appends an entry',
     tplApplied: 'Template applied',    accountList: 'Account list',
-    accountListTip: 'Fill accounts to attach (passwords AES-encrypted); check AD for LDAP accounts to skip rotation',
+    batchPrefill: 'Loaded {n} selected accounts — now pick the target hosts to apply them to',    accountListTip: 'Fill accounts to attach (passwords AES-encrypted); check AD for LDAP accounts to skip rotation',
     accountListEmpty: 'Add at least one account (username + password)',
     credBatchTip: 'Batch-add an OS account to selected existing hosts; password + auto-pair pushes the platform key and switches to key auth',
     credBatch: 'Batch add OS account',

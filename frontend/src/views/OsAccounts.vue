@@ -13,7 +13,8 @@
           <el-option :label="$t('osac.rotOff')" value="off" />
         </el-select>
         <span style="flex:1"></span>
-        <el-button v-if="canManageCreds" type="success" plain @click="batchVisible = true">{{ $t('hosts.credBatchBtn') }}</el-button>
+        <el-button v-if="canManageCreds" type="success" plain @click="openBatch">
+          {{ $t('hosts.credBatchBtn') }}{{ selRows.length ? ` (${selRows.length})` : '' }}</el-button>
         <el-button v-if="canManageCreds" type="primary" @click="dlgAdd()">{{ $t('hosts.credAdd') }}</el-button>
 
         <el-button v-if="canManageCreds" type="warning" plain :disabled="!selRows.length"
@@ -419,6 +420,32 @@ const revealPwd = async row => {
   revealData.value = { username: row.username, password: r.password }
   revealVisible.value = true
 }
+// Open the batch dialog. With table rows selected: preload those accounts
+// (multi-account mode, passwords revealed one-by-one) so they can be re-applied to other hosts.
+const openBatch = async () => {
+  const sel = [...selRows.value]
+  if (!sel.length) {
+    batchForm.value = { host_ids: [], username: '', label: '', auth_type: 'password', password: '' }
+    batchMulti.value = false
+    batchAccounts.value = []
+    batchTpl.value = null
+    batchVisible.value = true
+    return
+  }
+  batchForm.value.host_ids = [...new Set(sel.map(r => r.host_id).filter(Boolean))]
+  batchMulti.value = true
+  batchAccounts.value = sel.map(r => ({ username: r.username, password: '', label: r.label || r.username, is_ldap: !!r.is_ldap }))
+  batchTpl.value = null
+  batchVisible.value = true
+  for (let i = 0; i < sel.length; i++) {
+    if (sel[i].auth_type === 'key') continue // key accounts carry no password
+    try {
+      const r = await api.post(`/credentials/${sel[i].id}/reveal`)
+      if (batchAccounts.value[i]) batchAccounts.value[i].password = r.password || ''
+    } catch { /* leave empty; user can type it */ }
+  }
+}
+
 const loadTpls = async () => {
   try { tpls.value = await api.get('/credentials/templates') || [] } catch { tpls.value = [] }
 }

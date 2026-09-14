@@ -198,7 +198,7 @@ export default {
     tplFromPlaceholder: '选择凭据模板（可选）',
     tplFromTip: '选择模板自动填入账号/密码/标签；多账号模式会追加一行',
     tplApplied: '已应用模板',    accountList: '账号列表',
-    accountListTip: '逐行填写要挂到目标服务器的账号（密码 AES 加密存储）；AD/LDAP 账号勾选 AD 自动排除轮换',
+    batchPrefill: '已载入选中的 {n} 个账号，请选择要应用到的目标主机',    accountListTip: '逐行填写要挂到目标服务器的账号（密码 AES 加密存储）；AD/LDAP 账号勾选 AD 自动排除轮换',
     accountListEmpty: '请至少填写一个账号（用户名+密码）',
     credBatchTip: '为选中的存量主机批量添加 OS 账号；密码+自动配对会推送平台公钥并切换为密钥认证',
     credBatch: '批量添加 OS 账号',
