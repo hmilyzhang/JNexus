@@ -47,8 +47,10 @@ if (process.env.GW_TLS_CERT && process.env.GW_TLS_KEY) {
   });
 }
 
-new GuacamoleLite(server, { host: GUACD_HOST, port: GUACD_PORT }, {
-  crypt: { cypher: 'AES-256-CBC', key: process.env.GW_SECRET || 'JnexusRdpGatewaySecretKey-123456' },
+// guacamole-lite needs wsOptions.server set explicitly — otherwise it ignores our
+// http server and starts its OWN WebSocket server on port 8080 (clashing with jnexus)
+new GuacamoleLite({ server }, { host: GUACD_HOST, port: GUACD_PORT }, {
+  crypt: { cypher: 'AES-256-CBC', key: SECRET_KEY },
 });
 
 server.listen(PORT, () => {

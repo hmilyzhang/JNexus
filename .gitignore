@@ -38,3 +38,8 @@ test-data/
 deploy/.env
 
 rdp-gateway/node_modules/
+
+# Local probe/test artifacts
+backend/data/
+backend/jnexus-server-test.exe
+backend/rdp.json

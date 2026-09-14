@@ -1113,6 +1113,8 @@ logtail: {
     run: 'Run',
     time: 'Time',
     logAll: 'All logs',
+    hostAll: 'All hosts',
+    pageRowsTag: '{n} rows on this page',
     sqlTip: 'OpenObserve SQL (time range applied automatically)',
     rangeCustom: 'Custom range',
     startTime: 'Start time',

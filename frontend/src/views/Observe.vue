@@ -8,7 +8,7 @@
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
           <span style="font-weight:600">{{ $t('menu.observe') }}</span>
           <el-tag v-if="lastTook" size="small" type="info" effect="plain">
-            {{ total }} hits · {{ lastTook }} ms
+            {{ $t('oo.pageRowsTag', { n: pageRows }) }} · {{ lastTook }} ms
           </el-tag>
           <span style="flex:1"></span>
           <el-button size="small" :disabled="!rows.length" @click="exportCsv">{{ $t('oo.exportCsv') }}</el-button>
@@ -38,6 +38,10 @@
           <el-option value="Security" label="Security" />
           <el-option value="System" label="System" />
           <el-option value="Application" label="Application" />
+        </el-select>
+        <el-select v-if="stream === 'host_metrics'" v-model="hostFilter" filterable style="width:150px">
+          <el-option value="all" :label="$t('oo.hostAll')" />
+          <el-option v-for="h in hostOptions" :key="h" :value="h" :label="h" />
         </el-select>
         <el-button type="primary" :loading="busy" @click="search">{{ $t('oo.run') }}</el-button>
         <span style="flex:1"></span>
@@ -70,7 +74,13 @@
           <template #default="{ row }">{{ formatCell(row[c]) }}</template>
         </el-table-column>
       </el-table>
-      <el-empty v-else-if="!busy && !err" :description="$t('oo.empty')" :image-size="80" />
+      <div v-if="total > 0" style="margin-top:12px; display:flex; justify-content:flex-end">
+        <el-pagination background layout="total, sizes, prev, pager, next"
+                       :total="total" :current-page="page" :page-size="pageSize"
+                       :page-sizes="[50, 100, 200, 500]"
+                       @current-change="onPageChange" @size-change="onSizeChange" />
+      </div>
+      <el-empty v-else-if="!cols.length && !busy && !err" :description="$t('oo.empty')" :image-size="80" />
     </el-card>
   </div>
 </template>
@@ -100,6 +110,11 @@ const cols = ref([])
 const total = ref(0)
 const lastTook = ref(0)
 const customStreams = ref([]) // streams discovered from previous results' organization
+const page = ref(1)
+const pageSize = ref(100)
+const pageRows = ref(0)
+const hasMore = ref(false)
+const hostFilter = ref('all')
 
 const STREAM_FIELDS = {
   host_metrics: 'host, host_id, cpu_percent, mem_percent, disk_percent, collected_at',
@@ -119,8 +134,16 @@ const defaultSQL = s => ({
   db_audit: 'SELECT username, action, resource, ip, status FROM db_audit ORDER BY _timestamp DESC',
 }[s] || `SELECT * FROM ${s} LIMIT 100`)
 
-const onStreamChange = () => { sql.value = defaultSQL(stream.value); logFilter.value = 'all'; search() }
-const onRangeChange = () => { if (rangePreset.value !== 'custom') search() }
+const onStreamChange = () => {
+  sql.value = defaultSQL(stream.value)
+  logFilter.value = 'all'
+  hostFilter.value = 'all'
+  page.value = 1
+  search(false)
+}
+const onPageChange = p => { page.value = p; search(true) }
+const onSizeChange = sz => { pageSize.value = sz; page.value = 1; search(true) }
+const onRangeChange = () => { if (rangePreset.value !== 'custom') search(false) }
 
 const resolveRange = () => {
   const end = Date.now()
@@ -152,10 +175,14 @@ const fmtTs = v => {
 
 // windows_events quick filter: narrow fetched rows by log_name client-side
 const logFilter = ref('all')
-const displayRows = computed(() =>
-  stream.value === 'windows_events' && logFilter.value !== 'all'
-    ? rows.value.filter(r => r.log_name === logFilter.value)
-    : rows.value)
+const hostOptions = computed(() => [...new Set(rows.value.map(r => r.host).filter(Boolean))])
+// quick filters: narrow fetched rows client-side (win → log_name, host_metrics → host)
+const displayRows = computed(() => {
+  let list = rows.value
+  if (stream.value === 'windows_events' && logFilter.value !== 'all') list = list.filter(r => r.log_name === logFilter.value)
+  if (stream.value === 'host_metrics' && hostFilter.value !== 'all') list = list.filter(r => r.host === hostFilter.value)
+  return list
+})
 
 const csvCell = v => {
   const s = v === null || v === undefined ? '' : String(v)
@@ -173,27 +200,36 @@ const exportCsv = () => {
   URL.revokeObjectURL(a.href)
 }
 
-const search = async () => {
+const search = async (keepPage = true) => {
+  if (!keepPage) page.value = 1
   const range = resolveRange()
   if (!range) { err.value = t('oo.pickRange'); return }
   busy.value = true
   err.value = ''
   try {
+    // request one extra row to detect whether a next page exists (OO's `total`
+    // only reports from+size, so it cannot drive a numeric pager)
+    const from = (page.value - 1) * pageSize.value
     const r = await api.post('/monitors/oo/search', {
       sql: (sql.value || defaultSQL(stream.value)).trim(),
-      start_ms: range[0], end_ms: range[1], from: 0, size: 500,
+      start_ms: range[0], end_ms: range[1], from, size: pageSize.value + 1,
     })
     const hits = r.hits || []
+    hasMore.value = hits.length > pageSize.value
+    rows.value = hasMore.value ? hits.slice(0, pageSize.value) : hits
     const set = new Set()
-    for (const h of hits.slice(0, 50)) Object.keys(h).forEach(k => { if (k !== '_timestamp') set.add(k) })
+    for (const h of rows.value.slice(0, 50)) Object.keys(h).forEach(k => { if (k !== '_timestamp') set.add(k) })
     cols.value = [...set]
-    rows.value = hits
-    total.value = r.total ?? hits.length
+    pageRows.value = rows.value.length
+    // pager total: full pages before the current one + this page (+1 virtual page while more exist)
+    total.value = rows.value.length + (hasMore.value ? pageSize.value : 0)
     lastTook.value = r.took ?? 0
-    if (!hits.length) err.value = t('oo.emptyResult')
+    if (!rows.value.length) err.value = t('oo.emptyResult')
   } catch (e) {
     rows.value = []
     cols.value = []
+    pageRows.value = 0
+    hasMore.value = false
     total.value = 0
     lastTook.value = 0
     err.value = e?.response?.data?.error || t('oo.notEnabled')
@@ -202,7 +238,7 @@ const search = async () => {
 
 onMounted(async () => {
   sql.value = defaultSQL(stream.value)
-  search()
+  search(false)
   // Discover streams present in OpenObserve (custom streams become queryable in the picker)
   try {
     const r = await api.get('/monitors/oo/streams')
