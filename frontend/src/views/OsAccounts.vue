@@ -144,12 +144,20 @@
     </el-dialog>
 
     <!-- Batch add accounts -->
-    <el-dialog v-model="batchVisible" :title="$t('hosts.credBatch')" width="640px">
+    <el-dialog v-model="batchVisible" :title="$t('hosts.credBatch')" width="640px" @open="loadTpls">
       <el-form label-width="110px">
         <el-form-item :label="$t('files.targetHosts')">
           <el-select v-model="batchForm.host_ids" multiple filterable style="width:100%" :max-collapse-tags="2" collapse-tags>
             <el-option v-for="h in hosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
           </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('hosts.tplFrom')">
+          <el-select v-model="batchTpl" filterable clearable style="width:100%"
+                     :placeholder="$t('hosts.tplFromPlaceholder')" @change="applyBatchTpl">
+            <el-option v-for="tp in tpls" :key="tp.id" :value="tp.id"
+                       :label="`${tp.label || tp.username} (${tp.username})`" />
+          </el-select>
+          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('hosts.tplFromTip') }}</div>
         </el-form-item>
         <el-form-item :label="$t('users.mode')">
           <el-radio-group v-model="batchMulti" @change="onBatchMode">
@@ -245,6 +253,32 @@ const rotating = ref(null)
 const batchVisible = ref(false)
 const batchRunning = ref(false)
 const batchForm = ref({ host_ids: [], username: '', label: '', auth_type: 'password', password: '' })
+// Batch dialog state (bound by the template above — must be defined or the radio/list break)
+const batchMulti = ref(false)
+const batchAccounts = ref([])
+const batchTpl = ref(null)
+const tpls = ref([])
+const onBatchMode = () => { /* keeps entered values when switching modes */ }
+
+// Apply a credential template: fills single-account fields or appends one account entry
+const applyBatchTpl = async tplId => {
+  if (!tplId) return
+  const tp = tpls.value.find(x => x.id === tplId)
+  if (!tp) return
+  let password = ''
+  try {
+    const r = await api.post(`/credentials/${tp.id}/reveal`)
+    password = r.password || ''
+  } catch { /* interceptor shows the error; still fill username/label */ }
+  if (batchMulti.value) {
+    batchAccounts.value.push({ username: tp.username, password, label: tp.label || tp.username, is_ldap: !!tp.is_ldap })
+  } else {
+    batchForm.value.username = tp.username
+    batchForm.value.label = tp.label || tp.username
+    batchForm.value.password = password
+  }
+  ElMessage.success(t('hosts.tplApplied'))
+}
 
 const canManageCreds = computed(() => {
   if (store.isAdmin) return true
@@ -385,12 +419,21 @@ const revealPwd = async row => {
   revealData.value = { username: row.username, password: r.password }
   revealVisible.value = true
 }
+const loadTpls = async () => {
+  try { tpls.value = await api.get('/credentials/templates') || [] } catch { tpls.value = [] }
+}
+
 const runBatch = async () => {
   if (!batchForm.value.host_ids.length) { ElMessage.warning(t('exec.needHosts')); return }
-  if (!batchForm.value.username || !batchForm.value.password) { ElMessage.warning(t('osac.needUserPwd')); return }
+  if (batchMulti.value) {
+    if (!batchAccounts.value.length) { ElMessage.warning(t('hosts.accountListTip')); return }
+  } else if (!batchForm.value.username || !batchForm.value.password) { ElMessage.warning(t('osac.needUserPwd')); return }
   batchRunning.value = true
   try {
-    const res = await api.post('/credentials/batch', { ...batchForm.value, auto_pair: true })
+    const payload = batchMulti.value
+      ? { ...batchForm.value, accounts: batchAccounts.value, auto_pair: false }
+      : { ...batchForm.value, auto_pair: true }
+    const res = await api.post('/credentials/batch', payload)
     batchVisible.value = false
     router.push(`/tasks?detail=${res.task_id}`)
   } finally { batchRunning.value = false }
