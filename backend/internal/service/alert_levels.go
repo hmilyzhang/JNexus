@@ -115,6 +115,7 @@ func EvaluateCmdAlerts(h *model.Host, s hostSample, now time.Time) {
 			st.Fired = true
 			model.DB.Model(&st).Update("fired", true)
 			SendCmdLevelAlert(h, lv, metric, value, th, false)
+			go AutoDiagnose(h, lv.Level, metric, value, th)
 		}
 		return
 	}
@@ -141,6 +142,7 @@ func EvaluateCmdAlerts(h *model.Host, s hostSample, now time.Time) {
 		st.Fired = true
 		model.DB.Model(&st).Update("fired", true)
 		SendCmdLevelAlert(h, lv, metric, value, th, false)
+		go AutoDiagnose(h, lv.Level, metric, value, th)
 	}
 }
 
