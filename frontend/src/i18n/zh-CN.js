@@ -1115,6 +1115,7 @@ logtail: {
     time: '时间',
     logAll: '全部日志',
     hostAll: '全部主机',
+    evIdPh: '按事件 ID 过滤',
     pageRowsTag: '本页 {n} 条',
     sqlTip: '支持 OpenObserve SQL（自动带时间范围）',
     rangeCustom: '自定义时间',

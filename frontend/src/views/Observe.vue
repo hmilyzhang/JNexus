@@ -39,10 +39,12 @@
           <el-option value="System" label="System" />
           <el-option value="Application" label="Application" />
         </el-select>
-        <el-select v-if="stream === 'host_metrics'" v-model="hostFilter" filterable style="width:150px">
+        <el-select v-if="stream === 'host_metrics' || stream === 'windows_events'" v-model="hostFilter" filterable style="width:150px">
           <el-option value="all" :label="$t('oo.hostAll')" />
           <el-option v-for="h in hostOptions" :key="h" :value="h" :label="h" />
         </el-select>
+        <el-input v-if="stream === 'windows_events'" v-model="evIdFilter" clearable
+                  :placeholder="$t('oo.evIdPh')" style="width:130px" class="mono" />
         <el-button type="primary" :loading="busy" @click="search">{{ $t('oo.run') }}</el-button>
         <span style="flex:1"></span>
         <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oo.sqlTip') }}</span>
@@ -137,6 +139,7 @@ const defaultSQL = s => ({
 const onStreamChange = () => {
   sql.value = defaultSQL(stream.value)
   logFilter.value = 'all'
+  evIdFilter.value = ''
   hostFilter.value = 'all'
   page.value = 1
   search(false)
@@ -175,11 +178,16 @@ const fmtTs = v => {
 
 // windows_events quick filter: narrow fetched rows by log_name client-side
 const logFilter = ref('all')
+const evIdFilter = ref('')
 const hostOptions = computed(() => [...new Set(rows.value.map(r => r.host).filter(Boolean))])
-// quick filters: narrow fetched rows client-side (win → log_name, host_metrics → host)
+// quick filters: narrow fetched rows client-side (win → log_name/event_id/host, host_metrics → host)
 const displayRows = computed(() => {
   let list = rows.value
-  if (stream.value === 'windows_events' && logFilter.value !== 'all') list = list.filter(r => r.log_name === logFilter.value)
+  if (stream.value === 'windows_events') {
+    if (logFilter.value !== 'all') list = list.filter(r => r.log_name === logFilter.value)
+    const ev = evIdFilter.value.trim()
+    if (ev) list = list.filter(r => String(r.event_id ?? '').includes(ev))
+  }
   if (stream.value === 'host_metrics' && hostFilter.value !== 'all') list = list.filter(r => r.host === hostFilter.value)
   return list
 })
@@ -250,6 +258,12 @@ onMounted(async () => {
 
 
 <style scoped>
+/* compact rows: single-line ellipsis — full content is shown in the expand panel */
+:deep(.el-table .el-table__body .cell) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .oo-expand { padding: 4px 12px 8px 24px; }
 .oo-kv { display: flex; gap: 10px; padding: 2px 0; font-size: 12px; line-height: 1.6; }
 .oo-k { color: var(--el-text-color-secondary); width: 110px; flex-shrink: 0; text-align: right; }

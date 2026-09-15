@@ -1114,6 +1114,7 @@ logtail: {
     time: 'Time',
     logAll: 'All logs',
     hostAll: 'All hosts',
+    evIdPh: 'Filter by event ID',
     pageRowsTag: '{n} rows on this page',
     sqlTip: 'OpenObserve SQL (time range applied automatically)',
     rangeCustom: 'Custom range',
