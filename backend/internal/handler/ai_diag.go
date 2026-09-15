@@ -17,7 +17,7 @@ import (
 func OODiagConfigGet(c *gin.Context) {
 	all := service.SystemConfigMap()
 	m := map[string]string{}
-	for _, k := range []string{"ai_diag_enabled", "ai_diag_levels", "ai_diag_metrics", "ai_diag_cooldown_min"} {
+	for _, k := range []string{"ai_diag_enabled", "ai_diag_levels", "ai_diag_metrics", "ai_diag_cooldown_min", "ai_diag_prompt"} {
 		m[k] = all[k]
 	}
 	c.JSON(http.StatusOK, m)
@@ -31,8 +31,8 @@ func OODiagConfigPut(c *gin.Context) {
 		return
 	}
 	allowed := map[string]bool{
-		"ai_diag_enabled": true, "ai_diag_levels": true,
-		"ai_diag_metrics": true, "ai_diag_cooldown_min": true,
+		"ai_diag_enabled": true, "ai_diag_levels": true, "ai_diag_metrics": true,
+		"ai_diag_cooldown_min": true, "ai_diag_prompt": true,
 	}
 	filtered := map[string]string{}
 	for k, v := range req {

@@ -190,6 +190,11 @@
                 <el-input-number v-model="diagCooldown" :min="0" :max="1440" :step="5" />
                 <span style="margin-left:8px; color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.diagCooldownUnit') }}</span>
               </el-form-item>
+              <el-form-item :label="$t('ai.diagPrompt')">
+                <el-input v-model="diagPrompt" type="textarea" :rows="5" class="mono"
+                          :placeholder="$t('ai.diagPromptPlaceholder')" />
+                <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:4px">{{ $t('ai.diagPromptTip') }}</div>
+              </el-form-item>
               <el-form-item>
                 <el-button type="primary" :loading="diagSaving" @click="saveDiagCfg">{{ $t('common.save') }}</el-button>
               </el-form-item>
@@ -805,6 +810,7 @@ const diagLevels = ref(['P1', 'P2'])
 const diagMetrics = ref(['disk'])
 const diagCooldown = ref(30)
 const diagSaving = ref(false)
+const diagPrompt = ref('')
 const cleanupItems = ref([])
 const cleanupDlgVisible = ref(false)
 const cleanupSaving = ref(false)
@@ -817,6 +823,7 @@ const loadDiagCfg = async () => {
     diagLevels.value = (cfg.ai_diag_levels || '').split(',').map(x => x.trim()).filter(Boolean)
     diagMetrics.value = (cfg.ai_diag_metrics || '').split(',').map(x => x.trim()).filter(Boolean)
     diagCooldown.value = Number(cfg.ai_diag_cooldown_min) || 30
+    diagPrompt.value = cfg.ai_diag_prompt || ''
     cleanupItems.value = await api.get('/system/ai/diag/cleanup') || []
   } catch { /* ignore */ }
 }
@@ -829,6 +836,7 @@ const saveDiagCfg = async () => {
       ai_diag_levels: diagLevels.value.join(','),
       ai_diag_metrics: diagMetrics.value.join(','),
       ai_diag_cooldown_min: String(diagCooldown.value),
+      ai_diag_prompt: diagPrompt.value,
     })
     ElMessage.success(t('system.saved'))
   } catch { /* interceptor shows the error */ } finally { diagSaving.value = false }

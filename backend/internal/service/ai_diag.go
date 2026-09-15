@@ -22,6 +22,12 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
+// aiDiagDefaultPrompt built-in diagnosis system prompt (overridable via the
+// ai_diag_prompt setting)
+const aiDiagDefaultPrompt = "你是资深 SRE。JNexus 运维平台在主机上检测到资源告警，以下是采集的系统状态。" +
+	"请输出：1) 根因分析 2) 可疑进程/服务 3) 处置建议。用中文，简洁分点。" +
+	"严格约束：只做分析，不得生成任何可执行命令或脚本。"
+
 // ---- Configuration ----
 
 type AiDiagConfig struct {
@@ -85,15 +91,21 @@ func LoadCleanupList() []CleanupItem {
 	m := SystemConfigMap()
 	var out []CleanupItem
 	if raw := strings.TrimSpace(m["ai_diag_cleanup"]); raw != "" {
-		if json.Unmarshal([]byte(raw), &out) == nil {
+		if json.Unmarshal([]byte(raw), &out) == nil && len(out) > 0 {
 			return out
 		}
+		out = nil
 	}
-	// Defaults on first use (safe, scoped cleanup commands)
+	// Defaults (safe, scoped cleanup commands); also re-seeded when the stored
+	// catalog is an empty array — admins trim rather than empty it
 	out = []CleanupItem{
 		{ID: "tmp-old-files", Name: "清理 /tmp 7 天未访问文件", Command: "find /tmp -xdev -type f -atime +7 -delete", Enabled: true},
 		{ID: "vartmp-old-files", Name: "清理 /var/tmp 7 天未访问文件", Command: "find /var/tmp -xdev -type f -atime +7 -delete", Enabled: true},
-		{ID: "journal-vacuum", Name: "journalctl 日志压缩到 200M", Command: "journalctl --vacuum-size=200M", Enabled: false},
+		{ID: "log-gz-14d", Name: "清理 /var/log 14 天前的压缩归档", Command: `find /var/log -type f -name "*.gz" -mtime +14 -delete`, Enabled: true},
+		{ID: "journal-200m", Name: "journald 日志压缩到 200M", Command: "journalctl --vacuum-size=200M", Enabled: true},
+		{ID: "apt-cache", Name: "清理 apt 下载缓存（Debian/Ubuntu）", Command: "apt-get clean", Enabled: true},
+		{ID: "yum-cache", Name: "清理 yum 缓存（RHEL/CentOS）", Command: "yum clean all", Enabled: false},
+		{ID: "docker-prune", Name: "清理 Docker 未使用资源", Command: "docker system prune -af", Enabled: false},
 	}
 	if b, err := json.Marshal(out); err == nil {
 		_ = SetSystemConfigs(map[string]string{"ai_diag_cleanup": string(b)})
@@ -223,9 +235,10 @@ func RunDiagnosis(h *model.Host, level, metric string, value, threshold float64)
 
 // aiDiagAnalyze sends the alert context + diagnostics to the AI and returns the analysis
 func aiDiagAnalyze(ai AISettings, h *model.Host, level, metric string, value, threshold float64, diag string) (string, error) {
-	sys := "你是资深 SRE。JNexus 运维平台在主机上检测到资源告警，以下是采集的系统状态。" +
-		"请输出：1) 根因分析 2) 可疑进程/服务 3) 处置建议。用中文，简洁分点。" +
-		"严格约束：只做分析，不得生成任何可执行命令或脚本。"
+	sys := strings.TrimSpace(SystemConfigMap()["ai_diag_prompt"])
+	if sys == "" {
+		sys = aiDiagDefaultPrompt
+	}
 	user := fmt.Sprintf("告警: 等级=%s 主机=%s(%s) 指标=%s 当前值=%.1f%% 阈值=%.1f%%\n\n系统状态:\n%s",
 		level, h.Name, h.IP, metric, value, threshold, diag)
 	return AIChat(ai, sys, user)
