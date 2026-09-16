@@ -970,17 +970,24 @@ const testChannel = async ch => {
   } catch { /* error toast shown by the interceptor */ }
 }
 
-// 打印：为月报祖先链打标记，打印样式据此解除嵌套容器约束（打印结束后移除）
-const markPrintAncestors = () => {
-  let node = document.getElementById('monthly-report')
-  if (!node) return
-  while (node && node !== document.body) { node.classList.add('print-ancestor'); node = node.parentElement }
+// 打印：克隆月报到独立打印根节点（与页面 DOM 完全隔离，避免嵌套容器裁剪与样式污染）
+let printRoot = null
+const buildPrintClone = () => {
+  const report = document.getElementById('monthly-report')
+  if (!report) return
+  printRoot = document.createElement('div')
+  printRoot.id = 'print-root'
+  printRoot.appendChild(report.cloneNode(true))
+  document.body.appendChild(printRoot)
+  document.documentElement.classList.add('printing-report')
 }
-const unmarkPrintAncestors = () => {
-  document.querySelectorAll('.print-ancestor').forEach(n => n.classList.remove('print-ancestor'))
+const teardownPrintClone = () => {
+  document.documentElement.classList.remove('printing-report')
+  printRoot?.remove()
+  printRoot = null
 }
-window.addEventListener('beforeprint', markPrintAncestors)
-window.addEventListener('afterprint', unmarkPrintAncestors)
+window.addEventListener('beforeprint', buildPrintClone)
+window.addEventListener('afterprint', teardownPrintClone)
 
 onMounted(() => {
   load()
@@ -1073,8 +1080,9 @@ const exportAlertCsv = () => {
 
 onUnmounted(() => {
   clearInterval(timer)
-  window.removeEventListener('beforeprint', markPrintAncestors)
-  window.removeEventListener('afterprint', unmarkPrintAncestors)
+  window.removeEventListener('beforeprint', buildPrintClone)
+  window.removeEventListener('afterprint', teardownPrintClone)
+  teardownPrintClone()
 })
 </script>
 
@@ -1137,31 +1145,19 @@ onUnmounted(() => {
 .rep-foot { margin-top: 24px; text-align: center; color: #c0c4cc; font-size: 11px; }
 
 @media print {
-  /* 打印仅输出月报：隐藏应用框架；解除月报祖先链的滚动/高度约束
-     （旧 visibility + 全量白底刷写方案会导致“只打标题/样式全丢”） */
+  /* 打印方案：beforeprint 时克隆月报到独立 #print-root（body 直属），
+     隐藏应用本体 —— 与页面 DOM 完全隔离，样式 100% 保留、无容器裁剪 */
   @page { size: A4 portrait; margin: 12mm; }
-  html, body { background: #ffffff !important; height: auto !important; overflow: visible !important; }
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-  /* 隐藏应用框架与工具栏 */
-  .el-aside, .el-header, .header, .byline, .theme-toggle, .header-quote,
-  .ai-fab, .ai-chat-panel, .el-tabs__header, .el-loading-mask,
-  .rep-toolbar, .el-pagination { display: none !important; }
-
-  /* 解除月报祖先链的布局约束（beforeprint 时由 JS 打 print-ancestor 标记） */
-  .print-ancestor {
-    display: block !important;
-    overflow: visible !important;
+  html.printing-report #app { display: none !important; }
+  html.printing-report, html.printing-report body {
+    background: #ffffff !important;
     height: auto !important;
-    max-height: none !important;
-    position: static !important;
-    margin: 0 !important;
-    box-shadow: none !important;
+    overflow: visible !important;
   }
-  .print-ancestor.el-card { background: #ffffff !important; }
+  #print-root { display: block !important; }
 
-  /* 月报强制浅色版式：作用域级 CSS 变量让所有 EP 组件在打印时呈现浅色样式 */
-  #monthly-report {
+  /* 月报强制浅色版式：作用域级变量让所有 EP 组件在打印时呈现浅色样式 */
+  #print-root #monthly-report {
     --el-bg-color: #ffffff; --el-bg-color-page: #ffffff; --el-bg-color-overlay: #ffffff;
     --el-fill-color: #f0f2f5; --el-fill-color-light: #f5f7fa; --el-fill-color-lighter: #fafafa; --el-fill-color-blank: #ffffff;
     --el-text-color-primary: #1d2935; --el-text-color-regular: #606266; --el-text-color-secondary: #909399; --el-text-color-placeholder: #a8abb2;
@@ -1171,13 +1167,16 @@ onUnmounted(() => {
     max-width: none !important;
     padding: 0 !important;
     box-shadow: none !important;
+    border: none !important;
   }
-  #monthly-report .rep-stat { background: #f5f7fa !important; border: 1px solid #e4e7ed !important; }
-  #monthly-report .rep-stat b { color: #409eff !important; }
-  #monthly-report .rep-stat span { color: #606266 !important; }
-  #monthly-report .rep-foot { color: #909399 !important; }
-  #monthly-report .el-table { font-size: 11px; break-inside: avoid; }
-  #monthly-report .el-table th.el-table__cell { background: #f5f7fa !important; color: #1d2935 !important; }
-  #monthly-report h3 { break-after: avoid-page; color: #1d2935 !important; }
+  #print-root #monthly-report h2 { color: #1d2935 !important; }
+  #print-root #monthly-report .rep-stat { background: #f5f7fa !important; border: 1px solid #e4e7ed !important; }
+  #print-root #monthly-report .rep-stat b { color: #409eff !important; }
+  #print-root #monthly-report .rep-stat span { color: #606266 !important; }
+  #print-root #monthly-report .rep-foot { color: #909399 !important; }
+  #print-root #monthly-report .el-table { font-size: 11px; break-inside: avoid; }
+  #print-root #monthly-report .el-table th.el-table__cell { background: #f5f7fa !important; color: #1d2935 !important; }
+  #print-root #monthly-report h3 { break-after: avoid-page; color: #1d2935 !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 </style>
