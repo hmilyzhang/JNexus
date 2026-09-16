@@ -35,6 +35,7 @@ func SetupRouter() *gin.Engine {
 		api.GET("/system/info", SystemInfo)
 		// Web terminal (has its own token auth; does not go through the hub)
 		api.GET("/ws/term/:hostId", WebTerminal)
+		api.GET("/ws/winrm/:hostId", WinRMTerminal)
 		api.GET("/ws/tail", LogTailWS)
 		api.GET("/ws/k8s/:clusterId", K8sExecWS)
 		api.GET("/ws/k8s/logs/:clusterId", K8sLogWS)

@@ -209,7 +209,9 @@ const openSession = async (host, credentialId) => {
 
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   const credQs = credentialId ? `&credential_id=${credentialId}` : ''
-  const ws = new WebSocket(`${proto}://${location.host}/api/ws/term/${host.id}?token=${localStorage.getItem('token')}${credQs}`)
+  const isWin = host.os_type === 'windows'
+  const termPath = isWin ? `/api/ws/winrm/${host.id}` : `/api/ws/term/${host.id}`
+  const ws = new WebSocket(`${proto}://${location.host}${termPath}?token=${localStorage.getItem('token')}${credQs}`)
   ws.onopen = () => {
     s.connected = true
     term.focus()

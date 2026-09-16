@@ -72,7 +72,7 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="row.os_type !== 'windows'" command="terminal">{{ $t('hosts.terminal') }}</el-dropdown-item>
+                    <el-dropdown-item command="terminal">{{ $t('hosts.terminal') }}</el-dropdown-item>
                     <el-dropdown-item v-if="row.os_type === 'windows'" command="rdp">RDP</el-dropdown-item>
                     <el-dropdown-item command="capacity">{{ $t('k8s.capacity') }}</el-dropdown-item>
                     <el-dropdown-item v-if="canManageCreds" command="cred">{{ $t('hosts.credMgmt') }}</el-dropdown-item>
