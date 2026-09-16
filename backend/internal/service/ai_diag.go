@@ -9,6 +9,7 @@ package service
 // executed VERBATIM from the catalog; the AI never generates or alters commands.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -258,12 +259,14 @@ func aiDiagCleanupRun(cli *gossh.Client) string {
 	var b strings.Builder
 	b.WriteString("\n\n--- 磁盘清理（预定义命令，逐字执行）---")
 	for _, it := range enabled {
-		out, _, err := runCapture(cli, it.Command)
+		var out strings.Builder
+		onOut := func(chunk string) { out.WriteString(chunk) }
+		_, err := sshpool.RunCommand(context.Background(), cli, it.Command, 60*time.Second, onOut)
 		if err != nil {
 			b.WriteString("\n[" + it.Name + "] 失败: " + err.Error())
 			continue
 		}
-		o := strings.TrimSpace(out)
+		o := strings.TrimSpace(out.String())
 		if len(o) > 400 {
 			o = o[:400]
 		}

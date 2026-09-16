@@ -43,3 +43,6 @@ rdp-gateway/node_modules/
 backend/data/
 backend/jnexus-server-test.exe
 backend/rdp.json
+
+# Local test artifacts
+backend/cmd/readprompt/
