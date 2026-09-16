@@ -329,7 +329,7 @@
       <!-- Tab 7: monthly ops report -->
       <el-tab-pane :label="$t('mreport.tab')" name="report">
         <el-card>
-          <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px">
+          <div class="rep-toolbar" style="display:flex; gap:10px; align-items:center; margin-bottom:14px">
             <el-date-picker v-model="repMonth" type="month" :clearable="false"
                             :placeholder="$t('mreport.pickMonth')" style="width:160px" value-format="YYYY-MM" />
             <el-button type="primary" size="small" :loading="repLoading" @click="loadReport">{{ $t('mreport.generate') }}</el-button>
@@ -1121,19 +1121,48 @@ onUnmounted(() => clearInterval(timer))
 .rep-foot { margin-top: 24px; text-align: center; color: #c0c4cc; font-size: 11px; }
 
 @media print {
-  body * { visibility: hidden; }
+  /* 打印仅输出月报：隐藏应用框架，解除嵌套容器的滚动/高度约束
+     （旧的 visibility 方案会被祖先 overflow 裁剪，只打出视口内第一屏） */
+  @page { size: A4 portrait; margin: 12mm; }
+  html, body { background: #ffffff !important; height: auto !important; overflow: visible !important; }
+  body * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* 隐藏应用框架与工具栏 */
+  .el-aside, .el-header, .header, .byline, .theme-toggle, .header-quote,
+  .ai-fab, .ai-chat-panel, .el-tabs__header, .el-loading-mask,
+  .rep-toolbar, .el-pagination { display: none !important; }
+
+  /* 仅解除月报所在祖先链的布局约束（:has 避免打印其它标签页内容） */
+  #app:has(#monthly-report),
+  .el-container:has(#monthly-report),
+  .el-main:has(#monthly-report),
+  .el-tab-pane:has(#monthly-report),
+  .el-card:has(#monthly-report),
+  .el-card__body:has(#monthly-report) {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  /* 月报内容：白底深字（深色主题下同样打印为浅色） */
   #monthly-report, #monthly-report * {
-    background: #ffffff !important; color: #1d2935 !important;
-    border-color: #dcdfe6 !important; box-shadow: none !important;
+    background: #ffffff !important;
+    color: #1d2935 !important;
+    border-color: #dcdfe6 !important;
+    box-shadow: none !important;
   }
+  #monthly-report { padding: 0 !important; max-width: none !important; }
+  #monthly-report .rep-stat b { color: #409eff !important; }
+  #monthly-report .rep-stat span { color: #606266 !important; }
+  #monthly-report .rep-foot { color: #909399 !important; }
   #monthly-report .el-table th.el-table__cell { background: #f5f7fa !important; color: #1d2935 !important; }
-  #monthly-report, #monthly-report * { visibility: visible; }
-  #monthly-report {
-    position: absolute; left: 0; top: 0; width: 100%;
-    padding: 0; box-shadow: none; max-width: none;
-  }
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  #monthly-report h3 { break-after: avoid-page; }
   #monthly-report .el-table { break-inside: avoid; font-size: 11px; }
+  #monthly-report h3 { break-after: avoid-page; }
 }
 </style>
