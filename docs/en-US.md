@@ -29,6 +29,10 @@ JNexus is built with **Go (Gin + GORM) + Vue 3 (Element Plus + xterm.js) + Postg
 18. [System Administration](#18-system-administration)
 19. [Upgrades & Data](#19-upgrades--data)
 20. [FAQ](#20-faq)
+21. [Observability Integration (OpenObserve)](#21-observability-integration-openobserve)
+22. [AI Alert Diagnostics & Controlled Cleanup](#22-ai-alert-diagnostics--controlled-cleanup)
+23. [Windows Domain Environments](#23-windows-domain-environments)
+24. [Reverse Proxy Deployment](#24-reverse-proxy-deployment-https--websocket)
 
 ---
 
@@ -237,6 +241,79 @@ JNexus reads environment variables first. Keys generated on first boot are persi
 - **Data**: everything lives in PostgreSQL; Compose volumes: `pgdata` (database), `data` (keys), `uploads` (artifacts/uploads);
 - **Backup advice**: schedule `pg_dump` plus a copy of the `data` volume (keeping the AES key keeps your credentials decryptable);
 - **External database**: set `JNEXUS_DB_*` or `JNEXUS_DSN`, then `docker compose up -d jnexus` to start only the app.
+
+## 21. Observability Integration (OpenObserve)
+
+Optional integration with [OpenObserve](https://openobserve.ai) (AGPL-3.0, HTTP-only invocation)
+for **long-term storage and full-text search**:
+
+- **Five built-in dual-write streams**: host metrics, task output, alert events, Windows event
+  logs, database audit trail — each with an independent toggle;
+- **Log Search menu**: stream picker (built-ins + auto-discovered custom streams), SQL query,
+  1h/24h/7d/30d + custom time ranges, pagination (50–500/page), event-ID/host/log-type quick
+  filters, CSV export;
+- **Observability admin page** (System Admin): connection health & latency probe, per-stream
+  toggles + push statistics, push tester, external push API (`POST /api/ext/oo/{stream}`, API-key
+  auth, audited);
+- **Deploy**: `docker compose --profile observability up -d --build` (single container, off by default);
+- **Menu visibility**: the Log Search menu auto-hides while the integration is disabled;
+- **Credential isolation**: OpenObserve credentials live only in JNexus (AES-256 encrypted);
+  end users never touch the OpenObserve UI.
+
+## 22. AI Alert Diagnostics & Controlled Cleanup
+
+When a disk/mem/cpu threshold alert fires, an **AI diagnosis pipeline** runs automatically:
+
+1. **Gather**: fixed read-only diagnostics over SSH (df -hP / free -m / uptime / CPU & memory
+   process leaderboard / directory usage);
+2. **Analyze**: alert context + diagnostics are sent to the AI (system prompt customizable in the
+   UI); it returns root-cause analysis / suspect processes / remediation advice;
+3. **Deliver**: the full analysis is pushed through the notification channels bound to that alert
+   level; also recorded as an audit event and pushed to the OpenObserve stream;
+4. **Controlled cleanup** (disk alerts only): admin-predefined cleanup commands from the catalog
+   run VERBATIM (e.g. 7-day stale /tmp file purge, journald vacuum), each with a 60-second timeout;
+   results are appended to the report.
+
+**Safety guardrails**:
+- The AI only outputs analysis text — it **never generates or modifies commands**; cleanup
+  commands come verbatim from the admin-defined catalog;
+- Cleanup runs on disk alerts only; Linux + SSH hosts only; per-host cooldown (default 30 min);
+- The catalog is admin-managed; commands must not contain `;`, `&`, `|` or line breaks;
+- The diagnosis system prompt is customizable (empty = built-in default).
+
+## 23. Windows Domain Environments
+
+- **Kerberos auth** (recommended for domain environments, CIS-compliant): per-host switch;
+  account in `user@REALM` form (realm auto-derived from the UPN suffix or the
+  `winrm_krb5_realm` setting); runs over WinRM HTTPS + gokrb5 — no Basic auth, no NTLM, no UAC
+  token-filter changes on targets; the server must be able to read a `krb5.conf` (set
+  `winrm_krb5_config`).
+- **HTTPS + Basic** (workgroup machines): configure a WinRM HTTPS listener (5986) + self-signed
+  certificate on the target; JNexus auto-detects port 5986 and switches to Basic over TLS —
+  immune to NTLM hardening policies.
+- **NTLM** (legacy/direct): HTTP 5985 fallback; works for local and domain accounts.
+
+## 24. Reverse Proxy Deployment (HTTPS + WebSocket)
+
+When serving JNexus behind a reverse proxy (nginx etc.) over HTTPS, the proxy **must forward
+WebSocket upgrades** — the Web Terminal, live task output, log tail, and the RDP gateway proxy
+(`/rdp-gw`) all use WebSocket:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_read_timeout 3600s;
+}
+```
+
+Without Upgrade/Connection forwarding, login and pages work but terminals / RDP / live output
+disconnect immediately. `X-Forwarded-Proto https` tells JNexus the page is HTTPS (affects RDP
+gateway address derivation).
 
 ## 20. FAQ
 

@@ -29,6 +29,10 @@ JNexus 使用 **Go (Gin + GORM) + Vue 3 (Element Plus + xterm.js) + PostgreSQL**
 18. [系统管理](#18-系统管理)
 19. [升级与数据](#19-升级与数据)
 20. [常见问题](#20-常见问题)
+21. [可观测集成（OpenObserve）](#21-可观测集成openobserve)
+22. [AI 告警诊断与受控清理](#22-ai-告警诊断与受控清理)
+23. [Windows 域环境接入](#23-windows-域环境接入)
+24. [反向代理部署](#24-反向代理部署-https--websocket)
 
 ---
 
@@ -37,19 +41,12 @@ JNexus 使用 **Go (Gin + GORM) + Vue 3 (Element Plus + xterm.js) + PostgreSQL**
 JNexus 面向中小团队的自托管运维场景，目标是**用一个网页接管日常运维**：
 
 - **双平台主机**：Linux（SSH）与 Windows（WinRM / 浏览器内 RDP）统一管理；
-- **AI 助手**：内置全站悬浮 AI 对话（兼容 OpenAI 协议），支持页面上下文感知、角色预设；
-- **深浅色主题**：全局深色/浅色模式一键切换，全站跟随；
-- **一条命令部署**：单个二进制 + 一份 Docker Compose（含数据库与 RDP 网关）；
-- **13 个功能模块**：主机、凭据、报表、监控、K8S、计划任务、应用、发布、任务、执行、文件、脚本、密钥；
+- **多模块一体化**：主机、凭据、批量执行、文件分发、脚本库、计划任务、监控告警、容量规划、K8S 管理、应用发布、运营报表、日志检索、AI 告警诊断；
 - **权限内建**：能力位权限模型 + 自定义角色 + MFA + LDAP + 全量审计；
-- **AI 助手**：全站悬浮对话，兼容 OpenAI 协议（Ollama / vLLM / LM Studio 等），支持页面上下文感知与角色预设；
-- **深浅色主题**：全局一键切换，全站自动适配；
-- **中英双语**：前端开箱即用，跟随浏览器语言自动切换。
-- **日志实时跟随**：输入日志文件绝对路径即可实时滚动查看新增内容（支持 logrotate）；
-- **集群 Shell**：K8S 管理页内置临时 Pod Shell，关闭自动清理。
-- **13 个功能模块**：主机、凭据、报表、监控、K8S、计划任务、应用、发布、任务、执行、文件、脚本、密钥；
-- **权限内建**：能力位权限模型 + 自定义角色 + MFA + LDAP + 全量审计；
-- **中英双语**：前端开箱即用，跟随浏览器语言自动切换。
+- **AI 能力**：全站悬浮 AI 对话（兼容 OpenAI 协议）+ 告警自动诊断分析；
+- **可观测集成**：OpenObserve 双写与日志检索（长期存储、全文检索、受控清理）；
+- **部署简单**：单个二进制 + Docker Compose（含数据库、RDP 网关、可选 OpenObserve）；
+- **中英双语 + 深浅色主题**：开箱即用。
 
 适用规模：几台到几百台主机、1 到多个 Kubernetes 集群。
 
@@ -246,6 +243,56 @@ JNexus 优先读取环境变量；首次启动自动生成的密钥会持久化�
 - **数据**：所有业务数据在 PostgreSQL；Compose 数据卷 `pgdata`（数据库）、`data`（密钥）、`uploads`（制品/上传）；
 - **备份建议**：定期 `pg_dump` + 备份 `data` 卷（保住 AES 密钥即保住凭据可解密性）；
 - **外部数据库**：设置 `JNEXUS_DB_*` 或 `JNEXUS_DSN` 后 `docker compose up -d jnexus` 单独起服务。
+
+## 21. 可观测集成（OpenObserve）
+
+JNexus 可选集成开源可观测平台 [OpenObserve](https://openobserve.ai)（AGPL-3.0，仅 HTTP 调用、无许可证传染），实现**长期存储与全文检索**：
+
+- **五类内置数据流（双写）**：主机指标（`host_metrics`）、任务执行输出（`task_logs`）、告警事件（`alert_events`）、Windows 事件日志（`windows_events`）、数据库审计流水（`db_audit`）——每条独立开关；
+- **日志检索菜单**：流选择器（内置流 + 自定义流自动发现）、SQL 查询、1h/24h/7d/30d + 自定义时间、分页（50–500/页）、事件 ID/主机/日志类型快捷过滤、CSV 导出；
+- **可观测集成管理页**（系统管理）：连接健康与延迟探测、流级开关 + 推送统计（已推送/失败/最近推送/错误）、推送测试工具、外部推送 API（`POST /api/ext/oo/{stream}`，API 密钥认证）；
+- **部署**：`docker compose --profile observability up -d --build`（单容器，默认关闭）；
+- **菜单显隐**：集成停用时日志检索菜单自动隐藏；
+- **凭证管理**：OpenObserve 凭据仅存于 JNexus（AES-256 加密），终端用户不接触 OpenObserve 界面，账号体系 100% 由 JNexus 管理。
+
+## 22. AI 告警诊断与受控清理
+
+disk/mem/cpu 阈值告警触发后，自动执行**AI 诊断流水线**：
+
+1. **采集**：通过 SSH 运行固定只读诊断脚本（df -hP / free -m / uptime / CPU 与内存进程榜 / 目录占用）；
+2. **分析**：告警上下文 + 诊断输出发给 AI（系统提示词可在界面自定义），返回根因分析/可疑进程/处置建议；
+3. **推送**：分析全文通过该级别绑定的通知通道发送；同步写审计事件与 OpenObserve 流；
+4. **受控清理**（仅磁盘告警）：按管理员预定义的**清理命令目录**逐字执行（如 /tmp 7 天未访问文件清理、journald 压缩），每条 60 秒超时保护，执行结果随报告推送。
+
+**安全护栏**：
+- AI 全程只输出分析文本，**不生成、不修改任何命令**；清理命令逐字来自管理员预定义目录；
+- 仅磁盘告警触发清理；仅 Linux + SSH 主机；每主机冷却期（默认 30 分钟）；
+- 清理目录仅管理员可改；命令禁止 `; & |` 和换行；
+- 诊断系统提示词可自定义（留空用内置默认）。
+
+## 23. Windows 域环境接入
+
+- **Kerberos 认证**（域环境推荐，CIS 合规）：主机级开关；账号使用 `user@REALM` 格式（Realm 自动取 UPN 后缀或系统配置 `winrm_krb5_realm`）；经 WinRM HTTPS + gokrb5 运行——不用 Basic、不用 NTLM、目标机无需放开 UAC 过滤；服务器需能读取 `krb5.conf`（配置 `winrm_krb5_config`）。
+- **HTTPS + Basic**（工作组机器）：目标机配置 WinRM HTTPS 监听（5986）+ 自签证书后，JNexus 自动探测并切换 Basic over TLS——不受 NTLM 硬化策略影响。
+- **NTLM**（传统/域内直连）：HTTP 5985 回退通道，本地/域账号皆可。
+
+## 24. 反向代理部署（HTTPS + WebSocket）
+
+通过反向代理（nginx 等）以 HTTPS 对外提供 JNexus 时，代理**必须转发 WebSocket 升级**——Web 终端、任务实时输出、日志跟随、RDP 网关代理（`/rdp-gw`）均使用 WebSocket：
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_read_timeout 3600s;
+}
+```
+
+缺少 Upgrade/Connection 转发时，登录与页面正常，但终端/RDP/实时输出会立即断开。`X-Forwarded-Proto https` 告知 JNexus 当前为 HTTPS（影响 RDP 网关地址推导）。
 
 ## 20. 常见问题
 
