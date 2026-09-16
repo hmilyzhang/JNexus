@@ -612,6 +612,9 @@ const { t } = i18n.global
 const $router = useRouter()
 const activeTab = ref('cmd')
 
+// Auto-load the monthly report the first time the tab is opened (was: empty until Generate clicked)
+watch(activeTab, tab => { if (tab === 'report' && !rep.value && !repLoading.value) loadReport() })
+
 const hostsLoading = ref(false)
 const hostRows = ref([])
 const hostKw = ref('')
