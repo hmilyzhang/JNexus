@@ -72,7 +72,8 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="terminal">{{ $t('hosts.terminal') }}</el-dropdown-item>
+                    <!-- Windows hosts: RDP only (no shell terminal) -->
+                    <el-dropdown-item v-if="row.os_type !== 'windows'" command="terminal">{{ $t('hosts.terminal') }}</el-dropdown-item>
                     <el-dropdown-item v-if="row.os_type === 'windows'" command="rdp">RDP</el-dropdown-item>
                     <el-dropdown-item command="capacity">{{ $t('k8s.capacity') }}</el-dropdown-item>
                     <el-dropdown-item v-if="canManageCreds" command="cred">{{ $t('hosts.credMgmt') }}</el-dropdown-item>
@@ -360,14 +361,14 @@ const openCapacity = row => {
   loadCap()
 }
 // ---- RDP remote desktop (guacamole-lite gateway, encrypted connection string valid for 5 minutes) ----
-const rdpWin = ref(null)
+// Navigates in the same tab (no popup window)
 const openRDP = async row => {
   try {
     const r = await api.post(`/hosts/${row.id}/rdp-token`, {})
-    const gw = encodeURIComponent(r.gateway)
-    const q = encodeURIComponent(r.query)
-    window.open(`${location.origin}/rdp?gw=${gw}&q=${q}&host=${encodeURIComponent(row.name)}&ip=${encodeURIComponent(row.ip)}`,
-      '_blank', `width=1300,height=780`)
+    router.push({
+      path: '/rdp',
+      query: { gw: r.gateway, q: r.query, host: row.name, ip: row.ip },
+    })
   } catch { /* surfaced by the interceptor */ }
 }
 

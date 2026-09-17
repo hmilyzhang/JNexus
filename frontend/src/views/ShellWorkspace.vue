@@ -154,7 +154,8 @@ const setTermEl = (id, el) => { if (el) termEls[id] = el }
 const loadHosts = async () => {
   loading.value = true
   try {
-    hosts.value = await api.get('/hosts')
+    // Windows hosts are RDP-only — the shell workspace lists SSH (Linux) hosts
+    hosts.value = (await api.get('/hosts')).filter(h => h.os_type !== 'windows')
     usableCreds.value = await api.get('/credentials/usable')
     hostGroups.value = await api.get('/host_groups')
   } finally { loading.value = false }
@@ -209,9 +210,8 @@ const openSession = async (host, credentialId) => {
 
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   const credQs = credentialId ? `&credential_id=${credentialId}` : ''
-  const isWin = host.os_type === 'windows'
-  const termPath = isWin ? `/api/ws/winrm/${host.id}` : `/api/ws/term/${host.id}`
-  const ws = new WebSocket(`${proto}://${location.host}${termPath}?token=${localStorage.getItem('token')}${credQs}`)
+  // SSH only — Windows hosts are RDP-only and filtered out of the host list
+  const ws = new WebSocket(`${proto}://${location.host}/api/ws/term/${host.id}?token=${localStorage.getItem('token')}${credQs}`)
   ws.onopen = () => {
     s.connected = true
     term.focus()
