@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"crypto/ed25519"
@@ -53,6 +54,13 @@ func SaveKeyRotationLast(t time.Time) {
 
 // ---- Key material helpers ----
 
+// run state: guards concurrent rotations (manual run vs scheduler) and exposes status to the UI
+var keyRotRunMu sync.Mutex
+var keyRotRunning atomic.Bool
+
+// KeyRotationRunning reports whether a rotation is currently in progress
+func KeyRotationRunning() bool { return keyRotRunning.Load() }
+
 // generateKeyPairBytes returns (pubLine, privPEM) for a fresh ed25519 pair
 func generateKeyPairBytes(comment string) (string, string, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
@@ -75,7 +83,25 @@ func generateKeyPairBytes(comment string) (string, string, error) {
 // RotatePlatformSSHKey generates a new key pair, pushes it to every host paired
 // with the platform key (via the OLD key), removes the OLD pub key, then
 // replaces the stored key material. Returns (hosts_ok, hosts_fail, error).
+// Only one rotation runs at a time; a concurrent call returns a busy error.
 func RotatePlatformSSHKey() (int, int, error) {
+	if !keyRotRunMu.TryLock() {
+		return 0, 0, fmt.Errorf("密钥轮换正在进行中，请稍后再试")
+	}
+	defer keyRotRunMu.Unlock()
+	keyRotRunning.Store(true)
+	defer keyRotRunning.Store(false)
+
+	ok, fail, err := rotatePlatformSSHKeyLocked()
+	if err == nil {
+		fmt.Println("[key-rotation] done: ok=", ok, "fail=", fail)
+		LogAlertEvent("ssh_key_rotation", "info", "platform",
+			fmt.Sprintf("SSH 平台密钥已轮换: %d 台成功, %d 台失败", ok, fail))
+	}
+	return ok, fail, err
+}
+
+func rotatePlatformSSHKeyLocked() (int, int, error) {
 	old, err := EnsurePlatformKey()
 	if err != nil {
 		return 0, 0, err
@@ -181,13 +207,9 @@ func CheckKeyRotation() {
 	if cfg.LastRun != nil && time.Since(*cfg.LastRun) < time.Duration(cfg.Days)*24*time.Hour {
 		return
 	}
-	ok, fail, err := RotatePlatformSSHKey()
-	if err != nil {
+	if _, _, err := RotatePlatformSSHKey(); err != nil {
 		fmt.Println("[key-rotation] error:", err.Error())
-		return
 	}
-	fmt.Println("[key-rotation] done: ok=", ok, "fail=", fail)
-	LogAlertEvent("ssh_key_rotation", "info", "platform", fmt.Sprintf("SSH 密钥已轮换: %d 台成功, %d 台失败", ok, fail))
 }
 
 // ---- SSH connect helper (using the old key's signer, not the pool) ----

@@ -865,7 +865,18 @@ export default {
     name: '名称（主机-账号）',
     keyName: '密钥名称',
     tip: '列出所有通过自动配对登记的密钥账号；删除 OS 账号请由管理员在主机 OS 账号管理中操作',
-    platformKey: '平台配对公钥（自动配对时写入目标机）'
+    platformKey: '平台配对公钥（自动配对时写入目标机）',
+    rotTitle: '平台密钥周期轮换',
+    rotEnabled: '启用周期轮换',
+    rotDays: '轮换周期（天）',
+    rotDaysMin: '最小 7 天',
+    rotLast: '上次轮换',
+    never: '从未',
+    rotNow: '立即轮换',
+    rotNowConfirm: '将为所有配对主机生成新密钥对并通过旧密钥推送，随后替换平台密钥。确认立即轮换？',
+    rotStarted: '轮换已在后台启动；完成后可在审计事件中查看结果',
+    rotTip: '轮换在后台逐台推送新公钥并移除旧公钥，全程使用同一 SSHKey 记录，凭据无需修改；结果写入审计事件',
+    searchPh: '搜索主机 / IP / 账号 / 标签'
   },
   cron: {
     create: '新建计划任务',

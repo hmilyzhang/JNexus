@@ -864,7 +864,18 @@ export default {
     name: 'Name (host-account)',
     keyName: 'Key name',
     tip: 'Lists all accounts registered via auto-pairing; deletion is admin-only via host OS accounts',
-    platformKey: 'Platform pairing public key (pushed to targets on auto-pair)'
+    platformKey: 'Platform pairing public key (pushed to targets on auto-pair)',
+    rotTitle: 'Platform Key Rotation',
+    rotEnabled: 'Enable periodic rotation',
+    rotDays: 'Interval (days)',
+    rotDaysMin: 'minimum 7 days',
+    rotLast: 'Last rotation',
+    never: 'Never',
+    rotNow: 'Rotate Now',
+    rotNowConfirm: 'A new key pair will be generated and pushed to every paired host via the old key, then the platform key is replaced. Rotate now?',
+    rotStarted: 'Rotation started in the background; see audit events for the result',
+    rotTip: 'Runs in the background: pushes the new public key and removes the old one per host, keeping the same SSHKey record so credentials need no change; results are written to audit events',
+    searchPh: 'Search host / IP / account / label'
   },
   cron: {
     create: 'New Schedule',

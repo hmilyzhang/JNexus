@@ -122,8 +122,19 @@ func UsableCredentialsHandler(c *gin.Context) {
 }
 
 // ListPairedCredentials paired key list: all key-auth OS accounts,
-// name = hostname-account, to identify which machine each key is paired with
+// name = hostname-account, to identify which machine each key is paired with.
+// Supports keyword filter (host/IP/account/label) + page/page_size pagination.
 func ListPairedCredentials(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
+	keyword := strings.ToLower(strings.TrimSpace(c.Query("keyword")))
+
 	var creds []model.HostCredential
 	model.DB.Preload("SSHKey").Where("auth_type = ?", "key").Order("id DESC").Find(&creds)
 	type pairRow struct {
@@ -140,12 +151,24 @@ func ListPairedCredentials(c *gin.Context) {
 		CreatedAt string `json:"created_at"`
 	}
 	hostCache := map[uint]model.Host{}
+	var hs []model.Host
+	model.DB.Find(&hs)
+	for _, h := range hs {
+		hostCache[h.ID] = h
+	}
 	out := make([]pairRow, 0, len(creds))
 	for _, cr := range creds {
 		h, ok := hostCache[cr.HostID]
 		if !ok {
 			model.DB.First(&h, cr.HostID)
 			hostCache[cr.HostID] = h
+		}
+		if keyword != "" &&
+			!strings.Contains(strings.ToLower(h.Name), keyword) &&
+			!strings.Contains(strings.ToLower(h.IP), keyword) &&
+			!strings.Contains(strings.ToLower(cr.Username), keyword) &&
+			!strings.Contains(strings.ToLower(cr.Label), keyword) {
+			continue
 		}
 		keyName := ""
 		pubKey := ""
@@ -165,7 +188,19 @@ func ListPairedCredentials(c *gin.Context) {
 			IsDefault: cr.IsDefault, CreatedAt: cr.CreatedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
-	c.JSON(http.StatusOK, out)
+	total := len(out)
+	start := (page - 1) * pageSize
+	if start > total {
+		start = total
+	}
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"items": out[start:end], "total": total,
+		"page": page, "page_size": pageSize,
+	})
 }
 
 type credReq struct {

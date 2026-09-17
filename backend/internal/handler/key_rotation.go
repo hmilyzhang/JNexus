@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,7 @@ func KeyRotationConfigGet(c *gin.Context) {
 		"ssh_key_rotation_last":    all["ssh_key_rotation_last"],
 		"days":                     cfg.Days,
 		"last_run":                 cfg.LastRun,
+		"running":                  service.KeyRotationRunning(),
 	})
 }
 
@@ -41,11 +43,18 @@ func KeyRotationConfigPut(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// KeyRotationRun starts a manual rotation in the background: with hundreds of
+// paired hosts the push loop can take minutes, so the request returns at once.
+// Progress/completion lands in the audit log via the ssh_key_rotation event.
 func KeyRotationRun(c *gin.Context) {
-	ok, fail, err := service.RotatePlatformSSHKey()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if service.KeyRotationRunning() {
+		c.JSON(http.StatusConflict, gin.H{"error": "rotation already in progress"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"ok": true, "hosts_ok": ok, "hosts_fail": fail})
+	go func() {
+		if _, _, err := service.RotatePlatformSSHKey(); err != nil {
+			fmt.Println("[key-rotation] manual run error:", err.Error())
+		}
+	}()
+	c.JSON(http.StatusOK, gin.H{"ok": true, "started": true})
 }
