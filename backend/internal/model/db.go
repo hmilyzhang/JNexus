@@ -30,7 +30,7 @@ func Connect(dsn string) error {
 		&SystemConfig{},
 		&UserGroup{}, &UserGroupHost{}, &UserGroupHostGroup{}, &UserGroupMember{},
 		&HostCredential{}, &UserGroupCredential{}, &UserGroupCredRule{}, &CronJob{}, &Report{}, &ReportItem{},
-		&Monitor{}, &MonitorSample{}, &HostMetric{}, &K8sCapacitySample{}, &AlertEvent{}, &K8sPodSample{}, &HostMetricHourly{}, &CmdAlertState{}, &K8sCluster{}, &K8sClusterMember{}, &MaintenanceLog{}, &UserGroupApp{}, &ApiKey{}, &AlertChannel{}, &MonitorChannel{}, &DbSource{}, &ChangelogEntry{},
+		&Monitor{}, &MonitorSample{}, &HostMetric{}, &K8sCapacitySample{}, &AlertEvent{}, &K8sPodSample{}, &HostMetricHourly{}, &CmdAlertState{}, &K8sCluster{}, &K8sClusterMember{}, &MaintenanceLog{}, &UserGroupApp{}, &ApiKey{}, &AlertChannel{}, &MonitorChannel{}, &DbSource{},
 	); err != nil {
 		return fmt.Errorf("数据库迁移失败: %w", err)
 	}
@@ -141,32 +141,7 @@ func Seed() error {
 			return err
 		}
 	}
-	return SeedChangelog()
-}
-
-// SeedChangelog fills initial release notes once, so the Changelog page is not
-// empty on first deploy; admins maintain entries from the UI afterwards
-func SeedChangelog() error {
-	var cnt int64
-	DB.Model(&ChangelogEntry{}).Count(&cnt)
-	if cnt > 0 {
-		return nil
-	}
-	d := func(s string) time.Time {
-		t, _ := time.ParseInLocation("2006-01-02", s, time.Local)
-		return t
-	}
-	defaults := []ChangelogEntry{
-		{Version: "1.280", Title: "AI 诊断迁移至监控中心", Details: "监控中心新增「AI 诊断」标签页（诊断配置 + 清理命令目录），与告警规则同页维护；系统设置 → AI 助手中的原入口移除。", ReleasedAt: d("2026-09-17")},
-		{Version: "1.279", Title: "配对密钥页升级", Details: "新增平台密钥轮换配置（开关 / 周期 / 立即轮换）；配对凭据列表支持分页与关键词搜索，适配数百台规模。", ReleasedAt: d("2026-09-17")},
-		{Version: "1.278", Title: "SSH 平台密钥周期轮换", Details: "支持按周期（如 30/60 天）自动生成新密钥对并推送到全部配对主机，可手动立即轮换，全程审计。", ReleasedAt: d("2026-09-17")},
-		{Version: "1.277", Title: "Windows 主机终端", Details: "Shell 工作区支持通过 WinRM 打开 PowerShell 终端（需密码认证的 OS 账号），域名环境支持 Kerberos 认证。", ReleasedAt: d("2026-09-17")},
-		{Version: "1.276", Title: "文档与手册", Details: "新增系统架构设计文档与用户手册（中英文），补充可观测集成、AI 诊断、Kerberos 与反向代理部署章节。", ReleasedAt: d("2026-09-17")},
-		{Version: "1.275", Title: "月报打印修复", Details: "月度报告打印/导出 PDF 时样式丢失的问题修复，打印输出强制浅色版式。", ReleasedAt: d("2026-09-17")},
-		{Version: "1.271", Title: "AI 告警诊断与受控磁盘清理", Details: "P1–P4 阈值告警触发后通过 SSH 采集系统状态，AI 分析根因/可疑进程并经告警通道推送；管理员可定义受控清理命令目录，逐字执行。", ReleasedAt: d("2026-09-16")},
-		{Version: "1.266", Title: "日志检索", Details: "原生 OpenObserve 日志检索页：SQL 编辑、时间范围、host / event id 过滤、结果展开与 CSV 导出。", ReleasedAt: d("2026-09-15")},
-	}
-	return DB.Create(&defaults).Error
+	return nil
 }
 
 // GenAESKey generates a 32-byte base64 master key (utility)

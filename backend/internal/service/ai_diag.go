@@ -3,10 +3,13 @@ package service
 
 // AI alert diagnostics + controlled disk cleanup:
 // When a P1-P4 threshold alert fires for disk/mem/cpu, a fixed read-only diagnostic
-// script is gathered over SSH and handed to the configured AI for root-cause analysis.
-// The analysis is pushed through the alert channels bound to that level.
-// On disk alerts, admin-predefined cleanup commands (the "cleanup catalog") may run —
-// executed VERBATIM from the catalog; the AI never generates or alters commands.
+// script is gathered over SSH (Linux) or WinRM (Windows) and handed to the
+// configured AI for root-cause analysis. The analysis is pushed through the
+// alert channels bound to that level.
+// On disk alerts (Linux), admin-predefined cleanup commands (the "cleanup
+// catalog") may run — executed VERBATIM from the catalog; the AI never
+// generates or alters commands. App monitors get server-side network diagnosis
+// (ai_diag_monitor.go).
 
 import (
 	"context"
@@ -24,8 +27,9 @@ import (
 )
 
 // aiDiagDefaultPrompt built-in diagnosis system prompt (overridable via the
-// ai_diag_prompt setting)
-const aiDiagDefaultPrompt = "你是资深 SRE。JNexus 运维平台在主机上检测到资源告警，以下是采集的系统状态。" +
+// ai_diag_prompt setting). Shared by host alerts (SSH/WinRM gather) and app
+// monitor alerts (server-side network probes).
+const aiDiagDefaultPrompt = "你是资深 SRE。JNexus 运维平台检测到告警，以下是采集到的诊断信息。" +
 	"请输出：1) 根因分析 2) 可疑进程/服务 3) 处置建议。用中文，简洁分点。" +
 	"严格约束：只做分析，不得生成任何可执行命令或脚本。"
 
@@ -169,7 +173,8 @@ const aiDiagDiskScript = aiDiagBaseScript + `; echo '---DU---'; du -xsh /tmp /va
 // ---- Entry point ----
 
 // AutoDiagnose runs the alert-driven diagnosis pipeline. Called async after a
-// CMD alert fires; every gate failure is a silent no-op.
+// CMD alert fires; every gate failure is a silent no-op. Linux hosts gather
+// over SSH, Windows hosts over WinRM.
 func AutoDiagnose(h *model.Host, level, metric string, value, threshold float64) {
 	defer func() { recover() }()
 	metric = strings.ToLower(metric) // fire path passes capitalized metric names (Disk/CPU/Mem)
@@ -181,10 +186,11 @@ func AutoDiagnose(h *model.Host, level, metric string, value, threshold float64)
 	if !cfg.levelEnabled(level) || !cfg.metricEnabled(metric) {
 		return
 	}
-	if IsWindows(h) {
-		return // Linux/SSH only
-	}
 	if aiDiagCoolingDown(h.ID, cfg.CooldownMin) {
+		return
+	}
+	if IsWindows(h) {
+		RunWindowsDiagnosis(h, level, metric, value, threshold)
 		return
 	}
 	RunDiagnosis(h, level, metric, value, threshold)

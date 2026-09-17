@@ -204,7 +204,6 @@ const menuItems = [
   { key: 'k8s', path: '/k8s', title: 'k8s.title', icon: 'Grid' },
   { key: 'apps', path: '/apps', title: 'menu.apps', icon: 'Box' },
   { key: 'releases', path: '/releases', title: 'menu.releases', icon: 'UploadFilled' },
-  { key: 'changelog', path: '/changelog', title: 'menu.changelog', icon: 'Tickets' },
   { key: 'sysadmin', title: 'menu.sysadmin', icon: 'Setting', children: [
     { key: 'users', path: '/users', title: 'menu.users', icon: 'User' },
     { key: 'danger', path: '/danger', title: 'menu.danger', icon: 'Warning' },
@@ -250,8 +249,7 @@ const menus = computed(() => {
         (c.key === 'logtail' && allowed.has('exec'))) && // log access follows exec permission
         (c.key !== 'observe' || ooEnabled.value))
       if (kids.length) out.push({ ...m, children: kids })
-    } else if ((allowed.has(m.key) || m.key === 'changelog') && // changelog is read-only info: visible to every role
-      (m.key !== 'observe' || ooEnabled.value)) {
+    } else if (allowed.has(m.key) && (m.key !== 'observe' || ooEnabled.value)) {
       out.push(m)
     }
   }

@@ -19,7 +19,6 @@ export default {
     scripts: '脚本中心',
     apps: '应用管理',
     releases: '发布中心',
-    changelog: '更新日志',
     users: '用户管理',
     danger: '危险命令规则',
     audit: '审计日志',
@@ -358,19 +357,7 @@ export default {
     needRow: '每条部署配置需要主机、目录与 jar 名',
     delConfirm: '确认删除应用?'
   },
-  changelog: {
-    now: '当前版本',
-    add: '新增记录',
-    edit: '编辑记录',
-    version: '版本号',
-    title: '标题',
-    titlePh: '一句话说明本次更新',
-    details: '详细说明',
-    detailsPh: '可多行，每行一条改动说明',
-    date: '日期',
-    delConfirm: '确认删除这条更新记录？',
-    empty: '暂无更新记录'
-  },
+
   releases: {
     title: '发布中心',
     filterByApp: '按应用筛选',
@@ -1234,7 +1221,7 @@ logtail: {
     navRole: "角色设置",
     navDiag: '告警诊断',
     diagTitle: '告警诊断',
-    diagTip: 'disk/mem/cpu 告警触发时，自动通过 SSH 采集系统状态（df/free/进程榜），交由 AI 分析根因，并将分析结果发送到该级别绑定的通知通道。仅分析，不执行 AI 生成的命令；仅支持 Linux 主机。',
+    diagTip: 'disk/mem/cpu 告警触发时自动采集系统状态（Linux 走 SSH，Windows 走 WinRM），交由 AI 分析根因，并将结果发送到该级别绑定的通知通道；应用监控（HTTP/TCP/Ping）宕机时自动做服务端网络探测（DNS/TCP/HTTP 证书/Ping），目标命中纳管主机时附加 SSH 采集，报告发送到该监控器绑定的通道。仅分析，不执行 AI 生成的命令；Windows 主机不执行清理命令。',
     diagEnabled: '启用告警诊断',
     diagLevels: '生效级别',
     diagMetrics: '触发指标',

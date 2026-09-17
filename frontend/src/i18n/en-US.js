@@ -19,7 +19,6 @@ export default {
     scripts: 'Scripts',
     apps: 'Applications',
     releases: 'Release Center',
-    changelog: 'Changelog',
     users: 'User Management',
     danger: 'Dangerous Cmds',
     audit: 'Audit Log',
@@ -357,19 +356,7 @@ export default {
     needRow: 'Each deploy config needs host, dir and jar name',
     delConfirm: 'Delete this app?'
   },
-  changelog: {
-    now: 'Current',
-    add: 'Add Entry',
-    edit: 'Edit Entry',
-    version: 'Version',
-    title: 'Title',
-    titlePh: 'One-line summary of this update',
-    details: 'Details',
-    detailsPh: 'Multi-line; one change per line',
-    date: 'Date',
-    delConfirm: 'Delete this changelog entry?',
-    empty: 'No changelog entries yet'
-  },
+
   releases: {
     title: 'Release Center',
     filterByApp: 'Filter by app',
@@ -1233,7 +1220,7 @@ logtail: {
     navRole: "Role Settings",
     navDiag: 'Alert Diagnostics',
     diagTitle: 'Alert Diagnostics',
-    diagTip: 'When a disk/mem/cpu alert fires, system state (df/free/process list) is gathered over SSH and analyzed by AI; the analysis is sent to the notification channels bound to that level. Analysis only — no AI-generated commands; Linux hosts only.',
+    diagTip: 'When a disk/mem/cpu alert fires, system state is gathered automatically (SSH for Linux, WinRM for Windows) and analyzed by AI; results go to the channels bound to that level. App monitors (HTTP/TCP/Ping) get server-side network probes on downtime (DNS/TCP/HTTP cert/ping); when the target matches a managed host, SSH gather is appended and the report goes to the channels bound to that monitor. Analysis only — no AI-generated commands; no cleanup on Windows.',
     diagEnabled: 'Enable alert diagnostics',
     diagLevels: 'Levels',
     diagMetrics: 'Metrics',

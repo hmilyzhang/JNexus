@@ -141,6 +141,11 @@ func SendViaChannel(ch *model.AlertChannel, vars map[string]string, defSubject, 
 
 // SendMonitorAlert sends alert/recovery notifications to bound channels based on the monitor rule evaluation
 func SendMonitorAlert(m *model.Monitor, status string, respMs int, errMsg string) {
+	// DOWN alerts additionally trigger the AI diagnosis pipeline (gated by the
+	// ai_diag_enabled switch; silently skipped when disabled)
+	if status == "down" {
+		go AutoDiagnoseMonitor(m, errMsg, respMs)
+	}
 	var bindings []model.MonitorChannel
 	model.DB.Where("monitor_id = ?", m.ID).Find(&bindings)
 	if len(bindings) == 0 {

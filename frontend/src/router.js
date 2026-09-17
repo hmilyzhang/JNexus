@@ -30,7 +30,6 @@ const routes = [
       { path: 'logtail', name: 'logtail', component: () => import('./views/LogTail.vue'), meta: { title: 'menu.logtail', icon: 'View' } },
       { path: 'apps', name: 'apps', component: () => import('./views/Apps.vue'), meta: { title: 'menu.apps', icon: 'Box' } },
       { path: 'releases', name: 'releases', component: () => import('./views/Releases.vue'), meta: { title: 'menu.releases', icon: 'UploadFilled' } },
-      { path: 'changelog', name: 'changelog', component: () => import('./views/Changelog.vue'), meta: { title: 'menu.changelog', icon: 'Tickets' } },
       { path: 'users', name: 'users', component: () => import('./views/Users.vue'), meta: { title: 'menu.users', icon: 'User', adminOnly: true } },
       { path: 'danger', name: 'danger', component: () => import('./views/DangerRules.vue'), meta: { title: 'menu.danger', icon: 'Warning', adminOnly: true } },
       { path: 'audit', name: 'audit', component: () => import('./views/Audit.vue'), meta: { title: 'menu.audit', icon: 'Notebook', auditOnly: true } },
@@ -71,7 +70,7 @@ router.beforeEach(async to => {
       // Route name to role menu key mapping differences (crons→cron, os-accounts→osaccounts)
       const nameToKey = { crons: 'cron', 'os-accounts': 'osaccounts' }
       const key = nameToKey[to.name] || to.name
-      const alwaysAllowed = ['dashboard', 'profile', 'k8s-exec', 'k8s-manage', 'shell', 'login', 'changelog']
+      const alwaysAllowed = ['dashboard', 'profile', 'k8s-exec', 'k8s-manage', 'shell', 'login']
       if (!allowed.has(key) && !alwaysAllowed.includes(to.name)) {
         return '/dashboard'
       }
