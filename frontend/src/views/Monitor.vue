@@ -299,7 +299,10 @@
               <el-button size="small" type="primary" :loading="maintSaving" @click="saveMaintWindows">{{ $t('common.save') }}</el-button>
             </div>
           </template>
-          <div style="color:#909399; font-size:12px; margin-bottom:10px">{{ $t('monitor.maintTip') }}</div>
+          <div style="color:#909399; font-size:12px; margin-bottom:6px">{{ $t('monitor.maintTip') }}</div>
+          <el-alert :type="maintStatus.in_window ? 'warning' : 'info'"
+                    :title="maintStatus.in_window ? $t('monitor.maintNowActive') : $t('monitor.maintNowIdle')"
+                    :closable="false" show-icon style="margin-bottom:10px" />
           <div v-for="(w, i) in maintWins" :key="i" style="display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap">
             <el-select v-model="w.type" size="small" style="width:120px">
               <el-option value="once" :label="$t('monitor.maintOnce')" />
@@ -325,8 +328,11 @@
           <template #header>
             <div style="display:flex; align-items:center; gap:10px">
               <span style="flex:1">{{ $t('monitor.maintAudit') }}</span>
+              <el-button v-if="isAdmin" size="small" type="danger" link @click="clearMaintLogs">{{ $t('monitor.maintLogClear') }}</el-button>
+              <el-button size="small" :loading="maintAuditLoading" @click="loadMaintAudit">{{ $t('common.refresh') }}</el-button>
             </div>
           </template>
+          <div style="color:#909399; font-size:12px; margin-bottom:10px">{{ $t('monitor.maintAuditTip') }}</div>
           <el-table :data="maintAudit" size="small" border>
             <el-table-column prop="username" :label="$t('audit.operator')" width="120" />
             <el-table-column :label="$t('monitor.maintLogWindows')" min-width="220">
@@ -339,11 +345,16 @@
             </el-table-column>
             <el-table-column :label="$t('monitor.maintLogStatus')" width="100" align="center">
               <template #default="{ row }">
-                <el-tag size="small" :type="row.active ? 'success' : 'info'">{{ row.active ? $t('monitor.maintActive') : $t('monitor.maintInactive') }}</el-tag>
+                <el-tag size="small" :type="row.active ? 'success' : 'info'">{{ row.active ? $t('monitor.maintTagCur') : $t('monitor.maintTagHist') }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column :label="$t('audit.time')" width="170">
               <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column v-if="isAdmin" :label="$t('common.actions')" width="80" align="center">
+              <template #default="{ row }">
+                <el-button size="small" link type="danger" @click="delMaintLog(row.id)">{{ $t('common.delete') }}</el-button>
+              </template>
             </el-table-column>
           </el-table>
           <div v-if="!maintAudit.length" style="color:#909399; padding:8px 0">{{ $t('monitor.maintAuditEmpty') }}</div>
@@ -690,7 +701,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import api from '../api'
 import { useRouter } from 'vue-router'
 import i18n from '../i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import MetricChart from '../components/MetricChart.vue'
 import { useUserStore } from '../store'
 
@@ -987,6 +998,29 @@ const loadMaintAudit = async () => {
     maintAudit.value = await api.get('/maintenance_windows/logs')
   } finally { maintAuditLoading.value = false }
 }
+// live "inside a window right now?" indicator (distinct from the audit rows' current-config tag)
+const maintStatus = ref({ in_window: false })
+const loadMaintStatus = async () => {
+  try { maintStatus.value = await api.get('/maintenance_windows/status') } catch { /* ignore */ }
+}
+const delMaintLog = async id => {
+  try {
+    await ElMessageBox.confirm(t('monitor.maintLogDelConfirm'), t('common.tip'), { type: 'warning' })
+  } catch { return }
+  try {
+    await api.delete(`/maintenance_windows/logs/${id}`)
+    loadMaintAudit()
+  } catch { /* interceptor shows the error */ }
+}
+const clearMaintLogs = async () => {
+  try {
+    await ElMessageBox.confirm(t('monitor.maintLogClearConfirm'), t('common.tip'), { type: 'warning' })
+  } catch { return }
+  try {
+    await api.delete('/maintenance_windows/logs')
+    loadMaintAudit()
+  } catch { /* interceptor shows the error */ }
+}
 
 // ---- CMD tiered thresholds ----
 const cmdLevels = ref([])
@@ -1088,6 +1122,7 @@ onMounted(() => {
   loadCmdLevels()
   loadMaintWindows()
   loadMaintAudit()
+  loadMaintStatus()
   timer = setInterval(load, 30000)
 })
 // ---- Monthly ops report ----

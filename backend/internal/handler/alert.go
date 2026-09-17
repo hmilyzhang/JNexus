@@ -223,6 +223,35 @@ func GetMaintenanceLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+// MaintenanceStatus reports whether "now" falls inside any configured window,
+// so the UI can distinguish "this snapshot is the current config" from
+// "a maintenance window is actually in effect right now"
+func MaintenanceStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"in_window": service.InMaintenanceWindow(time.Now()),
+		"windows":   service.LoadMaintenances(),
+	})
+}
+
+// DeleteMaintenanceLog removes one change-audit entry (admin); the current windows are untouched
+func DeleteMaintenanceLog(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	if err := model.DB.Delete(&model.MaintenanceLog{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// ClearMaintenanceLogs removes all change-audit entries (admin); the current windows are untouched
+func ClearMaintenanceLogs(c *gin.Context) {
+	if err := model.DB.Where("1 = 1").Delete(&model.MaintenanceLog{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "清空失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 // GetCmdLevels returns the CMD tiered threshold config
 func GetCmdLevels(c *gin.Context) {
 	c.JSON(http.StatusOK, service.LoadCmdLevels())

@@ -491,6 +491,16 @@ type MaintenanceLog struct {
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 }
 
+// ChangelogEntry one release note shown on the Changelog page (admin-managed)
+type ChangelogEntry struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	Version    string    `gorm:"size:32;index" json:"version"`
+	Title      string    `gorm:"size:256" json:"title"`
+	Details    string    `gorm:"type:text" json:"details"` // short summary, one item per line
+	ReleasedAt time.Time `json:"released_at"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 // K8s cluster (external system integration; credentials stored AES-GCM encrypted)
 type K8sCluster struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`

@@ -158,9 +158,18 @@ func SetupRouter() *gin.Engine {
 		mwin := auth.Group("/maintenance_windows", middleware.RequireRole())
 		{
 			mwin.GET("", GetMaintenances)
+			mwin.GET("/status", MaintenanceStatus)
 			mwin.GET("/logs", GetMaintenanceLogs)
+			mwin.DELETE("/logs/:id", middleware.RequireRole(model.RoleAdmin), DeleteMaintenanceLog)
+			mwin.DELETE("/logs", middleware.RequireRole(model.RoleAdmin), ClearMaintenanceLogs)
 			mwin.PUT("", middleware.RequireCap("monitor", "manage"), UpdateMaintenances)
 		}
+
+		// Changelog page: read for every logged-in user, entries managed by admins
+		auth.GET("/changelog", ListChangelog)
+		auth.POST("/changelog", middleware.RequireRole(model.RoleAdmin), CreateChangelog)
+		auth.PUT("/changelog/:id", middleware.RequireRole(model.RoleAdmin), UpdateChangelog)
+		auth.DELETE("/changelog/:id", middleware.RequireRole(model.RoleAdmin), DeleteChangelog)
 
 		arule.GET("/cmd", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), GetCmdLevels)
 		arule.GET("/templates", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), GetAlertTemplates)
