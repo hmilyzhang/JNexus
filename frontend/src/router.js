@@ -36,7 +36,9 @@ const routes = [
       { path: 'system', name: 'system', component: () => import('./views/SystemConfig.vue'), meta: { title: 'menu.system', icon: 'Setting', adminOnly: true } },
       { path: 'oo-admin', name: 'oo-admin', component: () => import('./views/ObserveAdmin.vue'), meta: { title: 'menu.observeAdmin', icon: 'DataLine', adminOnly: true } }
     ]
-  }
+  },
+  // Unknown paths: back to the dashboard (avoids a blank page on stale links)
+  { path: '/:pathMatch(.*)*', redirect: '/dashboard' }
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })

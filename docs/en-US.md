@@ -133,7 +133,7 @@ JNexus reads environment variables first. Keys generated on first boot are persi
 
 - Asset tree on the left (groups → hosts → OS accounts); click to open a terminal, run many tabs in parallel;
 - xterm.js rendering: **6 themes** (Default Dark, Dracula, One Dark, Solarized Dark/Light, GitHub Light), **in-page fullscreen**, auto-fitting;
-- Sessions go over WebSocket straight to the backend SSH/WinRM channels and stay alive with the page;
+- Sessions go over WebSocket straight to the backend SSH channel and stay alive with the page (the workspace lists Linux hosts only; Windows uses RDP);
 - K8S Pod shells share the same experience (see [Kubernetes Management](#14-kubernetes-management)).
 
 ## 8. In-browser RDP
@@ -264,12 +264,17 @@ for **long-term storage and full-text search**:
 
 When a disk/mem/cpu threshold alert fires, an **AI diagnosis pipeline** runs automatically:
 
-1. **Gather**: fixed read-only diagnostics over SSH (df -hP / free -m / uptime / CPU & memory
-   process leaderboard / directory usage);
+1. **Gather**: fixed read-only diagnostics over SSH on Linux hosts and via WinRM on Windows hosts
+   (resource levels / process leaderboard / directory usage);
+   - App monitors (HTTP/TCP/ping) on downtime get server-side network probes instead: DNS resolve,
+     TCP connect, HTTP re-probe (status / latency / TLS cert expiry / body snippet), system ping
+     (regex-validated target); when the resolved IP matches a managed Linux host, SSH gather is
+     appended to separate service failures from system issues;
 2. **Analyze**: alert context + diagnostics are sent to the AI (system prompt customizable in the
    UI); it returns root-cause analysis / suspect processes / remediation advice;
-3. **Deliver**: the full analysis is pushed through the notification channels bound to that alert
-   level; also recorded as an audit event and pushed to the OpenObserve stream;
+3. **Deliver**: host-alert analyses go through the channels bound to that alert level, app-monitor
+   reports through the channels bound to the monitor; also recorded as an audit event and pushed
+   to the OpenObserve stream;
 4. **Controlled cleanup** (disk alerts only): admin-predefined cleanup commands from the catalog
    run VERBATIM (e.g. 7-day stale /tmp file purge, journald vacuum), each with a 60-second timeout;
    results are appended to the report.
@@ -277,7 +282,7 @@ When a disk/mem/cpu threshold alert fires, an **AI diagnosis pipeline** runs aut
 **Safety guardrails**:
 - The AI only outputs analysis text — it **never generates or modifies commands**; cleanup
   commands come verbatim from the admin-defined catalog;
-- Cleanup runs on disk alerts only; Linux + SSH hosts only; per-host cooldown (default 30 min);
+- Cleanup runs on disk alerts only and only on Linux hosts; config lives in Monitoring → AI Diagnostics (admin); per-host/per-monitor cooldown (default 30 min, shared setting);
 - The catalog is admin-managed; commands must not contain `;`, `&`, `|` or line breaks;
 - The diagnosis system prompt is customizable (empty = built-in default).
 

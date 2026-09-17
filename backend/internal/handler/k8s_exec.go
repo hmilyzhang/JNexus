@@ -142,7 +142,6 @@ func K8sExecWS(c *gin.Context) {
 			return
 		}
 	}
-	_ = done
 }
 
 var _ = json.Marshal

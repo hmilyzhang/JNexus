@@ -59,7 +59,7 @@ Hosts → Import: paste multiple `NAME,IP,port,username,group` lines, fill the p
 
 Each host can hold multiple OS accounts (root, appuser, …), distinguished by labels; the default account is used for terminals and execution.
 
-- **Batch Add Accounts**: Host Accounts → Batch Add → pick target hosts → choose from a credential template or fill manually → Run.
+- **Batch Add Accounts**: Host Accounts → Batch Add → select by host group (subgroups cascade; group hosts merge into the target list) or pick target hosts directly → choose from a credential template or fill manually → Run.
 - Selecting existing table rows before opening the dialog **preloads those accounts** for re-apply to other hosts.
 - **Password rotation**: per-account toggle with configurable period/length/complexity; passwords are encrypted and never displayed. LDAP accounts are skipped automatically.
 - **Reveal password**: admins only (audited).
@@ -67,7 +67,7 @@ Each host can hold multiple OS accounts (root, appuser, …), distinguished by l
 
 ## 5. Web Terminal
 
-Click a host in the asset tree to open a terminal; multiple tabs and per-account sessions are supported; fullscreen available. Sessions close when the tab closes.
+Click a host in the asset tree to open a terminal (Linux/SSH only; Windows hosts have no terminal — use RDP); multiple tabs and per-account sessions are supported; fullscreen available. Sessions close when the tab closes.
 
 ## 6. Batch Execution & File Distribution
 
@@ -86,7 +86,8 @@ Click a host in the asset tree to open a terminal; multiple tabs and per-account
 - **Application monitors**: HTTP(s)/TCP/Ping probes with heartbeat bars + 24h uptime.
 - **Alert rules**: global thresholds (failure duration, recovery notices).
 - **CMD severity alerts**: P1–P4 levels with per-metric thresholds, duration and notification channels.
-- **Maintenance windows**: planned downtime excluded from uptime and alerting.
+- **Maintenance windows**: planned downtime excluded from uptime and alerting; a live banner shows whether a window is in effect right now; changes are audited with current-config/superseded tags (admins can delete or clear records).
+- **AI Diagnostics** (admin tab): on disk/mem/cpu alerts the host state is gathered automatically (SSH for Linux, WinRM for Windows) and analyzed by AI, with the full analysis pushed to the channels bound to that level; app-monitor downtime triggers server-side network probes (DNS / TCP / HTTP certificate / ping), appending SSH gather when the target matches a managed host, delivered to the monitor's channels. Effective levels/metrics, cooldown and the diagnosis prompt are configurable; disk alerts may run admin-defined controlled cleanup commands (verbatim, no AI-generated commands, fully audited).
 - **Notification channels**: Email/Webhook/WeCom/DingTalk/Feishu/Telegram with test send and template editing.
 
 ## 9. Log Search
@@ -102,12 +103,12 @@ Requires the OpenObserve integration (System Admin → Observability).
 ## 10. AI Capabilities
 
 - **AI Assistant**: floating chat (bottom right). Ask ops questions; alert-triggered analyses automatically include host context.
-- **Alert diagnostics** (admin-enabled): when a disk/mem/cpu alert fires, system state is gathered over SSH and analyzed by AI; the full analysis is pushed through the bound notification channels.
-- **Controlled disk cleanup** (optional): on disk alerts, admin-predefined cleanup commands run verbatim — the AI never generates commands. Manage the catalog under System Admin → Observability.
+- **Alert diagnostics** (admin-enabled): configured under Monitoring → AI Diagnostics. Host alerts gather state automatically (SSH for Linux, WinRM for Windows) and are analyzed by AI, with the full analysis pushed through the bound channels; app-monitor downtime triggers server-side network probes delivered to the monitor's channels.
+- **Controlled disk cleanup** (optional): on disk alerts, admin-predefined cleanup commands run verbatim — the AI never generates commands. The catalog lives under Monitoring → AI Diagnostics; Linux hosts only.
 
 ## 11. RDP Remote Desktop
 
-Click **RDP** on a Windows host row to open an in-browser remote desktop (no mstsc needed). Requires the server-side guacd + rdp-gateway components. Credentials are exchanged via a one-time encrypted token; the browser never sees plaintext.
+Click **RDP** on a Windows host row to open an in-browser remote desktop in the same tab (no mstsc; the Windows host menu offers RDP only). The desktop scales to fit the window and the remote resolution follows the container size; the Close button disconnects and returns to the hosts page. Requires the server-side guacd + rdp-gateway components. Credentials are exchanged via a one-time encrypted token; the browser never sees plaintext.
 
 ## 12. K8S Cluster Management
 
