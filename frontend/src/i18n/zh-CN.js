@@ -560,6 +560,8 @@ export default {
     chTemplate: '通知模板',
     chTemplatePlaceholder: '{level} {host} {ip} {metric} {value} {threshold} {time}（留空使用默认模板）',
     cmdLevelsTip: '任一指标越过某级阈值即进入该级（取最严重级），持续满「持续时长」后向该级绑定的通道推送；升级/恢复自动播报；阈值 0 表示该指标不参与。通知模板支持占位符，留空使用默认。',
+    tabAiDiag: 'AI 诊断',
+    aiDiagDepTip: 'AI 诊断依赖「系统设置 → AI 助手」中的 AI 连接配置（地址/模型）；AI 未启用时诊断不会执行。',
     tabCmd: 'CMD 监控',
     tabApp: '应用监控',
     tabAlert: 'Alert 配置',

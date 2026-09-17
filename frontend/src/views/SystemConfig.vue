@@ -108,9 +108,7 @@
           <div class="ai-nav-item" :class="{ active: aiTabSection === 'role' }" @click="aiTabSection = 'role'">
             <el-icon><User /></el-icon> {{ $t('ai.navRole') }}
           </div>
-          <div class="ai-nav-item" :class="{ active: aiTabSection === 'diag' }" @click="openDiagSection">
-            <el-icon><WarnTriangleFilled /></el-icon> {{ $t('ai.navDiag') }}
-          </div>
+          <!-- Alert diagnostics moved to Monitoring Center (AI Diagnostics tab) -->
         </div>
         <!-- Right content -->
         <div style="flex:1; min-width:0; padding-left:20px; border-left:1px solid var(--el-border-color-lighter)">
@@ -165,89 +163,11 @@
               </el-form-item>
             </el-form>
           </template>
-          <!-- Alert diagnostics: AI analysis on disk/mem/cpu alerts + controlled disk cleanup -->
-          <template v-if="aiTabSection === 'diag'">
-            <div style="font-weight:600; font-size:15px; margin-bottom:6px">{{ $t('ai.diagTitle') }}</div>
-            <div style="color:var(--el-text-color-secondary); font-size:12px; margin-bottom:14px">{{ $t('ai.diagTip') }}</div>
-            <el-form label-width="130px" style="max-width:560px">
-              <el-form-item :label="$t('ai.diagEnabled')"><el-switch v-model="diagCfg.ai_diag_enabled" active-value="true" inactive-value="false" /></el-form-item>
-              <el-form-item :label="$t('ai.diagLevels')">
-                <el-checkbox-group v-model="diagLevels">
-                  <el-checkbox value="P1">P1</el-checkbox>
-                  <el-checkbox value="P2">P2</el-checkbox>
-                  <el-checkbox value="P3">P3</el-checkbox>
-                  <el-checkbox value="P4">P4</el-checkbox>
-                </el-checkbox-group>
-              </el-form-item>
-              <el-form-item :label="$t('ai.diagMetrics')">
-                <el-checkbox-group v-model="diagMetrics">
-                  <el-checkbox value="disk">{{ $t('monitor.disk') }}</el-checkbox>
-                  <el-checkbox value="cpu">CPU</el-checkbox>
-                  <el-checkbox value="mem">{{ $t('monitor.mem') }}</el-checkbox>
-                </el-checkbox-group>
-              </el-form-item>
-              <el-form-item :label="$t('ai.diagCooldown')">
-                <el-input-number v-model="diagCooldown" :min="0" :max="1440" :step="5" />
-                <span style="margin-left:8px; color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.diagCooldownUnit') }}</span>
-              </el-form-item>
-              <el-form-item :label="$t('ai.diagPrompt')">
-                <el-input v-model="diagPrompt" type="textarea" :rows="5" class="mono"
-                          :placeholder="$t('ai.diagPromptPlaceholder')" />
-                <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:4px">{{ $t('ai.diagPromptTip') }}</div>
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" :loading="diagSaving" @click="saveDiagCfg">{{ $t('common.save') }}</el-button>
-              </el-form-item>
-            </el-form>
-
-            <el-divider style="margin:14px 0" />
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
-              <span style="font-weight:600">{{ $t('ai.cleanupTitle') }}</span>
-              <span style="flex:1"></span>
-              <el-button size="small" @click="cleanupDlg()">{{ $t('ai.cleanupAdd') }}</el-button>
-            </div>
-            <el-table :data="cleanupItems" size="small" border>
-              <el-table-column prop="name" :label="$t('ai.cleanupName')" width="180" />
-              <el-table-column prop="command" :label="$t('ai.cleanupCommand')" min-width="240">
-                <template #default="{ row }"><span class="mono">{{ row.command }}</span></template>
-              </el-table-column>
-              <el-table-column :label="$t('oa.enabledCol')" width="80" align="center">
-                <template #default="{ row }"><el-switch v-model="row.enabled" /></template>
-              </el-table-column>
-              <el-table-column :label="$t('common.actions')" width="120" fixed="right">
-                <template #default="{ row }">
-                  <el-button size="small" link type="primary" @click="cleanupDlg(row)">{{ $t('common.edit') }}</el-button>
-                  <el-button size="small" link type="danger" @click="cleanupDel(row.id)">{{ $t('common.delete') }}</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-            <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:8px">{{ $t('ai.cleanupTip') }}</div>
-          </template>
+          <!-- Alert diagnostics (config + cleanup catalog) moved to Monitoring Center → AI Diagnostics tab -->
         </div>
       </div>
     </el-card>
     </el-tab-pane>
-
-    <!-- cleanup command dialog -->
-    <el-dialog v-model="cleanupDlgVisible" :title="cleanupForm.id ? $t('ai.cleanupEdit') : $t('ai.cleanupAdd')" width="520px">
-      <el-form label-width="90px">
-        <el-form-item :label="$t('ai.cleanupName')" required>
-          <el-input v-model="cleanupForm.name" placeholder="清理 /tmp 7 天未访问文件" />
-        </el-form-item>
-        <el-form-item :label="$t('ai.cleanupCommand')" required>
-          <el-input v-model="cleanupForm.command" type="textarea" :rows="2" class="mono"
-                    placeholder="find /tmp -xdev -type f -atime +7 -delete" />
-          <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:4px">{{ $t('ai.cleanupCommandTip') }}</div>
-        </el-form-item>
-        <el-form-item :label="$t('oa.enabledCol')">
-          <el-switch v-model="cleanupForm.enabled" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="cleanupDlgVisible = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="cleanupSaving" @click="cleanupSave">{{ $t('common.save') }}</el-button>
-      </template>
-    </el-dialog>
 
     <el-tab-pane :label="$t('oo.tab')" name="oo">
     <el-card>
@@ -804,69 +724,7 @@ const aiSystemPromptEdit = computed({
   set: v => { if (currentAiRole.value) currentAiRole.value.prompt = v }
 })
 
-// ---- AI alert diagnostics + cleanup catalog ----
-const diagCfg = ref({ ai_diag_enabled: 'false', ai_diag_levels: 'P1,P2', ai_diag_metrics: 'disk', ai_diag_cooldown_min: '30' })
-const diagLevels = ref(['P1', 'P2'])
-const diagMetrics = ref(['disk'])
-const diagCooldown = ref(30)
-const diagSaving = ref(false)
-const diagPrompt = ref('')
-const cleanupItems = ref([])
-const cleanupDlgVisible = ref(false)
-const cleanupSaving = ref(false)
-const cleanupForm = ref({})
-
-const loadDiagCfg = async () => {
-  try {
-    const cfg = await api.get('/system/ai/diag/config')
-    diagCfg.value = { ...diagCfg.value, ...cfg }
-    diagLevels.value = (cfg.ai_diag_levels || '').split(',').map(x => x.trim()).filter(Boolean)
-    diagMetrics.value = (cfg.ai_diag_metrics || '').split(',').map(x => x.trim()).filter(Boolean)
-    diagCooldown.value = Number(cfg.ai_diag_cooldown_min) || 30
-    diagPrompt.value = cfg.ai_diag_prompt || ''
-    cleanupItems.value = await api.get('/system/ai/diag/cleanup') || []
-  } catch { /* ignore */ }
-}
-
-const saveDiagCfg = async () => {
-  diagSaving.value = true
-  try {
-    await api.put('/system/ai/diag/config', {
-      ai_diag_enabled: diagCfg.value.ai_diag_enabled,
-      ai_diag_levels: diagLevels.value.join(','),
-      ai_diag_metrics: diagMetrics.value.join(','),
-      ai_diag_cooldown_min: String(diagCooldown.value),
-      ai_diag_prompt: diagPrompt.value,
-    })
-    ElMessage.success(t('system.saved'))
-  } catch { /* interceptor shows the error */ } finally { diagSaving.value = false }
-}
-
-const openDiagSection = () => { aiTabSection.value = 'diag'; loadDiagCfg() }
-
-const cleanupDlg = row => {
-  cleanupForm.value = row ? { ...row } : { id: '', name: '', command: '', enabled: true }
-  cleanupDlgVisible.value = true
-}
-
-const cleanupSave = async () => {
-  cleanupSaving.value = true
-  try {
-    const list = cleanupItems.value.filter(x => x.id !== cleanupForm.value.id)
-    list.push({ ...cleanupForm.value })
-    await api.post('/system/ai/diag/cleanup', list)
-    ElMessage.success(t('system.saved'))
-    cleanupDlgVisible.value = false
-    cleanupItems.value = await api.get('/system/ai/diag/cleanup') || []
-  } catch { /* interceptor shows the error */ } finally { cleanupSaving.value = false }
-}
-
-const cleanupDel = async id => {
-  try {
-    await api.delete(`/system/ai/diag/cleanup/${encodeURIComponent(id)}`)
-    cleanupItems.value = cleanupItems.value.filter(x => x.id !== id)
-  } catch { /* interceptor shows the error */ }
-}
+// ---- AI alert diagnostics + cleanup catalog: moved to Monitoring Center (Monitor.vue AI Diagnostics tab) ----
 
 const loadAiRoles = async () => {
   try {

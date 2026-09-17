@@ -559,6 +559,8 @@ export default {
     chTemplate: 'Template',
     chTemplatePlaceholder: '{level} {host} {ip} {metric} {value} {threshold} {time} (empty = default template)',
     cmdLevelsTip: 'A level is entered when any metric crosses its threshold (most severe wins); after the duration elapses the alert goes to the channels bound to that level. Escalation and recovery are announced automatically. 0 disables a metric. Templates support the listed placeholders; empty = default.',
+    tabAiDiag: 'AI Diagnostics',
+    aiDiagDepTip: 'AI diagnostics depend on the AI connection settings (URL/model) under System Settings → AI Assistant; diagnostics do not run while AI is disabled.',
     tabCmd: 'CMD Monitoring',
     tabApp: 'Application Monitors',
     tabAlert: 'Alert Configuration',
