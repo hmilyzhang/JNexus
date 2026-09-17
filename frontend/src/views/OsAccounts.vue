@@ -147,8 +147,17 @@
     <!-- Batch add accounts -->
     <el-dialog v-model="batchVisible" :title="$t('hosts.credBatch')" width="640px" @open="loadTpls">
       <el-form label-width="110px">
+        <el-form-item :label="$t('hosts.batchByGroup')">
+          <div style="width:100%">
+            <el-select v-model="batchGroups" multiple filterable clearable :max-collapse-tags="2" collapse-tags
+                       style="width:100%" :placeholder="$t('hosts.batchByGroupPh')" @change="onBatchGroups">
+              <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+            </el-select>
+            <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('hosts.batchByGroupTip') }}</div>
+          </div>
+        </el-form-item>
         <el-form-item :label="$t('files.targetHosts')">
-          <el-select v-model="batchForm.host_ids" multiple filterable style="width:100%" :max-collapse-tags="2" collapse-tags>
+          <el-select v-model="batchForm.host_ids" multiple filterable clearable style="width:100%" :max-collapse-tags="2" collapse-tags>
             <el-option v-for="h in hosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
           </el-select>
         </el-form-item>
@@ -259,7 +268,28 @@ const batchMulti = ref(false)
 const batchAccounts = ref([])
 const batchTpl = ref(null)
 const tpls = ref([])
+const groups = ref([])
+const batchGroups = ref([])
 const onBatchMode = () => { /* keeps entered values when switching modes */ }
+
+// Batch group selection: expand the chosen groups (incl. all descendant groups,
+// same cascade as batch execution) and merge their hosts into the target list
+const onBatchGroups = () => {
+  if (!batchGroups.value.length) return
+  const gset = new Set(batchGroups.value)
+  let changed = true
+  while (changed) { // cascade down the multi-level tree
+    changed = false
+    for (const g of groups.value) {
+      if (g.parent_id && gset.has(g.parent_id) && !gset.has(g.id)) { gset.add(g.id); changed = true }
+    }
+  }
+  const ids = new Set(batchForm.value.host_ids)
+  for (const h of hosts.value) {
+    if (h.group_id && gset.has(h.group_id)) ids.add(h.id)
+  }
+  batchForm.value.host_ids = [...ids]
+}
 
 // Apply a credential template: fills single-account fields or appends one account entry
 const applyBatchTpl = async tplId => {
@@ -320,8 +350,9 @@ const load = async () => {
 }
 
 const loadBase = async () => {
-  hosts.value = await api.get('/hosts')
-  keys.value = await api.get('/ssh_keys')
+    hosts.value = await api.get('/hosts')
+    keys.value = await api.get('/ssh_keys')
+    api.get('/host_groups').then(gs => { groups.value = gs || [] }).catch(() => { groups.value = [] })
 }
 
 onMounted(async () => {
@@ -429,9 +460,11 @@ const openBatch = async () => {
     batchMulti.value = false
     batchAccounts.value = []
     batchTpl.value = null
+    batchGroups.value = []
     batchVisible.value = true
     return
   }
+  batchGroups.value = []
   batchForm.value.host_ids = [...new Set(sel.map(r => r.host_id).filter(Boolean))]
   batchMulti.value = true
   batchAccounts.value = sel.map(r => ({ username: r.username, password: '', label: r.label || r.username, is_ldap: !!r.is_ldap }))
