@@ -5,7 +5,6 @@ import { useUserStore } from './store'
 const routes = [
   { path: '/login', name: 'login', component: () => import('./views/Login.vue'), meta: { public: true } },
   { path: '/k8s/manage/:id', name: 'k8s-manage', component: () => import('./views/K8sManage.vue'), meta: { title: 'k8s.title' } },
-  { path: '/rdp', name: 'rdp', component: () => import('./views/RdpClient.vue'), meta: { public: true } },
   { path: '/screen', name: 'screen', component: () => import('./views/Screen.vue'), meta: { title: 'monitor.bigScreen' } },
   {
     path: '/',
@@ -17,6 +16,7 @@ const routes = [
       { path: 'k8s', name: 'k8s', component: () => import('./views/K8sClusters.vue'), meta: { title: 'k8s.title', icon: 'Grid' } },
       { path: 'k8s/exec', name: 'k8s-exec', component: () => import('./views/K8sExecShell.vue'), meta: { title: 'k8s.title' } },
       { path: 'shell', name: 'shell', component: () => import('./views/ShellWorkspace.vue'), meta: { title: 'shell.title', icon: 'Terminal' } },
+      { path: 'rdp', name: 'rdp', component: () => import('./views/RdpClient.vue'), meta: { title: 'hosts.rdp' } },
       { path: 'hosts', name: 'hosts', component: () => import('./views/Hosts.vue'), meta: { title: 'menu.hosts', icon: 'Monitor' } },
       { path: 'os-accounts', name: 'os-accounts', component: () => import('./views/OsAccounts.vue'), meta: { title: 'menu.osaccounts', icon: 'Avatar' } },
       { path: 'exec', name: 'exec', component: () => import('./views/Exec.vue'), meta: { title: 'menu.exec', icon: 'Promotion' } },
@@ -70,7 +70,7 @@ router.beforeEach(async to => {
       // Route name to role menu key mapping differences (crons→cron, os-accounts→osaccounts)
       const nameToKey = { crons: 'cron', 'os-accounts': 'osaccounts' }
       const key = nameToKey[to.name] || to.name
-      const alwaysAllowed = ['dashboard', 'profile', 'k8s-exec', 'k8s-manage', 'shell', 'login']
+      const alwaysAllowed = ['dashboard', 'profile', 'k8s-exec', 'k8s-manage', 'shell', 'login', 'rdp']
       if (!allowed.has(key) && !alwaysAllowed.includes(to.name)) {
         return '/dashboard'
       }

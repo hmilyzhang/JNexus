@@ -146,6 +146,7 @@ export default {
     kerberosTip: 'Recommended for domain environments (CIS-compliant): account in user{\'@\'}REALM form, target needs WinRM HTTPS (5986) with an enterprise certificate, server must read krb5.conf; realm comes from the UPN suffix or the winrm_krb5_realm setting',
     spn: 'SPN',
     rdp: 'Remote Desktop',
+    rdpClose: 'Close',
     uncategorized: 'Uncategorized',
     hostCount: '{n} hosts',
     editHost: 'Edit Host',
