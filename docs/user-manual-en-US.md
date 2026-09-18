@@ -102,7 +102,7 @@ Requires the OpenObserve integration (System Admin → Observability).
 
 ## 10. AI Capabilities
 
-- **AI Assistant**: floating chat (bottom right). Ask ops questions; alert-triggered analyses automatically include host context.
+- **AI Assistant**: floating chat (bottom right). Ask ops questions; every question automatically carries a **live platform snapshot** (unrecovered alert events, app monitors currently down, offline hosts), so questions like "what active alerts do we have?" get real answers; page awareness injects the module context. Reasoning-model `<think>` chains are stripped automatically and never shown.
 - **Alert diagnostics** (admin-enabled): configured under Monitoring → AI Diagnostics. Host alerts gather state automatically (SSH for Linux, WinRM for Windows) and are analyzed by AI, with the full analysis pushed through the bound channels; app-monitor downtime triggers server-side network probes delivered to the monitor's channels.
 - **Controlled disk cleanup** (optional): on disk alerts, admin-predefined cleanup commands run verbatim — the AI never generates commands. The catalog lives under Monitoring → AI Diagnostics; Linux hosts only.
 

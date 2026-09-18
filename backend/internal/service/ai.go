@@ -96,5 +96,22 @@ func AIChat(s AISettings, systemPrompt, userPrompt string) (string, error) {
 	if len(out.Choices) == 0 || strings.TrimSpace(out.Choices[0].Message.Content) == "" {
 		return "", fmt.Errorf("AI service returned an empty reply")
 	}
-	return strings.TrimSpace(out.Choices[0].Message.Content), nil
+	return stripThink(strings.TrimSpace(out.Choices[0].Message.Content)), nil
+}
+
+// stripThink removes reasoning-model <think>...</think> chains of thought from
+// the reply (an unclosed <think> prefix drops everything after it) so the
+// reasoning never reaches the chat UI or diagnostic reports.
+func stripThink(s string) string {
+	for {
+		i := strings.Index(s, "<think>")
+		if i < 0 {
+			return strings.TrimSpace(s)
+		}
+		j := strings.Index(s[i:], "</think>")
+		if j < 0 {
+			return strings.TrimSpace(s[:i])
+		}
+		s = s[:i] + s[i+j+len("</think>"):]
+	}
 }

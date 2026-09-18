@@ -3,12 +3,14 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"jnexus/internal/model"
 	"jnexus/internal/service"
 )
 
@@ -167,6 +169,12 @@ func AIChat(c *gin.Context) {
 	if desc, ok := pageContexts[req.Page]; ok {
 		systemP += "\n\n[用户当前所在页面] " + desc
 	}
+	// Live system snapshot: lets the assistant answer questions about the
+	// current state (active alerts, down monitors, offline hosts) from real
+	// platform data instead of guessing about external monitoring tools
+	if snap := liveSystemSnapshot(); snap != "" {
+		systemP += "\n\n[当前系统实时状态]\n" + snap
+	}
 
 	start := time.Now()
 	reply, err := service.AIChat(s, systemP, strings.TrimSpace(req.Prompt))
@@ -192,4 +200,54 @@ func AITest(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true, "reply": reply, "elapsed_ms": elapsed})
+}
+
+// liveSystemSnapshot builds a compact real-time state summary for the AI
+// assistant: unrecovered (active) alert events, application monitors currently
+// down, and offline hosts. Best-effort: on any query error the section is skipped.
+func liveSystemSnapshot() string {
+	var b strings.Builder
+
+	var evs []model.AlertEvent
+	if model.DB.Where("recovered_at IS NULL").Order("fired_at DESC").Limit(20).Find(&evs).Error == nil {
+		b.WriteString(fmt.Sprintf("未恢复告警事件（active）: %d 条", len(evs)))
+		for _, e := range evs {
+			b.WriteString(fmt.Sprintf("\n- [%s][%s] %s: %s（%s）",
+				e.Level, e.Kind, e.Target, truncateRunes(e.Message, 120),
+				e.FiredAt.Format("01-02 15:04")))
+		}
+		b.WriteString("\n")
+	}
+
+	var downs []model.Monitor
+	if model.DB.Where("enabled = ? AND last_status = ?", true, "down").Find(&downs).Error == nil {
+		b.WriteString(fmt.Sprintf("应用监控当前宕机: %d 个", len(downs)))
+		for _, m := range downs {
+			b.WriteString(fmt.Sprintf("\n- %s（%s %s）", m.Name, m.Type, m.Target))
+		}
+		b.WriteString("\n")
+	}
+
+	var hosts []model.Host
+	if model.DB.Where("status = ?", "offline").Find(&hosts).Error == nil && len(hosts) > 0 {
+		b.WriteString(fmt.Sprintf("离线主机: %d 台", len(hosts)))
+		for i, h := range hosts {
+			if i >= 15 {
+				b.WriteString(fmt.Sprintf("\n- …等共 %d 台", len(hosts)))
+				break
+			}
+			b.WriteString(fmt.Sprintf("\n- %s（%s）", h.Name, h.IP))
+		}
+		b.WriteString("\n")
+	}
+
+	return strings.TrimSpace(b.String())
+}
+
+func truncateRunes(s string, n int) string {
+	r := []rune(strings.TrimSpace(s))
+	if len(r) <= n {
+		return string(r)
+	}
+	return string(r[:n]) + "…"
 }
