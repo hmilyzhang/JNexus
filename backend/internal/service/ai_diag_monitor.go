@@ -289,10 +289,11 @@ func aiDiagMonitorAnalyze(ai AISettings, m *model.Monitor, errMsg string, respMs
 	if sys == "" {
 		sys = aiDiagDefaultPrompt
 	}
-	user := fmt.Sprintf("应用监控故障告警: 监控项=%s 类型=%s 目标=%s 最近错误=%s 响应=%dms\n\n网络探测结果:\n%s",
+	sys += AISecurityGuard
+	user := fmt.Sprintf("应用监控故障告警: 监控项=%s 类型=%s 目标=%s 最近错误=%s 响应=%dms\n\n<<<UNTRUSTED_MACHINE_OUTPUT 开始>>>\n网络探测结果:\n%s\n<<<UNTRUSTED_MACHINE_OUTPUT 结束>>>",
 		m.Name, m.Type, monitorTargetText(m), errMsg, respMs, probe)
 	if hostState != "" {
-		user += "\n\n" + hostState
+		user += "\n\n<<<UNTRUSTED_MACHINE_OUTPUT 开始>>>\n" + hostState + "\n<<<UNTRUSTED_MACHINE_OUTPUT 结束>>>"
 	}
 	return AIChat(ai, sys, user)
 }

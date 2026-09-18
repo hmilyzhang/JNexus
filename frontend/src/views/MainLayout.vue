@@ -120,7 +120,7 @@
 
   <!-- Site-wide floating AI assistant -->
   <transition name="ai-fade">
-    <div v-if="aiOpen" class="ai-panel" :style="{ width: aiSize.w + 'px', height: aiSize.h + 'px' }">
+    <div v-if="aiOpen && aiChatAllowed" class="ai-panel" :style="{ width: aiSize.w + 'px', height: aiSize.h + 'px' }">
       <!-- resize handles: drag left edge / top edge to enlarge -->
       <div class="ai-resize-x" @mousedown="startResizeAI($event, 'x')"></div>
       <div class="ai-resize-y" @mousedown="startResizeAI($event, 'y')"></div>
@@ -152,7 +152,7 @@
     </div>
   </transition>
   <transition name="ai-fade">
-    <div v-if="!aiOpen" class="ai-fab" @click="aiOpen = true" :title="$t('ai.assistantTitle')">
+    <div v-if="!aiOpen && aiChatAllowed" class="ai-fab" @click="aiOpen = true" :title="$t('ai.assistantTitle')">
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         <circle cx="9" cy="10" r="0.5" fill="currentColor"/>
@@ -244,6 +244,15 @@ const onMenuSelect = index => {
   }
 }
 
+// AI assistant entry: only for roles granted the ai:chat capability
+// (default: admin/ops/publisher/k8s; viewer/auditor excluded)
+const aiChatAllowed = computed(() => {
+  if (store.isAdmin) return true
+  const conf = roleSettings.value[store.role]
+  const perms = conf?.perms || {}
+  return (perms.ai || []).includes('chat')
+})
+
 const menus = computed(() => {
   const visible = list => list.filter(m => m.key !== 'observe' || ooEnabled.value)
   if (store.isAdmin) return visible(menuItems)
@@ -304,6 +313,13 @@ const aiInput = ref('')
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 marked.setOptions({ breaks: true, gfm: true })
+// AI replies may contain links (possibly injected): harden them
+DOMPurify.addHook('afterSanitizeAttributes', node => {
+  if (node.tagName === 'A') {
+    node.setAttribute('rel', 'noopener noreferrer nofollow')
+    node.setAttribute('target', '_blank')
+  }
+})
 const renderMd = t => DOMPurify.sanitize(marked.parse(t || ''))
 
 // ---- AI panel resizable (drag left edge / top edge; persisted) ----

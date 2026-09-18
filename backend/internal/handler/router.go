@@ -64,7 +64,7 @@ func SetupRouter() *gin.Engine {
 		auth.POST("/change_password", ChangePassword)
 
 		// AI assistant: chat (any logged-in user) + role list (readable when logged in) + role save (admin)
-		auth.POST("/ai/chat", AIChat)
+		auth.POST("/ai/chat", middleware.RequireCap("ai", "chat"), AIChat)
 		auth.GET("/ai/roles", GetAIRoles)
 		auth.POST("/ai/roles", middleware.RequireRole(model.RoleAdmin), UpdateAIRoles)
 

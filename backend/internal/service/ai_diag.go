@@ -246,7 +246,10 @@ func aiDiagAnalyze(ai AISettings, h *model.Host, level, metric string, value, th
 	if sys == "" {
 		sys = aiDiagDefaultPrompt
 	}
-	user := fmt.Sprintf("告警: 等级=%s 主机=%s(%s) 指标=%s 当前值=%.1f%% 阈值=%.1f%%\n\n系统状态:\n%s",
+	sys += AISecurityGuard
+	// gathered machine output is untrusted: wrap it so embedded text cannot
+	// act as instructions (indirect prompt injection)
+	user := fmt.Sprintf("告警: 等级=%s 主机=%s(%s) 指标=%s 当前值=%.1f%% 阈值=%.1f%%\n\n<<<UNTRUSTED_MACHINE_OUTPUT 开始>>>\n%s\n<<<UNTRUSTED_MACHINE_OUTPUT 结束>>>",
 		level, h.Name, h.IP, metric, value, threshold, diag)
 	return AIChat(ai, sys, user)
 }

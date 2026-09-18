@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -153,6 +154,11 @@ func AIChat(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "prompt is required"})
 		return
 	}
+	// per-user rate limit first: abuse/cost protection for the AI backend
+	if aiChatLimited(currentUser(c).ID) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "AI 请求过于频繁（每用户每小时 30 条），请稍后再试"})
+		return
+	}
 	s := service.LoadAISettings()
 	if !s.Enabled {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "AI is not enabled (System Settings → AI Assistant)"})
@@ -172,9 +178,11 @@ func AIChat(c *gin.Context) {
 	// Live system snapshot: lets the assistant answer questions about the
 	// current state (active alerts, down monitors, offline hosts) from real
 	// platform data instead of guessing about external monitoring tools
-	if snap := liveSystemSnapshot(); snap != "" {
+	if snap := liveSystemSnapshot(currentUser(c)); snap != "" {
 		systemP += "\n\n[当前系统实时状态]\n" + snap
 	}
+	// prompt-injection hardening, applied to every request
+	systemP += service.AISecurityGuard
 
 	start := time.Now()
 	reply, err := service.AIChat(s, systemP, strings.TrimSpace(req.Prompt))
@@ -202,10 +210,37 @@ func AITest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "reply": reply, "elapsed_ms": elapsed})
 }
 
+// per-user sliding-window rate limit for AI chat
+var aiChatMu sync.Mutex
+var aiChatHits = map[uint][]time.Time{}
+
+const aiChatLimit = 30
+const aiChatWindow = time.Hour
+
+func aiChatLimited(userID uint) bool {
+	aiChatMu.Lock()
+	defer aiChatMu.Unlock()
+	now := time.Now()
+	hits := aiChatHits[userID][:0]
+	for _, t := range aiChatHits[userID] {
+		if now.Sub(t) < aiChatWindow {
+			hits = append(hits, t)
+		}
+	}
+	if len(hits) >= aiChatLimit {
+		aiChatHits[userID] = hits
+		return true
+	}
+	aiChatHits[userID] = append(hits, now)
+	return false
+}
+
 // liveSystemSnapshot builds a compact real-time state summary for the AI
 // assistant: unrecovered (active) alert events, application monitors currently
-// down, and offline hosts. Best-effort: on any query error the section is skipped.
-func liveSystemSnapshot() string {
+// down, and offline hosts. Offline host details are filtered by the caller's
+// host permissions: users without exec rights on a host only see counts.
+// Best-effort: on any query error the section is skipped.
+func liveSystemSnapshot(u *model.User) string {
 	var b strings.Builder
 
 	var evs []model.AlertEvent
@@ -230,13 +265,23 @@ func liveSystemSnapshot() string {
 
 	var hosts []model.Host
 	if model.DB.Where("status = ?", "offline").Find(&hosts).Error == nil && len(hosts) > 0 {
-		b.WriteString(fmt.Sprintf("离线主机: %d 台", len(hosts)))
-		for i, h := range hosts {
+		// data-permission guard: host details only for hosts the user may execute on
+		var visible []string
+		for _, h := range hosts {
+			if service.CanExecHost(u, h.ID, h.GroupID) {
+				visible = append(visible, fmt.Sprintf("%s（%s）", h.Name, h.IP))
+			}
+		}
+		b.WriteString(fmt.Sprintf("离线主机: 共 %d 台", len(hosts)))
+		if len(visible) == 0 {
+			b.WriteString("（你无可见主机明细权限）")
+		}
+		for i, name := range visible {
 			if i >= 15 {
-				b.WriteString(fmt.Sprintf("\n- …等共 %d 台", len(hosts)))
+				b.WriteString(fmt.Sprintf("\n- …等共 %d 台", len(visible)))
 				break
 			}
-			b.WriteString(fmt.Sprintf("\n- %s（%s）", h.Name, h.IP))
+			b.WriteString("\n- " + name)
 		}
 		b.WriteString("\n")
 	}

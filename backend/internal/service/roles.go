@@ -51,6 +51,14 @@ func DefaultRoleSettings() map[string]RolePerm {
 		model.RoleAuditor:   mk("执行记录与审计日志查看", []string{"dashboard", "tasks", "audit", "reports", "observe"}, true, false, false, false, false, true),
 		model.RoleK8s:       mk("K8S 集群运维（Pod/计划任务/服务账号）", []string{"dashboard", "k8s"}, true, false, false, false, false, false),
 	}
+	// AI chat: granted to operational roles by default; viewer/auditor (read-only) excluded
+	for role, rp := range out {
+		if role == model.RoleViewer || role == model.RoleAuditor {
+			continue
+		}
+		rp.Perms = map[string][]string{"ai": {"chat"}}
+		out[role] = rp
+	}
 	// K8S permissions: admin view+manage; ops view only
 	a := out[model.RoleAdmin]
 	a.K8sView, a.K8sManage = true, true
@@ -70,11 +78,11 @@ func GetRoleSettings() map[string]RolePerm {
 	if err := model.DB.Where("key = ?", roleSettingsKey).First(&sc).Error; err != nil || sc.Value == "" {
 		def := DefaultRoleSettings()
 		SetRoleSettings(def)
-		return def
+		return withAIGrants(def)
 	}
 	out := map[string]RolePerm{}
 	if err := json.Unmarshal([]byte(sc.Value), &out); err != nil {
-		return DefaultRoleSettings()
+		return withAIGrants(DefaultRoleSettings())
 	}
 	// fill in defaults for newly added roles; backfill the cred field with defaults for stored configs missing it (avoiding silent permission loss on old data)
 	def := DefaultRoleSettings()
@@ -103,6 +111,17 @@ func GetRoleSettings() map[string]RolePerm {
 		// Unified capability bit backfill: migrate once from legacy fields when stored config has no Perms
 		if len(rp.Perms) == 0 {
 			rp.Perms = legacyToPerms(role, rp)
+		}
+		// AI chat default grants: ops/publisher/k8s get ai:chat (viewer/auditor excluded).
+		// Runs only while the stored config has no explicit "ai" entry; once the role
+		// matrix is saved, the stored Perms control completely.
+		if !strings.Contains(sc.Value, `"ai"`) {
+			switch role {
+			case model.RoleOps, model.RolePublisher, model.RoleK8s:
+				rp.Perms["ai"] = []string{"chat"}
+			case model.RoleViewer, model.RoleAuditor:
+				rp.Perms["ai"] = []string{}
+			}
 		}
 		// auto-add new menus to admin/ops/auditor (admin always sees everything)
 		if role == model.RoleAdmin || role == model.RoleOps || role == model.RoleAuditor {
@@ -133,6 +152,30 @@ func GetRoleSettings() map[string]RolePerm {
 					rp.Menus = append(rp.Menus, nm)
 				}
 			}
+		}
+		out[role] = rp
+	}
+	return withAIGrants(out)
+}
+
+// withAIGrants applies in-memory-only default AI chat grants: ops/publisher/k8s
+// get ai:chat; viewer/auditor stay excluded. Runs while the stored roles config
+// has no explicit "ai" entry — once the role matrix is saved, the stored Perms
+// control completely. Never persisted, so the legacy permission migration
+// (which keys off empty Perms) is unaffected.
+func withAIGrants(out map[string]RolePerm) map[string]RolePerm {
+	for role, rp := range out {
+		if _, has := rp.Perms["ai"]; has {
+			continue
+		}
+		if rp.Perms == nil {
+			rp.Perms = map[string][]string{}
+		}
+		switch role {
+		case model.RoleOps, model.RolePublisher, model.RoleK8s:
+			rp.Perms["ai"] = []string{"chat"}
+		default:
+			rp.Perms["ai"] = []string{}
 		}
 		out[role] = rp
 	}
