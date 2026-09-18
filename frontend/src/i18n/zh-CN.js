@@ -146,6 +146,8 @@ export default {
     kerberosTip: '域环境推荐（CIS 合规）：账号使用 user{\'@\'}REALM 格式，目标机需配置 WinRM HTTPS(5986) 与企业证书，服务器需可读取 krb5.conf；Realm 取自账号 UPN 后缀或系统配置 winrm_krb5_realm',
     spn: 'SPN',
     rdp: '远程桌面',
+    tplOverride: '已选账号模板；输入密码则覆盖模板密码',
+    needPwdOrTpl: '密码认证：请输入密码或选择账号模板',
     rdpClose: '关闭',
     uncategorized: '未分组',
     hostCount: '{n} 台主机',

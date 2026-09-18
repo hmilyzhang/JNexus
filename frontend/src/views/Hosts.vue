@@ -137,14 +137,16 @@
                      :label="`${tp.username}${tp.is_ldap ? ' (AD)' : ''} · ${tp.label}`" />
         </el-select>
       </el-form-item>
-      <el-form-item :label="$t('hosts.password')" v-else>
-        <el-input v-model="hostForm.password" type="password" show-password :disabled="!!hostForm.template_id"
-                  :placeholder="hostForm.id ? $t('hosts.passwordKeep') : (hostForm.template_id ? $t('hosts.tplInUse') : '')" />
-        <el-checkbox v-if="!hostForm.id" v-model="hostForm.auto_pair" style="margin-top:4px">
-          {{ $t('hosts.autoPair') }}
-        </el-checkbox>
-        <div v-if="!hostForm.id && hostForm.auto_pair" style="color:#909399; font-size:12px; line-height:1.5">
-          {{ $t('hosts.autoPairTip') }}
+      <el-form-item :label="$t('hosts.password')">
+        <div style="width:100%">
+          <el-input v-model="hostForm.password" type="password" show-password autocomplete="new-password"
+                    :placeholder="hostForm.id ? $t('hosts.passwordKeep') : (hostForm.template_id ? $t('hosts.tplOverride') : '')" />
+          <el-checkbox v-if="!hostForm.id" v-model="hostForm.auto_pair" style="margin-top:4px">
+            {{ $t('hosts.autoPair') }}
+          </el-checkbox>
+          <div v-if="!hostForm.id && hostForm.auto_pair" style="color:#909399; font-size:12px; line-height:1.5">
+            {{ $t('hosts.autoPairTip') }}
+          </div>
         </div>
       </el-form-item>
       <el-form-item :label="$t('hosts.group')">
@@ -177,7 +179,7 @@
       <el-form-item :label="$t('hosts.commonPassword')">
         <el-input v-model="importForm.password" type="password" show-password autocomplete="new-password"
                   :disabled="!!importForm.template_id"
-                  :placeholder="importForm.template_id ? $t('hosts.tplInUse') : $t('hosts.commonPasswordPlaceholder')" />
+                  :placeholder="importForm.template_id ? $t('hosts.tplOverride') : $t('hosts.commonPasswordPlaceholder')" />
       </el-form-item>
       <el-form-item :label="$t('hosts.credLabel')">
         <el-input v-model="importForm.credential_label" :placeholder="$t('hosts.credLabelPlaceholder')" />
@@ -625,6 +627,9 @@ const savingHost = ref(false)
 const saveHost = async () => {
   if (!hostForm.value.name || !hostForm.value.ip || !hostForm.value.username) { ElMessage.warning(t('hosts.needNameIpUser')); return }
   if (hostForm.value.auth_type === 'key' && !hostForm.value.ssh_key_id) { ElMessage.warning(t('hosts.needKey')); return }
+  if (!hostForm.value.id && hostForm.value.auth_type === 'password' && !hostForm.value.password && !hostForm.value.template_id) {
+    ElMessage.warning(t('hosts.needPwdOrTpl')); return
+  }
   if (savingHost.value) return // guard against double-click: password auth requires backend SSH pairing, which can take tens of seconds
   savingHost.value = true
   try {

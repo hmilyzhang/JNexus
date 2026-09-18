@@ -220,7 +220,8 @@ func CreateHost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（IP、用户名必填）"})
 		return
 	}
-	// Credential template: inject the template username/password into the request (takes precedence over manual input)
+	// Credential template: fills the username; the template password is used only
+	// when no manual password was typed (a manual password always wins)
 	if req.TemplateID != nil && *req.TemplateID > 0 {
 		tu, tp, isLDAP, terr := resolveTemplatePassword(*req.TemplateID)
 		if terr != nil {
@@ -231,7 +232,9 @@ func CreateHost(c *gin.Context) {
 		if req.AuthType == "" {
 			req.AuthType = "password"
 		}
-		req.Password = tp
+		if strings.TrimSpace(req.Password) == "" {
+			req.Password = tp
+		}
 		_ = isLDAP
 	}
 	if req.Username == "" {
@@ -429,7 +432,8 @@ func ImportHosts(c *gin.Context) {
 	if req.Username == "" {
 		req.Username = "root"
 	}
-	// Credential template: inject the template username/password for the whole batch (takes precedence over the page-level shared password)
+	// Credential template: injects the template username for the whole batch; the
+	// template password applies only when no page-level shared password was typed
 	if req.TemplateID != nil && *req.TemplateID > 0 {
 		tu, tp, _, terr := resolveTemplatePassword(*req.TemplateID)
 		if terr != nil {
@@ -437,7 +441,9 @@ func ImportHosts(c *gin.Context) {
 			return
 		}
 		req.Username = tu
-		req.Password = tp
+		if strings.TrimSpace(req.Password) == "" {
+			req.Password = tp
+		}
 		req.AuthType = "password"
 	}
 
