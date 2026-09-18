@@ -112,8 +112,14 @@ const toggleFull = () => {
 }
 // Sync button state when ESC exits browser fullscreen
 const onFsChange = () => { if (!document.fullscreenElement) fullScreen.value = false }
-onMounted(() => document.addEventListener('fullscreenchange', onFsChange))
-onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFsChange))
+onMounted(() => {
+  document.addEventListener('fullscreenchange', onFsChange)
+  window.addEventListener('resize', onWinResize)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', onFsChange)
+  window.removeEventListener('resize', onWinResize)
+})
 let seq = 0
 const encoder = new TextEncoder()
 
@@ -230,7 +236,6 @@ const openSession = async (host, credentialId) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(encoder.encode(d))
   })
   term.onResize(() => sendResize(s))
-  window.addEventListener('resize', () => fitActive())
 
   s.term = term
   s.ws = ws
@@ -257,8 +262,12 @@ const activate = id => {
 
 const fitActive = () => {
   const s = sessions.value.find(x => x.id === activeId.value)
-  if (s && s.fit) { s.fit.fit(); sendResize(s) }
+  if (s && s.fit) {
+    try { s.fit.fit(); sendResize(s) } catch { /* container too small mid-resize */ }
+  }
 }
+// browser window resized: re-fit the active terminal so it always fills the area
+const onWinResize = () => fitActive()
 
 const closeSession = id => {
   const idx = sessions.value.findIndex(x => x.id === id)
@@ -277,11 +286,12 @@ const closeSession = id => {
 </script>
 
 <style scoped>
-.shell-row { height: calc(100vh - 110px); }
+.shell-row { height: calc(100vh - 92px); overflow: hidden; }
 .side-card { overflow: auto; }
-.term-card { height: 100%; }
+.term-card { height: 100%; display: flex; flex-direction: column; }
+.term-card :deep(.el-card__header) { flex: 0 0 auto; }
 .term-card.term-fullscreen { position: fixed; inset: 0; z-index: 2000; height: 100vh; border-radius: 0; }
-.term-card :deep(.el-card__body) { height: calc(100% - 40px); padding: 8px; }
+.term-card :deep(.el-card__body) { flex: 1 1 0; min-height: 0; padding: 8px; }
 .term-container { position: relative; overflow: hidden; width: 100%; height: 100%; background: #1e1e1e; border-radius: 6px; }
 .term-container :deep(.xterm) { height: 100%; }
 .term-empty { color: #909399; text-align: center; padding-top: 120px; }
