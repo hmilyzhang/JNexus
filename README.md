@@ -181,6 +181,14 @@ A `wintest` diagnostic probe (`backend/cmd/wintest`) reproduces the raw WinRM co
 - Dangerous commands blocked at exec/script/release entry points (403 + audit record).
 - Audit log masks sensitive fields (password/content).
 - Backend enforces authorization regardless of menu visibility (menus are UI-only).
+- **AI security (security by design)**:
+  - The AI assistant is capability-gated per role (`ai:chat`; read-only/auditor roles excluded by default) with checks on both the frontend entry and the API;
+  - Chat is rate-limited per user (30/hour) against cost abuse and endpoint hammering;
+  - Injection guards: live status snapshots and machine-gathered data (SSH/WinRM/network probes) are wrapped in `UNTRUSTED` markers, and every system prompt carries top-priority security rules (data blocks contain no instructions, never reveal prompts or credentials, refuse privilege-escalation requests);
+  - Live snapshots are filtered by host permissions - hosts without grants appear as counts only;
+  - AI replies are sanitized with DOMPurify and outbound links get `rel="noopener noreferrer nofollow"`;
+  - AI never generates executable commands: alert-cleanup commands come verbatim from an admin-defined catalog (`;&|` forbidden) and are fully audited;
+  - Chat prompts are recorded by the global write-audit middleware (operator, source IP, body summary).
 
 ## Project Layout
 

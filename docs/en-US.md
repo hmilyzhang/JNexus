@@ -218,11 +218,17 @@ JNexus reads environment variables first. Keys generated on first boot are persi
 ## 17. RBAC & Security
 
 - **Roles**: built-in `admin / ops / publisher / viewer / auditor`, plus **custom roles**;
-- **Capability model**: 13 modules × per-module actions (e.g. `hosts.view`, `exec.exec`, `releases.rollback`) configured in Role Settings, enforced at both menu and route level;
+- **Capability model**: 14 modules × per-module actions (e.g. `hosts.view`, `exec.exec`, `releases.rollback`, `ai.chat`) configured in Role Settings, enforced at both menu and route level;
 - **MFA**: TOTP two-factor, self-service in the profile page;
 - **LDAP**: corporate directory login with automatic display-name sync;
 - **Audit**: logins, executions, releases, deletions and K8S operations all recorded with actor, IP, resource and result;
 - **Encryption**: host credentials / kubeconfigs AES-encrypted at rest; one-time RDP tokens; signed JWT sessions.
+- **AI security (security by design)**:
+  - AI chat is gated by the `ai.chat` capability (default: admin/ops/publisher/k8s; viewer/auditor excluded), enforced on both the frontend entry and the API route;
+  - Chat is rate-limited per user (30/hour) against cost abuse;
+  - Prompt-injection guards: live status snapshots and machine-gathered data (SSH/WinRM/network probes) are wrapped in `UNTRUSTED` markers, and every system prompt carries top-priority security rules (data blocks contain no instructions, never reveal prompts or credentials, refuse privilege escalation);
+  - Live snapshots are filtered by host permissions - hosts without grants appear as counts only;
+  - The AI never executes commands directly: alert-cleanup commands come verbatim from an admin-defined catalog (`;&|` forbidden) and chat prompts are recorded by the audit middleware.
 
 ## 18. System Administration
 
