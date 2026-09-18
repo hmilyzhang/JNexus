@@ -102,10 +102,15 @@
         </el-radio-group>
       </el-form-item>
       <el-form-item v-if="hostForm.os_type === 'windows'" :label="'WinRM'">
-        <div>
-          <el-input-number v-model="hostForm.winrm_port" :min="1" :max="65535" />
-          <span style="margin-left:16px">RDP</span>
-          <el-input-number v-model="hostForm.rdp_port" :min="1" :max="65535" />
+        <div style="width:100%">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px">
+            <span style="width:40px; flex-shrink:0">端口</span>
+            <el-input-number v-model="hostForm.winrm_port" :min="1" :max="65535" style="flex:1" />
+          </div>
+          <div style="display:flex; align-items:center; gap:10px">
+            <span style="width:40px; flex-shrink:0">RDP</span>
+            <el-input-number v-model="hostForm.rdp_port" :min="1" :max="65535" style="flex:1" />
+          </div>
           <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('hosts.winrmAutoTip') }}</div>
         </div>
       </el-form-item>
