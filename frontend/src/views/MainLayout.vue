@@ -120,7 +120,10 @@
 
   <!-- Site-wide floating AI assistant -->
   <transition name="ai-fade">
-    <div v-if="aiOpen" class="ai-panel">
+    <div v-if="aiOpen" class="ai-panel" :style="{ width: aiSize.w + 'px', height: aiSize.h + 'px' }">
+      <!-- resize handles: drag left edge / top edge to enlarge -->
+      <div class="ai-resize-x" @mousedown="startResizeAI($event, 'x')"></div>
+      <div class="ai-resize-y" @mousedown="startResizeAI($event, 'y')"></div>
       <div class="ai-head">
         <span style="font-weight:700">{{ $t('ai.assistantTitle') }}</span>
         <el-select v-model="aiRole" size="small" style="flex:1; margin:0 6px"
@@ -133,7 +136,11 @@
       </div>
       <div class="ai-messages" ref="aiMsgBox">
         <div v-for="(msg, i) in aiMessages" :key="i" class="ai-msg" :class="msg.role">
-          <div class="ai-bubble">{{ msg.text }}</div>
+          <div class="ai-bubble">
+            <span v-if="msg.role === 'user'" style="white-space:pre-wrap">{{ msg.text }}</span>
+            <!-- bot replies are markdown-rendered and sanitized -->
+            <div v-else class="ai-md" v-html="renderMd(msg.text)"></div>
+          </div>
         </div>
         <div v-if="aiThinking" class="ai-msg ai-user-side" style="opacity:.6"><div class="ai-bubble">…</div></div>
       </div>
@@ -157,7 +164,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import i18n, { locales, setLocale } from '../i18n'
@@ -292,6 +299,38 @@ onBeforeUnmount(() => {
 const aiOpen = ref(false)
 const aiBusy = ref(false)
 const aiInput = ref('')
+
+// ---- AI reply markdown rendering (sanitized) ----
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+marked.setOptions({ breaks: true, gfm: true })
+const renderMd = t => DOMPurify.sanitize(marked.parse(t || ''))
+
+// ---- AI panel resizable (drag left edge / top edge; persisted) ----
+const AI_SIZE_KEY = 'jai_size'
+let savedSize = {}
+try { savedSize = JSON.parse(localStorage.getItem(AI_SIZE_KEY) || '{}') } catch { /* ignore */ }
+const aiSize = reactive({
+  w: Math.min(Math.max(savedSize.w || 380, 340), window.innerWidth - 40),
+  h: Math.min(Math.max(savedSize.h || 480, 380), window.innerHeight - 100),
+})
+const startResizeAI = (e, dir) => {
+  e.preventDefault()
+  const startX = e.clientX, startY = e.clientY
+  const sw = aiSize.w, sh = aiSize.h
+  const maxW = window.innerWidth - 40, maxH = window.innerHeight - 100
+  const move = ev => {
+    if (dir === 'x') aiSize.w = Math.min(maxW, Math.max(340, sw + (startX - ev.clientX)))
+    else aiSize.h = Math.min(maxH, Math.max(380, sh + (startY - ev.clientY)))
+  }
+  const up = () => {
+    window.removeEventListener('mousemove', move)
+    window.removeEventListener('mouseup', up)
+    localStorage.setItem(AI_SIZE_KEY, JSON.stringify({ w: aiSize.w, h: aiSize.h }))
+  }
+  window.addEventListener('mousemove', move)
+  window.addEventListener('mouseup', up)
+}
 const aiMessages = ref([{ role: 'bot', text: t('ai.greeting') }])
 const aiMsgBox = ref(null)
 // AI roles: fetch list after login; send selected role with each chat; persist choice locally
@@ -483,11 +522,15 @@ aside {
 
 .ai-panel {
   position: fixed; bottom: 80px; right: 22px; z-index: 2001;
-  width: 380px; height: 480px; display: flex; flex-direction: column;
+  display: flex; flex-direction: column;
   background: var(--el-bg-color); border: 1px solid var(--el-border-color-lighter);
   border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.18);
   overflow: hidden;
 }
+/* resize handles: left edge (width) + top edge (height) */
+.ai-resize-x { position: absolute; left: 0; top: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 5; }
+.ai-resize-y { position: absolute; top: 0; left: 0; right: 0; height: 7px; cursor: ns-resize; z-index: 5; }
+.ai-resize-x:hover, .ai-resize-y:hover { background: rgba(79,140,255,.18); }
 .ai-head {
   display: flex; align-items: center; gap: 8px; padding: 12px 14px 8px;
   font-size: 14px; font-weight: 700; color: var(--el-text-color-primary);
@@ -503,6 +546,30 @@ aside {
   background: var(--el-fill-color); color: var(--el-text-color-primary);
 }
 .ai-msg.user .ai-bubble { background: var(--el-color-primary-light-8); }
+/* markdown content inside bot bubbles */
+.ai-md :deep(p) { margin: 0 0 8px; }
+.ai-md :deep(p:last-child) { margin-bottom: 0; }
+.ai-md :deep(h1), .ai-md :deep(h2), .ai-md :deep(h3), .ai-md :deep(h4) {
+  margin: 10px 0 6px; font-size: 14px; font-weight: 700; line-height: 1.4;
+}
+.ai-md :deep(h1:first-child), .ai-md :deep(h2:first-child), .ai-md :deep(h3:first-child) { margin-top: 0; }
+.ai-md :deep(ul), .ai-md :deep(ol) { margin: 6px 0 8px; padding-left: 20px; }
+.ai-md :deep(li) { margin: 3px 0; }
+.ai-md :deep(li > p) { margin: 2px 0; }
+.ai-md :deep(code) {
+  font-family: ui-monospace, Consolas, Menlo, monospace; font-size: 12px;
+  background: rgba(127,127,127,.15); border-radius: 4px; padding: 1px 5px;
+}
+.ai-md :deep(pre) {
+  background: var(--el-fill-color-dark, rgba(127,127,127,.12)); border-radius: 8px;
+  padding: 10px 12px; margin: 8px 0; overflow-x: auto;
+}
+.ai-md :deep(pre code) { background: transparent; padding: 0; font-size: 12px; line-height: 1.6; }
+.ai-md :deep(table) { border-collapse: collapse; margin: 8px 0; font-size: 12.5px; }
+.ai-md :deep(th), .ai-md :deep(td) { border: 1px solid var(--el-border-color-lighter); padding: 4px 8px; }
+.ai-md :deep(blockquote) { margin: 6px 0; padding: 2px 10px; border-left: 3px solid var(--el-color-primary); color: var(--el-text-color-secondary); }
+.ai-md :deep(a) { color: var(--el-color-primary); }
+.ai-md :deep(hr) { border: none; border-top: 1px solid var(--el-border-color-lighter); margin: 8px 0; }
 .ai-input-row { display: flex; gap: 8px; padding: 8px 12px 12px; }
 
 .ai-fade-enter-active, .ai-fade-leave-active { transition: opacity .25s, transform .25s; }
