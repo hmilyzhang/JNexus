@@ -62,13 +62,15 @@ func WinRMClientFor(h *model.Host, username, password string) (*winrm.Client, er
 		return winRMKerberosClient(h, user, pass)
 	}
 
-	// auto-negotiation: prefer encryption when 5986 (HTTPS) is reachable; otherwise fall back to HTTP
+	// Windows enables only Negotiate auth by default: attach the NTLM transport to complete
+	// the handshake automatically (domain accounts DOMAIN/user also work). Applied over both
+	// HTTP and HTTPS — NTLM runs inside the TLS channel, so targets can keep Basic disabled
+	// and AllowUnencrypted=false (CIS-friendly defaults).
+	params.TransportDecorator = func() winrm.Transporter { return winrm.NewClientNTLMWithDial(params.Dial) }
 	if tcpOpen(h.IP, 5986) {
 		return winrm.NewClientWithParameters(
 			winrm.NewEndpoint(h.IP, 5986, true, true, nil, nil, nil, 0), user, pass, params)
 	}
-	// Windows enables only Negotiate auth by default: attach the NTLM transport to complete the handshake automatically (domain accounts DOMAIN/user also work)
-	params.TransportDecorator = func() winrm.Transporter { return winrm.NewClientNTLMWithDial(params.Dial) }
 	return winrm.NewClientWithParameters(
 		winrm.NewEndpoint(h.IP, WinRMPortOf(h), false, true, nil, nil, nil, 0), user, pass, params)
 }
@@ -161,6 +163,13 @@ func WinRMRun(h *model.Host, username, password, command string, timeoutSec int)
 		code int
 		err  error
 	}
+	// translate the library's cryptic 401 wrapper into an actionable message
+	friendly := func(e error) error {
+		if e != nil && strings.Contains(e.Error(), "401") {
+			return fmt.Errorf("认证失败（401）：用户名或密码错误；请核对账号（本地账号如 .\\user，域账号如 DOMAIN\\user 或 user@REALM）与密码")
+		}
+		return e
+	}
 	done := make(chan result, 1)
 	go func() {
 		stdout, stderr, code, rerr := c.RunWithString(encoded, "")
@@ -168,7 +177,7 @@ func WinRMRun(h *model.Host, username, password, command string, timeoutSec int)
 		if rerr != nil {
 			// non-zero exit codes come back wrapped in an error by the library; when output is still present, treat it as a business error
 			r.err = nil
-			r.out += "\n[winrm] " + rerr.Error()
+			r.out += "\n[winrm] " + friendly(rerr).Error()
 			r.code = 1
 		}
 		if stderr != "" {
