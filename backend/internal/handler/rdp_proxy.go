@@ -18,6 +18,9 @@ import (
 )
 
 var rdpGwUpgrader = websocket.Upgrader{
+	// echo the guacamole subprotocol: guacamole-common-js requests it and
+	// browsers abort the handshake when the server selects none
+	Subprotocols: []string{"guacamole"},
 	// the connection carries the one-time encrypted token (q) as its credential;
 	// origin checking is intentionally relaxed for the same reason
 	CheckOrigin: func(*http.Request) bool { return true },
@@ -38,7 +41,7 @@ func ProxyRDPGateway(c *gin.Context) {
 	}
 	defer clientConn.Close()
 
-	dialer := &websocket.Dialer{HandshakeTimeout: 10 * time.Second}
+	dialer := &websocket.Dialer{HandshakeTimeout: 10 * time.Second, Subprotocols: []string{"guacamole"}}
 	gwConn, resp, err := dialer.Dial("ws://"+rdpGwTarget()+"/?"+c.Request.URL.RawQuery, nil)
 	if err != nil {
 		msg := err.Error()
