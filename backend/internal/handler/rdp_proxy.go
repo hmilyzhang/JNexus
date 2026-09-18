@@ -55,16 +55,25 @@ func ProxyRDPGateway(c *gin.Context) {
 	defer gwConn.Close()
 
 	done := make(chan struct{}, 2)
+	closeReason := func(side string, err error) {
+		if e, ok := err.(*websocket.CloseError); ok {
+			fmt.Printf("[rdp-gw] %s closed: code=%d reason=%q\n", side, e.Code, e.Text)
+			return
+		}
+		fmt.Printf("[rdp-gw] %s read error: %v\n", side, err)
+	}
 	// client → gateway
 	go func() {
 		defer func() { recover() }()
 		for {
 			mt, data, err := clientConn.ReadMessage()
 			if err != nil {
+				closeReason("client", err)
 				close(done)
 				return
 			}
 			if err := gwConn.WriteMessage(mt, data); err != nil {
+				fmt.Printf("[rdp-gw] gateway write failed: %v\n", err)
 				close(done)
 				return
 			}
@@ -76,10 +85,12 @@ func ProxyRDPGateway(c *gin.Context) {
 		for {
 			mt, data, err := gwConn.ReadMessage()
 			if err != nil {
+				closeReason("gateway", err)
 				close(done)
 				return
 			}
 			if err := clientConn.WriteMessage(mt, data); err != nil {
+				fmt.Printf("[rdp-gw] client write failed: %v\n", err)
 				close(done)
 				return
 			}
