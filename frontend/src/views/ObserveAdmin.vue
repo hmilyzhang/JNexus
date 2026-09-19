@@ -16,7 +16,7 @@
           <div class="oa-nav-item" :class="{ active: oaSection === 'push' }" @click="oaSection = 'push'">{{ $t('oa.navPush') }}</div>
         </div>
 
-        <div style="flex:1; min-width:0">
+        <div style="flex:1; min-width:0; padding-left:20px; border-left:1px solid var(--el-border-color-lighter)">
           <!-- Connection status (readonly; url/org/token maintained in System Settings) -->
           <template v-if="oaSection === 'conn'">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap">
@@ -503,10 +503,16 @@ onMounted(load)
   font-weight: 600; border-color: var(--el-color-primary-light-7);
 }
 .oa-sec-head { font-size: 14px; }
-.oa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 24px; }
-.oa-kv { display: flex; gap: 10px; font-size: 13px; align-items: baseline; }
-.oa-kv span { color: var(--el-text-color-secondary); flex-shrink: 0; }
-.oa-kv b { word-break: break-all; }
+.oa-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px; max-width: 900px;
+}
+.oa-kv {
+  background: var(--el-fill-color-light); border-radius: 8px;
+  padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;
+}
+.oa-kv span { color: var(--el-text-color-secondary); font-size: 12px; }
+.oa-kv b { font-size: 13.5px; word-break: break-all; }
 .oa-edit-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .oa-edit-label { width: 140px; flex-shrink: 0; text-align: right; color: var(--el-text-color-regular); font-size: 13px; }
 .oa-code {
