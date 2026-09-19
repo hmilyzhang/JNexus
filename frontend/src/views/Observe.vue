@@ -95,18 +95,38 @@
 import { computed, onMounted, ref } from 'vue'
 import api from '../api'
 import i18n from '../i18n'
+import { useUserStore } from '../store'
 
 const { t } = i18n.global
+const store = useUserStore()
 
-const presetStreams = [
+// department scoping: only infra (view_host/manage) sees host/task streams;
+// other roles are limited to the security-relevant streams
+const roleConf = ref(null)
+api.get('/system/roles').then(rs => {
+  roleConf.value = rs
+  if (!canHost.value && (stream.value === 'host_metrics' || stream.value === 'task_logs')) {
+    stream.value = 'windows_events'
+    sql.value = defaultSQL(stream.value)
+  }
+}).catch(() => {})
+const canHost = computed(() => {
+  if (store.isAdmin) return true
+  const acts = roleConf.value?.[store.role]?.perms?.monitor || []
+  return acts.includes('view_host') || acts.includes('manage')
+})
+
+const allStreams = [
   { value: 'host_metrics', label: 'oo.streamHostMetrics' },
   { value: 'task_logs', label: 'oo.streamTaskLogs' },
-  { value: 'alert_events', label: 'oo.streamAlertEvents' },
   { value: 'windows_events', label: 'oo.streamWindowsEvents' },
   { value: 'linux_events', label: 'oo.streamLinuxEvents' },
+  { value: 'alert_events', label: 'oo.streamAlertEvents' },
   { value: 'db_audit', label: 'oo.streamDbAudit' },
 ]
-const stream = ref('host_metrics')
+const secStreams = ['windows_events', 'linux_events', 'db_audit', 'alert_events']
+const presetStreams = computed(() => (canHost.value ? allStreams : allStreams.filter(s => secStreams.includes(s.value))))
+const stream = ref(store.isAdmin ? 'host_metrics' : 'windows_events')
 const rangePreset = ref('24')
 const customRange = ref(null)
 const sql = ref('')

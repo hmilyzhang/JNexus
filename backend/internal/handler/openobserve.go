@@ -6,6 +6,8 @@ package handler
 
 import (
 	"encoding/json"
+	"regexp"
+	"strings"
 	"net/http"
 	"strconv"
 	"time"
@@ -118,6 +120,13 @@ func ExtOOPush(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "successful": n})
 }
 
+// security streams a non-host-view caller may query
+var secStreamFromRe = regexp.MustCompile(`(?i)\bFROM\s+"?([A-Za-z0-9_]+)"?`)
+
+var secStreamsAllowed = map[string]bool{
+	"windows_events": true, "linux_events": true, "db_audit": true, "alert_events": true,
+}
+
 // OOSearchProxy POST /api/monitors/oo/search — proxy a SQL search to OpenObserve.
 // Body: {sql, start_ms, end_ms, from, size}; time defaults to the last 24h.
 func OOSearchProxy(c *gin.Context) {
@@ -143,6 +152,16 @@ func OOSearchProxy(c *gin.Context) {
 	}
 	if req.Size <= 0 || req.Size > 1000 {
 		req.Size = 100
+	}
+	// department scoping: callers without host-view may only query the
+	// security-relevant streams (no host inventory / task output access)
+	if host, _, _, manage := service.MonitorCaps(currentUser(c).Role); !host && !manage {
+		m := secStreamFromRe.FindStringSubmatch(req.SQL)
+		stream := strings.ToLower(m[1])
+		if !secStreamsAllowed[stream] {
+			c.JSON(http.StatusForbidden, gin.H{"error": "仅可查询安全相关日志流（windows_events / linux_events / db_audit / alert_events）"})
+			return
+		}
 	}
 	out, err := service.OOSearch(req.SQL, req.StartMs, req.EndMs, req.From, req.Size)
 	if err != nil {
