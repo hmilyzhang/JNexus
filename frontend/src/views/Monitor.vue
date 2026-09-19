@@ -126,6 +126,7 @@
           <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px">
             <el-select v-model="sec.stream" style="width:190px" @change="searchSec">
               <el-option value="windows_events" :label="$t('monitor.secWinEvents')" />
+              <el-option value="linux_events" :label="$t('monitor.secLinuxEvents')" />
               <el-option value="db_audit" :label="$t('monitor.secDbAudit')" />
               <el-option value="alert_events" :label="$t('monitor.secAlertEvents')" />
             </el-select>

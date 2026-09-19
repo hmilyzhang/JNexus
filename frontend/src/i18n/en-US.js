@@ -579,6 +579,7 @@ export default {
     tabCmd: 'CMD Monitoring',
     tabSec: 'Security Logs',
     secWinEvents: 'Windows Event Logs',
+    secLinuxEvents: 'Linux Security Logs',
     secDbAudit: 'Database Audit',
     secAlertEvents: 'Alert Events',
     secHost: 'Host / IP',

@@ -123,6 +123,8 @@ const STREAM_FIELDS = {
   task_logs: 'task_id, type, operator, host, os_user, status, exit_code, output',
   alert_events: 'kind, level, target, message',
   windows_events: 'host, log_name, level, event_id, provider, event_time, message',
+  linux_events: 'host, unit, message, event_time',
+  linux_events: 'host, unit, message, event_time',
   db_audit: 'username, action, resource, ip, status, detail',
 }
 

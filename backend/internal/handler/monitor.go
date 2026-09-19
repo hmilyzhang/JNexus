@@ -587,12 +587,13 @@ func SecLogs(c *gin.Context) {
 	// stream whitelist: security-relevant streams only
 	cols := map[string]string{
 		"windows_events": "_timestamp, host, log_name, level, event_id, provider, event_time, message",
+		"linux_events":   "_timestamp, host, unit, message, event_time",
 		"db_audit":       "_timestamp, username, action, resource, ip, status, detail",
 		"alert_events":   "_timestamp, kind, level, target, message",
 	}
 	collist, ok := cols[req.Stream]
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持安全相关日志流（windows_events / db_audit / alert_events）"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持安全相关日志流（windows_events / linux_events / db_audit / alert_events）"})
 		return
 	}
 	if req.EndMs == 0 {
@@ -617,6 +618,10 @@ func SecLogs(c *gin.Context) {
 		}
 		if req.EventID > 0 {
 			where += fmt.Sprintf(" AND event_id = %d", req.EventID)
+		}
+	case "linux_events":
+		if req.Host != "" {
+			where += fmt.Sprintf(" AND host = '%s'", q(req.Host))
 		}
 	case "db_audit":
 		if req.Host != "" {

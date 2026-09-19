@@ -580,6 +580,7 @@ export default {
     tabCmd: 'CMD 监控',
     tabSec: '安全日志',
     secWinEvents: 'Windows 事件日志',
+    secLinuxEvents: 'Linux 安全日志',
     secDbAudit: '数据库审计',
     secAlertEvents: '告警事件',
     secHost: '主机 / IP',

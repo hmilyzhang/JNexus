@@ -172,7 +172,7 @@ func ooStat(stream string) *OOStreamStat {
 
 // ooIntegrationEnabled reads the per-stream toggle from oo_integrations config
 // (JSON map; a missing entry defaults to enabled for the builtin streams)
-var ooBuiltinStreams = []string{"host_metrics", "task_logs", "alert_events", "windows_events", "db_audit"}
+var ooBuiltinStreams = []string{"host_metrics", "task_logs", "alert_events", "windows_events", "db_audit", "linux_events"}
 
 func ooIntegrationEnabled(stream string) bool {
 	m := SystemConfigMap()
