@@ -28,11 +28,11 @@ func SetupRouter() *gin.Engine {
 	r.GET("/rdp-gw/", ProxyRDPGateway) // tolerate the trailing-slash variant (a 301 here would kill the WS handshake)
 	r.Static("/uploads", config.Cfg.Storage.UploadDir)
 
-	api := r.Group("/api")
-	{
-		api.POST("/login", Login)
-		api.POST("/login/mfa", LoginMFA)
-		api.GET("/system/info", SystemInfo)
+		api := r.Group("/api")
+		{
+			api.POST("/login", Login)
+			api.POST("/login/mfa", LoginMFA)
+			api.GET("/system/info", SystemInfo)
 		// Web terminal (has its own token auth; does not go through the hub)
 		api.GET("/ws/term/:hostId", WebTerminal)
 		api.GET("/ws/winrm/:hostId", WinRMTerminal)
@@ -59,6 +59,8 @@ func SetupRouter() *gin.Engine {
 
 	auth := api.Group("", middleware.JWT())
 	{
+		// Ticketing: create tickets in the configured external system
+		auth.POST("/tickets", middleware.RequireRole(model.RoleOps, model.RoleAdmin), TicketCreate)
 		auth.GET("/me", Me)
 		auth.PUT("/me", UpdateMe)
 		auth.POST("/change_password", ChangePassword)
@@ -410,6 +412,9 @@ func SetupRouter() *gin.Engine {
 			sysCfg.POST("/oo/retention", OORetentionApply)
 			sysCfg.GET("/sec/watch", SecWatchGet)
 			sysCfg.PUT("/sec/watch", SecWatchPut)
+			sysCfg.GET("/ticketing", TicketingConfigGet)
+			sysCfg.PUT("/ticketing", TicketingConfigPut)
+			sysCfg.POST("/ticketing/test", TicketingTest)
 			sysCfg.PUT("/roles", UpdateSystemRoles)
 		}
 	}

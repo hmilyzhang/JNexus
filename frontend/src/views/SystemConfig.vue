@@ -359,7 +359,9 @@
         <div class="ext-side-nav">
           <div class="ext-side-nav-title">{{ $t('system.tabExt') }}</div>
           <div class="ext-nav-item" :class="{ active: extSection === 'keys' }" @click="extSection = 'keys'">{{ $t('system.apiKeys') }}</div>
+          <div class="ext-nav-item" :class="{ active: extSection === 'ticket' }" @click="extSection = 'ticket'">{{ $t('tk.create') }}</div>
           <div class="ext-nav-item" :class="{ active: extSection === 'oo' }" @click="extSection = 'oo'">{{ $t('oo.tab') }}</div>
+          <div class="ext-nav-item" :class="{ active: extSection === 'ticketing' }" @click="extSection = 'ticketing'; loadTicketing">{{ $t('tk.nav') }}</div>
         </div>
         <div style="flex:1; min-width:0">
           <!-- OpenObserve integration -->
@@ -384,6 +386,75 @@
                   <el-button :loading="ooTesting" @click="testOO">{{ $t('ai.testConn') }}</el-button>
                 </el-form-item>
               </template>
+            </el-form>
+          </template>
+
+          <!-- Ticketing systems -->
+          <template v-if="extSection === 'ticketing'">
+            <div class="ext-sec-head" style="margin-bottom:14px"><span style="font-weight:600">{{ $t('tk.cfgTitle') }}</span></div>
+            <el-row :gutter="18">
+              <el-col :span="12">
+                <div style="font-weight:600; margin-bottom:10px">ServiceNow</div>
+                <el-form label-width="90px" style="max-width:420px">
+                  <el-form-item label="URL"><el-input v-model="tkForm.sn_url" class="mono" placeholder="https://instance.service-now.com" /></el-form-item>
+                  <el-form-item :label="$t('hosts.user')"><el-input v-model="tkForm.sn_user" class="mono" /></el-form-item>
+                  <el-form-item :label="$t('hosts.password')"><el-input v-model="tkForm.sn_pass" type="password" show-password class="mono" :placeholder="$t('oa.keepPwd')" /></el-form-item>
+                  <el-form-item>
+                    <el-button size="small" :loading="tkTesting === 'servicenow'" @click="testTicketing('servicenow')">{{ $t('ai.testConn') }}</el-button>
+                  </el-form-item>
+                </el-form>
+              </el-col>
+              <el-col :span="12">
+                <div style="font-weight:600; margin-bottom:10px">{{ $t('tk.sdpTitle') }} <el-tag size="small" effect="plain">{{ $t('tk.onPrem') }}</el-tag></div>
+                <el-form label-width="90px" style="max-width:420px">
+                  <el-form-item label="URL"><el-input v-model="tkForm.sdp_url" class="mono" placeholder="http://sdp.internal:8080" /></el-form-item>
+                  <el-form-item :label="$t('tk.techKey')"><el-input v-model="tkForm.sdp_token" type="password" show-password class="mono" :placeholder="$t('oa.keepPwd')" /></el-form-item>
+                  <el-form-item :label="$t('tk.requester')"><el-input v-model="tkForm.sdp_requester" :placeholder="$t('tk.requesterPh')" /></el-form-item>
+                  <el-form-item>
+                    <el-button size="small" :loading="tkTesting === 'sdp'" @click="testTicketing('sdp')">{{ $t('ai.testConn') }}</el-button>
+                  </el-form-item>
+                </el-form>
+              </el-col>
+            </el-row>
+            <div style="margin-top:16px; display:flex; align-items:center; gap:10px">
+              <el-button type="primary" size="small" :loading="tkSaving" @click="saveTicketing">{{ $t('common.save') }}</el-button>
+              <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('tk.cfgTip') }}</span>
+            </div>
+          </template>
+
+          <!-- Create ticket -->
+          <template v-if="extSection === 'ticket'">
+            <div class="ext-sec-head" style="margin-bottom:14px"><span style="font-weight:600">{{ $t('tk.create') }}</span></div>
+            <el-form label-width="110px" style="max-width:640px">
+              <el-form-item :label="$t('tk.system')">
+                <el-select v-model="ticketForm.provider" style="width:240px">
+                  <el-option value="servicenow" label="ServiceNow" />
+                  <el-option value="sdp" :label="$t('tk.sdpTitle')" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="$t('tk.type')">
+                <el-select v-model="ticketForm.type" style="width:240px">
+                  <el-option v-for="t2 in ticketTypesFor(ticketForm.provider)" :key="t2.value" :value="t2.value" :label="t2.label" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="$t('tk.priority')">
+                <el-select v-model="ticketForm.priority" style="width:240px">
+                  <el-option v-for="p in [['critical','P1/紧急'],['high','P2/高'],['moderate','P3/中'],['low','P4/低']]" :key="p[0]" :value="p[0]" :label="p[1]" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="$t('tk.subject')"><el-input v-model="ticketForm.subject" style="width:100%" /></el-form-item>
+              <el-form-item :label="$t('tk.desc')">
+                <el-input v-model="ticketForm.description" type="textarea" :rows="4" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :loading="ticketCreating" @click="createTicketNow">{{ $t('tk.submit') }}</el-button>
+              </el-form-item>
+              <el-form-item v-if="ticketResult">
+                <el-alert type="success" :closable="false" class="mono">
+                  {{ $t('tk.created') }}: {{ ticketResult }}
+                  <a v-if="ticketURL" :href="ticketURL" target="_blank" rel="noopener" style="margin-left:8px">{{ $t('tk.open') }}</a>
+                </el-alert>
+              </el-form-item>
             </el-form>
           </template>
 
@@ -817,6 +888,64 @@ const saveAiRoles = async () => {
     await api.post('/ai/roles', aiRoles.value)
     ElMessage.success(t('system.saved'))
   } catch { /* interceptor shows the error */ } finally { aiRolesSaving.value = false }
+}
+
+// ---- Ticketing integrations (ServiceNow / SDP on-premise) ----
+const tkForm = reactive({ sn_url: '', sn_user: '', sn_pass: '', sdp_url: '', sdp_token: '', sdp_requester: '' })
+const tkSaving = ref(false)
+const tkTesting = ref('')
+const ticketForm = reactive({ provider: 'servicenow', type: 'incident', priority: 'moderate', subject: '', description: '' })
+const ticketCreating = ref(false)
+const ticketResult = ref('')
+const ticketURL = ref('')
+
+const ticketTypesFor = provider => provider === 'servicenow'
+  ? [{ value: 'incident', label: t('tk.tIncident') }, { value: 'problem', label: t('tk.tProblem') }, { value: 'change_request', label: t('tk.tChange') }]
+  : [{ value: 'request', label: t('tk.tRequest') }, { value: 'incident', label: t('tk.tIncident') }, { value: 'problem', label: t('tk.tProblem') }, { value: 'change', label: t('tk.tChange') }]
+
+const loadTicketing = async () => {
+  try {
+    const cfg = await api.get('/system/ticketing')
+    tkForm.sn_url = cfg.servicenow?.url || ''
+    tkForm.sn_user = cfg.servicenow?.user || ''
+    tkForm.sn_pass = cfg.servicenow?.pass || ''
+    tkForm.sdp_url = cfg.sdp?.url || ''
+    tkForm.sdp_token = cfg.sdp?.token_set ? '******' : ''
+    tkForm.sdp_requester = cfg.sdp?.requester || ''
+  } catch { /* ignore */ }
+}
+const saveTicketing = async () => {
+  tkSaving.value = true
+  try {
+    await api.put('/system/ticketing', {
+      servicenow: { url: tkForm.sn_url, user: tkForm.sn_user, password: tkForm.sn_pass === '******' ? '' : tkForm.sn_pass },
+      sdp: { url: tkForm.sdp_url, token: tkForm.sdp_token === '******' ? '' : tkForm.sdp_token, requester: tkForm.sdp_requester },
+    })
+    ElMessage.success(t('system.saved'))
+    await loadTicketing()
+  } catch { /* interceptor shows the error */ } finally { tkSaving.value = false }
+}
+const testTicketing = async provider => {
+  tkTesting.value = provider
+  try {
+    const body = provider === 'servicenow'
+      ? { servicenow: { url: tkForm.sn_url, user: tkForm.sn_user, password: tkForm.sn_pass === '******' ? '' : tkForm.sn_pass } }
+      : { sdp: { url: tkForm.sdp_url, token: tkForm.sdp_token === '******' ? '' : tkForm.sdp_token } }
+    await api.post('/system/ticketing/test', body)
+    ElMessage.success(t('system.saved'))
+  } catch { /* interceptor shows the error */ } finally { tkTesting.value = '' }
+}
+const createTicketNow = async () => {
+  if (!ticketForm.subject.trim()) { ElMessage.warning(t('tk.subjectRequired')); return }
+  ticketCreating.value = true
+  ticketResult.value = ''
+  ticketURL.value = ''
+  try {
+    const r = await api.post('/tickets', { ...ticketForm })
+    ticketResult.value = r.number || 'OK'
+    ticketURL.value = r.url || ''
+    ElMessage.success(t('system.saved'))
+  } catch { /* interceptor shows the error */ } finally { ticketCreating.value = false }
 }
 
 const loadAiConfig = async () => {

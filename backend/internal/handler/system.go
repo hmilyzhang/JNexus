@@ -16,6 +16,16 @@ import (
 	"jnexus/internal/service"
 )
 
+// containsStr reports whether the slice contains the exact string
+func containsStr(list []string, v string) bool {
+	for _, x := range list {
+		if x == v {
+			return true
+		}
+	}
+	return false
+}
+
 // System config keys
 var editableConfigKeys = []string{
 	"system_name",
@@ -34,12 +44,17 @@ var editableConfigKeys = []string{
 	"ai_chat_rate_limit", "ai_injection_guard", "ai_snapshot_filter",
 	"sec_alert_channels", "sec_alert_ids",
 	"oo_retention_days",
+	"ticket_servicenow_url", "ticket_servicenow_user", "ticket_servicenow_pass",
+	"ticket_sdp_url", "ticket_sdp_token", "ticket_sdp_requester",
 }
+
+// secret config keys: masked in responses, empty value on update keeps the stored one
+var secretConfigKeys = []string{"ldap_bind_password", "smtp_password", "ai_api_key", "oo_token", "ticket_servicenow_pass", "ticket_sdp_token"}
 
 // GetSystemConfig reads system config (admin); password fields are masked
 func GetSystemConfig(c *gin.Context) {
 	m := service.SystemConfigMap()
-	for _, k := range []string{"ldap_bind_password", "smtp_password", "ai_api_key", "oo_token"} {
+	for _, k := range secretConfigKeys {
 		if m[k] != "" {
 			m[k] = "******"
 		}
@@ -61,7 +76,8 @@ func UpdateSystemConfig(c *gin.Context) {
 		if !ok {
 			continue
 		}
-		if (k == "ldap_bind_password" || k == "smtp_password" || k == "ai_api_key" || k == "oo_token") && (v == "" || v == "******") {
+		isSecret := containsStr(secretConfigKeys, k)
+		if isSecret && (v == "" || v == "******") {
 			continue // keep original value
 		}
 		filtered[k] = v
