@@ -92,6 +92,9 @@ func (s OOSettings) OOSetStreamRetention(stream string, days int) error {
 	if err != nil {
 		return err
 	}
+	if code == 404 {
+		return fmt.Errorf("该 OpenObserve 版本不支持流保留 API（/update 404），请在 OO 配置文件中设置 compactor retention 或升级")
+	}
 	if code >= 400 {
 		return fmt.Errorf("OpenObserve HTTP %d: %s", code, truncateOO(data))
 	}
