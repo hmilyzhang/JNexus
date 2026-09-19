@@ -2,6 +2,7 @@
 package service
 
 import (
+	"encoding/base64"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -125,6 +126,9 @@ func RotateCredentialPassword(host *model.Host, cred *model.HostCredential) (str
 	if cred.AuthType != "password" || cred.Password == "" {
 		return "", fmt.Errorf("仅密码认证的账号支持轮换")
 	}
+	if IsWindows(host) {
+		return rotateWindowsPassword(host, cred)
+	}
 	curPwd, err := pkg.Decrypt(cred.Password)
 	if err != nil {
 		return "", fmt.Errorf("解密当前密码失败: %w", err)
@@ -169,6 +173,69 @@ func RotateCredentialPassword(host *model.Host, cred *model.HostCredential) (str
 	})
 	return newPwd, nil
 }
+
+// rotateWindowsPassword rotates a local Windows account password via WinRM
+// (Set-LocalUser). The new password is base64-wrapped so nothing can break out
+// of the PowerShell string; domain accounts are skipped like LDAP on Linux.
+func rotateWindowsPassword(host *model.Host, cred *model.HostCredential) (string, error) {
+	curPwd, err := pkg.Decrypt(cred.Password)
+	if err != nil {
+		return "", fmt.Errorf("解密当前密码失败: %w", err)
+	}
+
+	user := cred.Username
+	if strings.Contains(user, "@") {
+		return "", errLDAPSkip // UPN form = domain account
+	}
+	if i := strings.IndexByte(user, '\\'); i >= 0 {
+		prefix := user[:i]
+		if !strings.EqualFold(prefix, host.Name) && prefix != "." && prefix != strings.Split(host.IP, ".")[0] {
+			return "", errLDAPSkip // another machine's domain prefix
+		}
+		user = user[i+1:]
+	}
+
+	// local vs domain detection via the local SAM database
+	detect := fmt.Sprintf("if (Get-LocalUser -Name '%s' -ErrorAction SilentlyContinue) { 'LOCAL' } else { 'REMOTE' }", psQuote(user))
+	out, _, err := WinRMRun(host, cred.Username, curPwd, detect, 30)
+	if err != nil {
+		return "", fmt.Errorf("WinRM 连接失败: %w", err)
+	}
+	if strings.Contains(out, "REMOTE") {
+		return "", errLDAPSkip
+	}
+
+	policy := GetRotationPolicy()
+	newPwd, err := GenerateStrongPassword(policy)
+	if err != nil {
+		return "", err
+	}
+	b64 := base64.StdEncoding.EncodeToString([]byte(newPwd))
+	cmd := fmt.Sprintf("$ErrorActionPreference='Stop'; $p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('%s')); Set-LocalUser -Name '%s' -Password (ConvertTo-SecureString $p -AsPlainText -Force); 'PWD-OK'",
+		b64, psQuote(user))
+	out, code, err := WinRMRun(host, cred.Username, curPwd, cmd, 45)
+	if err != nil || code != 0 || !strings.Contains(out, "PWD-OK") {
+		detail := strings.TrimSpace(out)
+		if err != nil {
+			return "", fmt.Errorf("Set-LocalUser 执行失败: %w", err)
+		}
+		return "", fmt.Errorf("Set-LocalUser 失败（可能被密码策略拒绝）: %s", detail)
+	}
+
+	enc, err := pkg.Encrypt(newPwd)
+	if err != nil {
+		return "", err
+	}
+	model.DB.Model(cred).Updates(map[string]any{
+		"password":             enc,
+		"last_rotated_at":      time.Now(),
+		"last_rotation_result": "轮换成功",
+	})
+	return newPwd, nil
+}
+
+// psQuote escapes a value for single-quoted PowerShell string literals
+func psQuote(s string) string { return strings.ReplaceAll(s, "'", "''") }
 
 var errLDAPSkip = fmt.Errorf("LDAP/域账号，不执行本地密码轮换")
 
