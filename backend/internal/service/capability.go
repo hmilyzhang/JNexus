@@ -20,7 +20,7 @@ var ModuleCapabilities = []CapModule{
 	{Key: "hosts", Actions: []string{"view", "create", "edit", "delete"}},
 	{Key: "credentials", Actions: []string{"view", "manage"}},
 	{Key: "reports", Actions: []string{"view"}},
-	{Key: "monitor", Actions: []string{"view", "manage"}},
+	{Key: "monitor", Actions: []string{"view_host", "view_app", "view_sec", "manage"}},
 	{Key: "k8s", Actions: []string{"view", "manage"}},
 	{Key: "crons", Actions: []string{"view", "manage"}},
 	{Key: "apps", Actions: []string{"view", "create", "edit", "delete"}},
@@ -102,10 +102,10 @@ func legacyToPerms(role string, rp RolePerm) map[string][]string {
 	}
 	p["k8s"] = k
 
-	// monitor: read follows menus, manage=admin/ops (legacy route semantics)
+	// monitor: split views follow menus, manage=admin/ops (legacy route semantics)
 	mv := []string{}
 	if inMenus("monitor") {
-		mv = append(mv, "view")
+		mv = append(mv, "view_host", "view_app", "view_sec")
 	}
 	if role == model.RoleOps {
 		mv = append(mv, "manage")
@@ -171,4 +171,40 @@ func legacyToPerms(role string, rp RolePerm) map[string][]string {
 	}
 
 	return p
+}
+
+// MonitorCaps resolves the split monitor permissions for a role:
+// host (CMD/host metrics), app (application monitors), sec (security logs),
+// manage (all monitor configuration). Legacy "view" maps to all views and
+// "manage" implies every view.
+func MonitorCaps(role string) (host, app, sec, manage bool) {
+	if role == model.RoleAdmin {
+		return true, true, true, true
+	}
+	r, ok := GetRoleSettings()[role]
+	if !ok {
+		return
+	}
+	acts := r.Perms["monitor"]
+	if len(acts) == 0 {
+		acts = legacyToPerms(role, r)["monitor"]
+	}
+	for _, a := range acts {
+		switch a {
+		case "manage":
+			manage = true
+		case "view":
+			host, app, sec = true, true, true
+		case "view_host":
+			host = true
+		case "view_app":
+			app = true
+		case "view_sec":
+			sec = true
+		}
+	}
+	if manage {
+		host, app, sec = true, true, true
+	}
+	return
 }

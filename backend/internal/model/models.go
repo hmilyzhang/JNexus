@@ -364,6 +364,7 @@ type Monitor struct {
 	DownSince      *time.Time `json:"down_since"`                // When the current outage started (cleared on recovery)
 	AlertFired     bool       `json:"alert_fired"`               // Whether an alert was already sent during this outage
 	LastStatus     string     `gorm:"size:8" json:"last_status"` // up / down / empty = not checked
+	OwnerGroupID   *uint      `json:"owner_group_id"`            // owning user group (department self-service monitors); NULL = infra/global
 	LastRespMs     int        `json:"last_resp_ms"`
 	LastError      string     `gorm:"size:255" json:"last_error"`
 	LastCheckedAt  *time.Time `json:"last_checked_at"`

@@ -73,20 +73,24 @@ func SetupRouter() *gin.Engine {
 
 		// MFA (TOTP two-step verification) self-service management
 		// Monitoring: app monitors + host resources
-		auth.GET("/monitoring/screen", middleware.RequireCap("monitor", "view"), MonitorScreen)
-		mon := auth.Group("/monitors", middleware.RequireCap("monitor", "view"))
+		auth.GET("/monitoring/screen", middleware.RequireCap("monitor", "view_host"), MonitorScreen)
+		mon := auth.Group("/monitors", middleware.RequireCapAny("monitor", "view_host", "view_app", "view_sec"))
 		{
 			mon.GET("", ListMonitors)
-			mon.POST("", middleware.RequireCap("monitor", "manage"), CreateMonitor)
-			mon.PUT("/:id", middleware.RequireCap("monitor", "manage"), UpdateMonitor)
-			mon.DELETE("/:id", middleware.RequireCap("monitor", "manage"), DeleteMonitor)
-			mon.POST("/:id/test", middleware.RequireCap("monitor", "manage"), TestMonitor)
+			// create/edit/delete/test enforce department ownership in-handler
+			// (monitor.manage, or view_app on own-group monitors)
+			mon.POST("", CreateMonitor)
+			mon.PUT("/:id", UpdateMonitor)
+			mon.DELETE("/:id", DeleteMonitor)
+			mon.POST("/:id/test", TestMonitor)
 			mon.GET("/:id/history", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), MonitorHistory)
 			// OpenObserve search proxy (long-term storage / full-text log search)
 			mon.POST("/oo/search", OOSearchProxy)
 			mon.GET("/oo/streams", OOMonitorStreams)
+			// security-department log query (whitelisted security streams)
+			mon.POST("/sec/logs", middleware.RequireCap("monitor", "view_sec"), SecLogs)
 		}
-		arule := auth.Group("/alert_rules", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
+		arule := auth.Group("/alert_rules", middleware.RequireCapAny("monitor", "view_host", "view_app", "view_sec"))
 		{
 			arule.GET("", GetAlertRule)
 			arule.PUT("", middleware.RequireCap("monitor", "manage"), UpdateAlertRule)
@@ -171,7 +175,7 @@ func SetupRouter() *gin.Engine {
 		arule.PUT("/templates", middleware.RequireCap("monitor", "manage"), UpdateAlertTemplates)
 		arule.PUT("/cmd", middleware.RequireCap("monitor", "manage"), UpdateCmdLevels)
 
-		ach := auth.Group("/alert_channels", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor))
+		ach := auth.Group("/alert_channels", middleware.RequireCapAny("monitor", "view_host", "view_app", "view_sec"))
 		{
 			ach.GET("", ListAlertChannels)
 			ach.POST("", middleware.RequireCap("monitor", "manage"), CreateAlertChannel)
@@ -180,7 +184,7 @@ func SetupRouter() *gin.Engine {
 			ach.POST("/:id/test", middleware.RequireCap("monitor", "manage"), TestAlertChannel)
 		}
 
-		mg := auth.Group("/monitoring", middleware.RequireCap("monitor", "view"))
+		mg := auth.Group("/monitoring", middleware.RequireCap("monitor", "view_host"))
 		{
 			mg.GET("/hosts", HostMetricsList)
 			mg.GET("/hosts/:id/history", HostMetricHistory)

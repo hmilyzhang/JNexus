@@ -78,11 +78,11 @@ func GetRoleSettings() map[string]RolePerm {
 	if err := model.DB.Where("key = ?", roleSettingsKey).First(&sc).Error; err != nil || sc.Value == "" {
 		def := DefaultRoleSettings()
 		SetRoleSettings(def)
-		return withAIGrants(def)
+		return expandMonitorPerms(withAIGrants(def))
 	}
 	out := map[string]RolePerm{}
 	if err := json.Unmarshal([]byte(sc.Value), &out); err != nil {
-		return withAIGrants(DefaultRoleSettings())
+		return expandMonitorPerms(withAIGrants(DefaultRoleSettings()))
 	}
 	// fill in defaults for newly added roles; backfill the cred field with defaults for stored configs missing it (avoiding silent permission loss on old data)
 	def := DefaultRoleSettings()
@@ -155,7 +155,7 @@ func GetRoleSettings() map[string]RolePerm {
 		}
 		out[role] = rp
 	}
-	return withAIGrants(out)
+	return expandMonitorPerms(withAIGrants(out))
 }
 
 // withAIGrants applies in-memory-only default AI chat grants: ops/publisher/k8s
@@ -212,4 +212,42 @@ func HasHostPerm(role, action string) bool {
 		return true
 	}
 	return HasCap(role, "hosts", action)
+}
+
+// expandMonitorPerms converts legacy monitor entries ("view" / "manage") in
+// stored configs to the split actions (view_host/view_app/view_sec/manage)
+// in memory. Once the role matrix is saved, the stored actions control as-is.
+func expandMonitorPerms(out map[string]RolePerm) map[string]RolePerm {
+	for role, rp := range out {
+		acts := rp.Perms["monitor"]
+		if len(acts) == 0 {
+			continue
+		}
+		legacy := false
+		set := map[string]bool{}
+		for _, a := range acts {
+			switch a {
+			case "view":
+				legacy = true
+				set["view_host"], set["view_app"], set["view_sec"] = true, true, true
+			case "manage":
+				legacy = true
+				set["view_host"], set["view_app"], set["view_sec"], set["manage"] = true, true, true, true
+			default:
+				set[a] = true
+			}
+		}
+		if !legacy {
+			continue
+		}
+		next := []string{}
+		for _, k := range []string{"view_host", "view_app", "view_sec", "manage"} {
+			if set[k] {
+				next = append(next, k)
+			}
+		}
+		rp.Perms["monitor"] = next
+		out[role] = rp
+	}
+	return out
 }

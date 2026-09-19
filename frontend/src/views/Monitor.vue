@@ -7,7 +7,7 @@
     </div>
     <el-tabs v-model="activeTab">
       <!-- Tab 1: CMD monitoring (CPU / memory / disk) -->
-      <el-tab-pane :label="$t('monitor.tabCmd')" name="cmd">
+      <el-tab-pane v-if="mcan.host" :label="$t('monitor.tabCmd')" name="cmd">
         <el-card>
           <template #header>
             <div style="display:flex; align-items:center; gap:10px">
@@ -58,11 +58,12 @@
       </el-tab-pane>
 
       <!-- Tab 2: application monitoring -->
-      <el-tab-pane :label="$t('monitor.tabApp')" name="app">
+      <el-tab-pane v-if="mcan.app" :label="$t('monitor.tabApp')" name="app">
         <el-card>
           <template #header>
             <div style="display:flex; align-items:center; gap:10px">
               <span style="flex:1">{{ $t('monitor.appMon') }}</span>
+              <span v-if="!mcan.manage" style="color:#909399; font-size:12px">{{ $t('monitor.appSelfTip') }}</span>
               <el-button size="small" :loading="loading" @click="load">{{ $t('common.refresh') }}</el-button>
               <el-button size="small" type="primary" @click="openDlg()">{{ $t('monitor.addMon') }}</el-button>
             </div>
@@ -118,8 +119,45 @@
         </el-card>
       </el-tab-pane>
 
+      <!-- Tab: security logs (security department): Windows Security events /
+           DB audit / alert events over whitelisted streams -->
+      <el-tab-pane v-if="mcan.sec" :label="$t('monitor.tabSec')" name="sec">
+        <el-card>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px">
+            <el-select v-model="sec.stream" style="width:190px" @change="searchSec">
+              <el-option value="windows_events" :label="$t('monitor.secWinEvents')" />
+              <el-option value="db_audit" :label="$t('monitor.secDbAudit')" />
+              <el-option value="alert_events" :label="$t('monitor.secAlertEvents')" />
+            </el-select>
+            <el-select v-model="sec.hours" style="width:110px" @change="searchSec">
+              <el-option value="1" label="1h" />
+              <el-option value="24" label="24h" />
+              <el-option value="168" label="7d" />
+              <el-option value="720" label="30d" />
+            </el-select>
+            <el-input v-model="sec.host" :placeholder="$t('monitor.secHost')" clearable style="width:150px" />
+            <el-input v-if="sec.stream === 'windows_events'" v-model="sec.eventId"
+                      :placeholder="$t('monitor.secEventId')" clearable style="width:110px" />
+            <el-input v-model="sec.keyword" :placeholder="$t('monitor.secKeyword')" clearable style="width:150px" />
+            <el-button type="primary" :loading="sec.busy" @click="searchSec">{{ $t('common.search') }}</el-button>
+            <span style="flex:1"></span>
+            <el-button :disabled="!secRows.length" @click="exportSecCsv">{{ $t('oo.exportCsv') }}</el-button>
+          </div>
+          <el-alert v-if="sec.err" type="warning" :title="sec.err" :closable="false" show-icon style="margin-bottom:10px" />
+          <el-table v-if="secCols.length" :data="secRows" size="small" border max-height="520">
+            <el-table-column :label="$t('oo.time')" width="165">
+              <template #default="{ row }">{{ secTime(row) }}</template>
+            </el-table-column>
+            <el-table-column v-for="col in secCols" :key="col" :prop="col" :label="col" min-width="140" show-overflow-tooltip>
+              <template #default="{ row }">{{ fmtSecCell(row[col]) }}</template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-else-if="!sec.busy" :description="$t('oo.empty')" :image-size="80" />
+        </el-card>
+      </el-tab-pane>
+
       <!-- Tab 3: alert settings (notification channels) -->
-      <el-tab-pane :label="$t('monitor.tabAlert')" name="alert">
+      <el-tab-pane v-if="mcan.manage" :label="$t('monitor.tabAlert')" name="alert">
         <el-card>
           <template #header>
             <div style="display:flex; align-items:center; gap:10px">
@@ -155,10 +193,24 @@
             </el-table-column>
           </el-table>
         </el-card>
+
+        <!-- security-event push channels (system config sec_alert_channels) -->
+        <el-card style="margin-top:16px">
+          <template #header>
+            <div style="display:flex; align-items:center; gap:10px">
+              <span style="flex:1">{{ $t('monitor.secChannels') }}</span>
+              <el-button size="small" type="primary" :loading="secChSaving" @click="saveSecChannels">{{ $t('common.save') }}</el-button>
+            </div>
+          </template>
+          <el-select v-model="secChannelIds" multiple style="width:100%">
+            <el-option v-for="ch in channels" :key="ch.id" :label="`${ch.name}（${chTypeLabel(ch.type)}）`" :value="ch.id" />
+          </el-select>
+          <div style="color:#909399; font-size:12px; margin-top:8px">{{ $t('monitor.secChannelsTip') }}</div>
+        </el-card>
       </el-tab-pane>
 
       <!-- Tab 4: alert rules (global) -->
-      <el-tab-pane :label="$t('monitor.tabRules')" name="rules">
+      <el-tab-pane v-if="mcan.manage" :label="$t('monitor.tabRules')" name="rules">
         <el-card>
           <template #header>
             <div style="display:flex; align-items:center; gap:10px">
@@ -290,7 +342,7 @@
       </el-tab-pane>
 
       <!-- Tab: maintenance windows (global, calendar date range) -->
-      <el-tab-pane :label="$t('monitor.tabMaint')" name="maint">
+      <el-tab-pane v-if="mcan.manage" :label="$t('monitor.tabMaint')" name="maint">
         <el-card>
           <template #header>
             <div style="display:flex; align-items:center; gap:10px">
@@ -362,7 +414,7 @@
       </el-tab-pane>
 
       <!-- Tab 5: template settings (list on the left, editor on the right) -->
-      <el-tab-pane :label="$t('monitor.tabTpl')" name="templates">
+      <el-tab-pane v-if="mcan.manage" :label="$t('monitor.tabTpl')" name="templates">
         <el-card>
           <template #header>
             <div style="display:flex; align-items:center; gap:10px">
@@ -709,7 +761,26 @@ const { t } = i18n.global
 const $router = useRouter()
 const store = useUserStore()
 const isAdmin = computed(() => store.role === 'admin')
+
+// department view: split monitor permissions from the role capability matrix
+const roleConf = ref(null)
+api.get('/system/roles').then(rs => { roleConf.value = rs }).catch(() => {})
+const mcan = computed(() => {
+  if (store.isAdmin) return { host: true, app: true, sec: true, manage: true }
+  const acts = roleConf.value?.[store.role]?.perms?.monitor || []
+  const has = a => acts.includes(a)
+  const manage = has('manage')
+  return {
+    host: has('view_host') || manage,
+    app: has('view_app') || manage,
+    sec: has('view_sec') || manage,
+    manage,
+  }
+})
 const activeTab = ref('cmd')
+watch(mcan, m => {
+  if (!m.host && activeTab.value === 'cmd') activeTab.value = m.app ? 'app' : (m.sec ? 'sec' : (m.manage ? 'alert' : 'report'))
+}, { immediate: true })
 
 // Auto-load the monthly report the first time the tab is opened (was: empty until Generate clicked);
 // AI diag config loads once when its tab is first opened
@@ -1115,6 +1186,66 @@ const teardownPrintClone = () => {
 window.addEventListener('beforeprint', buildPrintClone)
 window.addEventListener('afterprint', teardownPrintClone)
 
+// ---- security logs (security department view) ----
+const sec = reactive({ stream: 'windows_events', hours: '24', host: '', eventId: '', keyword: '', busy: false, err: '' })
+const secRows = ref([])
+const secCols = ref([])
+const searchSec = async () => {
+  sec.busy = true
+  sec.err = ''
+  try {
+    const end = Date.now(), start = end - Number(sec.hours) * 3600 * 1000
+    const r = await api.post('/monitors/sec/logs', {
+      stream: sec.stream, start_ms: start, end_ms: end,
+      host: sec.host.trim(), event_id: Number(sec.eventId) || 0,
+      keyword: sec.keyword.trim(), size: 300,
+    })
+    const hits = r.hits || []
+    secRows.value = hits
+    const cols = new Set()
+    for (const h of hits.slice(0, 50)) Object.keys(h).forEach(k => { if (k !== '_timestamp') cols.add(k) })
+    secCols.value = [...cols]
+    if (!hits.length) sec.err = t('oo.emptyResult')
+  } catch (e) {
+    secRows.value = []
+    secCols.value = []
+    sec.err = e?.response?.data?.error || t('oo.notEnabled')
+  } finally { sec.busy = false }
+}
+const secTime = row => {
+  const n = Number(row._timestamp)
+  return isNaN(n) || n <= 0 ? '-' : new Date(n / 1000).toLocaleString()
+}
+const fmtSecCell = v => v === null || v === undefined || v === '' ? '-' : (typeof v === 'object' ? JSON.stringify(v) : String(v))
+const exportSecCsv = () => {
+  const csvCell = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+  const head = secCols.value.map(csvCell).join(',')
+  const body = secRows.value.map(r => secCols.value.map(col => csvCell(fmtSecCell(r[col]))).join(',')).join('\n')
+  const blob = new Blob(['\ufeff' + head + '\n' + body], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `security-logs-${sec.stream}.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
+// ---- security-event push channels (system config) ----
+const secChannelIds = ref([])
+const secChSaving = ref(false)
+const loadSecChannels = async () => {
+  try {
+    const cfg = await api.get('/system/config')
+    secChannelIds.value = (cfg.sec_alert_channels || '').split(',').map(x => Number(x.trim())).filter(Boolean)
+  } catch { secChannelIds.value = [] }
+}
+const saveSecChannels = async () => {
+  secChSaving.value = true
+  try {
+    await api.put('/system/config', { sec_alert_channels: secChannelIds.value.join(',') })
+    ElMessage.success(t('common.success'))
+  } catch { /* interceptor shows the error */ } finally { secChSaving.value = false }
+}
+
 onMounted(() => {
   load()
   loadAlertRule()
@@ -1123,6 +1254,7 @@ onMounted(() => {
   loadMaintWindows()
   loadMaintAudit()
   loadMaintStatus()
+  loadSecChannels()
   timer = setInterval(load, 30000)
 })
 // ---- Monthly ops report ----

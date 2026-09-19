@@ -24,3 +24,21 @@ func RequireCap(module, action string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// RequireCapAny passes when the role has ANY of the listed actions on the module
+func RequireCapAny(module string, actions ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		u := CurrentUser(c)
+		if u == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
+			return
+		}
+		for _, a := range actions {
+			if service.HasCap(u.Role, module, a) {
+				c.Next()
+				return
+			}
+		}
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "err.forbidden"})
+	}
+}

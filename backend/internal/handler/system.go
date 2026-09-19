@@ -31,6 +31,7 @@ var editableConfigKeys = []string{
 	"winrm_krb5_realm", "winrm_krb5_config",
 	"ssh_key_rotation_enabled", "ssh_key_rotation_days", "ssh_key_rotation_last",
 	"ai_chat_rate_limit", "ai_injection_guard", "ai_snapshot_filter",
+	"sec_alert_channels", "sec_alert_ids",
 }
 
 // GetSystemConfig reads system config (admin); password fields are masked

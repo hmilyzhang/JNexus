@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -65,8 +66,22 @@ func applyMonitorReq(m *model.Monitor, req monitorReq) error {
 
 // ListMonitors monitor list: latest status + 24h uptime + recent heartbeats (up to 50)
 func ListMonitors(c *gin.Context) {
+	u := currentUser(c)
+	_, app, _, manage := service.MonitorCaps(u.Role)
+
 	var monitors []model.Monitor
 	model.DB.Order("id").Find(&monitors)
+	// department scoping: without manage, only global and own-group monitors are listed
+	if !manage {
+		groups := service.UserGroupIDsOf(u.ID)
+		filtered := monitors[:0]
+		for _, m := range monitors {
+			if m.OwnerGroupID == nil || (app && containsUint(groups, *m.OwnerGroupID)) {
+				filtered = append(filtered, m)
+			}
+		}
+		monitors = filtered
+	}
 
 	since24 := time.Now().Add(-24 * time.Hour)
 	since30 := time.Now().Add(-30 * 24 * time.Hour)
@@ -138,6 +153,17 @@ func CreateMonitor(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// department self-service: creators without monitor.manage own the monitor
+	// through their first user group, so only department members and infra manage it
+	u := currentUser(c)
+	if _, _, _, manage := service.MonitorCaps(u.Role); !manage {
+		groups := service.UserGroupIDsOf(u.ID)
+		if len(groups) == 0 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "自建监控需要先加入用户组（用于归属部门）"})
+			return
+		}
+		m.OwnerGroupID = &groups[0]
+	}
 	if err := model.DB.Create(&m).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建失败"})
 		return
@@ -146,12 +172,35 @@ func CreateMonitor(c *gin.Context) {
 	c.JSON(http.StatusOK, m)
 }
 
+// canEditMonitor: monitor.manage, or view_app on a monitor owned by the
+// caller's user group (department self-service monitors)
+func canEditMonitor(u *model.User, m *model.Monitor) bool {
+	_, app, _, manage := service.MonitorCaps(u.Role)
+	if manage {
+		return true
+	}
+	if !app || m.OwnerGroupID == nil {
+		return false
+	}
+	for _, g := range service.UserGroupIDsOf(u.ID) {
+		if g == *m.OwnerGroupID {
+			return true
+		}
+	}
+	return false
+}
+
 // UpdateMonitor edits a monitor
 func UpdateMonitor(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var m model.Monitor
 	if err := model.DB.First(&m, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "监控项不存在"})
+		return
+	}
+	u := currentUser(c)
+	if !canEditMonitor(u, &m) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无权修改该监控项（仅部门成员与 infra 可管理）"})
 		return
 	}
 	var req monitorReq
@@ -182,6 +231,15 @@ func UpdateMonitor(c *gin.Context) {
 // DeleteMonitor deletes a monitor (samples are cascade-deleted)
 func DeleteMonitor(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
+	var m model.Monitor
+	if err := model.DB.First(&m, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "监控项不存在"})
+		return
+	}
+	if !canEditMonitor(currentUser(c), &m) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无权删除该监控项（仅部门成员与 infra 可管理）"})
+		return
+	}
 	model.DB.Where("monitor_id = ?", id).Delete(&model.MonitorSample{})
 	model.DB.Delete(&model.Monitor{}, id)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -193,6 +251,10 @@ func TestMonitor(c *gin.Context) {
 	var m model.Monitor
 	if err := model.DB.First(&m, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "监控项不存在"})
+		return
+	}
+	if !canEditMonitor(currentUser(c), &m) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无权测试该监控项"})
 		return
 	}
 	up, ms, errMsg := service.RunMonitorOnce(&m)
@@ -493,4 +555,87 @@ func MonitorScreen(c *gin.Context) {
 		"alerts_daily": alertsDaily,
 		"tasks_today":  tasksToday,
 	})
+}
+
+func containsUint(list []uint, v uint) bool {
+	for _, x := range list {
+		if x == v {
+			return true
+		}
+	}
+	return false
+}
+
+// SecLogs POST /monitors/sec/logs - security-department log query over the
+// whitelisted security streams only (no free SQL). Body:
+// {stream, start_ms, end_ms, from, size, host, event_id, keyword}
+func SecLogs(c *gin.Context) {
+	var req struct {
+		Stream  string `json:"stream"`
+		StartMs int64  `json:"start_ms"`
+		EndMs   int64  `json:"end_ms"`
+		From    int    `json:"from"`
+		Size    int    `json:"size"`
+		Host    string `json:"host"`
+		EventID int    `json:"event_id"`
+		Keyword string `json:"keyword"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	// stream whitelist: security-relevant streams only
+	cols := map[string]string{
+		"windows_events": "_timestamp, host, log_name, level, event_id, provider, event_time, message",
+		"db_audit":       "_timestamp, username, action, resource, ip, status, detail",
+		"alert_events":   "_timestamp, kind, level, target, message",
+	}
+	collist, ok := cols[req.Stream]
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持安全相关日志流（windows_events / db_audit / alert_events）"})
+		return
+	}
+	if req.EndMs == 0 {
+		req.EndMs = time.Now().UnixMilli()
+	}
+	if req.StartMs == 0 {
+		req.StartMs = req.EndMs - 24*3600*1000
+	}
+	if req.From < 0 {
+		req.From = 0
+	}
+	if req.Size <= 0 || req.Size > 500 {
+		req.Size = 100
+	}
+
+	q := func(s string) string { return strings.ReplaceAll(s, "'", "''") }
+	where := " WHERE 1=1"
+	switch req.Stream {
+	case "windows_events":
+		if req.Host != "" {
+			where += fmt.Sprintf(" AND host = '%s'", q(req.Host))
+		}
+		if req.EventID > 0 {
+			where += fmt.Sprintf(" AND event_id = %d", req.EventID)
+		}
+	case "db_audit":
+		if req.Host != "" {
+			where += fmt.Sprintf(" AND ip = '%s'", q(req.Host))
+		}
+	case "alert_events":
+		if req.Host != "" {
+			where += fmt.Sprintf(" AND target = '%s'", q(req.Host))
+		}
+	}
+	if req.Keyword != "" {
+		where += fmt.Sprintf(" AND message LIKE '%%%s%%'", q(req.Keyword))
+	}
+	sql := fmt.Sprintf("SELECT %s FROM \"%s\"%s ORDER BY _timestamp DESC", collist, req.Stream, where)
+
+	out, err := service.OOSearch(sql, req.StartMs, req.EndMs, req.From, req.Size)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, out)
 }
