@@ -482,6 +482,27 @@ onMounted(load)
 </script>
 
 <style scoped>
+/* left-nav shell (mirrors the AI assistant tab nav) */
+.oa-shell-card { padding: 0; }
+.oa-shell-card :deep(.el-card__body) { padding: 18px; }
+.oa-side-nav { width: 170px; flex-shrink: 0; padding-top: 4px; }
+.oa-side-nav-title {
+  font-weight: 600; font-size: 14px; color: var(--el-text-color-primary);
+  padding: 0 14px; margin-bottom: 10px;
+}
+.oa-nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; margin-bottom: 4px;
+  font-size: 14px; border-radius: 4px; cursor: pointer;
+  color: var(--el-text-color-regular); border: 1px solid transparent;
+  transition: background .15s, color .15s;
+}
+.oa-nav-item:hover { background: var(--el-fill-color-light); }
+.oa-nav-item.active {
+  background: var(--el-color-primary-light-9); color: var(--el-color-primary);
+  font-weight: 600; border-color: var(--el-color-primary-light-7);
+}
+.oa-sec-head { font-size: 14px; }
 .oa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 24px; }
 .oa-kv { display: flex; gap: 10px; font-size: 13px; align-items: baseline; }
 .oa-kv span { color: var(--el-text-color-secondary); flex-shrink: 0; }
