@@ -24,7 +24,7 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
       args:
-        # export JNEXUS_VERSION="1.$(git rev-list --count HEAD)" before building to inject the version
+        # optional: export JNEXUS_VERSION="2.x" to override; otherwise the VERSION file is used
         APP_VERSION: ${JNEXUS_VERSION:-}
     container_name: jnexus-server
     depends_on:

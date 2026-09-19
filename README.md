@@ -78,10 +78,8 @@ Bundled database (JWT/AES keys are auto-generated on first start and persisted i
 
 ```bash
 cd deploy
-# version: with git available, bake the exact commit count (recommended)
-export JNEXUS_VERSION="1.$(git rev-list --count HEAD)"
-# no git on this machine? skip the export entirely — the VERSION file
-# in the repo is baked into the image and used as the fallback
+# version: no setup needed - the repo VERSION file (currently 2.x) is baked into the image
+# to override: export JNEXUS_VERSION="2.x" before building
 docker compose up -d --build
 ```
 
@@ -122,7 +120,7 @@ export JNEXUS_DB_PORT=5432
 export JNEXUS_DB_USER=jnexus
 export JNEXUS_DB_PASSWORD=yourpass
 export JNEXUS_DB_NAME=jnexus        # CREATE DATABASE first
-export JNEXUS_VERSION="1.$(git rev-list --count HEAD)"   # optional: bake exact version (VERSION file is the fallback)
+export JNEXUS_VERSION="2.0"   # optional: bake exact version (VERSION file is the fallback)
 docker compose -f docker-compose.external.yml up -d --build
 # JWT/AES keys are auto-generated and persisted in the `data` volume;
 # set JNEXUS_JWT_SECRET / JNEXUS_AES_KEY to override.

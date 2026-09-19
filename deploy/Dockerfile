@@ -8,9 +8,8 @@ RUN npm run build
 
 # ---- Backend build ----
 # Note: the image version must be >= the go directive version in backend/go.mod
-# APP_VERSION: version injected at build time (compose passes JNEXUS_VERSION through), e.g.:
-#   JNEXUS_VERSION="1.$(git rev-list --count HEAD)" docker compose up -d --build
-# If unset, the runtime fallback chain is: JNEXUS_VERSION env var > git inside the container > VERSION file > 1.0
+# APP_VERSION: optional version injected at build time (compose passes JNEXUS_VERSION through).
+# If unset, the runtime fallback chain is: JNEXUS_VERSION env var > VERSION file (copied below) > 2.0
 FROM golang:1.25-alpine AS be
 ARG APP_VERSION
 WORKDIR /be

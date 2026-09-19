@@ -80,9 +80,8 @@ cd frontend && npm install && npm run dev   # http://localhost:5173 代理到 80
 
 ```bash
 cd deploy
-# 版本号：本机有 git 时注入精确提交次数（推荐）
-export JNEXUS_VERSION="1.$(git rev-list --count HEAD)"
-# 本机没有 git？直接跳过 export——仓库里的 VERSION 文件会随镜像烤入并作为回退
+# 版本号：无需设置——仓库 VERSION 文件（当前 2.x）会随镜像烤入并作为版本来源
+# 如需覆盖：export JNEXUS_VERSION="2.x" 后再构建
 docker compose up -d --build
 ```
 
@@ -121,7 +120,7 @@ export JNEXUS_DB_PORT=5432
 export JNEXUS_DB_USER=jnexus
 export JNEXUS_DB_PASSWORD=yourpass
 export JNEXUS_DB_NAME=jnexus        # 需先 CREATE DATABASE
-export JNEXUS_VERSION="1.$(git rev-list --count HEAD)"   # 可选：注入精确版本（缺省用仓库 VERSION 文件）
+export JNEXUS_VERSION="2.0"   # 可选：注入精确版本（缺省用仓库 VERSION 文件）
 docker compose -f docker-compose.external.yml up -d --build
 # JWT/AES 密钥自动生成并持久化在 `data` 卷；如需指定，设置 JNEXUS_JWT_SECRET / JNEXUS_AES_KEY 覆盖
 ```

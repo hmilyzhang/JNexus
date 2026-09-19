@@ -31,7 +31,7 @@
           </el-menu-item>
         </template>
       </el-menu>
-      <div class="byline" v-if="!collapsed">{{ $t('layout.byline', { version: appVersion }) }}</div>
+      <div class="byline" v-if="!collapsed">{{ appVersion ? $t('layout.byline', { version: appVersion }) : 'By JJ Zhang' }}</div>
     </el-aside>
     <el-container>
       <el-header class="header">
@@ -178,10 +178,10 @@ const router = useRouter()
 const { t } = i18n.global
 
 const systemName = ref(localStorage.getItem('system_name') || 'JNexus')
-const appVersion = ref('1.0')
+const appVersion = ref('')
 api.get('/system/info').then(info => {
   systemName.value = info.system_name || 'JNexus'
-  appVersion.value = info.version || '1.0'
+  appVersion.value = info.version || ''
   localStorage.setItem('system_name', info.system_name || 'JNexus')
   document.title = info.system_name || 'JNexus'
 }).catch(() => {})
