@@ -1,217 +1,230 @@
-<!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
-<!-- OpenObserve integration management (admin): connection health, per-stream
-     push stats + toggles, custom push tester and the external push API guide. -->
+<!-- OpenObserve integration management (admin): left-nav layout -
+     connection status (default), builtin integrations, security watchlists,
+     retention policy, database ingestion and the push tester.
+     Connection settings (url/org/token) are maintained in System Settings. -->
 <template>
   <div>
-    <!-- Connection health -->
-    <el-card v-loading="loading">
-      <template #header>
-        <div style="display:flex; align-items:center; gap:10px">
-          <span style="font-weight:600">{{ $t('oa.connTitle') }}</span>
-          <el-tag v-if="st" size="small" :type="st.enabled ? (st.reachable ? 'success' : 'danger') : 'info'">
-            {{ st.enabled ? (st.reachable ? $t('oa.online') : $t('oa.unreachable')) : $t('oa.enabledOff') }}
-          </el-tag>
-          <el-tag v-if="st && st.enabled && st.reachable" size="small" type="info" effect="plain">{{ st.latency_ms }} ms</el-tag>
-          <span style="flex:1"></span>
-          <el-button size="small" :loading="testing" @click="testConn">{{ $t('ai.testConn') }}</el-button>
-          <el-button size="small" @click="$router.push('/system')">{{ $t('oa.gotoSettings') }}</el-button>
-          <el-button size="small" @click="load">{{ $t('common.refresh') }}</el-button>
+    <el-card class="oa-shell-card" v-loading="loading">
+      <div style="display:flex; gap:18px; min-height:480px">
+        <div class="oa-side-nav">
+          <div class="oa-side-nav-title">{{ $t('menu.observeAdmin') }}</div>
+          <div class="oa-nav-item" :class="{ active: oaSection === 'conn' }" @click="oaSection = 'conn'">{{ $t('oa.navConn') }}</div>
+          <div class="oa-nav-item" :class="{ active: oaSection === 'streams' }" @click="oaSection = 'streams'">{{ $t('oa.navStreams') }}</div>
+          <div class="oa-nav-item" :class="{ active: oaSection === 'watch' }" @click="oaSection = 'watch'">{{ $t('oa.navWatch') }}</div>
+          <div class="oa-nav-item" :class="{ active: oaSection === 'retention' }" @click="oaSection = 'retention'">{{ $t('oa.navRetention') }}</div>
+          <div class="oa-nav-item" :class="{ active: oaSection === 'db' }" @click="oaSection = 'db'">{{ $t('oa.navDb') }}</div>
+          <div class="oa-nav-item" :class="{ active: oaSection === 'push' }" @click="oaSection = 'push'">{{ $t('oa.navPush') }}</div>
         </div>
-      </template>
-      <div v-if="st" class="oa-grid">
-        <div class="oa-kv"><span>{{ $t('oo.enabled') }}</span><b>{{ st.enabled ? 'Yes' : 'No' }}</b></div>
-        <div class="oa-kv"><span>{{ $t('oo.url') }}</span><b class="mono">{{ st.url || '—' }}</b></div>
-        <div class="oa-kv"><span>{{ $t('oo.org') }}</span><b class="mono">{{ st.org || '—' }}</b></div>
-        <div class="oa-kv"><span>{{ $t('oo.token') }}</span><b>{{ st.token_set ? $t('oa.tokenSet') : $t('oa.tokenMissing') }}</b></div>
-        <div v-if="st.error" class="oa-kv"><span>{{ $t('oa.lastError') }}</span><b style="color:var(--el-color-danger)">{{ st.error }}</b></div>
-        <div v-if="st.enabled && !st.reachable && /(^|\.)?(localhost|127\.0\.0\.1)(:|\/|$)/.test(st.url || '')"
-             class="oa-kv"><span>{{ $t('oa.containerHint') }}</span><b>{{ $t('oa.containerHintText') }}</b></div>
+
+        <div style="flex:1; min-width:0">
+          <!-- Connection status (readonly; url/org/token maintained in System Settings) -->
+          <template v-if="oaSection === 'conn'">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap">
+              <el-tag v-if="st" size="small" :type="st.enabled ? (st.reachable ? 'success' : 'danger') : 'info'">
+                {{ st.enabled ? (st.reachable ? $t('oa.online') : $t('oa.unreachable')) : $t('oa.enabledOff') }}
+              </el-tag>
+              <el-tag v-if="st && st.enabled && st.reachable" size="small" type="info" effect="plain">{{ st.latency_ms }} ms</el-tag>
+              <span style="flex:1"></span>
+              <el-button size="small" :loading="testing" @click="testConn">{{ $t('ai.testConn') }}</el-button>
+              <el-button size="small" @click="$router.push('/system')">{{ $t('oa.gotoSettings') }}</el-button>
+              <el-button size="small" @click="load">{{ $t('common.refresh') }}</el-button>
+            </div>
+            <div v-if="st" class="oa-grid">
+              <div class="oa-kv"><span>{{ $t('oo.enabled') }}</span><b>{{ st.enabled ? 'Yes' : 'No' }}</b></div>
+              <div class="oa-kv"><span>{{ $t('oo.url') }}</span><b class="mono">{{ st.url || '—' }}</b></div>
+              <div class="oa-kv"><span>{{ $t('oo.org') }}</span><b class="mono">{{ st.org || '—' }}</b></div>
+              <div class="oa-kv"><span>{{ $t('oo.token') }}</span><b>{{ st.token_set ? $t('oa.tokenSet') : $t('oa.tokenMissing') }}</b></div>
+              <div v-if="st.error" class="oa-kv"><span>{{ $t('oa.lastError') }}</span><b style="color:var(--el-color-danger)">{{ st.error }}</b></div>
+              <div v-if="st.enabled && !st.reachable && /(^|\.)?(localhost|127\.0\.0\.1)(:|\/|$)/.test(st.url || '')"
+                   class="oa-kv"><span>{{ $t('oa.containerHint') }}</span><b>{{ $t('oa.containerHintText') }}</b></div>
+            </div>
+            <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:14px">{{ $t('oa.connMaintainHint') }}</div>
+          </template>
+
+          <!-- Builtin integrations -->
+          <template v-if="oaSection === 'streams'">
+            <div class="oa-sec-head" style="margin-bottom:14px"><span style="font-weight:600">{{ $t('oa.builtinTitle') }}</span></div>
+            <el-table :data="builtinRows" size="small" border>
+              <el-table-column prop="stream" label="Stream" width="160">
+                <template #default="{ row }"><span class="mono">{{ row.stream }}</span></template>
+              </el-table-column>
+              <el-table-column prop="desc" :label="$t('oa.descCol')" min-width="200" />
+              <el-table-column :label="$t('oa.enabledCol')" width="90" align="center">
+                <template #default="{ row }">
+                  <el-switch :model-value="row.enabled" @change="v => toggle(row.stream, v)" />
+                </template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.pushedCol')" width="100" align="center">
+                <template #default="{ row }">{{ stat(row.stream).pushed }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.failedCol')" width="90" align="center">
+                <template #default="{ row }">
+                  <span :style="stat(row.stream).failed ? 'color:var(--el-color-danger)' : ''">{{ stat(row.stream).failed }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.lastPushCol')" width="170">
+                <template #default="{ row }">{{ fmtTime(stat(row.stream).last_push_at) }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.lastErrorCol')" min-width="180" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <span v-if="stat(row.stream).last_error" style="color:var(--el-color-danger)">{{ stat(row.stream).last_error }}</span>
+                  <span v-else>—</span>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:8px">{{ $t('oa.statsHint') }}</div>
+          </template>
+
+          <!-- Security watchlists -->
+          <template v-if="oaSection === 'watch'">
+            <div class="oa-sec-head" style="margin-bottom:14px; display:flex; align-items:center">
+              <span style="font-weight:600; flex:1">{{ $t('oa.secWatchTitle') }}</span>
+              <el-button size="small" type="primary" :loading="secWatchSaving" @click="saveSecWatch">{{ $t('common.save') }}</el-button>
+            </div>
+
+            <div style="font-weight:600; margin-bottom:8px">{{ $t('oa.secWatchWin') }}</div>
+            <el-table :data="secWin" size="small" border>
+              <el-table-column prop="id" label="Event ID" width="100" align="center" />
+              <el-table-column :label="$t('oa.secWatchName')">
+                <template #default="{ row }"><el-input v-model="row.name" size="small" /></template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.secWatchImmediate')" width="110" align="center">
+                <template #default="{ row }"><el-switch v-model="row.immediate" /></template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.enabledCol')" width="90" align="center">
+                <template #default="{ row }"><el-switch v-model="row.on" /></template>
+              </el-table-column>
+              <el-table-column width="70" align="center">
+                <template #default="{ $index }">
+                  <el-button size="small" link type="danger" @click="delWinRow($index)">{{ $t('common.delete') }}</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div style="display:flex; gap:8px; margin-top:8px">
+              <el-input v-model="newWinId" size="small" placeholder="Event ID" style="width:140px" />
+              <el-button size="small" @click="addWinRow">{{ $t('common.add') }}</el-button>
+            </div>
+
+            <div style="font-weight:600; margin:16px 0 8px">{{ $t('oa.secWatchLinux') }}</div>
+            <el-table :data="secLinux" size="small" border>
+              <el-table-column :label="$t('oa.secWatchKw')" min-width="220">
+                <template #default="{ row }"><el-input v-model="row.kw" size="small" class="mono" /></template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.secWatchName')">
+                <template #default="{ row }"><el-input v-model="row.name" size="small" /></template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.secWatchImmediate')" width="110" align="center">
+                <template #default="{ row }"><el-switch v-model="row.immediate" /></template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.enabledCol')" width="90" align="center">
+                <template #default="{ row }"><el-switch v-model="row.on" /></template>
+              </el-table-column>
+              <el-table-column width="70" align="center">
+                <template #default="{ $index }">
+                  <el-button size="small" link type="danger" @click="delLinuxRow($index)">{{ $t('common.delete') }}</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <el-button size="small" style="margin-top:8px" @click="addLinuxRow">{{ $t('common.add') }}</el-button>
+
+            <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:10px">{{ $t('oa.secWatchTip') }}</div>
+          </template>
+
+          <!-- Retention policy -->
+          <template v-if="oaSection === 'retention'">
+            <div class="oa-sec-head" style="margin-bottom:14px"><span style="font-weight:600">{{ $t('oa.retentionTitle') }}</span></div>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+              <span>{{ $t('oa.retentionKeep') }}</span>
+              <el-input-number v-model="retentionDays" :min="0" :max="3650" :step="10" />
+              <span>{{ $t('oa.retentionDays') }}</span>
+              <el-button size="small" type="primary" :loading="retentionApplying" @click="applyRetention">{{ $t('oa.retentionApply') }}</el-button>
+              <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oa.retentionTip') }}</span>
+            </div>
+            <div v-if="retentionResults.length" style="margin-top:10px">
+              <div v-for="r in retentionResults" :key="r.stream" style="font-size:12.5px; line-height:1.9">
+                <span class="mono">{{ r.stream }}</span>:
+                <span v-if="r.ok" style="color:var(--el-color-success)">✓</span>
+                <span v-else style="color:var(--el-color-danger)">✗ {{ r.error }}</span>
+              </div>
+            </div>
+          </template>
+
+          <!-- Database ingestion -->
+          <template v-if="oaSection === 'db'">
+            <div class="oa-sec-head" style="margin-bottom:14px; display:flex; align-items:center">
+              <span style="font-weight:600; flex:1">{{ $t('oa.dbTitle') }}</span>
+              <el-button size="small" type="primary" @click="dbDlg()">{{ $t('oa.dbAdd') }}</el-button>
+            </div>
+            <el-table :data="dbSources" size="small" border v-loading="dbLoading">
+              <el-table-column prop="name" :label="$t('oa.dbName')" width="150">
+                <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
+              </el-table-column>
+              <el-table-column prop="db_type" :label="$t('oa.dbType')" width="90" align="center">
+                <template #default="{ row }"><el-tag size="small" effect="plain">{{ row.db_type }}</el-tag></template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.dbConn')" min-width="180">
+                <template #default="{ row }"><span class="mono">{{ row.host }}:{{ row.port }} / {{ row.database }}</span></template>
+              </el-table-column>
+              <el-table-column prop="query" :label="$t('oa.dbQuery')" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="stream" :label="$t('oa.streamCol')" width="120">
+                <template #default="{ row }"><span class="mono">{{ row.stream }}</span></template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.enabledCol')" width="80" align="center">
+                <template #default="{ row }">
+                  <el-switch :model-value="row.enabled" @change="v => dbToggle(row, v)" />
+                </template>
+              </el-table-column>
+              <el-table-column :label="$t('oa.lastRunCol')" width="160">
+                <template #default="{ row }">
+                  <div>{{ fmtTime(row.last_run_at) }}</div>
+                  <div v-if="row.last_error" style="color:var(--el-color-danger); font-size:11px" :title="row.last_error">{{ row.last_error.slice(0, 40) }}</div>
+                </template>
+              </el-table-column>
+              <el-table-column :label="$t('common.actions')" width="150" fixed="right">
+                <template #default="{ row }">
+                  <el-button size="small" link type="primary" :loading="row._running" @click="dbRun(row)">{{ $t('oo.run') }}</el-button>
+                  <el-button size="small" link type="primary" @click="dbDlg(row)">{{ $t('common.edit') }}</el-button>
+                  <el-popconfirm :title="$t('oa.dbDelConfirm')" @confirm="dbDel(row)">
+                    <template #reference><el-button size="small" link type="danger">{{ $t('common.delete') }}</el-button></template>
+                  </el-popconfirm>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+
+          <!-- Push tester + external API guide -->
+          <template v-if="oaSection === 'push'">
+            <el-row :gutter="18">
+              <el-col :span="12">
+                <div style="font-weight:600; margin-bottom:10px">{{ $t('oa.testerTitle') }}</div>
+                <el-form label-width="90px">
+                  <el-form-item :label="$t('oa.streamCol')">
+                    <el-select v-model="pushStream" filterable allow-create default-first-option style="width:100%">
+                      <el-option v-for="s in knownStreams" :key="s" :value="s" :label="s" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item :label="$t('oa.jsonCol')">
+                    <el-input v-model="pushJSON" type="textarea" :rows="6" class="mono"
+                              :placeholder="'[{&quot;device&quot;: &quot;fw-1&quot;, &quot;temp_c&quot;: 62.5}]'" />
+                  </el-form-item>
+                  <el-form-item>
+                    <el-button type="primary" :loading="pushing" @click="pushTest">{{ $t('oo.run') }}</el-button>
+                  </el-form-item>
+                </el-form>
+              </el-col>
+              <el-col :span="12">
+                <div style="font-weight:600; margin-bottom:10px">{{ $t('oa.apiTitle') }}</div>
+                <div style="color:var(--el-text-color-secondary); font-size:12px; margin-bottom:8px">{{ $t('oa.apiTip') }}</div>
+                <div class="mono oa-code">curl -X POST "$JNEXUS/api/ext/oo/my_stream" \<br>
+                  &nbsp;&nbsp;-H "Authorization: Bearer aok_&lt;id&gt;.&lt;secret&gt;" \\<br>
+                  &nbsp;&nbsp;-H "Content-Type: application/json" \\<br>
+                  &nbsp;&nbsp;-d '[{"device":"fw-1","temp_c":62.5}]'</div>
+                <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:8px">{{ $t('oa.apiNote') }}</div>
+              </el-col>
+            </el-row>
+          </template>
+        </div>
       </div>
-
-      <!-- Inline edit: connection settings without leaving the page -->
-      <el-divider style="margin:14px 0" />
-      <div style="max-width:520px">
-        <div class="oa-edit-row">
-          <span class="oa-edit-label">{{ $t('oo.url') }}</span>
-          <el-input v-model="edit.url" class="mono" placeholder="http://openobserve:5080" />
-        </div>
-        <div class="oa-edit-row">
-          <span class="oa-edit-label">{{ $t('oo.org') }}</span>
-          <el-input v-model="edit.org" class="mono" placeholder="default" />
-        </div>
-        <div class="oa-edit-row">
-          <span class="oa-edit-label">{{ $t('oo.token') }}</span>
-          <el-input v-model="edit.token" type="password" show-password class="mono"
-                    :placeholder="$t('oa.tokenEditPlaceholder')" />
-        </div>
-        <div class="oa-edit-row">
-          <span class="oa-edit-label"></span>
-          <el-button type="primary" :loading="savingConn" @click="saveConn">{{ $t('common.save') }}</el-button>
-          <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oa.tokenEditHint') }}</span>
-        </div>
-      </div>
-    </el-card>
-
-    <!-- Built-in integrations -->
-    <el-card style="margin-top:14px">
-      <template #header>
-        <span style="font-weight:600">{{ $t('oa.builtinTitle') }}</span>
-      </template>
-      <el-table :data="builtinRows" size="small" border>
-        <el-table-column prop="stream" label="Stream" width="160">
-          <template #default="{ row }"><span class="mono">{{ row.stream }}</span></template>
-        </el-table-column>
-        <el-table-column prop="desc" :label="$t('oa.descCol')" min-width="200" />
-        <el-table-column :label="$t('oa.enabledCol')" width="90" align="center">
-          <template #default="{ row }">
-            <el-switch :model-value="row.enabled" @change="v => toggle(row.stream, v)" />
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.pushedCol')" width="100" align="center">
-          <template #default="{ row }">{{ stat(row.stream).pushed }}</template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.failedCol')" width="90" align="center">
-          <template #default="{ row }">
-            <span :style="stat(row.stream).failed ? 'color:var(--el-color-danger)' : ''">{{ stat(row.stream).failed }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.lastPushCol')" width="170">
-          <template #default="{ row }">{{ fmtTime(stat(row.stream).last_push_at) }}</template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.lastErrorCol')" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span v-if="stat(row.stream).last_error" style="color:var(--el-color-danger)">{{ stat(row.stream).last_error }}</span>
-            <span v-else>—</span>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:8px">{{ $t('oa.statsHint') }}</div>
-    </el-card>
-
-    <!-- Security watchlist: concrete monitored items, individually toggleable -->
-    <el-card style="margin-top:16px">
-      <template #header>
-        <div style="display:flex; align-items:center; gap:10px">
-          <span style="font-weight:600; flex:1">{{ $t('oa.secWatchTitle') }}</span>
-          <el-button size="small" type="primary" :loading="secWatchSaving" @click="saveSecWatch">{{ $t('common.save') }}</el-button>
-        </div>
-      </template>
-
-      <div style="font-weight:600; margin-bottom:8px">{{ $t('oa.secWatchWin') }}</div>
-      <el-table :data="secWin" size="small" border>
-        <el-table-column prop="id" label="Event ID" width="100" align="center" />
-        <el-table-column :label="$t('oa.secWatchName')">
-          <template #default="{ row }"><el-input v-model="row.name" size="small" /></template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.secWatchImmediate')" width="110" align="center">
-          <template #default="{ row }"><el-switch v-model="row.immediate" /></template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.enabledCol')" width="90" align="center">
-          <template #default="{ row }"><el-switch v-model="row.on" /></template>
-        </el-table-column>
-        <el-table-column width="70" align="center">
-          <template #default="{ $index }">
-            <el-button size="small" link type="danger" @click="delWinRow($index)">{{ $t('common.delete') }}</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div style="display:flex; gap:8px; margin-top:8px">
-        <el-input v-model="newWinId" size="small" placeholder="Event ID" style="width:140px" />
-        <el-button size="small" @click="addWinRow">{{ $t('common.add') }}</el-button>
-      </div>
-
-      <div style="font-weight:600; margin:16px 0 8px">{{ $t('oa.secWatchLinux') }}</div>
-      <el-table :data="secLinux" size="small" border>
-        <el-table-column :label="$t('oa.secWatchKw')" min-width="220">
-          <template #default="{ row }"><el-input v-model="row.kw" size="small" class="mono" /></template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.secWatchName')">
-          <template #default="{ row }"><el-input v-model="row.name" size="small" /></template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.secWatchImmediate')" width="110" align="center">
-          <template #default="{ row }"><el-switch v-model="row.immediate" /></template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.enabledCol')" width="90" align="center">
-          <template #default="{ row }"><el-switch v-model="row.on" /></template>
-        </el-table-column>
-        <el-table-column width="70" align="center">
-          <template #default="{ $index }">
-            <el-button size="small" link type="danger" @click="delLinuxRow($index)">{{ $t('common.delete') }}</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-button size="small" style="margin-top:8px" @click="addLinuxRow">{{ $t('common.add') }}</el-button>
-
-      <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:10px">{{ $t('oa.secWatchTip') }}</div>
-    </el-card>
-
-    <!-- Retention policy -->
-    <el-card style="margin-top:16px">
-      <template #header>
-        <div style="display:flex; align-items:center; gap:10px">
-          <span style="font-weight:600; flex:1">{{ $t('oa.retentionTitle') }}</span>
-          <el-button size="small" type="primary" :loading="retentionApplying" @click="applyRetention">{{ $t('oa.retentionApply') }}</el-button>
-        </div>
-      </template>
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
-        <span>{{ $t('oa.retentionKeep') }}</span>
-        <el-input-number v-model="retentionDays" :min="0" :max="3650" :step="10" />
-        <span>{{ $t('oa.retentionDays') }}</span>
-        <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oa.retentionTip') }}</span>
-      </div>
-      <div v-if="retentionResults.length" style="margin-top:10px">
-        <div v-for="r in retentionResults" :key="r.stream" style="font-size:12.5px; line-height:1.9">
-          <span class="mono">{{ r.stream }}</span>:
-          <span v-if="r.ok" style="color:var(--el-color-success)">✓</span>
-          <span v-else style="color:var(--el-color-danger)">✗ {{ r.error }}</span>
-        </div>
-      </div>
-    </el-card>
-
-    <!-- Database ingestion -->
-    <el-card style="margin-top:14px">
-      <template #header>
-        <div style="display:flex; align-items:center; gap:10px">
-          <span style="font-weight:600">{{ $t('oa.dbTitle') }}</span>
-          <span style="flex:1"></span>
-          <el-button size="small" type="primary" @click="dbDlg()">{{ $t('oa.dbAdd') }}</el-button>
-        </div>
-      </template>
-      <el-table :data="dbSources" size="small" border v-loading="dbLoading">
-        <el-table-column prop="name" :label="$t('oa.dbName')" width="150">
-          <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
-        </el-table-column>
-        <el-table-column prop="db_type" :label="$t('oa.dbType')" width="90" align="center">
-          <template #default="{ row }"><el-tag size="small" effect="plain">{{ row.db_type }}</el-tag></template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.dbConn')" min-width="180">
-          <template #default="{ row }"><span class="mono">{{ row.host }}:{{ row.port }} / {{ row.database }}</span></template>
-        </el-table-column>
-        <el-table-column prop="query" :label="$t('oa.dbQuery')" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="stream" :label="$t('oa.streamCol')" width="120">
-          <template #default="{ row }"><span class="mono">{{ row.stream }}</span></template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.enabledCol')" width="80" align="center">
-          <template #default="{ row }">
-            <el-switch :model-value="row.enabled" @change="v => dbToggle(row, v)" />
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('oa.lastRunCol')" width="160">
-          <template #default="{ row }">
-            <div>{{ fmtTime(row.last_run_at) }}</div>
-            <div v-if="row.last_error" style="color:var(--el-color-danger); font-size:11px" :title="row.last_error">{{ row.last_error.slice(0, 40) }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('common.actions')" width="150" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" link type="primary" :loading="row._running" @click="dbRun(row)">{{ $t('oo.run') }}</el-button>
-            <el-button size="small" link type="primary" @click="dbDlg(row)">{{ $t('common.edit') }}</el-button>
-            <el-popconfirm :title="$t('oa.dbDelConfirm')" @confirm="dbDel(row)">
-              <template #reference><el-button size="small" link type="danger">{{ $t('common.delete') }}</el-button></template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
     </el-card>
 
     <!-- DB source dialog -->
@@ -267,43 +280,6 @@
         <el-button type="primary" :loading="dbSaving" @click="dbSave">{{ $t('common.save') }}</el-button>
       </template>
     </el-dialog>
-
-    <!-- Custom ingestion -->
-    <el-card style="margin-top:14px">
-      <template #header>
-        <span style="font-weight:600">{{ $t('oa.customTitle') }}</span>
-      </template>
-      <el-row :gutter="18">
-        <!-- Push tester -->
-        <el-col :span="12">
-          <div style="font-weight:600; margin-bottom:10px">{{ $t('oa.testerTitle') }}</div>
-          <el-form label-width="90px">
-            <el-form-item :label="$t('oa.streamCol')">
-              <el-select v-model="pushStream" filterable allow-create default-first-option style="width:100%">
-                <el-option v-for="s in knownStreams" :key="s" :value="s" :label="s" />
-              </el-select>
-            </el-form-item>
-            <el-form-item :label="$t('oa.jsonCol')">
-              <el-input v-model="pushJSON" type="textarea" :rows="6" class="mono"
-                        :placeholder="'[{&quot;device&quot;: &quot;fw-1&quot;, &quot;temp_c&quot;: 62.5}]'" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="pushing" @click="pushTest">{{ $t('oo.run') }}</el-button>
-            </el-form-item>
-          </el-form>
-        </el-col>
-        <!-- External API guide -->
-        <el-col :span="12">
-          <div style="font-weight:600; margin-bottom:10px">{{ $t('oa.apiTitle') }}</div>
-          <div style="color:var(--el-text-color-secondary); font-size:12px; margin-bottom:8px">{{ $t('oa.apiTip') }}</div>
-          <div class="mono oa-code">curl -X POST "$JNEXUS/api/ext/oo/my_stream" \<br>
-            &nbsp;&nbsp;-H "Authorization: Bearer aok_&lt;id&gt;.&lt;secret&gt;" \<br>
-            &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
-            &nbsp;&nbsp;-d '[{"device":"fw-1","temp_c":62.5}]'</div>
-          <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:8px">{{ $t('oa.apiNote') }}</div>
-        </el-col>
-      </el-row>
-    </el-card>
   </div>
 </template>
 
@@ -346,16 +322,13 @@ const stat = s => (st.value?.stats || {})[s] || { pushed: 0, failed: 0 }
 
 const fmtTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '—')
 
-const edit = ref({ url: '', org: '', token: '' })
-const savingConn = ref(false)
+const oaSection = ref('conn')
 
 const load = async () => {
   loading.value = true
   try {
     st.value = await api.get('/system/oo/status')
     discovered.value = st.value.streams || []
-    edit.value.url = st.value.url || ''
-    edit.value.org = st.value.org || ''
   } finally { loading.value = false }
   loadDbSources()
   loadSecWatch()
@@ -363,20 +336,7 @@ const load = async () => {
 }
 
 // save connection settings from the admin page; empty token keeps the stored one
-const saveConn = async () => {
-  savingConn.value = true
-  try {
-    await api.put('/system/config', {
-      oo_enabled: st.value.enabled ? 'true' : 'false',
-      oo_url: edit.value.url,
-      oo_org: edit.value.org,
-      oo_token: edit.value.token,
-    })
-    ElMessage.success(t('system.saved'))
-    edit.value.token = ''
-    await load()
-  } catch { /* interceptor shows the error */ } finally { savingConn.value = false }
-}
+
 
 const testConn = async () => {
   testing.value = true

@@ -1170,6 +1170,13 @@ logtail: {
   },
   oa: {
     connTitle: '连接状态',
+    navConn: '连接状态',
+    navStreams: '内置集成',
+    navWatch: '安全监控项目',
+    navRetention: '日志保留策略',
+    navDb: '数据库接入',
+    navPush: '推送测试',
+    connMaintainHint: '服务器地址 / 组织 / 凭证在 系统设置 → 可观测集成 中维护',
     online: '已连接',
     unreachable: '不可达',
     enabledOff: '未启用',

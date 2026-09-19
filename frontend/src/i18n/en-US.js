@@ -1169,6 +1169,13 @@ logtail: {
   },
   oa: {
     connTitle: 'Connection',
+    navConn: 'Connection status',
+    navStreams: 'Built-in integrations',
+    navWatch: 'Security watch items',
+    navRetention: 'Log retention policy',
+    navDb: 'Database ingestion',
+    navPush: 'Push tester',
+    connMaintainHint: 'Server URL / organization / credentials are maintained in System Settings → Observability',
     online: 'Connected',
     unreachable: 'Unreachable',
     enabledOff: 'Disabled',
