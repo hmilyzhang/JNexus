@@ -1227,6 +1227,13 @@ logtail: {
     keepPwd: 'Leave empty to keep the stored password',
     intervalLabel: 'Interval',
     descDbAudit: 'Database audit trail (platform PostgreSQL audit_log, written in real time)',
+    descK8sCapacity: 'K8S capacity samples (cluster CPU/memory usage for capacity planning)',
+    descAuditStream: 'Platform audit log (operator/action/resource/result)',
+    retentionTitle: 'Log retention policy',
+    retentionKeep: 'Keep all monitoring log streams for',
+    retentionDays: 'days',
+    retentionApply: 'Apply to all streams',
+    retentionTip: 'OpenObserve automatically cleans data older than the retention period; 0 = no auto cleanup',
   },
   ai: {
     tab: 'AI Assistant',

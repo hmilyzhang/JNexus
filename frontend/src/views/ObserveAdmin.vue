@@ -145,7 +145,30 @@
       <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:10px">{{ $t('oa.secWatchTip') }}</div>
     </el-card>
 
-    <!-- Database ingestion sources -->
+    <!-- Retention policy -->
+    <el-card style="margin-top:16px">
+      <template #header>
+        <div style="display:flex; align-items:center; gap:10px">
+          <span style="font-weight:600; flex:1">{{ $t('oa.retentionTitle') }}</span>
+          <el-button size="small" type="primary" :loading="retentionApplying" @click="applyRetention">{{ $t('oa.retentionApply') }}</el-button>
+        </div>
+      </template>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+        <span>{{ $t('oa.retentionKeep') }}</span>
+        <el-input-number v-model="retentionDays" :min="0" :max="3650" :step="10" />
+        <span>{{ $t('oa.retentionDays') }}</span>
+        <span style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oa.retentionTip') }}</span>
+      </div>
+      <div v-if="retentionResults.length" style="margin-top:10px">
+        <div v-for="r in retentionResults" :key="r.stream" style="font-size:12.5px; line-height:1.9">
+          <span class="mono">{{ r.stream }}</span>:
+          <span v-if="r.ok" style="color:var(--el-color-success)">✓</span>
+          <span v-else style="color:var(--el-color-danger)">✗ {{ r.error }}</span>
+        </div>
+      </div>
+    </el-card>
+
+    <!-- Database ingestion -->
     <el-card style="margin-top:14px">
       <template #header>
         <div style="display:flex; align-items:center; gap:10px">
@@ -306,6 +329,8 @@ const builtinRows = computed(() => [
   { stream: 'windows_events', desc: t('oa.descWindowsEvents'), enabled: isEnabled('windows_events') },
   { stream: 'linux_events', desc: t('oa.descLinuxEvents'), enabled: isEnabled('linux_events') },
   { stream: 'db_audit', desc: t('oa.descDbAudit'), enabled: isEnabled('db_audit') },
+  { stream: 'k8s_capacity', desc: t('oa.descK8sCapacity'), enabled: isEnabled('k8s_capacity') },
+  { stream: 'audit', desc: t('oa.descAuditStream'), enabled: isEnabled('audit') },
 ])
 const knownStreams = computed(() => [...new Set(['custom_stream', ...builtinRows.value.map(r => r.stream), ...discovered.value])])
 
@@ -334,6 +359,7 @@ const load = async () => {
   } finally { loading.value = false }
   loadDbSources()
   loadSecWatch()
+  loadRetention()
 }
 
 // save connection settings from the admin page; empty token keeps the stored one
@@ -402,6 +428,27 @@ const addLinuxRow = () => {
 }
 const delWinRow = idx => secWin.value.splice(idx, 1)
 const delLinuxRow = idx => secLinux.value.splice(idx, 1)
+
+// ---- Retention policy: push a retention period to every OO stream ----
+const retentionDays = ref(30)
+const retentionApplying = ref(false)
+const retentionResults = ref([])
+
+const loadRetention = async () => {
+  try {
+    const r = await api.get('/system/oo/retention')
+    if (r.days > 0) retentionDays.value = r.days
+  } catch { /* keep default */ }
+}
+const applyRetention = async () => {
+  retentionApplying.value = true
+  retentionResults.value = []
+  try {
+    const r = await api.post('/system/oo/retention', { days: Number(retentionDays.value) || 0 })
+    retentionResults.value = r.results || []
+    ElMessage.success(t('system.saved'))
+  } catch { /* interceptor shows the error */ } finally { retentionApplying.value = false }
+}
 
 // ---- Database ingestion sources ----
 const dbSources = ref([])

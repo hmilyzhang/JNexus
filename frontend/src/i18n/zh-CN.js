@@ -1228,6 +1228,13 @@ logtail: {
     keepPwd: '留空保持原密码',
     intervalLabel: '采集间隔',
     descDbAudit: '数据库审计流水（平台 PostgreSQL audit_log 实时写入）',
+    descK8sCapacity: 'K8S 容量采样（集群 CPU/内存用量，容量规划）',
+    descAuditStream: '平台审计日志（操作者/动作/资源/结果）',
+    retentionTitle: '日志保留策略',
+    retentionKeep: '所有监控日志流保留',
+    retentionDays: '天',
+    retentionApply: '应用到全部流',
+    retentionTip: '由 OpenObserve 自动清理超过保留期的数据；0 = 不自动清理',
   },
   ai: {
     tab: 'AI 助手',

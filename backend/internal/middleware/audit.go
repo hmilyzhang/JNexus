@@ -45,6 +45,10 @@ func Audit() gin.HandlerFunc {
 		c.Next()
 
 		go func(user *model.User, method, path, ip string, status int, sum string) {
+			service.OOPushAudit(map[string]any{
+				"username": userStr(user), "method": method, "path": path,
+				"ip": ip, "status": status, "summary": sum,
+			})
 			username := ""
 			uid := uint(0)
 			if user != nil {
@@ -86,4 +90,11 @@ func sanitize(s string) string {
 		return s
 	}
 	return string(out)
+}
+
+func userStr(u *model.User) string {
+	if u == nil {
+		return ""
+	}
+	return u.Username
 }

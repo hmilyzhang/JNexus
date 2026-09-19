@@ -5,6 +5,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +33,7 @@ var editableConfigKeys = []string{
 	"ssh_key_rotation_enabled", "ssh_key_rotation_days", "ssh_key_rotation_last",
 	"ai_chat_rate_limit", "ai_injection_guard", "ai_snapshot_filter",
 	"sec_alert_channels", "sec_alert_ids",
+	"oo_retention_days",
 }
 
 // GetSystemConfig reads system config (admin); password fields are masked
@@ -433,4 +435,32 @@ func SecWatchPut(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// OORetentionApply POST /api/system/oo/retention {days} — push a retention
+// period to every builtin OpenObserve stream (admin). days=0 disables cleanup.
+func OORetentionApply(c *gin.Context) {
+	var req struct {
+		Days int `json:"days"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Days < 0 || req.Days > 3650 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "days 必须在 0-3650 之间（0 = 不清理）"})
+		return
+	}
+	if err := service.SetSystemConfigs(map[string]string{"oo_retention_days": strconv.Itoa(req.Days)}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
+		return
+	}
+	results := service.OOApplyRetention(req.Days)
+	c.JSON(http.StatusOK, gin.H{"ok": true, "days": req.Days, "results": results})
+}
+
+// OORetentionGet GET /api/system/oo/retention — current configured days
+func OORetentionGet(c *gin.Context) {
+	m := service.SystemConfigMap()
+	days := 0
+	if n, e := strconv.Atoi(strings.TrimSpace(m["oo_retention_days"])); e == nil {
+		days = n
+	}
+	c.JSON(http.StatusOK, gin.H{"days": days})
 }

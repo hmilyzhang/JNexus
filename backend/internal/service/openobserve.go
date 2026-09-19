@@ -78,6 +78,49 @@ func (s OOSettings) ooJSON(path string, v any, timeout time.Duration) (int, []by
 	return ooHTTP(timeout, http.MethodPost, s.BaseURL+path, s.authHeader(), b)
 }
 
+// OOSetStreamRetention sets a stream's data-retention period (days) inside
+// OpenObserve; 0 disables automatic cleanup for that stream
+func (s OOSettings) OOSetStreamRetention(stream string, days int) error {
+	if s.BaseURL == "" {
+		return fmt.Errorf("OpenObserve is not enabled")
+	}
+	b, err := json.Marshal(map[string]any{"retention_days": days})
+	if err != nil {
+		return err
+	}
+	code, data, err := ooHTTP(15*time.Second, http.MethodPut, s.BaseURL+"/api/"+s.Org+"/streams/"+stream+"/update", s.authHeader(), b)
+	if err != nil {
+		return err
+	}
+	if code >= 400 {
+		return fmt.Errorf("OpenObserve HTTP %d: %s", code, truncateOO(data))
+	}
+	return nil
+}
+
+// OOApplyRetention pushes a retention period (days) to every builtin stream.
+// Returns per-stream results for the admin UI.
+func OOApplyRetention(days int) []map[string]any {
+	s := LoadOOSettings()
+	out := []map[string]any{}
+	for _, stream := range ooBuiltinStreams {
+		res := map[string]any{"stream": stream, "days": days}
+		if err := s.OOSetStreamRetention(stream, days); err != nil {
+			res["ok"] = false
+			res["error"] = err.Error()
+		} else {
+			res["ok"] = true
+		}
+		out = append(out, res)
+	}
+	return out
+}
+
+// OOPushAudit writes a sanitized platform-audit record to the audit stream
+func OOPushAudit(record map[string]any) {
+	ooPushAsync("audit", record)
+}
+
 // OOIngestJSON writes log-style records into a stream: POST /api/{org}/{stream}/_json
 func OOIngestJSON(stream string, records []map[string]any) error {
 	s := LoadOOSettings()
@@ -172,7 +215,7 @@ func ooStat(stream string) *OOStreamStat {
 
 // ooIntegrationEnabled reads the per-stream toggle from oo_integrations config
 // (JSON map; a missing entry defaults to enabled for the builtin streams)
-var ooBuiltinStreams = []string{"host_metrics", "task_logs", "alert_events", "windows_events", "db_audit", "linux_events"}
+var ooBuiltinStreams = []string{"host_metrics", "task_logs", "alert_events", "windows_events", "linux_events", "db_audit", "k8s_capacity", "audit"}
 
 func ooIntegrationEnabled(stream string) bool {
 	m := SystemConfigMap()

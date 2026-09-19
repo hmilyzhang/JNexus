@@ -406,6 +406,8 @@ func SetupRouter() *gin.Engine {
 			sysCfg.POST("/oo/dbsources/:id/enabled", middleware.RequireRole(model.RoleAdmin), OODbSourceEnable)
 			sysCfg.POST("/oo/dbsources/:id/run", middleware.RequireRole(model.RoleAdmin), OODbSourceRun)
 			sysCfg.GET("/platform_key", GetPlatformKey)
+			sysCfg.GET("/oo/retention", OORetentionGet)
+			sysCfg.POST("/oo/retention", OORetentionApply)
 			sysCfg.GET("/sec/watch", SecWatchGet)
 			sysCfg.PUT("/sec/watch", SecWatchPut)
 			sysCfg.PUT("/roles", UpdateSystemRoles)

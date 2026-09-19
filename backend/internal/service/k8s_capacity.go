@@ -59,6 +59,14 @@ func CollectK8sUsage() {
 				CollectedAt:   time.Now(),
 			}
 			model.DB.Create(&sample)
+			if ooIntegrationEnabled("k8s_capacity") {
+				ooPushAsync("k8s_capacity", map[string]any{
+					"cluster":        func() string { var cl model.K8sCluster; model.DB.Select("name").First(&cl, c.ID); return cl.Name }(),
+					"cpu_capacity_m": sample.CPUCapacityM, "cpu_used_m": sample.CPUUsedM,
+					"mem_capacity_mi": sample.MemCapacityMi, "mem_used_mi": sample.MemUsedMi,
+					"collected_at": sample.CollectedAt.Format(time.RFC3339),
+				})
+			}
 
 			// Pod level: sample top 10 by CPU usage (pod-dimension trends for capacity planning)
 			top := make([]K8sPodUsage, len(u.Pods))
