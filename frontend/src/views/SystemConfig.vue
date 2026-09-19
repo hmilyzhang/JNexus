@@ -108,6 +108,9 @@
           <div class="ai-nav-item" :class="{ active: aiTabSection === 'role' }" @click="aiTabSection = 'role'">
             <el-icon><User /></el-icon> {{ $t('ai.navRole') }}
           </div>
+          <div class="ai-nav-item" :class="{ active: aiTabSection === 'sec' }" @click="aiTabSection = 'sec'">
+            <el-icon><Lock /></el-icon> {{ $t('ai.navSec') }}
+          </div>
           <!-- Alert diagnostics moved to Monitoring Center (AI Diagnostics tab) -->
         </div>
         <!-- Right content -->
@@ -160,6 +163,28 @@
               </el-form-item>
               <el-form-item>
                 <el-button type="primary" :loading="aiRolesSaving" @click="saveAiRoles">{{ $t('common.save') }}</el-button>
+              </el-form-item>
+            </el-form>
+          </template>
+          <!-- Security settings: chat rate limit + prompt-injection guards -->
+          <template v-if="aiTabSection === 'sec'">
+            <div style="font-weight:600; font-size:15px; margin-bottom:6px">{{ $t('ai.secTitle') }}</div>
+            <div style="color:var(--el-text-color-secondary); font-size:12px; margin-bottom:14px">{{ $t('ai.secTip') }}</div>
+            <el-form label-width="130px" style="max-width:560px">
+              <el-form-item :label="$t('ai.rateLimit')">
+                <el-input-number v-model="aiRateLimitNum" :min="0" :max="1000" :step="10" />
+                <span style="margin-left:8px; color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.rateLimitTip') }}</span>
+              </el-form-item>
+              <el-form-item :label="$t('ai.injGuard')">
+                <el-switch v-model="form.ai_injection_guard" active-value="true" inactive-value="false" />
+                <div style="width:100%; color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.injGuardTip') }}</div>
+              </el-form-item>
+              <el-form-item :label="$t('ai.snapFilter')">
+                <el-switch v-model="form.ai_snapshot_filter" active-value="true" inactive-value="false" />
+                <div style="width:100%; color:var(--el-text-color-secondary); font-size:12px">{{ $t('ai.snapFilterTip') }}</div>
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
               </el-form-item>
             </el-form>
           </template>
@@ -502,6 +527,7 @@ const form = reactive({
   smtp_username: '', smtp_password: '', smtp_from: '', smtp_recipients: '', smtp_notify: 'true',
   rotation_enabled: 'false',
   ai_enabled: 'false', ai_base_url: '', ai_api_key: '', ai_model: '', ai_timeout_sec: '120',
+  ai_chat_rate_limit: '30', ai_injection_guard: 'true', ai_snapshot_filter: 'true',
   oo_enabled: 'false', oo_url: '', oo_org: 'default', oo_token: ''
 })
 const rotationLength = ref(20)
@@ -705,6 +731,10 @@ const revealAcct = async row => {
 
 // ---- AI assistant: config + connectivity test + test chat + role settings (backend ai_roles, add/remove supported) ----
 const aiTabSection = ref('conn')
+const aiRateLimitNum = computed({
+  get: () => Number(form.ai_chat_rate_limit) || 0,
+  set: v => { form.ai_chat_rate_limit = String(v) }
+})
 const aiTesting = ref(false)
 const aiSending = ref(false)
 const aiTimeoutNum = ref(120)
@@ -778,6 +808,10 @@ const loadAiConfig = async () => {
     form.ai_timeout_sec = cfg.ai_timeout_sec || '120'
     aiTimeoutNum.value = Number(cfg.ai_timeout_sec) || 120
     form.ai_api_key = cfg.ai_api_key === '******' ? '******' : (cfg.ai_api_key || '')
+    form.ai_chat_rate_limit = cfg.ai_chat_rate_limit || '30'
+    form.ai_injection_guard = cfg.ai_injection_guard || 'true'
+    form.ai_snapshot_filter = cfg.ai_snapshot_filter || 'true'
+    aiRateLimitNum.value = Number(form.ai_chat_rate_limit) || 0
   } catch { /* ignore */ }
 }
 
@@ -838,6 +872,9 @@ const save = async () => {
       ai_model: form.ai_model,
       ai_timeout_sec: String(aiTimeoutNum.value),
       ai_system_prompt: aiSystemPromptEdit.value,
+      ai_chat_rate_limit: String(aiRateLimitNum.value),
+      ai_injection_guard: String(form.ai_injection_guard),
+      ai_snapshot_filter: String(form.ai_snapshot_filter),
       oo_enabled: String(form.oo_enabled),
       oo_url: form.oo_url,
       oo_org: form.oo_org,

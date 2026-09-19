@@ -155,8 +155,9 @@ func AIChat(c *gin.Context) {
 		return
 	}
 	// per-user rate limit first: abuse/cost protection for the AI backend
-	if aiChatLimited(currentUser(c).ID) {
-		c.JSON(http.StatusTooManyRequests, gin.H{"error": "AI 请求过于频繁（每用户每小时 30 条），请稍后再试"})
+	limit := service.AIChatRateLimit()
+	if limit > 0 && aiChatLimited(currentUser(c).ID, limit) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": fmt.Sprintf("AI 请求过于频繁（每用户每小时 %d 条），请稍后再试", limit)})
 		return
 	}
 	s := service.LoadAISettings()
@@ -178,11 +179,13 @@ func AIChat(c *gin.Context) {
 	// Live system snapshot: lets the assistant answer questions about the
 	// current state (active alerts, down monitors, offline hosts) from real
 	// platform data instead of guessing about external monitoring tools
-	if snap := liveSystemSnapshot(currentUser(c)); snap != "" {
+	if snap := liveSystemSnapshot(currentUser(c), service.AISnapshotFilterEnabled()); snap != "" {
 		systemP += "\n\n[当前系统实时状态]\n" + snap
 	}
-	// prompt-injection hardening, applied to every request
-	systemP += service.AISecurityGuard
+	// prompt-injection hardening, applied to every request (toggleable in AI settings)
+	if service.AIInjectionGuardEnabled() {
+		systemP += service.AISecurityGuard
+	}
 
 	start := time.Now()
 	reply, err := service.AIChat(s, systemP, strings.TrimSpace(req.Prompt))
@@ -214,10 +217,9 @@ func AITest(c *gin.Context) {
 var aiChatMu sync.Mutex
 var aiChatHits = map[uint][]time.Time{}
 
-const aiChatLimit = 30
 const aiChatWindow = time.Hour
 
-func aiChatLimited(userID uint) bool {
+func aiChatLimited(userID uint, limit int) bool {
 	aiChatMu.Lock()
 	defer aiChatMu.Unlock()
 	now := time.Now()
@@ -227,7 +229,7 @@ func aiChatLimited(userID uint) bool {
 			hits = append(hits, t)
 		}
 	}
-	if len(hits) >= aiChatLimit {
+	if len(hits) >= limit {
 		aiChatHits[userID] = hits
 		return true
 	}
@@ -240,7 +242,7 @@ func aiChatLimited(userID uint) bool {
 // down, and offline hosts. Offline host details are filtered by the caller's
 // host permissions: users without exec rights on a host only see counts.
 // Best-effort: on any query error the section is skipped.
-func liveSystemSnapshot(u *model.User) string {
+func liveSystemSnapshot(u *model.User, filterHosts bool) string {
 	var b strings.Builder
 
 	var evs []model.AlertEvent
@@ -265,11 +267,18 @@ func liveSystemSnapshot(u *model.User) string {
 
 	var hosts []model.Host
 	if model.DB.Where("status = ?", "offline").Find(&hosts).Error == nil && len(hosts) > 0 {
-		// data-permission guard: host details only for hosts the user may execute on
+		// data-permission guard (toggleable): host details only for hosts the
+		// user may execute on; with the filter off, admin sees all details
 		var visible []string
-		for _, h := range hosts {
-			if service.CanExecHost(u, h.ID, h.GroupID) {
+		if !filterHosts && u.IsAdmin() {
+			for _, h := range hosts {
 				visible = append(visible, fmt.Sprintf("%s（%s）", h.Name, h.IP))
+			}
+		} else {
+			for _, h := range hosts {
+				if service.CanExecHost(u, h.ID, h.GroupID) {
+					visible = append(visible, fmt.Sprintf("%s（%s）", h.Name, h.IP))
+				}
 			}
 		}
 		b.WriteString(fmt.Sprintf("离线主机: 共 %d 台", len(hosts)))

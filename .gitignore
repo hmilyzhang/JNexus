@@ -47,3 +47,4 @@ backend/rdp.json
 # Local test artifacts
 backend/cmd/readprompt/
 jn_token
+backend/cmd/tmpregress/

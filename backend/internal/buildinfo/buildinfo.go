@@ -2,7 +2,6 @@
 package buildinfo
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -11,7 +10,8 @@ import (
 )
 
 // Dynamic version resolution, by priority: ldflags injection > JNEXUS_VERSION env var >
-// git commit count (minor version auto +1 per commit, e.g. 1.88+ccab716) > VERSION file > 1.0
+// VERSION file (release milestone, e.g. "2.0"; bumped per release) > git commit count
+// (legacy auto counter, "2.<count>") > 2.0
 
 var (
 	once   sync.Once
@@ -33,28 +33,33 @@ func compute() string {
 	if v := sanitize(os.Getenv("JNEXUS_VERSION")); v != "" {
 		return v
 	}
-	if cnt, err := git("rev-list", "--count", "HEAD"); err == nil && cnt != "" {
-		return fmt.Sprintf("1.%s", cnt)
-	}
-	if b, err := os.ReadFile("VERSION"); err == nil {
-		if v := sanitize(strings.TrimSpace(string(b))); v != "" {
-			return v
+	// VERSION next to the binary (deploy layout) or one level up (dev: backend/)
+	for _, p := range []string{"VERSION", "../VERSION"} {
+		if b, err := os.ReadFile(p); err == nil {
+			if v := sanitize(strings.TrimSpace(string(b))); v != "" {
+				return v
+			}
 		}
 	}
-	return "1.0"
+	// legacy fallback for checkouts without a VERSION file: the old commit counter
+	if cnt, err := git("rev-list", "--count", "HEAD"); err == nil && cnt != "" {
+		return "2." + cnt
+	}
+	return "2.0"
 }
 
-// sanitize cleans the version value: must be a complete 1.<number> (rejects broken "1." / "1" exported on machines without git)
+// sanitize cleans the version value: accepts "major.minor" (e.g. 2.0, 1.303);
+// rejects broken values like "2." / "2" exported on machines without git
 func sanitize(v string) string {
 	v = strings.TrimSpace(v)
-	if !strings.HasPrefix(v, "1.") {
+	parts := strings.SplitN(v, ".", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return ""
 	}
-	digits := strings.TrimPrefix(v, "1.")
-	if digits == "" {
+	if _, err := strconv.Atoi(parts[0]); err != nil {
 		return ""
 	}
-	if _, err := strconv.Atoi(digits); err != nil {
+	if _, err := strconv.Atoi(parts[1]); err != nil {
 		return ""
 	}
 	return v
