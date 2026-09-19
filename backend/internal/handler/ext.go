@@ -176,6 +176,7 @@ type apiKeyReq struct {
 	OwnerUserID uint   `json:"owner_user_id" binding:"required"`
 	ExpiresAt   string `json:"expires_at"` // RFC3339 or empty
 	IPAllowlist string `json:"ip_allowlist"`
+	Purpose     string `json:"purpose"` // optional usage note
 }
 
 // ListApiKeys lists API keys (hashes are not returned)
@@ -186,7 +187,7 @@ func ListApiKeys(c *gin.Context) {
 	for _, k := range keys {
 		out = append(out, gin.H{
 			"id": k.ID, "name": k.Name, "key_id": k.KeyID, "owner": k.OwnerName,
-			"expires_at": k.ExpiresAt, "ip_allowlist": k.IPAllowlist,
+			"expires_at": k.ExpiresAt, "ip_allowlist": k.IPAllowlist, "purpose": k.Purpose,
 			"enabled": k.Enabled, "last_used_at": k.LastUsedAt, "last_used_ip": k.LastUsedIP,
 			"created_at": k.CreatedAt,
 		})
@@ -213,7 +214,7 @@ func CreateApiKey(c *gin.Context) {
 	}
 	key := model.ApiKey{
 		Name: req.Name, KeyID: keyID, KeyHash: hash,
-		OwnerUserID: owner.ID, OwnerName: owner.Username,
+		OwnerUserID: owner.ID, OwnerName: owner.Username, Purpose: req.Purpose,
 		IPAllowlist: req.IPAllowlist, Enabled: true, CreatedBy: currentUser(c).Username,
 	}
 	if req.ExpiresAt != "" {

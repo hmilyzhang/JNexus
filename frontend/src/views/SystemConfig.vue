@@ -358,8 +358,8 @@
       <div style="display:flex; gap:18px; min-height:380px">
         <div class="ext-side-nav">
           <div class="ext-side-nav-title">{{ $t('system.tabExt') }}</div>
-          <div class="ext-nav-item" :class="{ active: extSection === 'oo' }" @click="extSection = 'oo'">{{ $t('oo.tab') }}</div>
           <div class="ext-nav-item" :class="{ active: extSection === 'keys' }" @click="extSection = 'keys'">{{ $t('system.apiKeys') }}</div>
+          <div class="ext-nav-item" :class="{ active: extSection === 'oo' }" @click="extSection = 'oo'">{{ $t('oo.tab') }}</div>
         </div>
         <div style="flex:1; min-width:0">
           <!-- OpenObserve integration -->
@@ -401,6 +401,7 @@
           <template #default="{ row }"><span class="mono">aok_{{ row.key_id }}...</span></template>
         </el-table-column>
         <el-table-column prop="owner" :label="$t('system.apiKeyOwner')" width="110" />
+        <el-table-column prop="purpose" :label="$t('system.apiKeyPurpose')" min-width="140" show-overflow-tooltip />
         <el-table-column :label="$t('system.apiKeyExpires')" width="160">
           <template #default="{ row }">{{ fmtApiTime(row.expires_at) }}</template>
         </el-table-column>
@@ -433,6 +434,9 @@
     <el-dialog v-model="apiKeyDlgVisible" :title="$t('system.apiKeyCreate')" width="480px">
       <el-form label-width="120px">
         <el-form-item :label="$t('system.apiKeyName')"><el-input v-model="apiKeyForm.name" /></el-form-item>
+        <el-form-item :label="$t('system.apiKeyPurpose')">
+          <el-input v-model="apiKeyForm.purpose" :placeholder="$t('system.apiKeyPurposeTip')" />
+        </el-form-item>
         <el-form-item :label="$t('system.apiKeyOwner')">
           <el-select v-model="apiKeyForm.owner_user_id" style="width:100%" filterable>
             <el-option v-for="u in users" :key="u.id" :label="u.username + ' (' + u.role + ')'" :value="u.id" />
@@ -529,7 +533,7 @@ import Paired from './Paired.vue'
 const { t } = i18n.global
 const route = useRoute()
 const activeTab = ref('general')
-const extSection = ref('oo')
+const extSection = ref('keys')
 const loading = ref(true)
 const saving = ref(false)
 const testing = ref(false)
@@ -561,7 +565,7 @@ const users = ref([])
 const apiKeyDlgVisible = ref(false)
 const keyShownVisible = ref(false)
 const createdKey = ref('')
-const apiKeyForm = reactive({ name: '', owner_user_id: null, expires_at: '', ip_allowlist: '' })
+const apiKeyForm = reactive({ name: '', owner_user_id: null, expires_at: '', ip_allowlist: '', purpose: '' })
 
 const fmtApiTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 const loadApiKeys = async () => {
@@ -569,7 +573,7 @@ const loadApiKeys = async () => {
   users.value = await api.get('/users')
 }
 const openApiKeyDlg = async () => {
-  Object.assign(apiKeyForm, { name: '', owner_user_id: null, expires_at: '', ip_allowlist: '' })
+  Object.assign(apiKeyForm, { name: '', owner_user_id: null, expires_at: '', ip_allowlist: '', purpose: '' })
   if (!users.value.length) users.value = await api.get('/users')
   apiKeyDlgVisible.value = true
 }

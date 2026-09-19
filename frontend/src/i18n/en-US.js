@@ -1015,6 +1015,8 @@ export default {
     apiKeyCreate: 'Create key',
     apiKeyDoc: 'API docs',
     apiKeyName: 'Name',
+    apiKeyPurpose: 'Purpose',
+    apiKeyPurposeTip: 'What this key is used for, e.g. Grafana alerts, ops scripts',
     apiKeyOwner: 'Owner user',
     apiKeyExpires: 'Expires at',
     apiKeyIpList: 'IP allowlist',

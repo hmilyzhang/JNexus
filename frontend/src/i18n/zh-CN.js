@@ -1016,6 +1016,8 @@ export default {
     apiKeyCreate: '创建密钥',
     apiKeyDoc: '查看 API 文档',
     apiKeyName: '名称',
+    apiKeyPurpose: '用途备注',
+    apiKeyPurposeTip: '这条密钥的用途，如：Grafana 告警接入、运维脚本',
     apiKeyOwner: '属主用户',
     apiKeyExpires: '过期时间',
     apiKeyIpList: 'IP 白名单',

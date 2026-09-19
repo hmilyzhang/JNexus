@@ -473,6 +473,7 @@ type ApiKey struct {
 	KeyHash     string     `gorm:"size:64" json:"-"`                  // sha256(secret)
 	OwnerUserID uint       `gorm:"index" json:"owner_user_id"`        // Executes as this user
 	OwnerName   string     `gorm:"size:64" json:"owner_name"`
+	Purpose     string     `gorm:"size:256" json:"purpose"`           // Optional usage note (what integrates via this key)
 	ExpiresAt   *time.Time `json:"expires_at"`                   // Optional expiry time
 	IPAllowlist string     `gorm:"size:512" json:"ip_allowlist"` // Comma-separated IP/CIDR, empty = unrestricted
 	Enabled     bool       `gorm:"default:true" json:"enabled"`
