@@ -194,30 +194,6 @@
     </el-card>
     </el-tab-pane>
 
-    <el-tab-pane :label="$t('oo.tab')" name="oo">
-    <el-card>
-      <el-alert type="info" :title="$t('oo.tip')" :closable="false" style="margin-bottom:16px" />
-      <el-form label-width="150px" style="max-width:560px">
-        <el-form-item :label="$t('oo.enabled')"><el-switch v-model="form.oo_enabled" active-value="true" inactive-value="false" /></el-form-item>
-        <template v-if="form.oo_enabled === 'true'">
-          <el-form-item :label="$t('oo.url')">
-            <el-input v-model="form.oo_url" class="mono" placeholder="http://openobserve:5080" />
-          </el-form-item>
-          <el-form-item :label="$t('oo.org')">
-            <el-input v-model="form.oo_org" class="mono" placeholder="default" />
-          </el-form-item>
-          <el-form-item :label="$t('oo.token')">
-            <el-input v-model="form.oo_token" type="password" show-password class="mono" :placeholder="$t('oo.tokenTip')" />
-            <div style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oo.tokenHelp') }}</div>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
-            <el-button :loading="ooTesting" @click="testOO">{{ $t('ai.testConn') }}</el-button>
-          </el-form-item>
-        </template>
-      </el-form>
-    </el-card>
-    </el-tab-pane>
 
     <el-tab-pane :label="$t('system.ldap')" name="ldap">
     <el-card>
@@ -377,15 +353,48 @@
     </el-card>
     </el-tab-pane>
 
-    <el-tab-pane :label="$t('system.apiKeys')" name="apikeys">
+    <el-tab-pane :label="$t('system.tabExt')" name="ext">
     <el-card>
-      <template #header>
-        <div style="display:flex; align-items:center; gap:10px">
-          <span style="flex:1">{{ $t('system.apiKeysTitle') }}</span>
-          <el-button size="small" type="primary" @click="openApiKeyDlg">{{ $t('system.apiKeyCreate') }}</el-button>
-          <el-button size="small" @click="openDoc">{{ $t('system.apiKeyDoc') }}</el-button>
+      <div style="display:flex; gap:18px; min-height:380px">
+        <div class="ext-side-nav">
+          <div class="ext-side-nav-title">{{ $t('system.tabExt') }}</div>
+          <div class="ext-nav-item" :class="{ active: extSection === 'oo' }" @click="extSection = 'oo'">{{ $t('oo.tab') }}</div>
+          <div class="ext-nav-item" :class="{ active: extSection === 'keys' }" @click="extSection = 'keys'">{{ $t('system.apiKeys') }}</div>
         </div>
-      </template>
+        <div style="flex:1; min-width:0">
+          <!-- OpenObserve integration -->
+          <template v-if="extSection === 'oo'">
+            <div class="ext-sec-head" style="margin-bottom:14px"><span style="font-weight:600">{{ $t('oo.tab') }}</span></div>
+            <el-alert type="info" :title="$t('oo.tip')" :closable="false" style="margin-bottom:16px" />
+            <el-form label-width="150px" style="max-width:560px">
+              <el-form-item :label="$t('oo.enabled')"><el-switch v-model="form.oo_enabled" active-value="true" inactive-value="false" /></el-form-item>
+              <template v-if="form.oo_enabled === 'true'">
+                <el-form-item :label="$t('oo.url')">
+                  <el-input v-model="form.oo_url" class="mono" placeholder="http://openobserve:5080" />
+                </el-form-item>
+                <el-form-item :label="$t('oo.org')">
+                  <el-input v-model="form.oo_org" class="mono" placeholder="default" />
+                </el-form-item>
+                <el-form-item :label="$t('oo.token')">
+                  <el-input v-model="form.oo_token" type="password" show-password class="mono" :placeholder="$t('oo.tokenTip')" />
+                  <div style="color:var(--el-text-color-secondary); font-size:12px">{{ $t('oo.tokenHelp') }}</div>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+                  <el-button :loading="ooTesting" @click="testOO">{{ $t('ai.testConn') }}</el-button>
+                </el-form-item>
+              </template>
+            </el-form>
+          </template>
+
+          <!-- API keys -->
+          <template v-if="extSection === 'keys'">
+            <div class="ext-sec-head" style="margin-bottom:14px; display:flex; align-items:center">
+              <span style="font-weight:600; flex:1">{{ $t('system.apiKeysTitle') }}</span>
+              <el-button size="small" type="primary" @click="openApiKeyDlg">{{ $t('system.apiKeyCreate') }}</el-button>
+              <el-button size="small" @click="openDoc">{{ $t('system.apiKeyDoc') }}</el-button>
+            </div>
+
       <el-table :data="apiKeys" size="small" border>
         <el-table-column prop="name" :label="$t('system.apiKeyName')" min-width="140" />
         <el-table-column label="Key" width="150">
@@ -412,6 +421,10 @@
         </el-table-column>
       </el-table>
       <div style="color:#909399; font-size:12px; margin-top:10px">{{ $t('system.apiKeyTip') }}</div>
+    
+          </template>
+        </div>
+      </div>
     </el-card>
     </el-tab-pane>
     </el-tabs>
@@ -507,13 +520,16 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '../api'
 import i18n from '../i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Paired from './Paired.vue'
 
 const { t } = i18n.global
+const route = useRoute()
 const activeTab = ref('general')
+const extSection = ref('oo')
 const loading = ref(true)
 const saving = ref(false)
 const testing = ref(false)
@@ -836,6 +852,12 @@ const sendAi = async () => {
 }
 
 onMounted(async () => {
+
+  // deep link: /system?tab=xxx opens the requested tab directly
+  const qtab = route.query.tab
+  if (qtab && ['general', 'rotation', 'ai', 'ext', 'ldap', 'smtp', 'paired', 'roles', 'apikeys'].includes(String(qtab))) {
+    activeTab.value = String(qtab)
+  }
   try {
     api.get('/system/info').then(info => { appVersion.value = info.version || '1.0' }).catch(() => {})
   } catch { /* ignore */ }
@@ -920,6 +942,24 @@ const testLdap = async () => {
 
 <style scoped>
 /* AI assistant tab: left nav (same style as the template settings list in Monitor) */
+.ext-side-nav { width: 180px; flex-shrink: 0; }
+.ext-side-nav-title {
+  font-weight: 600; font-size: 14px; color: var(--el-text-color-primary);
+  padding: 0 14px; margin-bottom: 10px;
+}
+.ext-nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; margin-bottom: 4px;
+  font-size: 14px; border-radius: 4px; cursor: pointer;
+  color: var(--el-text-color-regular); border: 1px solid transparent;
+  transition: background .15s, color .15s;
+}
+.ext-nav-item:hover { background: var(--el-fill-color-light); }
+.ext-nav-item.active {
+  background: var(--el-color-primary-light-9); color: var(--el-color-primary);
+  font-weight: 600; border-color: var(--el-color-primary-light-7);
+}
+.ext-sec-head { font-size: 14px; }
 .ai-side-nav { width: 180px; flex-shrink: 0; }
 .ai-side-nav-title {
   font-weight: 600; font-size: 14px; color: var(--el-text-color-primary);

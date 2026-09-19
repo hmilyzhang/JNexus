@@ -26,7 +26,7 @@
               <el-tag v-if="st && st.enabled && st.reachable" size="small" type="info" effect="plain">{{ st.latency_ms }} ms</el-tag>
               <span style="flex:1"></span>
               <el-button size="small" :loading="testing" @click="testConn">{{ $t('ai.testConn') }}</el-button>
-              <el-button size="small" @click="$router.push('/system')">{{ $t('oa.gotoSettings') }}</el-button>
+              <el-button size="small" @click="$router.push('/system?tab=ext')">{{ $t('oa.gotoSettings') }}</el-button>
               <el-button size="small" @click="load">{{ $t('common.refresh') }}</el-button>
             </div>
             <div v-if="st" class="oa-grid">

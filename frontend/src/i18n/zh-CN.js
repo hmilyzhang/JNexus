@@ -1011,6 +1011,7 @@ export default {
     editMenus: '编辑菜单',
 
     apiKeys: 'API 密钥',
+    tabExt: '外部系统集成',
     apiKeysTitle: '外部系统集成密钥',
     apiKeyCreate: '创建密钥',
     apiKeyDoc: '查看 API 文档',

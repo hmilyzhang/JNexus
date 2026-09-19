@@ -1010,6 +1010,7 @@ export default {
     editMenus: 'Edit menus',
 
     apiKeys: 'API Keys',
+    tabExt: 'External integrations',
     apiKeysTitle: 'External integration keys',
     apiKeyCreate: 'Create key',
     apiKeyDoc: 'API docs',
