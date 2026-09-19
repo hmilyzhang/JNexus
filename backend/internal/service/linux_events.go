@@ -27,19 +27,25 @@ var (
 	linuxEventSince = map[uint]int64{}
 )
 
-// security-relevant message keywords (lowercase pre-filter; the watchlist
-// below decides what is actually monitored)
-var linuxSecKeywords = []string{
-	"failed password", "invalid user", "authentication failure",
-	"accepted password", "accepted publickey",
-	"session opened for user", "sudo:", "user not in sudoers",
+// journal priority (PRIORITY field) to level name
+var journalLevels = map[string]string{
+	"0": "emerg", "1": "alert", "2": "crit", "3": "err",
+	"4": "warning", "5": "notice", "6": "info", "7": "debug",
+}
+
+func prioName(p string) string {
+	if name, ok := journalLevels[strings.TrimSpace(p)]; ok {
+		return name
+	}
+	return "info"
 }
 
 type linuxJournalEntry struct {
 	StampMs int64
+	Kind    string // auth / system
 	Unit    string
+	Level   string
 	Msg     string
-	Failed  bool
 }
 
 // CollectLinuxEvents scheduler entry: throttled Linux security-log collection
@@ -91,12 +97,19 @@ func collectLinuxEventsFor(h *model.Host, now time.Time) {
 		since = now.Add(-10 * time.Minute).Unix()
 	}
 
-	// journalctl JSON lines filtered to auth sources; hosts without journal
-	// (no systemd) simply return nothing
-	cmd := fmt.Sprintf("journalctl --since '@%d' -o json --no-pager -n 400 2>/dev/null | grep -Ei 'sshd|sudo' | head -c 300000", since)
-	var out strings.Builder
-	_, err = sshpool.RunCommand(context.Background(), cli, cmd, 45*time.Second, func(chunk string) { out.WriteString(chunk) })
-	if err != nil || strings.TrimSpace(out.String()) == "" {
+	// parity with the Windows collector: auth/authpriv facility (all account
+	// activity: sshd/sudo/su/login/polkit/useradd...) + priority<=warning for
+	// the system view (systemd/kernel/service failures). Hosts without
+	// journal (no systemd) simply return nothing.
+	authCmd := fmt.Sprintf("journalctl --since '@%d' -o json --no-pager -n 500 SYSLOG_FACILITY=4 SYSLOG_FACILITY=10 2>/dev/null | head -c 400000", since)
+	sysCmd := fmt.Sprintf("journalctl --since '@%d' -p 4 -o json --no-pager -n 300 2>/dev/null | head -c 300000", since)
+	var authOut, sysOut strings.Builder
+	_, err = sshpool.RunCommand(context.Background(), cli, authCmd, 45*time.Second, func(chunk string) { authOut.WriteString(chunk) })
+	if err != nil {
+		return
+	}
+	_, _ = sshpool.RunCommand(context.Background(), cli, sysCmd, 30*time.Second, func(chunk string) { sysOut.WriteString(chunk) })
+	if strings.TrimSpace(authOut.String()) == "" && strings.TrimSpace(sysOut.String()) == "" {
 		return
 	}
 
@@ -107,62 +120,51 @@ func collectLinuxEventsFor(h *model.Host, now time.Time) {
 			enabled = append(enabled, w)
 		}
 	}
-	if len(enabled) == 0 {
-		return
-	}
 
 	var entries []linuxJournalEntry
 	maxTs := since * 1000
-	for _, line := range strings.Split(strings.TrimSpace(out.String()), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || line[0] != '{' {
-			continue
-		}
-		var raw struct {
-			StampUS string          `json:"__REALTIME_TIMESTAMP"`
-			Msg     json.RawMessage `json:"MESSAGE"`
-			Comm    string          `json:"_COMM"`
-		}
-		if json.Unmarshal([]byte(line), &raw) != nil {
-			continue
-		}
-		us, _ := strconv.ParseInt(raw.StampUS, 10, 64)
-		if us == 0 {
-			continue
-		}
-		msg := journalMessage(raw.Msg)
-		low := strings.ToLower(msg)
-		matched := false
-		immediate := false
-		for _, w := range enabled {
-			if strings.Contains(low, strings.ToLower(w.KW)) {
-				matched = true
-				immediate = immediate || w.Immediate
-				break
+	parseLines := func(out, kind string) {
+		for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || line[0] != '{' {
+				continue
+			}
+			var raw struct {
+				StampUS  string          `json:"__REALTIME_TIMESTAMP"`
+				Msg      json.RawMessage `json:"MESSAGE"`
+				Comm     string          `json:"_COMM"`
+				Priority string          `json:"PRIORITY"`
+			}
+			if json.Unmarshal([]byte(line), &raw) != nil {
+				continue
+			}
+			us, _ := strconv.ParseInt(raw.StampUS, 10, 64)
+			if us == 0 {
+				continue
+			}
+			unit := raw.Comm
+			if unit == "" {
+				unit = kind
+			}
+			entries = append(entries, linuxJournalEntry{
+				StampMs: us / 1000, Kind: kind, Unit: unit,
+				Level: prioName(raw.Priority), Msg: journalMessage(raw.Msg),
+			})
+			if us/1000 > maxTs {
+				maxTs = us / 1000
 			}
 		}
-		if !matched {
-			continue
-		}
-		unit := raw.Comm
-		if unit == "" {
-			unit = "auth"
-		}
-		entries = append(entries, linuxJournalEntry{
-			StampMs: us / 1000, Unit: unit, Msg: msg, Failed: immediate,
-		})
-		if us/1000 > maxTs {
-			maxTs = us / 1000
-		}
 	}
+	parseLines(authOut.String(), "auth")
+	parseLines(sysOut.String(), "system")
 	if len(entries) == 0 {
 		return
 	}
 
 	for _, e := range entries {
 		ooPushAsync("linux_events", map[string]any{
-			"host_id": h.ID, "host": h.Name,
-			"unit": e.Unit, "message": e.Msg,
+			"host_id": h.ID, "host": h.Name, "kind": e.Kind,
+			"unit": e.Unit, "level": e.Level, "message": e.Msg,
 			"event_time": time.UnixMilli(e.StampMs).UTC().Format(time.RFC3339),
 		})
 	}

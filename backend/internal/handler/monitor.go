@@ -587,7 +587,7 @@ func SecLogs(c *gin.Context) {
 	// stream whitelist: security-relevant streams only
 	cols := map[string]string{
 		"windows_events": "_timestamp, host, log_name, level, event_id, provider, event_time, message",
-		"linux_events":   "_timestamp, host, unit, message, event_time",
+		"linux_events":   "_timestamp, host, kind, unit, level, message, event_time",
 		"db_audit":       "_timestamp, username, action, resource, ip, status, detail",
 		"alert_events":   "_timestamp, kind, level, target, message",
 	}
