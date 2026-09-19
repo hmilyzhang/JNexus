@@ -39,6 +39,10 @@
           <el-option value="System" label="System" />
           <el-option value="Application" label="Application" />
         </el-select>
+        <el-select v-if="stream === 'linux_events'" v-model="unitFilter" style="width:130px">
+          <el-option value="all" :label="$t('oo.logAll')" />
+          <el-option v-for="u in unitOptions" :key="u" :value="u" :label="u" />
+        </el-select>
         <el-select v-if="stream === 'host_metrics' || stream === 'windows_events'" v-model="hostFilter" filterable style="width:150px">
           <el-option value="all" :label="$t('oo.hostAll')" />
           <el-option v-for="h in hostOptions" :key="h" :value="h" :label="h" />
@@ -99,6 +103,7 @@ const presetStreams = [
   { value: 'task_logs', label: 'oo.streamTaskLogs' },
   { value: 'alert_events', label: 'oo.streamAlertEvents' },
   { value: 'windows_events', label: 'oo.streamWindowsEvents' },
+  { value: 'linux_events', label: 'oo.streamLinuxEvents' },
   { value: 'db_audit', label: 'oo.streamDbAudit' },
 ]
 const stream = ref('host_metrics')
@@ -135,12 +140,14 @@ const defaultSQL = s => ({
   task_logs: 'SELECT task_id, host, os_user, status, exit_code, output FROM task_logs ORDER BY _timestamp DESC',
   alert_events: 'SELECT kind, level, target, message FROM alert_events ORDER BY _timestamp DESC',
   windows_events: "SELECT host, log_name, level, event_id, message FROM windows_events ORDER BY _timestamp DESC",
+  linux_events: 'SELECT host, unit, message, event_time FROM linux_events ORDER BY _timestamp DESC',
   db_audit: 'SELECT username, action, resource, ip, status FROM db_audit ORDER BY _timestamp DESC',
 }[s] || `SELECT * FROM ${s} LIMIT 100`)
 
 const onStreamChange = () => {
   sql.value = defaultSQL(stream.value)
   logFilter.value = 'all'
+  unitFilter.value = 'all'
   evIdFilter.value = ''
   hostFilter.value = 'all'
   page.value = 1
@@ -180,6 +187,8 @@ const fmtTs = v => {
 
 // windows_events quick filter: narrow fetched rows by log_name client-side
 const logFilter = ref('all')
+const unitFilter = ref('all')
+const unitOptions = computed(() => [...new Set(rows.value.map(r => r.unit).filter(Boolean))])
 const evIdFilter = ref('')
 const hostOptions = computed(() => [...new Set(rows.value.map(r => r.host).filter(Boolean))])
 // quick filters: narrow fetched rows client-side (win → log_name/event_id/host, host_metrics → host)
@@ -190,6 +199,7 @@ const displayRows = computed(() => {
     const ev = evIdFilter.value.trim()
     if (ev) list = list.filter(r => String(r.event_id ?? '').includes(ev))
   }
+  if (stream.value === 'linux_events' && unitFilter.value !== 'all') list = list.filter(r => r.unit === unitFilter.value)
   if (stream.value === 'host_metrics' && hostFilter.value !== 'all') list = list.filter(r => r.host === hostFilter.value)
   return list
 })

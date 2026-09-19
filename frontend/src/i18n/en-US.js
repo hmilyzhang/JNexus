@@ -1144,6 +1144,7 @@ logtail: {
     streamTaskLogs: 'Task output',
     streamAlertEvents: 'Alert events',
     streamWindowsEvents: 'Windows events',
+    streamLinuxEvents: 'Linux security logs',
     streamDbAudit: 'DB audit trail',
     range1h: 'Last 1h',
     range24h: 'Last 24h',

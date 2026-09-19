@@ -1145,6 +1145,7 @@ logtail: {
     streamTaskLogs: '任务输出',
     streamAlertEvents: '告警事件',
     streamWindowsEvents: 'Windows 事件日志',
+    streamLinuxEvents: 'Linux 安全日志',
     streamDbAudit: '数据库审计',
     range1h: '近 1 小时',
     range24h: '近 24 小时',
