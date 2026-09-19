@@ -380,3 +380,57 @@ func RotationRunNow(c *gin.Context) {
 	batch := startRotationBatch(ids, u, c.ClientIP())
 	c.JSON(http.StatusOK, gin.H{"batch": batch, "total": len(ids)})
 }
+
+// ---- Security watchlist (admin; see Observability admin page) ----
+
+// SecWatchGet GET /api/system/sec/watch
+func SecWatchGet(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"win":   service.SecWatchWinList(),
+		"linux": service.SecWatchLinuxList(),
+	})
+}
+
+// SecWatchPut PUT /api/system/sec/watch
+func SecWatchPut(c *gin.Context) {
+	var req struct {
+		Win   []service.SecWatchWin   `json:"win"`
+		Linux []service.SecWatchLinux `json:"linux"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	cleanWin := req.Win[:0]
+	seen := map[int]bool{}
+	for _, w := range req.Win {
+		if w.ID <= 0 || seen[w.ID] {
+			continue
+		}
+		w.Name = strings.TrimSpace(w.Name)
+		if w.Name == "" {
+			w.Name = fmt.Sprintf("事件 %d", w.ID)
+		}
+		seen[w.ID] = true
+		cleanWin = append(cleanWin, w)
+	}
+	cleanLinux := req.Linux[:0]
+	seenKw := map[string]bool{}
+	for _, w := range req.Linux {
+		w.KW = strings.ToLower(strings.TrimSpace(w.KW))
+		if w.KW == "" || seenKw[w.KW] {
+			continue
+		}
+		w.Name = strings.TrimSpace(w.Name)
+		if w.Name == "" {
+			w.Name = w.KW
+		}
+		seenKw[w.KW] = true
+		cleanLinux = append(cleanLinux, w)
+	}
+	if err := service.SaveSecWatch(cleanWin, cleanLinux); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}

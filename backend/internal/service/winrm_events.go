@@ -135,68 +135,14 @@ func CollectWindowsEvents() {
 	}
 }
 
-// secWatchIDs default watchlist of Security-log event ids worth alerting on
-var secWatchIDs = map[int]string{
-	4625: "登录失败", 4720: "账号创建", 4726: "账号删除",
-	4738: "账号修改", 4740: "账号锁定", 1102: "审计日志清除",
-}
-
-// pushSecAlerts notifies the configured security channels (system config
-// sec_alert_channels, comma-separated channel ids) when notable Security-log
-// events are collected. Watchlist ids are overridable via sec_alert_ids.
-// Throttled naturally: one summary per collection round per host.
-func pushSecAlerts(h *model.Host, rows []winEventRow) {
-	chCfg := strings.TrimSpace(SystemConfigMap()["sec_alert_channels"])
-	if chCfg == "" {
-		return
-	}
-	var chanIDs []uint
-	for _, s := range strings.Split(chCfg, ",") {
-		if n, e := strconv.Atoi(strings.TrimSpace(s)); e == nil && n > 0 {
-			chanIDs = append(chanIDs, uint(n))
-		}
-	}
-	if len(chanIDs) == 0 {
-		return
-	}
-	watch := secWatchIDs
-	if idCfg := strings.TrimSpace(SystemConfigMap()["sec_alert_ids"]); idCfg != "" {
-		watch = map[int]string{}
-		for _, s := range strings.Split(idCfg, ",") {
-			if n, e := strconv.Atoi(strings.TrimSpace(s)); e == nil {
-				watch[n] = "安全事件"
-			}
-		}
-	}
-
-	var hits []string
-	for _, r := range rows {
-		if !strings.EqualFold(r.Log, "Security") {
-			continue
-		}
-		if name, ok := watch[r.Id]; ok {
-			hits = append(hits, fmt.Sprintf("[%s] %s（ID %d）%s", r.Level, name, r.Id,
-				time.UnixMilli(int64(r.Time)).Format("15:04:05")))
-		}
-	}
-	if len(hits) == 0 {
-		return
-	}
-	if len(hits) > 5 {
-		hits = hits[:5]
-	}
-
-	var channels []model.AlertChannel
-	model.DB.Where("id IN ? AND enabled = ?", chanIDs, true).Find(&channels)
+// secAlertPush pushes one alert line to the configured security channels
+func secAlertPush(h *model.Host, subject, body string) {
+	channels := secAlertChannels()
 	if len(channels) == 0 {
 		return
 	}
 	now := time.Now().Format("2006-01-02 15:04:05")
 	vars := map[string]string{"host": h.Name, "ip": h.IP, "event": "安全事件监控", "time": now}
-	subject := fmt.Sprintf("🛡 [安全事件] %s", h.Name)
-	body := "Windows Security 日志检测到关注的安全事件：\n" + strings.Join(hits, "\n") +
-		fmt.Sprintf("\n\n主机: %s（%s）\n时间: %s", h.Name, h.IP, now)
-	LogAlertEvent("sec_alert", "warn", h.Name, fmt.Sprintf("安全事件 %d 条（%s）", len(hits), h.Name))
 	for i := range channels {
 		ch := channels[i]
 		go func() {
@@ -204,4 +150,54 @@ func pushSecAlerts(h *model.Host, rows []winEventRow) {
 			_ = SendViaChannel(&ch, vars, subject, body)
 		}()
 	}
+}
+
+// pushSecAlerts matches collected Security-log events against the admin
+// watchlist: "immediate" items alert per hit, the rest aggregate into one
+// summary per collection round per host.
+func pushSecAlerts(h *model.Host, rows []winEventRow) {
+	watch := SecWatchWinList()
+	if len(watch) == 0 {
+		return
+	}
+	byID := map[int]SecWatchWin{}
+	for _, w := range watch {
+		if w.On {
+			byID[w.ID] = w
+		}
+	}
+	if len(byID) == 0 {
+		return
+	}
+
+	var agg []string
+	for _, r := range rows {
+		if !strings.EqualFold(r.Log, "Security") {
+			continue
+		}
+		w, ok := byID[r.Id]
+		if !ok {
+			continue
+		}
+		line := fmt.Sprintf("[%s] %s（ID %d）%s", r.Level, w.Name, r.Id,
+			time.UnixMilli(int64(r.Time)).Format("15:04:05"))
+		if w.Immediate {
+			LogAlertEvent("sec_alert", "warn", h.Name, line)
+			secAlertPush(h, fmt.Sprintf("🛡 [安全告警] %s：%s", w.Name, h.Name),
+				fmt.Sprintf("命中立即报警项：%s\n\n主机: %s（%s）\n明细: %s", w.Name, h.Name, h.IP, line))
+			continue
+		}
+		agg = append(agg, line)
+	}
+
+	if len(agg) == 0 {
+		return
+	}
+	if len(agg) > 5 {
+		agg = agg[:5]
+	}
+	LogAlertEvent("sec_alert", "warn", h.Name, fmt.Sprintf("安全事件汇总 %d 条（%s）", len(agg), h.Name))
+	secAlertPush(h, fmt.Sprintf("🛡 [安全事件] %s", h.Name),
+		"Windows Security 日志检测到关注的安全事件：\n" + strings.Join(agg, "\n") +
+			fmt.Sprintf("\n\n主机: %s（%s）", h.Name, h.IP))
 }

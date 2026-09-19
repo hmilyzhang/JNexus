@@ -27,10 +27,8 @@ var (
 	linuxEventSince = map[uint]int64{}
 )
 
-// failed-login summary threshold per collection round per host
-const linuxSecFailedThreshold = 5
-
-// security-relevant message keywords (lowercase)
+// security-relevant message keywords (lowercase pre-filter; the watchlist
+// below decides what is actually monitored)
 var linuxSecKeywords = []string{
 	"failed password", "invalid user", "authentication failure",
 	"accepted password", "accepted publickey",
@@ -102,9 +100,19 @@ func collectLinuxEventsFor(h *model.Host, now time.Time) {
 		return
 	}
 
+	watch := SecWatchLinuxList()
+	enabled := []SecWatchLinux{}
+	for _, w := range watch {
+		if w.On {
+			enabled = append(enabled, w)
+		}
+	}
+	if len(enabled) == 0 {
+		return
+	}
+
 	var entries []linuxJournalEntry
 	maxTs := since * 1000
-	failed := 0
 	for _, line := range strings.Split(strings.TrimSpace(out.String()), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || line[0] != '{' {
@@ -124,18 +132,16 @@ func collectLinuxEventsFor(h *model.Host, now time.Time) {
 		}
 		msg := journalMessage(raw.Msg)
 		low := strings.ToLower(msg)
-		interesting := false
-		failedHit := false
-		for _, kw := range linuxSecKeywords {
-			if strings.Contains(low, kw) {
-				interesting = true
-				if strings.Contains(low, "failed password") || strings.Contains(low, "invalid user") || strings.Contains(low, "authentication failure") {
-					failedHit = true
-				}
+		matched := false
+		immediate := false
+		for _, w := range enabled {
+			if strings.Contains(low, strings.ToLower(w.KW)) {
+				matched = true
+				immediate = immediate || w.Immediate
 				break
 			}
 		}
-		if !interesting {
+		if !matched {
 			continue
 		}
 		unit := raw.Comm
@@ -143,13 +149,10 @@ func collectLinuxEventsFor(h *model.Host, now time.Time) {
 			unit = "auth"
 		}
 		entries = append(entries, linuxJournalEntry{
-			StampMs: us / 1000, Unit: unit, Msg: msg, Failed: failedHit,
+			StampMs: us / 1000, Unit: unit, Msg: msg, Failed: immediate,
 		})
 		if us/1000 > maxTs {
 			maxTs = us / 1000
-		}
-		if failedHit {
-			failed++
 		}
 	}
 	if len(entries) == 0 {
@@ -170,10 +173,53 @@ func collectLinuxEventsFor(h *model.Host, now time.Time) {
 	}
 	linuxEventMu.Unlock()
 
-	// failed-login burst: summarize to the configured security channels
-	if failed >= linuxSecFailedThreshold {
-		pushLinuxSecAlert(h, failed)
+	// immediate watch items alert per hit; the rest aggregate one summary per round
+	var agg []string
+	for _, e := range entries {
+		w := matchLinuxWatch(e.Msg)
+		if w == nil {
+			continue
+		}
+		line := fmt.Sprintf("%s（%s）%s", w.Name, e.Unit, e.Msg)
+		if w.Immediate {
+			LogAlertEvent("sec_alert", "warn", h.Name, line)
+			secAlertPush(h, fmt.Sprintf("🛡 [安全告警] %s：%s", w.Name, h.Name),
+				fmt.Sprintf("命中立即报警项：%s\n\n主机: %s（%s）\n明细: %s", w.Name, h.Name, h.IP, line))
+			continue
+		}
+		agg = append(agg, line)
 	}
+	if len(agg) == 0 {
+		return
+	}
+	if len(agg) > 5 {
+		agg = agg[:5]
+	}
+	LogAlertEvent("sec_alert", "warn", h.Name, fmt.Sprintf("Linux 安全事件汇总 %d 条（%s）", len(agg), h.Name))
+	secAlertPush(h, fmt.Sprintf("🛡 [安全事件] %s", h.Name),
+		"Linux 安全日志检测到关注的事件：\n" + strings.Join(agg, "\n") +
+			fmt.Sprintf("\n\n主机: %s（%s）", h.Name, h.IP))
+}
+
+// matchLinuxWatch returns the first enabled watch item matching the message
+func matchLinuxWatch(msg string) *SecWatchLinux {
+	low := strings.ToLower(msg)
+	for i, w := range secWatchLinuxEnabledCache() {
+		if strings.Contains(low, strings.ToLower(w.KW)) {
+			return &secWatchLinuxEnabledCache()[i]
+		}
+	}
+	return nil
+}
+
+func secWatchLinuxEnabledCache() []SecWatchLinux {
+	var enabled []SecWatchLinux
+	for _, w := range SecWatchLinuxList() {
+		if w.On {
+			enabled = append(enabled, w)
+		}
+	}
+	return enabled
 }
 
 // journalMessage flattens the MESSAGE field (string or array of strings)

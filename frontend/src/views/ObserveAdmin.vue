@@ -88,6 +88,63 @@
       <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:8px">{{ $t('oa.statsHint') }}</div>
     </el-card>
 
+    <!-- Security watchlist: concrete monitored items, individually toggleable -->
+    <el-card style="margin-top:16px">
+      <template #header>
+        <div style="display:flex; align-items:center; gap:10px">
+          <span style="font-weight:600; flex:1">{{ $t('oa.secWatchTitle') }}</span>
+          <el-button size="small" type="primary" :loading="secWatchSaving" @click="saveSecWatch">{{ $t('common.save') }}</el-button>
+        </div>
+      </template>
+
+      <div style="font-weight:600; margin-bottom:8px">{{ $t('oa.secWatchWin') }}</div>
+      <el-table :data="secWin" size="small" border>
+        <el-table-column prop="id" label="Event ID" width="100" align="center" />
+        <el-table-column :label="$t('oa.secWatchName')">
+          <template #default="{ row }"><el-input v-model="row.name" size="small" /></template>
+        </el-table-column>
+        <el-table-column :label="$t('oa.secWatchImmediate')" width="110" align="center">
+          <template #default="{ row }"><el-switch v-model="row.immediate" /></template>
+        </el-table-column>
+        <el-table-column :label="$t('oa.enabledCol')" width="90" align="center">
+          <template #default="{ row }"><el-switch v-model="row.on" /></template>
+        </el-table-column>
+        <el-table-column width="70" align="center">
+          <template #default="{ $index }">
+            <el-button size="small" link type="danger" @click="delWinRow($index)">{{ $t('common.delete') }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div style="display:flex; gap:8px; margin-top:8px">
+        <el-input v-model="newWinId" size="small" placeholder="Event ID" style="width:140px" />
+        <el-button size="small" @click="addWinRow">{{ $t('common.add') }}</el-button>
+      </div>
+
+      <div style="font-weight:600; margin:16px 0 8px">{{ $t('oa.secWatchLinux') }}</div>
+      <el-table :data="secLinux" size="small" border>
+        <el-table-column :label="$t('oa.secWatchKw')" min-width="220">
+          <template #default="{ row }"><el-input v-model="row.kw" size="small" class="mono" /></template>
+        </el-table-column>
+        <el-table-column :label="$t('oa.secWatchName')">
+          <template #default="{ row }"><el-input v-model="row.name" size="small" /></template>
+        </el-table-column>
+        <el-table-column :label="$t('oa.secWatchImmediate')" width="110" align="center">
+          <template #default="{ row }"><el-switch v-model="row.immediate" /></template>
+        </el-table-column>
+        <el-table-column :label="$t('oa.enabledCol')" width="90" align="center">
+          <template #default="{ row }"><el-switch v-model="row.on" /></template>
+        </el-table-column>
+        <el-table-column width="70" align="center">
+          <template #default="{ $index }">
+            <el-button size="small" link type="danger" @click="delLinuxRow($index)">{{ $t('common.delete') }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-button size="small" style="margin-top:8px" @click="addLinuxRow">{{ $t('common.add') }}</el-button>
+
+      <div style="color:var(--el-text-color-secondary); font-size:12px; margin-top:10px">{{ $t('oa.secWatchTip') }}</div>
+    </el-card>
+
     <!-- Database ingestion sources -->
     <el-card style="margin-top:14px">
       <template #header>
@@ -247,6 +304,7 @@ const builtinRows = computed(() => [
   { stream: 'task_logs', desc: t('oa.descTaskLogs'), enabled: isEnabled('task_logs') },
   { stream: 'alert_events', desc: t('oa.descAlertEvents'), enabled: isEnabled('alert_events') },
   { stream: 'windows_events', desc: t('oa.descWindowsEvents'), enabled: isEnabled('windows_events') },
+  { stream: 'linux_events', desc: t('oa.descLinuxEvents'), enabled: isEnabled('linux_events') },
   { stream: 'db_audit', desc: t('oa.descDbAudit'), enabled: isEnabled('db_audit') },
 ])
 const knownStreams = computed(() => [...new Set(['custom_stream', ...builtinRows.value.map(r => r.stream), ...discovered.value])])
@@ -275,6 +333,7 @@ const load = async () => {
     edit.value.org = st.value.org || ''
   } finally { loading.value = false }
   loadDbSources()
+  loadSecWatch()
 }
 
 // save connection settings from the admin page; empty token keeps the stored one
@@ -309,6 +368,40 @@ const toggle = async (stream, enabled) => {
     await load()
   } catch { /* interceptor shows the error */ }
 }
+
+// ---- Security watchlist (Windows event ids + Linux keyword patterns) ----
+const secWin = ref([])
+const secLinux = ref([])
+const secWatchSaving = ref(false)
+const newWinId = ref('')
+
+const loadSecWatch = async () => {
+  try {
+    const r = await api.get('/system/sec/watch')
+    secWin.value = r.win || []
+    secLinux.value = r.linux || []
+  } catch { /* interceptor shows the error */ }
+}
+const saveSecWatch = async () => {
+  secWatchSaving.value = true
+  try {
+    await api.put('/system/sec/watch', { win: secWin.value, linux: secLinux.value })
+    ElMessage.success(t('system.saved'))
+    await loadSecWatch()
+  } catch { /* interceptor shows the error */ } finally { secWatchSaving.value = false }
+}
+const addWinRow = () => {
+  const id = Number(newWinId.value)
+  if (!id) { ElMessage.warning(t('oa.secWatchNeedId')); return }
+  if (secWin.value.some(w => w.id === id)) { ElMessage.warning(t('oa.secWatchDup')); return }
+  secWin.value.push({ id, name: '', on: true, immediate: false })
+  newWinId.value = ''
+}
+const addLinuxRow = () => {
+  secLinux.value.push({ kw: '', name: '', on: true, immediate: false })
+}
+const delWinRow = idx => secWin.value.splice(idx, 1)
+const delLinuxRow = idx => secLinux.value.splice(idx, 1)
 
 // ---- Database ingestion sources ----
 const dbSources = ref([])
