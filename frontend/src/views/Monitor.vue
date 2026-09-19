@@ -454,7 +454,7 @@
       </el-tab-pane>
 
       <!-- Tab 7: monthly ops report -->
-      <el-tab-pane :label="$t('mreport.tab')" name="report">
+      <el-tab-pane v-if="mcan.manage" :label="$t('mreport.tab')" name="report">
         <el-card>
           <div class="rep-toolbar" style="display:flex; gap:10px; align-items:center; margin-bottom:14px">
             <el-date-picker v-model="repMonth" type="month" :clearable="false"
@@ -764,7 +764,20 @@ const isAdmin = computed(() => store.role === 'admin')
 
 // department view: split monitor permissions from the role capability matrix
 const roleConf = ref(null)
-api.get('/system/roles').then(rs => { roleConf.value = rs }).catch(() => {})
+api.get('/system/roles').then(rs => {
+  roleConf.value = rs
+  // permission-scoped loads: only fetch what this role can actually see
+  if (mcan.value.host) loadHosts()
+  if (mcan.value.manage) {
+    loadAlertRule()
+    loadAlertTemplates()
+    loadCmdLevels()
+    loadMaintWindows()
+    loadMaintAudit()
+    loadMaintStatus()
+    loadSecChannels()
+  }
+}).catch(() => {})
 const mcan = computed(() => {
   if (store.isAdmin) return { host: true, app: true, sec: true, manage: true }
   const acts = roleConf.value?.[store.role]?.perms?.monitor || []
@@ -840,20 +853,23 @@ const chConfigSummary = row => {
 
 const load = async () => {
   loading.value = true
-  hostsLoading.value = true
+  hostsLoading.value = mcan.value.host
   try {
-    const [hs, ms, chs] = await Promise.all([
-      api.get('/monitoring/hosts'), api.get('/monitors'), api.get('/alert_channels'),
-    ])
-    hostRows.value = hs
+    const reqs = [api.get('/monitors'), api.get('/alert_channels')]
+    if (mcan.value.host) reqs.push(api.get('/monitoring/hosts'))
+    const [ms, chs, hs] = await Promise.all(reqs)
     monitors.value = ms
     channels.value = chs
+    if (mcan.value.host) hostRows.value = hs
   } finally {
     hostsLoading.value = false
     loading.value = false
   }
 }
 const loadChannels = async () => { channels.value = await api.get('/alert_channels') }
+const loadHosts = async () => {
+  try { hostRows.value = await api.get('/monitoring/hosts') } catch { /* view_host required */ }
+}
 
 // ---- Host trends ----
 const trendVisible = ref(false)
@@ -1248,13 +1264,6 @@ const saveSecChannels = async () => {
 
 onMounted(() => {
   load()
-  loadAlertRule()
-  loadAlertTemplates()
-  loadCmdLevels()
-  loadMaintWindows()
-  loadMaintAudit()
-  loadMaintStatus()
-  loadSecChannels()
   timer = setInterval(load, 30000)
 })
 // ---- Monthly ops report ----
