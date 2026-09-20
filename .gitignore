@@ -50,3 +50,4 @@ jn_token
 backend/cmd/tmpregress/
 backend/cmd/tmpviewer/
 backend/cmd/ooprobe/
+*.exe.new
