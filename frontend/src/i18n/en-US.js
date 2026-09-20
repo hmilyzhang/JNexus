@@ -22,6 +22,7 @@ export default {
     users: 'User Management',
     danger: 'Dangerous Cmds',
     audit: 'Audit Log',
+    system: 'System Settings',
     logtail: "Log Viewer",
   },
   common: {
@@ -56,6 +57,7 @@ export default {
     title: 'JNexus Platform',
     username: 'Username',
     password: 'Password',
+    submit: 'Sign in',
     mfaTip: 'Two-step verification is enabled for this account. Enter the 6-digit code from your authenticator app',
     mfaCode: '6-digit code',
     mfaVerify: 'Verify',
@@ -316,9 +318,11 @@ export default {
     noOutput: '(no output)'
   },
   scripts: {
+    create: 'New Script',
     createTitle: 'New Script',
     edit: 'Edit Script',
     name: 'Name',
+    desc: 'Description',
     content: 'Content',
     contentPlaceholder: '#!/bin/bash\necho hello $(hostname)',
     creator: 'Creator',
@@ -331,9 +335,11 @@ export default {
     delConfirm: 'Delete this script?'
   },
   apps: {
+    create: 'New App',
     createTitle: 'New App',
     edit: 'Edit App',
     name: 'App name',
+    desc: 'Description',
     deployHosts: 'Deploy targets',
     unbound: 'Not bound',
     deployConfig: 'Deploy configs',
@@ -360,6 +366,7 @@ export default {
   releases: {
     title: 'Release Center',
     filterByApp: 'Filter by app',
+    create: 'New Release',
     app: 'App',
     pkg: 'Package',
     pkgName: 'Package',
@@ -374,6 +381,7 @@ export default {
     rollbackConfirm: 'Rollback to the latest backup?',
     confirmTitle: 'Confirm',
     confirmMsg: 'Deploy {pkg} to all hosts bound to the selected app: stop → backup → upload → start → health check',
+    created: 'Release #{id} created',
     rollbackCreated: 'Rollback started, release #{id}',
     stepPending: 'Pending',
     stepStop: 'Stop',
@@ -390,6 +398,7 @@ export default {
     displayNameLdapHint: 'Synced from LDAP/AD',
     builtinRoles: 'Built-in roles',
     customRoles: 'Custom roles',
+    create: 'New User',
     username: 'Username',
     password: 'Password',
     role: 'Role',
@@ -435,8 +444,10 @@ export default {
     cannotDelSelf: 'Cannot delete yourself'
   },
   danger: {
+    create: 'New Rule',
     banner: 'Matched commands are blocked at exec/script/release entry points and recorded in the audit log',
     pattern: 'Pattern',
+    desc: 'Description',
     enabled: 'Enabled',
     patternRequired: 'Pattern is required',
     test: 'Test',
@@ -614,6 +625,7 @@ export default {
     editMon: 'Edit monitor',
     monName: 'Name',
     monType: 'Type',
+    type: 'Type',
     typeHttp: 'HTTP(s)',
     typeTcp: 'TCP Port',
     typePing: 'Ping',
@@ -678,6 +690,7 @@ export default {
     screenExitFull: 'Exit fullscreen',
     screenExit: 'Exit',
     delConfirm: 'Delete this monitor? History will be removed too',
+    created: 'Created; first result appears shortly',
     testUp: 'Check passed',
     testDown: 'Check failed',
     targetHost: 'Host',
@@ -893,6 +906,7 @@ export default {
     searchPh: 'Search host / IP / account / label'
   },
   cron: {
+    create: 'New Schedule',
     edit: 'Edit Schedule',
     name: 'Name',
     expr: 'Cron expression',

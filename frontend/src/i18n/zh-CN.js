@@ -22,6 +22,7 @@ export default {
     users: '用户管理',
     danger: '危险命令规则',
     audit: '审计日志',
+    system: '系统配置',
     logtail: "日志输出",
   },
   common: {
@@ -56,6 +57,7 @@ export default {
     title: 'JNexus 运维平台',
     username: '用户名',
     password: '密码',
+    submit: '登 录',
     mfaTip: '该账号已开启两步验证，请输入验证器 App 中的 6 位动态码',
     mfaCode: '6 位动态验证码',
     mfaVerify: '验 证',
@@ -317,9 +319,11 @@ export default {
     noOutput: '(无输出)'
   },
   scripts: {
+    create: '新建脚本',
     createTitle: '新建脚本',
     edit: '编辑脚本',
     name: '名称',
+    desc: '描述',
     content: '内容',
     contentPlaceholder: '#!/bin/bash\necho hello $(hostname)',
     creator: '创建人',
@@ -332,9 +336,11 @@ export default {
     delConfirm: '确认删除脚本?'
   },
   apps: {
+    create: '新建应用',
     createTitle: '新建应用',
     edit: '编辑应用',
     name: '应用名',
+    desc: '描述',
     deployHosts: '部署主机',
     unbound: '未绑定',
     deployConfig: '部署配置',
@@ -361,6 +367,7 @@ export default {
   releases: {
     title: '发布中心',
     filterByApp: '按应用筛选',
+    create: '发起发布',
     app: '应用',
     pkg: '发布包',
     pkgName: '发布包',
@@ -375,6 +382,7 @@ export default {
     rollbackConfirm: '回滚到最近一次备份?',
     confirmTitle: '确认',
     confirmMsg: '将把 {pkg} 发布到所选应用绑定的全部主机：停服务 → 备份 → 替换 → 启动 → 健康检查',
+    created: '发布单 #{id} 已创建',
     rollbackCreated: '已发起回滚，发布单 #{id}',
     stepPending: '待执行',
     stepStop: '停止服务',
@@ -391,6 +399,7 @@ export default {
     displayNameLdapHint: '由 LDAP/AD 自动同步',
     builtinRoles: '内置角色',
     customRoles: '自定义角色',
+    create: '新增用户',
     username: '用户名',
     password: '密码',
     role: '角色',
@@ -436,8 +445,10 @@ export default {
     cannotDelSelf: '不能删除自己'
   },
   danger: {
+    create: '新增规则',
     banner: '命中的命令在批量执行/脚本执行/发布启停时会被直接拦截并记录审计日志',
     pattern: '正则',
+    desc: '说明',
     enabled: '启用',
     patternRequired: '正则必填',
     test: '测试',
@@ -615,6 +626,7 @@ export default {
     editMon: '编辑监控项',
     monName: '名称',
     monType: '类型',
+    type: '类型',
     typeHttp: 'HTTP(s)',
     typeTcp: 'TCP 端口',
     typePing: 'Ping',
@@ -679,6 +691,7 @@ export default {
     screenExitFull: '退出全屏',
     screenExit: '退出大屏',
     delConfirm: '确认删除该监控项？历史数据将一并删除',
+    created: '已创建，稍候可见首次检测结果',
     testUp: '检测正常',
     testDown: '检测失败',
     targetHost: '主机',
@@ -894,6 +907,7 @@ export default {
     searchPh: '搜索主机 / IP / 账号 / 标签'
   },
   cron: {
+    create: '新建计划任务',
     edit: '编辑计划任务',
     name: '任务名称',
     expr: 'Cron 表达式',
