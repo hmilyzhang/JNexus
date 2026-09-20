@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 	"time"
 
@@ -120,11 +121,13 @@ func runCapture(cli *gossh.Client, cmd string) (string, int, error) {
 	return strings.TrimSpace(string(out)), code, nil
 }
 
-// RotateCredentialPassword rotates a single OS account password:
-// local account detection → generate random password → chpasswd → store the new password encrypted.
-// LDAP/domain accounts (not local /etc/passwd accounts) are skipped automatically with errLDAPSkip.
-// Paired key accounts (AuthType=key with the password kept encrypted) rotate through key login:
-// chpasswd as the logged-in user needs no old password, so the stored password stays valid.
+// RotateCredentialPassword rotates a single OS account password: a random password
+// is generated, applied on the host, and stored back encrypted. LDAP/domain accounts
+// (not in /etc/passwd) are skipped automatically with errLDAPSkip.
+// Linux privilege chain (vault pattern): chpasswd is root-only, so first the account
+// itself is tried (key or password login), then the host's other stored credentials
+// (root-like first). uid 0 runs chpasswd directly, everyone else via `sudo -n` —
+// which only works for NOPASSWD sudoers.
 func RotateCredentialPassword(host *model.Host, cred *model.HostCredential) (string, error) {
 	if cred.Password == "" {
 		return "", fmt.Errorf("账号未保存密码，无法轮换")
@@ -133,57 +136,79 @@ func RotateCredentialPassword(host *model.Host, cred *model.HostCredential) (str
 		return rotateWindowsPassword(host, cred)
 	}
 
-	var cli *gossh.Client
-	var err error
-	if cred.AuthType == "key" {
-		cli, err = sshpool.ClientForCredential(host, cred)
-		if err != nil {
-			return "", fmt.Errorf("密钥登录失败: %w", err)
-		}
-	} else {
-		curPwd, derr := pkg.Decrypt(cred.Password)
-		if derr != nil {
-			return "", fmt.Errorf("解密当前密码失败: %w", derr)
-		}
-		cli, err = dialWithPassword(*host, cred.Username, curPwd)
-		if err != nil {
-			return "", fmt.Errorf("密码登录失败: %w", err)
-		}
-	}
-	defer cli.Close()
-
-	isLocal, code, err := runCapture(cli, fmt.Sprintf("grep -q '^%s:' /etc/passwd && echo LOCAL || echo REMOTE", cred.Username))
-	if err != nil {
-		return "", fmt.Errorf("账号类型检测失败: %w", err)
-	}
-	if strings.Contains(isLocal, "REMOTE") {
-		return "", errLDAPSkip
-	}
-
 	policy := GetRotationPolicy()
 	newPwd, err := GenerateStrongPassword(policy)
 	if err != nil {
 		return "", err
 	}
-	// chpasswd reads from stdin so the password never appears in command-line args / process lists
-	out, code, err := runCapture(cli, fmt.Sprintf("printf '%%s\\n' '%s:%s' | chpasswd", cred.Username, newPwd))
-	if err != nil {
-		return "", fmt.Errorf("执行 chpasswd 失败: %w", err)
-	}
-	if code != 0 {
-		return "", fmt.Errorf("chpasswd 退出码 %d: %s（可能被密码策略拒绝）", code, out)
-	}
 
-	enc, err := pkg.Encrypt(newPwd)
-	if err != nil {
-		return "", err
-	}
-	model.DB.Model(cred).Updates(map[string]any{
-		"password":             enc,
-		"last_rotated_at":      time.Now(),
-		"last_rotation_result": "轮换成功",
+	// privilege chain: the account itself first, then the host's other credentials
+	attempts := []model.HostCredential{*cred}
+	var siblings []model.HostCredential
+	model.DB.Where("host_id = ? AND id <> ? AND ((auth_type = 'password' AND password <> '') OR (auth_type = 'key' AND ssh_key_id IS NOT NULL))",
+		host.ID, cred.ID).Order("is_default DESC, id ASC").Find(&siblings)
+	sort.Slice(siblings, func(i, j int) bool {
+		if (siblings[i].Username == "root") != (siblings[j].Username == "root") {
+			return siblings[i].Username == "root" // root first
+		}
+		return siblings[i].ID < siblings[j].ID
 	})
-	return newPwd, nil
+	attempts = append(attempts, siblings...)
+
+	var lastErr error
+	for _, actor := range attempts {
+		cli, derr := sshpool.ClientForCredential(host, &actor)
+		if derr != nil {
+			lastErr = derr
+			continue
+		}
+		// the target must be a local account; domain accounts are never rotated
+		isLocal, _, lerr := runCapture(cli, fmt.Sprintf("grep -q '^%s:' /etc/passwd && echo LOCAL || echo REMOTE", cred.Username))
+		if lerr != nil {
+			cli.Close()
+			lastErr = fmt.Errorf("账号类型检测失败: %w", lerr)
+			continue
+		}
+		if strings.Contains(isLocal, "REMOTE") {
+			cli.Close()
+			return "", errLDAPSkip
+		}
+		// chpasswd is root-only: uid 0 runs it directly, everyone else via NOPASSWD sudo
+		uidOut, _, uerr := runCapture(cli, "id -u")
+		var cmd string
+		if uerr == nil && strings.TrimSpace(uidOut) == "0" {
+			cmd = fmt.Sprintf("printf '%%s\\n' '%s:%s' | chpasswd", cred.Username, newPwd)
+		} else {
+			cmd = fmt.Sprintf("printf '%%s\\n' '%s:%s' | sudo -n chpasswd", cred.Username, newPwd)
+		}
+		// chpasswd reads from stdin so the password never appears in command-line args / process lists
+		out, code, cerr := runCapture(cli, cmd)
+		cli.Close()
+		if cerr == nil && code == 0 {
+			enc, eerr := pkg.Encrypt(newPwd)
+			if eerr != nil {
+				return "", eerr
+			}
+			model.DB.Model(cred).Updates(map[string]any{
+				"password":             enc,
+				"last_rotated_at":      time.Now(),
+				"last_rotation_result": "轮换成功",
+			})
+			return newPwd, nil
+		}
+		if cerr != nil {
+			lastErr = fmt.Errorf("执行 chpasswd 失败: %w", cerr)
+		} else {
+			lastErr = fmt.Errorf("chpasswd 退出码 %d: %s", code, strings.TrimSpace(out))
+		}
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("无可用登录凭据")
+	}
+	if len(siblings) == 0 {
+		return "", fmt.Errorf("普通账号无 chpasswd 权限（root 专属命令），且主机上没有其它可协助改密的凭据: %w", lastErr)
+	}
+	return "", fmt.Errorf("自身及主机上 %d 个其它凭据均无法完成改密（需要 root 或 NOPASSWD sudo）: %w", len(siblings), lastErr)
 }
 
 // rotateWindowsPassword rotates a local Windows account password via WinRM
