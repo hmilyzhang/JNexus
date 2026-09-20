@@ -109,8 +109,13 @@ func OOApplyRetention(days int) []map[string]any {
 	for _, stream := range ooBuiltinStreams {
 		res := map[string]any{"stream": stream, "days": days}
 		if err := s.OOSetStreamRetention(stream, days); err != nil {
+			msg := err.Error()
+			// stream not created yet (no data ingested): friendly note
+			if strings.Contains(msg, "could not be found") {
+				msg = "流尚未创建（暂无数据写入），待数据产生后重新应用即可"
+			}
 			res["ok"] = false
-			res["error"] = err.Error()
+			res["error"] = msg
 		} else {
 			res["ok"] = true
 		}
