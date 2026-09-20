@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -361,7 +362,37 @@ func BatchDeleteHosts(c *gin.Context) {
 		model.DB.Where("host_id = ?", id).Delete(&model.HostCredential{})
 		deleted = append(deleted, id)
 	}
-	c.JSON(http.StatusOK, gin.H{"deleted": deleted, "failed": failed})
+		c.JSON(http.StatusOK, gin.H{"deleted": deleted, "failed": failed})
+}
+
+// BatchUpdateHostGroup POST /api/hosts/batch-group — moves hosts to a host group in one go.
+// group_id null clears the group (未分组).
+func BatchUpdateHostGroup(c *gin.Context) {
+	var req struct {
+		IDs     []uint `json:"ids" binding:"required"`
+		GroupID *uint  `json:"group_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids 必填"})
+		return
+	}
+	if req.GroupID != nil {
+		var cnt int64
+		model.DB.Model(&model.HostGroup{}).Where("id = ?", *req.GroupID).Count(&cnt)
+		if cnt == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "分组不存在"})
+			return
+		}
+	}
+	res := model.DB.Model(&model.Host{}).Where("id IN ?", req.IDs).Update("group_id", req.GroupID)
+	if u := currentUser(c); u.ID > 0 {
+		model.DB.Create(&model.AuditLog{
+			UserID: u.ID, Username: u.Username,
+			Action: "HOST_BATCH_GROUP", Resource: fmt.Sprintf("hosts=%d,group=%v", len(req.IDs), req.GroupID),
+			IP: c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "updated": res.RowsAffected})
 }
 
 func sshKeyIDOf(k *model.SSHKey) *uint { id := k.ID; return &id }

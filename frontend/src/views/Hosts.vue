@@ -32,6 +32,8 @@
           <el-button @click="dlgGroup">{{ $t('hosts.groupMgmt') }}</el-button>
           <el-button type="warning" plain @click="showKeys = true">{{ $t('hosts.keyMgmt') }}</el-button>
           <el-button type="info" plain @click="showTemplates = true">{{ $t('hosts.tplMgmt') }}</el-button>
+          <el-button v-if="store.isAdmin || canManageCreds" type="primary" plain :disabled="!selHosts.length"
+                     @click="dlgBatchGroup">{{ $t('hosts.batchMoveGroup') }}{{ selHosts.length ? ` (${selHosts.length})` : '' }}</el-button>
           <el-button v-if="store.isAdmin || canManageCreds" type="danger" plain :disabled="!selHosts.length"
                      @click="batchDelHosts">{{ $t('k8s.batchDelete') }}{{ selHosts.length ? ` (${selHosts.length})` : '' }}</el-button>
         </div>
@@ -88,6 +90,22 @@
       </el-card>
     </el-col>
   </el-row>
+
+  <!-- Batch move to group -->
+  <el-dialog v-model="batchGroupVisible" :title="$t('hosts.batchMoveGroup')" width="420px">
+    <el-form label-width="90px">
+      <el-form-item :label="$t('hosts.group')">
+        <el-select v-model="batchGroupTarget" clearable style="width:100%">
+          <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <div style="color:#909399; font-size:12px">{{ $t('hosts.batchMoveTip') }}</div>
+    <template #footer>
+      <el-button @click="batchGroupVisible = false">{{ $t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="batchMoveGroup">{{ $t('common.save') }}</el-button>
+    </template>
+  </el-dialog>
 
   <!-- Add/Edit host -->
   <el-dialog v-model="hostVisible" :title="hostForm.id ? $t('hosts.editHost') : $t('hosts.addHostTitle')" width="460px">
@@ -604,6 +622,16 @@ const onTplPick = id => {
 }
 
 const selHosts = ref([])
+const batchGroupVisible = ref(false)
+const batchGroupTarget = ref(null)
+const dlgBatchGroup = () => { batchGroupTarget.value = null; batchGroupVisible.value = true }
+const batchMoveGroup = async () => {
+  const r = await api.post('/hosts/batch-group', { ids: selHosts.value.map(h => h.id), group_id: batchGroupTarget.value })
+  batchGroupVisible.value = false
+  ElMessage.success(t('hosts.batchMoveDone', { n: r.updated ?? 0 }))
+  selHosts.value = []
+  load()
+}
 const batchDelHosts = async () => {
   if (!selHosts.value.length) return
   try {

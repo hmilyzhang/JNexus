@@ -240,6 +240,7 @@ func SetupRouter() *gin.Engine {
 			hosts.PUT("/:id", middleware.RequireCap("hosts", "edit"), UpdateHost)
 			hosts.DELETE("/:id", middleware.RequireCap("hosts", "delete"), DeleteHost)
 			hosts.POST("/batch-delete", middleware.RequireCap("hosts", "delete"), BatchDeleteHosts)
+			hosts.POST("/batch-group", middleware.RequireCap("hosts", "edit"), BatchUpdateHostGroup)
 			hosts.POST("/:id/rdp-token", RDPConnectToken)
 			hosts.POST("/import", ImportHosts)
 			hosts.POST("/probe", ProbeHostsHandler)
