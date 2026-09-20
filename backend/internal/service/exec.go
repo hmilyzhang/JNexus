@@ -278,6 +278,14 @@ func runTask(operator *model.User, reqCredID *uint, taskID uint, command string,
 					"type": "output", "result_id": res.ID, "host_id": res.HostID, "text": out,
 				})
 				finishResult(res.ID, code, out, status)
+				// dual-write the Windows task result into the task_logs stream too
+				// (parity with the SSH branch)
+				var taskType, operator string
+				var task model.Task
+				if model.DB.Select("type", "operator").First(&task, taskID).Error == nil {
+					taskType, operator = task.Type, task.Operator
+				}
+				OOPushTaskLog(taskID, taskType, operator, res.HostName, res.OsUser, status, code, out)
 				pushTaskStatus()
 				return
 			}
