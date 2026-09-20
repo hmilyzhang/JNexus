@@ -292,6 +292,8 @@ func SetupRouter() *gin.Engine {
 			creds.GET("/rotate-batch/:batch", RotateCredentialsBatchStatus)
 			// Reveal password plaintext: system admin only (audited)
 			creds.POST("/:id/reveal", middleware.RequireRole(), RevealCredentialPassword)
+			// Password history (each rotation/change archived): system admin only (audited)
+			creds.GET("/:id/password-history", middleware.RequireRole(), PasswordHistory)
 			// Delete: system admin only
 			creds.DELETE("/:id", middleware.RequireRole(), DeleteCredential)
 		}

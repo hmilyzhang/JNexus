@@ -64,6 +64,7 @@ func PairAndCreateCredential(host *model.Host, username, password, label string,
 	if err := model.DB.Create(&cred).Error; err != nil {
 		return false, nil, fmt.Errorf("创建凭据失败: %w", err)
 	}
+	RecordPasswordHistory(cred.ID, password, "created", "pairing")
 	return true, &cred, nil
 }
 

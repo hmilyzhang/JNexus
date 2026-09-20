@@ -66,12 +66,13 @@
             <span v-else style="color:#c0c4cc">-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.operation')" width="210" fixed="right">
+        <el-table-column :label="$t('common.operation')" width="290" fixed="right">
           <template #default="{ row }">
             <template v-if="canManageCreds">
               <el-button v-if="row.has_password" size="small" type="warning" link
                          :loading="rotating === row.id" @click="rotateNow(row)">{{ $t('rot.now') }}</el-button>
               <el-button v-if="row.has_password && store.isAdmin" size="small" link @click="revealPwd(row)">{{ $t('rot.view') }}</el-button>
+              <el-button v-if="row.has_password && store.isAdmin" size="small" link @click="showHistory(row)">{{ $t('rot.history') }}</el-button>
               <el-button size="small" link @click="dlgEdit(row)">{{ $t('common.edit') }}</el-button>
               <el-popconfirm :title="$t('hosts.credDelConfirm')" @confirm="delCred(row)">
                 <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
@@ -141,6 +142,29 @@
       <el-alert type="warning" :closable="false" :title="$t('rot.revealAudit')" />
       <template #footer>
         <el-button @click="revealVisible = false">{{ $t('common.cancel') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Password history -->
+    <el-dialog v-model="histVisible" :title="$t('rot.histTitle')" width="620px">
+      <el-alert type="warning" :closable="false" :title="$t('rot.revealAudit')" style="margin-bottom:12px" />
+      <el-table :data="histRows" size="small" border max-height="380">
+        <el-table-column :label="$t('rot.histTime')" width="160">
+          <template #default="{ row }">{{ fmtTime(row.changed_at) }}</template>
+        </el-table-column>
+        <el-table-column :label="$t('rot.histSource')" width="130">
+          <template #default="{ row }">
+            {{ srcText(row.source) }}
+            <el-tag v-if="row.current" size="small" type="success" style="margin-left:4px">{{ $t('rot.histCurrent') }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('rot.histOperator')" prop="operator" width="120" show-overflow-tooltip />
+        <el-table-column :label="$t('hosts.password')">
+          <template #default="{ row }"><span class="mono" style="font-weight:bold">{{ row.password }}</span></template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="histVisible = false">{{ $t('common.cancel') }}</el-button>
       </template>
     </el-dialog>
 
@@ -260,6 +284,8 @@ const form = ref({})
 const revealVisible = ref(false)
 const revealData = ref({})
 const rotating = ref(null)
+const histVisible = ref(false)
+const histRows = ref([])
 const batchVisible = ref(false)
 const batchRunning = ref(false)
 const batchForm = ref({ host_ids: [], username: '', label: '', auth_type: 'password', password: '' })
@@ -451,6 +477,11 @@ const revealPwd = async row => {
   revealData.value = { username: row.username, password: r.password }
   revealVisible.value = true
 }
+const showHistory = async row => {
+  histRows.value = await api.get(`/credentials/${row.id}/password-history`)
+  histVisible.value = true
+}
+const srcText = s => ({ created: t('rot.srcCreated'), manual: t('rot.srcManual'), scheduled: t('rot.srcScheduled') }[s] || s)
 // Open the batch dialog. With table rows selected: preload those accounts
 // (multi-account mode, passwords revealed one-by-one) so they can be re-applied to other hosts.
 const openBatch = async () => {

@@ -280,6 +280,33 @@ func ScanDueRotations() {
 	}
 }
 
+// RecordPasswordHistory archives a credential's new password (encrypted) into the
+// history table, pruned to the most recent 24 entries per credential. Best-effort:
+// failures are swallowed so password changes never break on bookkeeping.
+func RecordPasswordHistory(credID uint, plainPwd, source, operator string) {
+	defer func() { recover() }()
+	if plainPwd == "" {
+		return
+	}
+	enc, err := pkg.Encrypt(plainPwd)
+	if err != nil {
+		return
+	}
+	if err := model.DB.Create(&model.CredentialPasswordHistory{
+		CredentialID: credID, Password: enc, Source: source, Operator: operator, ChangedAt: time.Now(),
+	}).Error; err != nil {
+		return
+	}
+	var old []model.CredentialPasswordHistory
+	if err := model.DB.Where("credential_id = ?", credID).Order("id DESC").Offset(24).Find(&old).Error; err == nil && len(old) > 0 {
+		ids := make([]uint, 0, len(old))
+		for _, o := range old {
+			ids = append(ids, o.ID)
+		}
+		model.DB.Where("id IN ?", ids).Delete(&model.CredentialPasswordHistory{})
+	}
+}
+
 func rotateOne(credID uint) {
 	defer func() { recover() }()
 	var cred model.HostCredential
@@ -294,11 +321,11 @@ func rotateOne(credID uint) {
 	if cred.IsLDAP {
 		result = "LDAP/域账号，跳过轮换"
 	} else {
-		_, err := RotateCredentialPassword(&host, &cred)
-		if err != nil {
+		if newPwd, err := RotateCredentialPassword(&host, &cred); err != nil {
 			result = "轮换失败: " + err.Error()
 		} else {
 			result = "轮换成功"
+			RecordPasswordHistory(cred.ID, newPwd, "scheduled", "system")
 		}
 	}
 	model.DB.Model(&cred).Updates(map[string]any{

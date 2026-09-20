@@ -317,6 +317,18 @@ type HostCredential struct {
 	SSHKey *SSHKey `gorm:"foreignKey:SSHKeyID" json:"ssh_key,omitempty"`
 }
 
+// CredentialPasswordHistory archives every password a credential has had (AES-GCM
+// encrypted), so admins can look up previous passwords after rotations. Admin-only,
+// audited on every view; pruned to the most recent 24 entries per credential.
+type CredentialPasswordHistory struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	CredentialID uint      `gorm:"index" json:"credential_id"`
+	Password     string    `json:"-"`                       // AES-GCM encrypted
+	Source       string    `gorm:"size:16" json:"source"`   // created / manual / scheduled
+	Operator     string    `gorm:"size:64" json:"operator"` // username or "system"
+	ChangedAt    time.Time `json:"changed_at"`
+}
+
 // User group ↔ app (app team authorization: members can only see/release bound apps)
 type UserGroupApp struct {
 	ID          uint `gorm:"primaryKey" json:"id"`

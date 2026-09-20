@@ -291,6 +291,9 @@ func CreateHostCredential(c *gin.Context) {
 	if cnt == 1 || req.IsDefault {
 		makeDefault(uint(hostID), cred.ID)
 	}
+	if req.Password != "" {
+		service.RecordPasswordHistory(cred.ID, req.Password, "created", currentUser(c).Username)
+	}
 	c.JSON(http.StatusOK, cred)
 }
 
@@ -317,6 +320,9 @@ func UpdateCredential(c *gin.Context) {
 	model.DB.Save(&cred)
 	if req.IsDefault {
 		makeDefault(cred.HostID, cred.ID)
+	}
+	if req.Password != "" {
+		service.RecordPasswordHistory(cred.ID, req.Password, "manual", currentUser(c).Username)
 	}
 	c.JSON(http.StatusOK, cred)
 }
@@ -382,10 +388,13 @@ func RotateCredentialNow(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "LDAP/域账号不执行轮换"})
 		return
 	}
-	_, err := service.RotateCredentialPassword(&host, &cred)
+	newPwd, err := service.RotateCredentialPassword(&host, &cred)
 	result := "轮换成功"
 	if err != nil {
 		result = "轮换失败: " + err.Error()
+	} else {
+		u := currentUser(c)
+		service.RecordPasswordHistory(cred.ID, newPwd, "manual", u.Username)
 	}
 	model.DB.Model(&cred).Updates(map[string]any{
 		"last_rotated_at":      time.Now(),
@@ -420,6 +429,43 @@ func RevealCredentialPassword(c *gin.Context) {
 		IP:     c.ClientIP(), Status: 200, CreatedAt: time.Now(),
 	})
 	c.JSON(http.StatusOK, gin.H{"password": plain})
+}
+
+// PasswordHistory GET /api/credentials/:id/password-history — admin-only, audited.
+// Returns the credential's archived passwords (decrypted for display), newest first;
+// the newest entry is the current password.
+func PasswordHistory(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var cred model.HostCredential
+	if err := model.DB.First(&cred, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "OS 账号不存在"})
+		return
+	}
+	if cred.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "该账号未保存密码"})
+		return
+	}
+	var rows []model.CredentialPasswordHistory
+	model.DB.Where("credential_id = ?", id).Order("id DESC").Limit(50).Find(&rows)
+	out := make([]gin.H, 0, len(rows))
+	for i, r := range rows {
+		plain, derr := pkg.Decrypt(r.Password)
+		if derr != nil {
+			plain = "(解密失败)"
+		}
+		out = append(out, gin.H{
+			"changed_at": r.ChangedAt, "source": r.Source,
+			"operator": r.Operator, "password": plain, "current": i == 0,
+		})
+	}
+	u := currentUser(c)
+	model.DB.Create(&model.AuditLog{
+		UserID: u.ID, Username: u.Username,
+		Action: "REVEAL_HISTORY", Resource: "/api/credentials/" + strconv.Itoa(id),
+		Detail: `{"os_user":"` + cred.Username + `"}`,
+		IP:     c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, out)
 }
 
 func SetDefaultCredential(c *gin.Context) {
@@ -605,12 +651,13 @@ func startRotationBatch(ids []uint, u *model.User, ip string) string {
 				} else {
 					hostDisp = host.IP
 				}
-				_, rerr := service.RotateCredentialPassword(&host, &cred)
+				newPwd, rerr := service.RotateCredentialPassword(&host, &cred)
 				if rerr != nil {
 					result = "轮换失败: " + rerr.Error()
 				} else {
 					result = "轮换成功"
 					ok = true
+					service.RecordPasswordHistory(cred.ID, newPwd, "manual", u.Username)
 				}
 				model.DB.Model(&cred).Updates(map[string]any{
 					"last_rotated_at":      time.Now(),

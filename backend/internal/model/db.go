@@ -29,7 +29,7 @@ func Connect(dsn string) error {
 		&DangerRule{}, &AuditLog{}, &UserHostGroup{}, &UserApp{},
 		&SystemConfig{},
 		&UserGroup{}, &UserGroupHost{}, &UserGroupHostGroup{}, &UserGroupMember{},
-		&HostCredential{}, &UserGroupCredential{}, &UserGroupCredRule{}, &CronJob{}, &Report{}, &ReportItem{},
+		&HostCredential{}, &CredentialPasswordHistory{}, &UserGroupCredential{}, &UserGroupCredRule{}, &CronJob{}, &Report{}, &ReportItem{},
 		&Monitor{}, &MonitorSample{}, &HostMetric{}, &K8sCapacitySample{}, &AlertEvent{}, &K8sPodSample{}, &HostMetricHourly{}, &CmdAlertState{}, &K8sCluster{}, &K8sClusterMember{}, &MaintenanceLog{}, &UserGroupApp{}, &ApiKey{}, &AlertChannel{}, &MonitorChannel{}, &DbSource{},
 	); err != nil {
 		return fmt.Errorf("数据库迁移失败: %w", err)
