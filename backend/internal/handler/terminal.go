@@ -314,16 +314,27 @@ func rdpPortOf(h *model.Host) int {
 	return 3389
 }
 
+// splitDomainUser splits "DOMAIN\user" into the separate domain and username that
+// FreeRDP (NLA/CredSSP) requires — an empty domain with a backslashed username fails
+// domain logons. UPN form (user@realm) and plain local names pass through untouched.
+func splitDomainUser(user string) (domain, name string) {
+	if i := strings.IndexByte(user, '\\'); i > 0 && i < len(user)-1 {
+		return user[:i], user[i+1:]
+	}
+	return "", user
+}
+
 // buildGuacQueryString generates an encrypted connection string compatible with guacamole-lite queryEncryption
 func buildGuacQueryString(ip string, port int, user, pass string) (string, error) {
 	key := []byte(gwSecret())
 
+	domain, name := splitDomainUser(user)
 	// guacamole-lite expects the token plaintext as
 	// {connection: {type: "rdp", settings: {...}}} (see guacamole-lite README)
 	settings := map[string]any{
 		"hostname":      ip,
 		"port":          strconv.Itoa(port),
-		"username":      user,
+		"username":      name,
 		"password":      pass,
 		"ignore-cert":   true,
 		"resize-method": "reconnect",
@@ -333,6 +344,9 @@ func buildGuacQueryString(ip string, port int, user, pass string) (string, error
 		"width":         1280,
 		"height":        720,
 		"dpi":           96,
+	}
+	if domain != "" {
+		settings["domain"] = domain
 	}
 	plaintext, err := json.Marshal(map[string]any{
 		"connection": map[string]any{"type": "rdp", "settings": settings},
