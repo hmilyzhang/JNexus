@@ -330,6 +330,9 @@ func DeleteHost(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除失败: " + err.Error()})
 		return
 	}
+	// the host is gone: its OS account rows would otherwise linger as orphans
+	// (empty-host rows in the rotation list that always fail with 主机不存在)
+	model.DB.Where("host_id = ?", id).Delete(&model.HostCredential{})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -354,6 +357,8 @@ func BatchDeleteHosts(c *gin.Context) {
 			failed[fmt.Sprint(id)] = err.Error()
 			continue
 		}
+		// same cascade as the single delete: drop the host's OS account rows
+		model.DB.Where("host_id = ?", id).Delete(&model.HostCredential{})
 		deleted = append(deleted, id)
 	}
 	c.JSON(http.StatusOK, gin.H{"deleted": deleted, "failed": failed})
