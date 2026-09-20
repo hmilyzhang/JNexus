@@ -350,7 +350,9 @@ func RotationAccounts(c *gin.Context) {
 		LastResult    string     `json:"last_rotation_result"`
 	}
 	var creds []model.HostCredential
-	model.DB.Where("auth_type = ? AND is_ldap = ?", "password", false).
+	// rotatable = a stored (encrypted) password exists: password-auth accounts and
+	// paired key accounts whose password was kept; LDAP/domain accounts are excluded
+	model.DB.Where("is_ldap = ? AND password <> ''", false).
 		Order("host_id, username").Find(&creds)
 
 	hosts := map[uint]string{}
@@ -386,7 +388,7 @@ func RotationAccounts(c *gin.Context) {
 func RotationRunNow(c *gin.Context) {
 	u := currentUser(c)
 	var creds []model.HostCredential
-	model.DB.Where("auth_type = ? AND is_ldap = ?", "password", false).Find(&creds)
+	model.DB.Where("is_ldap = ? AND password <> ''", false).Find(&creds)
 	ids := make([]uint, 0, len(creds))
 	for _, cr := range creds {
 		ids = append(ids, cr.ID)

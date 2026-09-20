@@ -14,6 +14,7 @@ import (
 
 	"jnexus/internal/model"
 	"jnexus/internal/pkg"
+	"jnexus/internal/sshpool"
 )
 
 // chpasswd safe character set: excludes shell-sensitive characters such as single quotes, backslashes, and $
@@ -122,21 +123,32 @@ func runCapture(cli *gossh.Client, cmd string) (string, int, error) {
 // RotateCredentialPassword rotates a single OS account password:
 // local account detection → generate random password → chpasswd → store the new password encrypted.
 // LDAP/domain accounts (not local /etc/passwd accounts) are skipped automatically with errLDAPSkip.
+// Paired key accounts (AuthType=key with the password kept encrypted) rotate through key login:
+// chpasswd as the logged-in user needs no old password, so the stored password stays valid.
 func RotateCredentialPassword(host *model.Host, cred *model.HostCredential) (string, error) {
-	if cred.AuthType != "password" || cred.Password == "" {
-		return "", fmt.Errorf("仅密码认证的账号支持轮换")
+	if cred.Password == "" {
+		return "", fmt.Errorf("账号未保存密码，无法轮换")
 	}
 	if IsWindows(host) {
 		return rotateWindowsPassword(host, cred)
 	}
-	curPwd, err := pkg.Decrypt(cred.Password)
-	if err != nil {
-		return "", fmt.Errorf("解密当前密码失败: %w", err)
-	}
 
-	cli, err := dialWithPassword(*host, cred.Username, curPwd)
-	if err != nil {
-		return "", fmt.Errorf("密码登录失败: %w", err)
+	var cli *gossh.Client
+	var err error
+	if cred.AuthType == "key" {
+		cli, err = sshpool.ClientForCredential(host, cred)
+		if err != nil {
+			return "", fmt.Errorf("密钥登录失败: %w", err)
+		}
+	} else {
+		curPwd, derr := pkg.Decrypt(cred.Password)
+		if derr != nil {
+			return "", fmt.Errorf("解密当前密码失败: %w", derr)
+		}
+		cli, err = dialWithPassword(*host, cred.Username, curPwd)
+		if err != nil {
+			return "", fmt.Errorf("密码登录失败: %w", err)
+		}
 	}
 	defer cli.Close()
 
@@ -246,7 +258,9 @@ func ScanDueRotations() {
 		return
 	}
 	var creds []model.HostCredential
-	if err := model.DB.Where("rotate_enabled = ? AND auth_type = ?", true, "password").Find(&creds).Error; err != nil {
+	// rotatable = a stored (encrypted) password exists: password-auth accounts and
+	// paired key accounts whose password was kept; LDAP/domain accounts are excluded
+	if err := model.DB.Where("rotate_enabled = ? AND is_ldap = ? AND password <> ''", true, false).Find(&creds).Error; err != nil {
 		return
 	}
 	policy := GetRotationPolicy()

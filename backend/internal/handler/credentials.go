@@ -87,6 +87,7 @@ func ListAllCredentials(c *gin.Context) {
 			"rotate_enabled": cr.RotateEnabled, "rotate_days": cr.RotateDays,
 			"last_rotated_at": cr.LastRotatedAt, "last_rotation_result": cr.LastRotationResult,
 			"is_ldap": cr.IsLDAP, "created_at": cr.CreatedAt,
+			"has_password": cr.Password != "",
 		})
 	}
 	c.JSON(http.StatusOK, out)
@@ -368,8 +369,8 @@ func RotateCredentialNow(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "OS 账号不存在"})
 		return
 	}
-	if cred.AuthType != "password" || cred.Password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "仅密码认证的账号支持轮换"})
+	if cred.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "账号未保存密码，无法轮换"})
 		return
 	}
 	var host model.Host
@@ -402,8 +403,8 @@ func RevealCredentialPassword(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "OS 账号不存在"})
 		return
 	}
-	if cred.AuthType != "password" || cred.Password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "该账号无密码（密钥认证）"})
+	if cred.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "该账号未保存密码"})
 		return
 	}
 	plain, err := pkg.Decrypt(cred.Password)
@@ -592,8 +593,8 @@ func startRotationBatch(ids []uint, u *model.User, ip string) string {
 			ok := false
 			if err := model.DB.First(&cred, id).Error; err != nil {
 				result = "账号不存在"
-			} else if cred.AuthType != "password" || cred.Password == "" {
-				result = "仅密码认证账号支持轮换"
+			} else if cred.Password == "" {
+				result = "账号未保存密码，无法轮换"
 			} else if cred.IsLDAP {
 				result = "LDAP/域账号跳过"
 			} else if err := model.DB.First(&host, cred.HostID).Error; err != nil {

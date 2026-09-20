@@ -52,7 +52,7 @@
         </el-table-column>
         <el-table-column :label="$t('osac.pwdChanged')" width="150">
           <template #default="{ row }">
-            <span v-if="row.auth_type === 'password'">{{ fmtTime(row.last_rotated_at || row.created_at) }}</span>
+            <span v-if="row.has_password">{{ fmtTime(row.last_rotated_at || row.created_at) }}</span>
             <span v-else style="color:#c0c4cc">-</span>
           </template>
         </el-table-column>
@@ -69,9 +69,9 @@
         <el-table-column :label="$t('common.operation')" width="210" fixed="right">
           <template #default="{ row }">
             <template v-if="canManageCreds">
-              <el-button v-if="row.auth_type === 'password'" size="small" type="warning" link
+              <el-button v-if="row.has_password" size="small" type="warning" link
                          :loading="rotating === row.id" @click="rotateNow(row)">{{ $t('rot.now') }}</el-button>
-              <el-button v-if="row.auth_type === 'password' && store.isAdmin" size="small" link @click="revealPwd(row)">{{ $t('rot.view') }}</el-button>
+              <el-button v-if="row.has_password && store.isAdmin" size="small" link @click="revealPwd(row)">{{ $t('rot.view') }}</el-button>
               <el-button size="small" link @click="dlgEdit(row)">{{ $t('common.edit') }}</el-button>
               <el-popconfirm :title="$t('hosts.credDelConfirm')" @confirm="delCred(row)">
                 <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
