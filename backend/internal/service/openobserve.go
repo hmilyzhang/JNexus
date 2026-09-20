@@ -80,20 +80,20 @@ func (s OOSettings) ooJSON(path string, v any, timeout time.Duration) (int, []by
 
 // OOSetStreamRetention sets a stream's data-retention period (days) inside
 // OpenObserve; 0 disables automatic cleanup for that stream
+// OOSetStreamRetention sets a stream's data-retention period (days) inside
+// OpenObserve; 0 disables automatic cleanup for that stream. Verified against
+// OO: the settings endpoint takes {"data_retention": N} in days.
 func (s OOSettings) OOSetStreamRetention(stream string, days int) error {
 	if s.BaseURL == "" {
 		return fmt.Errorf("OpenObserve is not enabled")
 	}
-	b, err := json.Marshal(map[string]any{"retention_days": days})
+	b, err := json.Marshal(map[string]any{"data_retention": days})
 	if err != nil {
 		return err
 	}
-	code, data, err := ooHTTP(15*time.Second, http.MethodPut, s.BaseURL+"/api/"+s.Org+"/streams/"+stream+"/update", s.authHeader(), b)
+	code, data, err := ooHTTP(15*time.Second, http.MethodPut, s.BaseURL+"/api/"+s.Org+"/streams/"+stream+"/settings", s.authHeader(), b)
 	if err != nil {
 		return err
-	}
-	if code == 404 {
-		return fmt.Errorf("该 OpenObserve 版本不支持流保留 API（/update 404），请在 OO 配置文件中设置 compactor retention 或升级")
 	}
 	if code >= 400 {
 		return fmt.Errorf("OpenObserve HTTP %d: %s", code, truncateOO(data))
