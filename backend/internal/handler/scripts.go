@@ -45,7 +45,9 @@ func UpdateScript(c *gin.Context) {
 	}
 	model.DB.Model(&s).Updates(map[string]any{
 		"name": req.Name, "description": req.Description, "content": req.Content,
+		"content_ps": req.ContentPS, // empty clears the Windows variant
 	})
+	s.ContentPS = req.ContentPS
 	c.JSON(http.StatusOK, s)
 }
 

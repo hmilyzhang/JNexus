@@ -20,6 +20,7 @@
 14. [Reports](#14-reports)
 15. [Permissions & Security](#15-permissions--security)
 16. [FAQ](#16-faq)
+17. [Web Apps (PAM-style)](#17-web-apps-pam-style)
 
 ---
 
@@ -55,6 +56,20 @@ Hosts → Import: paste multiple `NAME,IP,port,username,group` lines, fill the p
 - Create hierarchical groups in Group Management.
 - Select hosts and click **Probe** for concurrent connectivity checks.
 
+### Batch move to group
+- Select multiple hosts in the toolbar -> "Move to group" -> pick the target group;
+- Saving with no group selected removes them from any group (ungrouped);
+- Deleting a host also removes its OS account rows.
+
+
+- **Password history**: every change (create/pairing/manual/rotation) is archived encrypted (last 24 kept); admins can view it on the host accounts page (audited).
+- **Bulk rotation**: System Settings -> Password Rotation can rotate all applicable accounts at once and shows the applicable list with due status.
+
+### Batch move to group
+- Select multiple hosts in the toolbar -> "Move to group" -> pick the target group;
+- Saving with no group selected removes them from any group (ungrouped);
+- Deleting a host also removes its OS account rows.
+
 ## 4. OS Accounts & Credentials
 
 Each host can hold multiple OS accounts (root, appuser, …), distinguished by labels; the default account is used for terminals and execution.
@@ -67,7 +82,10 @@ Each host can hold multiple OS accounts (root, appuser, …), distinguished by l
 
 ## 5. Web Terminal
 
-Click a host in the asset tree to open a terminal (Linux/SSH only; Windows hosts have no terminal — use RDP); multiple tabs and per-account sessions are supported; fullscreen available. Sessions close when the tab closes.
+- Sessions appear as **tabs** on top of the terminal area (connection state dot + close button).
+- The asset tree mirrors the hosts page: group hierarchy, a dedicated **Ungrouped** node; Windows hosts are greyed with an **RDP** tag - clicking them launches remote desktop (an account picker appears when the host has several usable accounts).
+- Every usable account is listed under each host (key type first); click an account to connect as that account; several accounts can hold separate terminals at once.
+- Terminal content auto-refits when the sidebar collapses or the window resizes; the tree has a manual refresh button.
 
 ## 6. Batch Execution & File Distribution
 
@@ -80,6 +98,7 @@ Click a host in the asset tree to open a terminal (Linux/SSH only; Windows hosts
 - **Script Library**: save frequently used scripts (with parameters) and run them against hosts in one click.
 - **Scheduled Jobs**: cron expressions to run commands/scripts on selected hosts; pause/resume/run-now; full run history.
 
+- **Dual-version scripts**: the editor has "Linux (bash)" and "Windows (PowerShell)" tabs; batch exec dispatches the matching version per host OS. Windows hosts skip scripts without a PowerShell variant (no syntax errors).
 ## 8. Monitoring & Alerting
 
 - **Host resources**: CPU/memory/disk collected every minute; progress bars + trend drawer (6h/24h/7d/30d); 30-day retention.
@@ -107,6 +126,7 @@ Requires the OpenObserve integration (System Admin → Observability).
 - **Controlled disk cleanup** (optional): on disk alerts, admin-predefined cleanup commands run verbatim — the AI never generates commands. The catalog lives under Monitoring → AI Diagnostics; Linux hosts only.
 
 ## 11. RDP Remote Desktop
+- When the host has several usable accounts, clicking "RDP" first shows an **account picker** (default preselected) - different teams can connect with their own granted accounts. Domain logons accept both "DOMAIN\user" and UPN forms.
 
 Click **RDP** on a Windows host row to open an in-browser remote desktop in the same tab (no mstsc; the Windows host menu offers RDP only). The desktop scales to fit the window and the remote resolution follows the container size; the Close button disconnects and returns to the hosts page. Requires the server-side guacd + rdp-gateway components. Credentials are exchanged via a one-time encrypted token; the browser never sees plaintext.
 
@@ -147,3 +167,27 @@ The OpenObserve integration is disabled. Re-enable it under System Admin → Obs
 
 **Q: No analysis was generated for an alert?**
 Check that the AI service is enabled and reachable, that the alert level/metric is within the diagnostics scope, and that the cooldown period has passed.
+
+---
+
+## 17. Web Apps (PAM-style)
+
+Vault common web consoles (switches, server out-of-band management, internal systems) as assets; a headless browser on the server auto-logs in with the vaulted credentials and streams the screen to you - the password never touches your computer.
+
+### Manage (admins)
+- "Web Apps" menu -> Add: name, target URL (http/https), username, password (AES encrypted), description.
+- Editing changes every field; an empty password keeps the stored one.
+
+### Open (any signed-in user)
+1. Click "Open" on an asset -> a full-screen session page shows the target URL, account and an audit note;
+2. Click "Confirm & Open" -> the server-side headless browser opens the page, **auto-fills the vaulted credentials and signs in**, streaming the screen live;
+3. Mouse, wheel and keyboard act on the streamed page (enter CAPTCHAs/MFA manually if shown);
+4. The password is never visible - it only exists in server memory.
+
+### Audit & security
+- Session starts are audited (WEBASSET_SESSION: operator/asset/account/source IP);
+- There is no password reveal path, not even for admins;
+- Sessions cap at 30 minutes and the browser instance is destroyed on disconnect.
+
+### Authorization
+- The "Web Apps" menu can be enabled per role in System Settings; access follows that menu permission.
