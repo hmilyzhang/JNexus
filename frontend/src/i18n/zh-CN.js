@@ -479,6 +479,8 @@ export default {
     noTerm: '暂无打开的终端',
     empty: '点击左侧主机树中的主机，打开 Shell 终端连接',
     tip: '点击主机即可打开/切换终端',
+    ungrouped: '未分组',
+    rdpOnly: 'Windows 主机请使用远程桌面（RDP）连接',
     fullScreen: '全屏',
     exitFull: '退出全屏'
   },

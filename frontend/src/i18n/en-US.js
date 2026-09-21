@@ -478,6 +478,8 @@ export default {
     noTerm: 'No open terminals',
     empty: 'Click a host in the asset tree to open a shell connection',
     tip: 'Click a host to open/switch its terminal',
+    ungrouped: 'Ungrouped',
+    rdpOnly: 'Windows hosts connect via Remote Desktop (RDP)',
     fullScreen: 'Fullscreen',
     exitFull: 'Exit fullscreen'
   },

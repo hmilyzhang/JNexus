@@ -2,14 +2,21 @@
 <template>
   <el-row :gutter="12" class="shell-row">
     <el-col :span="6" v-show="!sideCollapsed">
-      <el-card :header="$t('shell.assetTree')" v-loading="loading" class="side-card">
+      <el-card v-loading="loading" class="side-card">
+        <template #header>
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <span>{{ $t('shell.assetTree') }}</span>
+            <el-button size="small" text :loading="loading" @click="loadHosts">{{ $t('common.refresh') }}</el-button>
+          </div>
+        </template>
         <el-tree :data="treeData" node-key="key" highlight-current :default-expand-all="false" :expand-on-click-node="false"
                  @node-click="onTreeNode">
           <template #default="{ data }">
-            <span class="tree-node">
+            <span class="tree-node" :style="data.rdpOnly ? 'opacity:.5' : ''">
               <el-icon v-if="data.type === 'group'"><Folder /></el-icon>
               <el-icon v-else :color="data.host.status === 'online' ? '#67c23a' : '#c0c4cc'"><Monitor /></el-icon>
               <span>{{ data.label }}</span>
+              <el-tag v-if="data.rdpOnly" size="small" style="margin-left:6px">RDP</el-tag>
             </span>
           </template>
         </el-tree>
@@ -56,6 +63,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import api from '../api'
 import i18n from '../i18n'
 import '@xterm/xterm/css/xterm.css'
@@ -123,7 +131,9 @@ onBeforeUnmount(() => {
 let seq = 0
 const encoder = new TextEncoder()
 
-// Multi-level group tree: groups nest by parent_id, hosts attach to their group, OS accounts attach under hosts
+// Multi-level group tree: groups nest by parent_id, hosts attach to their group, OS accounts attach under hosts.
+// Mirrors the hosts page: ungrouped hosts collect under a synthetic "未分组" node; Windows hosts stay visible
+// but greyed out with an RDP tag (this workspace is SSH-only, they open via the RDP page instead).
 const treeData = computed(() => {
   const groups = hostGroups.value
   const byId = new Map(groups.map(g => [g.id, { key: `g-${g.id}`, type: 'group', label: g.name, children: [] }]))
@@ -133,20 +143,25 @@ const treeData = computed(() => {
     if (g.parent_id && byId.has(g.parent_id)) byId.get(g.parent_id).children.push(node)
     else roots.push(node)
   }
+  const ungrouped = { key: 'g-ungrouped', type: 'group', label: t('shell.ungrouped'), children: [] }
   for (const h of hosts.value) {
-    const hostNode = { key: 'h-' + h.id, type: 'host', label: `${h.name} · ${h.ip}`, host: h, children: [] }
-    // Prefer key-based login: show only key-type usable accounts; fall back to all accounts when the host has none
-    let creds = (usableCreds.value || []).filter(c => c.host_id === h.id && c.auth_type === 'key')
-    if (!creds.length) creds = (usableCreds.value || []).filter(c => c.host_id === h.id)
-    for (const c of creds) {
-      hostNode.children.push({
-        key: 'c-' + c.id, type: 'credential', credentialId: c.id,
-        label: `${c.username}${c.label ? '（' + c.label + '）' : ''}`, host: h, children: []
-      })
+    const win = h.os_type === 'windows'
+    const hostNode = { key: 'h-' + h.id, type: 'host', rdpOnly: win, label: `${h.name} · ${h.ip}`, host: h, children: [] }
+    if (!win) {
+      // Prefer key-based login: show only key-type usable accounts; fall back to all accounts when the host has none
+      let creds = (usableCreds.value || []).filter(c => c.host_id === h.id && c.auth_type === 'key')
+      if (!creds.length) creds = (usableCreds.value || []).filter(c => c.host_id === h.id)
+      for (const c of creds) {
+        hostNode.children.push({
+          key: 'c-' + c.id, type: 'credential', credentialId: c.id,
+          label: `${c.username}${c.label ? '（' + c.label + '）' : ''}`, host: h, children: []
+        })
+      }
     }
     if (h.group_id && byId.has(h.group_id)) byId.get(h.group_id).children.push(hostNode)
-    else roots.push(hostNode)
+    else ungrouped.children.push(hostNode)
   }
+  if (ungrouped.children.length) roots.push(ungrouped)
   return roots
 })
 
@@ -160,8 +175,8 @@ const setTermEl = (id, el) => { if (el) termEls[id] = el }
 const loadHosts = async () => {
   loading.value = true
   try {
-    // Windows hosts are RDP-only — the shell workspace lists SSH (Linux) hosts
-    hosts.value = (await api.get('/hosts')).filter(h => h.os_type !== 'windows')
+    // Keep Windows hosts visible (greyed, RDP-only) so the tree matches the hosts page
+    hosts.value = await api.get('/hosts')
     usableCreds.value = await api.get('/credentials/usable')
     hostGroups.value = await api.get('/host_groups')
   } finally { loading.value = false }
@@ -184,7 +199,10 @@ onBeforeUnmount(() => {
 
 const onTreeNode = node => {
   if (node.type === 'credential') openSession(node.host, node.credentialId)
-  else if (node.type === 'host') openSession(node.host)
+  else if (node.type === 'host') {
+    if (node.rdpOnly) { ElMessage.info(t('shell.rdpOnly')); return }
+    openSession(node.host)
+  }
 }
 
 const openSession = async (host, credentialId) => {
