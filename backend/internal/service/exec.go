@@ -35,14 +35,19 @@ type ExecRequest struct {
 // StartBatchExec creates a task and concurrently runs the command/script; returns the task id (or interception reasons)
 func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, error) {
 	command := req.Command
+	// Windows variant: command mode runs the same text via WinRM/PowerShell; script
+	// mode uses the script's PowerShell version (empty = Windows hosts are skipped)
+	winCommand := command
 	if req.ScriptID != nil {
 		var sc model.Script
 		if err := model.DB.First(&sc, *req.ScriptID).Error; err != nil {
 			return 0, nil, fmt.Errorf("脚本不存在")
 		}
 		command = sc.Content
+		winCommand = sc.ContentPS
 		if strings.TrimSpace(req.ScriptArgs) != "" {
 			command += "\n" + req.ScriptArgs
+			winCommand += "\n" + req.ScriptArgs
 		}
 	}
 	if strings.TrimSpace(command) == "" {
@@ -52,6 +57,11 @@ func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, erro
 	// Dangerous command interception
 	if hits := CheckDanger(command); len(hits) > 0 {
 		return 0, hits, fmt.Errorf("危险命令已被拦截: %s", strings.Join(hits, "、"))
+	}
+	if winCommand != command {
+		if hits := CheckDanger(winCommand); len(hits) > 0 {
+			return 0, hits, fmt.Errorf("危险命令已被拦截(Windows 版本): %s", strings.Join(hits, "、"))
+		}
 	}
 
 	hosts, err := resolveHosts(operator, req.HostIDs, req.GroupID, req.IPs)
@@ -113,7 +123,7 @@ func StartBatchExec(operator *model.User, req ExecRequest) (uint, []string, erro
 		return 0, nil, err
 	}
 
-	go runTask(operator, req.CredentialID, task.ID, command, results, conc, time.Duration(timeout)*time.Second)
+	go runTask(operator, req.CredentialID, task.ID, command, winCommand, results, conc, time.Duration(timeout)*time.Second)
 	return task.ID, nil, nil
 }
 
@@ -203,8 +213,11 @@ func CanExecHost(user *model.User, hostID uint, groupID *uint) bool {
 	return false
 }
 
-// runTask executes the task concurrently, streaming output in real time
-func runTask(operator *model.User, reqCredID *uint, taskID uint, command string, results []model.TaskHostResult, concurrency int, timeout time.Duration) {
+// runTask executes the task concurrently, streaming output in real time.
+// command runs on Linux (SSH/bash); winCommand runs on Windows (WinRM/PowerShell) —
+// an empty winCommand means script mode without a Windows version: those hosts are
+// recorded as skipped instead of failing with PowerShell syntax errors.
+func runTask(operator *model.User, reqCredID *uint, taskID uint, command, winCommand string, results []model.TaskHostResult, concurrency int, timeout time.Duration) {
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -253,6 +266,18 @@ func runTask(operator *model.User, reqCredID *uint, taskID uint, command string,
 			}
 			// Windows host: run via WinRM (no streaming output; pushed in one shot after completion)
 			if IsWindows(&host) {
+				if winCommand == "" {
+					// script mode without a PowerShell version: skip, don't fail
+					const skipMsg = "该脚本未提供 Windows (PowerShell) 版本，已跳过"
+					model.DB.Model(&model.TaskHostResult{}).Where("id = ?", res.ID).
+						Updates(map[string]any{"status": "skipped", "output": skipMsg, "finished_at": time.Now()})
+					ws.H.Broadcast(taskTopic(taskID), map[string]any{
+						"type": "output", "result_id": res.ID, "host_id": res.HostID, "text": skipMsg,
+					})
+					ws.H.Broadcast(taskTopic(taskID), map[string]any{"type": "status", "result_id": res.ID, "status": "skipped"})
+					pushTaskStatus()
+					return
+				}
 				model.DB.Model(&model.TaskHostResult{}).Where("id = ?", res.ID).Update("os_user", cred.Username)
 				ws.H.Broadcast(taskTopic(taskID), map[string]any{"type": "os_user", "result_id": res.ID, "os_user": cred.Username})
 				pass := ""
@@ -265,7 +290,7 @@ func runTask(operator *model.User, reqCredID *uint, taskID uint, command string,
 					}
 					pass = p
 				}
-				out, code, werr := WinRMRun(&host, cred.Username, pass, command, int(timeout.Seconds()))
+				out, code, werr := WinRMRun(&host, cred.Username, pass, winCommand, int(timeout.Seconds()))
 				status := "success"
 				if werr != nil {
 					out += "\n[错误] " + werr.Error()

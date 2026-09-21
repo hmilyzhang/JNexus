@@ -29,7 +29,16 @@
         <el-form-item :label="$t('scripts.name')"><el-input v-model="form.name" /></el-form-item>
         <el-form-item :label="$t('scripts.desc')"><el-input v-model="form.description" /></el-form-item>
         <el-form-item :label="$t('scripts.content')">
-          <el-input v-model="form.content" type="textarea" :rows="14" class="mono" :placeholder="$t('scripts.contentPlaceholder')" />
+          <el-tabs v-model="contentTab" style="width:100%">
+            <el-tab-pane :label="$t('scripts.contentLinux')" name="linux">
+              <el-input v-model="form.content" type="textarea" :rows="11" class="mono" :placeholder="$t('scripts.contentPlaceholder')" />
+            </el-tab-pane>
+            <el-tab-pane :label="$t('scripts.contentWindows')" name="windows">
+              <el-input v-model="form.content_ps" type="textarea" :rows="11" class="mono"
+                        :placeholder="$t('scripts.contentPsPlaceholder')" />
+              <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('scripts.contentPsTip') }}</div>
+            </el-tab-pane>
+          </el-tabs>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -87,8 +96,10 @@ const load = async () => {
 
 onMounted(async () => { load(); hosts.value = await api.get('/hosts') })
 
+const contentTab = ref('linux')
 const dlg = row => {
-  form.value = row ? { ...row } : { name: '', description: '', content: '#!/bin/bash\n' }
+  form.value = row ? { ...row, content_ps: row.content_ps || '' } : { name: '', description: '', content: '#!/bin/bash\n', content_ps: '' }
+  contentTab.value = 'linux'
   editVisible.value = true
 }
 const save = async () => {

@@ -90,7 +90,8 @@ type Script struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	Name        string    `gorm:"size:128" json:"name"`
 	Description string    `json:"description"`
-	Content     string    `gorm:"type:text" json:"content"`
+	Content     string    `gorm:"type:text" json:"content"`       // Linux (bash) version
+	ContentPS   string    `gorm:"type:text" json:"content_ps"`    // Windows (PowerShell) version; empty = no Windows variant
 	Creator     string    `gorm:"size:64" json:"creator"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
