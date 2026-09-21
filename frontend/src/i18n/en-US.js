@@ -507,6 +507,8 @@ export default {
     openOriginal: 'Open original page',
     remoteSession: 'Remote session (auto-login)',
     sessionTitle: 'Web remote session',
+    backList: 'Back to list',
+    pwdInjected: 'Vaulted by the platform and auto-filled on login (never visible)',
     loginInProgress: 'Opening the page and logging in automatically…',
     sessionStart: 'Establishing remote session…',
     streamTip: 'Mouse clicks, wheel and keyboard act directly on the streamed page.',

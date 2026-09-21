@@ -511,6 +511,8 @@ export default {
     openOriginal: '打开原页面',
     remoteSession: '远程会话（自动登录）',
     sessionTitle: 'Web 远程会话',
+    backList: '返回列表',
+    pwdInjected: '已由平台托管，登录时自动填充（不可见）',
     loginInProgress: '正在打开页面并自动登录…',
     sessionStart: '正在建立远程会话…',
     streamTip: '鼠标点击、滚轮和键盘输入将直接作用在远程会话中的页面上。',

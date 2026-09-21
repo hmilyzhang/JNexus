@@ -125,9 +125,22 @@ func DeleteWebAsset(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// GetWebAsset GET /api/webassets/:id — asset info for the session page
+// (password never included; there is no reveal endpoint by design — the
+// headless browser fills it server-side)
+func GetWebAsset(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var w model.WebAsset
+	if err := model.DB.First(&w, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "资产不存在"})
+		return
+	}
+	c.JSON(http.StatusOK, webAssetOut(w))
+}
+
 // OpenWebAsset POST /api/webassets/:id/open — signed-in users; audited.
 // Returns the target URL and account for the confirm card. The password is
-// never returned here (use reveal, admin-only, if a manual paste is needed).
+// never returned: the headless browser injects it server-side.
 func OpenWebAsset(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var w model.WebAsset
@@ -143,33 +156,6 @@ func OpenWebAsset(c *gin.Context) {
 		IP:     c.ClientIP(), Status: 200, CreatedAt: time.Now(),
 	})
 	c.JSON(http.StatusOK, gin.H{"url": w.URL, "username": w.Username})
-}
-
-// RevealWebAssetPassword POST /api/webassets/:id/reveal — admin only, audited
-func RevealWebAssetPassword(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	var w model.WebAsset
-	if err := model.DB.First(&w, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "资产不存在"})
-		return
-	}
-	if w.Password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "该资产未保存密码"})
-		return
-	}
-	plain, err := pkg.Decrypt(w.Password)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "解密失败: " + err.Error()})
-		return
-	}
-	u := currentUser(c)
-	model.DB.Create(&model.AuditLog{
-		UserID: u.ID, Username: u.Username,
-		Action: "WEBASSET_REVEAL", Resource: "/api/webassets/" + strconv.Itoa(id),
-		Detail: `{"name":"` + w.Name + `"}`,
-		IP:     c.ClientIP(), Status: 200, CreatedAt: time.Now(),
-	})
-	c.JSON(http.StatusOK, gin.H{"password": plain})
 }
 
 // StreamWebAsset GET /api/webassets/:id/stream?token= — starts a headless-browser

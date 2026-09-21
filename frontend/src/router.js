@@ -29,6 +29,7 @@ const routes = [
       { path: 'scripts', name: 'scripts', component: () => import('./views/Scripts.vue'), meta: { title: 'menu.scripts', icon: 'Document' } },
       { path: 'logtail', name: 'logtail', component: () => import('./views/LogTail.vue'), meta: { title: 'menu.logtail', icon: 'View' } },
       { path: 'webapps', name: 'webapps', component: () => import('./views/WebApps.vue'), meta: { title: 'menu.webapps', icon: 'Link' } },
+      { path: 'web-session/:id', name: 'web-session', component: () => import('./views/WebSession.vue'), meta: { title: 'webapp.sessionTitle' } },
       { path: 'apps', name: 'apps', component: () => import('./views/Apps.vue'), meta: { title: 'menu.apps', icon: 'Box' } },
       { path: 'releases', name: 'releases', component: () => import('./views/Releases.vue'), meta: { title: 'menu.releases', icon: 'UploadFilled' } },
       { path: 'users', name: 'users', component: () => import('./views/Users.vue'), meta: { title: 'menu.users', icon: 'User', adminOnly: true } },

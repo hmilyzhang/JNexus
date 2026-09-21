@@ -305,11 +305,11 @@ func SetupRouter() *gin.Engine {
 		wa := auth.Group("/webassets", middleware.JWT())
 		{
 			wa.GET("", ListWebAssets)
+			wa.GET("/:id", GetWebAsset)
 			wa.POST("", middleware.RequireRole(model.RoleAdmin), CreateWebAsset)
 			wa.PUT("/:id", middleware.RequireRole(model.RoleAdmin), UpdateWebAsset)
 			wa.DELETE("/:id", middleware.RequireRole(model.RoleAdmin), DeleteWebAsset)
 			wa.POST("/:id/open", OpenWebAsset)
-			wa.POST("/:id/reveal", middleware.RequireRole(), RevealWebAssetPassword)
 		}
 
 		// Batch execution
