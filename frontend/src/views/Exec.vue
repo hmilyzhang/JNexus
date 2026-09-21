@@ -230,6 +230,28 @@ const run = async () => {
     taskFailed.value = false
     liveResults.value = []
     await ensureWS()
+    // Reconcile with the task record: fast tasks (single host, command errors out,
+    // unreachable hosts) can finish before the WS subscribes, so the task_done
+    // broadcast is missed and the page would show "running" forever.
+    const data = await api.get(`/tasks/${taskId.value}`)
+    for (const r of (data.results || [])) {
+      let row = liveResults.value.find(x => x.result_id === r.id)
+      if (!row) {
+        row = { result_id: r.id, host_name: r.host_name, host_ip: r.host_ip, status: r.status || 'running', text: r.output || '' }
+        liveResults.value.push(row)
+      } else {
+        row.host_name = r.host_name
+        row.host_ip = r.host_ip
+        if (r.status) row.status = r.status
+        if ((r.output || '').length > row.text.length) row.text = r.output
+      }
+      if (r.exit_code != null) row.exit_code = r.exit_code
+    }
+    const st = data.task && data.task.status
+    if (st === 'done' || st === 'failed') {
+      taskDone.value = true
+      taskFailed.value = st === 'failed'
+    }
   } catch { /* interception and other errors are surfaced by the interceptor */ }
 }
 </script>
