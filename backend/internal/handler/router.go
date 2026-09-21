@@ -299,6 +299,17 @@ func SetupRouter() *gin.Engine {
 			creds.DELETE("/:id", middleware.RequireRole(), DeleteCredential)
 		}
 
+		// Web assets: PAM-style web app assets (URL + vaulted credentials, audited use)
+		wa := auth.Group("/webassets", middleware.JWT())
+		{
+			wa.GET("", ListWebAssets)
+			wa.POST("", middleware.RequireRole(model.RoleAdmin), CreateWebAsset)
+			wa.PUT("/:id", middleware.RequireRole(model.RoleAdmin), UpdateWebAsset)
+			wa.DELETE("/:id", middleware.RequireRole(model.RoleAdmin), DeleteWebAsset)
+			wa.POST("/:id/open", OpenWebAsset)
+			wa.POST("/:id/reveal", middleware.RequireRole(), RevealWebAssetPassword)
+		}
+
 		// Batch execution
 		exec := auth.Group("/exec", middleware.RequireCap("exec", "exec"))
 		{

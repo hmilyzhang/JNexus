@@ -207,7 +207,8 @@ const menuItems = [
     { key: 'exec', path: '/exec', title: 'menu.exec', icon: 'Promotion' },
     { key: 'files', path: '/files', title: 'menu.files', icon: 'FolderOpened' },
     { key: 'scripts', path: '/scripts', title: 'menu.scripts', icon: 'Document' },
-    { key: 'logtail', path: '/logtail', title: 'menu.logtail', icon: 'View' }
+    { key: 'logtail', path: '/logtail', title: 'menu.logtail', icon: 'View' },
+    { key: 'webapps', path: '/webapps', title: 'menu.webapps', icon: 'Link' }
   ] },
   { key: 'tasks', path: '/tasks', title: 'menu.tasks', icon: 'List' },
   { key: 'cron', path: '/crons', title: 'menu.cron', icon: 'Timer' },

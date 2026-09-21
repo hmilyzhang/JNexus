@@ -3,6 +3,7 @@ export default {
   menu: {
     dashboard: '仪表盘',
     logtail: '日志输出',
+    webapps: 'Web 应用',
     paired: '配对密钥',
     osaccounts: '主机账号',
     sysadmin: '系统管理',
@@ -26,6 +27,7 @@ export default {
     logtail: "日志输出",
   },
   common: {
+    hide: '隐藏',
     confirm: '确认',
     add: '添加',
     cancel: '取消',
@@ -493,6 +495,19 @@ export default {
     rdpOnly: 'Windows 主机请使用远程桌面（RDP）连接',
     fullScreen: '全屏',
     exitFull: '退出全屏'
+  },
+  webapp: {
+    title: 'Web 应用',
+    name: '名称',
+    url: '目标地址',
+    open: '打开',
+    openTitle: '打开 Web 应用（已记录审计）',
+    confirmOpen: '确认打开',
+    auditTip: '⚠ 本次打开行为已记录审计日志；账号密码为平台托管的 vault 凭据。',
+    pwdKeep: '留空表示不修改密码',
+    needNameUrl: '名称和 URL 必填',
+    tip: 'PAM 式 Web 资产：确认卡片展示托管账号，打开行为全部审计。',
+    create: '新增 Web 应用',
   },
   rot: {
     tab: '密码轮换',

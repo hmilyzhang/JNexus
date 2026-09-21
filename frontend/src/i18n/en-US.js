@@ -24,8 +24,10 @@ export default {
     audit: 'Audit Log',
     system: 'System Settings',
     logtail: "Log Viewer",
+    webapps: 'Web Apps',
   },
   common: {
+    hide: 'Hide',
     confirm: 'Confirm',
     add: 'Add',
     cancel: 'Cancel',
@@ -489,6 +491,19 @@ export default {
     rdpOnly: 'Windows hosts connect via Remote Desktop (RDP)',
     fullScreen: 'Fullscreen',
     exitFull: 'Exit fullscreen'
+  },
+  webapp: {
+    title: 'Web Apps',
+    name: 'Name',
+    url: 'Target URL',
+    open: 'Open',
+    openTitle: 'Open web app (audited)',
+    confirmOpen: 'Confirm & Open',
+    auditTip: '⚠ This open action is recorded in the audit log; credentials are vaulted by the platform.',
+    pwdKeep: 'Leave empty to keep the current password',
+    needNameUrl: 'Name and URL are required',
+    tip: 'PAM-style web assets: the confirm card shows the vaulted account, every open is audited.',
+    create: 'Add Web App',
   },
   rot: {
     tab: 'Password Rotation',

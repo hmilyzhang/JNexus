@@ -90,8 +90,24 @@ type Script struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	Name        string    `gorm:"size:128" json:"name"`
 	Description string    `json:"description"`
-	Content     string    `gorm:"type:text" json:"content"`       // Linux (bash) version
-	ContentPS   string    `gorm:"type:text" json:"content_ps"`    // Windows (PowerShell) version; empty = no Windows variant
+	Content     string    `gorm:"type:text" json:"content"`    // Linux (bash) version
+	ContentPS   string    `gorm:"type:text" json:"content_ps"` // Windows (PowerShell) version; empty = no Windows variant
+	Creator     string    `gorm:"size:64" json:"creator"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// WebAsset is a PAM-style web application asset: URL plus vaulted credentials.
+// Phase A opens a confirm card (URL/account, password masked, audited) and the
+// user navigates manually; the stored design also supports one-time autofill
+// tokens for a browser extension later.
+type WebAsset struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	Name        string    `gorm:"size:128" json:"name"`
+	URL         string    `gorm:"size:512" json:"url"`
+	Username    string    `gorm:"size:128" json:"username"`
+	Password    string    `json:"-"` // AES-GCM encrypted
+	Description string    `json:"description"`
 	Creator     string    `gorm:"size:64" json:"creator"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

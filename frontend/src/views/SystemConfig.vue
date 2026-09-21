@@ -652,6 +652,7 @@ const menuKeys = [
   { key: 'files', label: 'menu.files' },
   { key: 'scripts', label: 'menu.scripts' },
   { key: 'logtail', label: 'menu.logtail' },
+  { key: 'webapps', label: 'menu.webapps' },
   { key: 'apps', label: 'menu.apps' },
   { key: 'releases', label: 'menu.releases' },
   { key: 'users', label: 'menu.users' },
