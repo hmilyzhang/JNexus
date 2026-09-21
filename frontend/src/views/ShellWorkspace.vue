@@ -2,19 +2,7 @@
 <template>
   <el-row :gutter="12" class="shell-row">
     <el-col :span="6" v-show="!sideCollapsed">
-      <el-card :header="$t('shell.openTerms')" class="side-card">
-        <div v-if="!sessions.length" style="color:#909399; font-size:13px">{{ $t('shell.noTerm') }}</div>
-        <div v-for="s in sessions" :key="s.id" class="sess-item" :class="{ active: s.id === activeId }"
-             @click="activate(s.id)">
-          <el-icon :color="s.connected ? '#67c23a' : '#f56c6c'"><Connection /></el-icon>
-          <span class="sess-label">{{ s.label }}</span>
-          <el-button link size="small" type="danger" @click.stop="closeSession(s.id)">
-            <el-icon><Close /></el-icon>
-          </el-button>
-        </div>
-      </el-card>
-
-      <el-card v-loading="loading" class="side-card" style="margin-top:12px">
+      <el-card v-loading="loading" class="side-card">
         <template #header>
           <div style="display:flex; align-items:center; justify-content:space-between">
             <span>{{ $t('shell.assetTree') }}</span>
@@ -53,6 +41,14 @@
           </div>
         </template>
         <div v-if="!sessions.length" class="term-empty">{{ $t('shell.empty') }}</div>
+        <div v-if="sessions.length" class="term-tabs">
+          <div v-for="s in sessions" :key="s.id" class="term-tab" :class="{ active: s.id === activeId }"
+               @click="activate(s.id)">
+            <el-icon :color="s.connected ? '#67c23a' : '#f56c6c'"><Connection /></el-icon>
+            <span class="term-tab-label">{{ s.label }}</span>
+            <el-icon class="term-tab-close" @click.stop="closeSession(s.id)"><Close /></el-icon>
+          </div>
+        </div>
         <div v-for="s in sessions" :key="s.id" v-show="s.id === activeId"
              :ref="el => setTermEl(s.id, el)" class="term-container"></div>
       </el-card>
@@ -258,6 +254,11 @@ const openSession = async (host, credentialId) => {
   s.term = term
   s.ws = ws
   s.fit = fit
+  // re-fit whenever the container size changes: sidebar collapse, fullscreen, window resize
+  if (typeof ResizeObserver !== 'undefined' && !s.ro) {
+    s.ro = new ResizeObserver(() => { if (s.id === activeId.value) fitActive() })
+    s.ro.observe(el)
+  }
 }
 
 const sendResize = s => {
@@ -311,6 +312,14 @@ const closeSession = id => {
 .term-card.term-fullscreen { position: fixed; inset: 0; z-index: 2000; height: 100vh; border-radius: 0; }
 .term-card :deep(.el-card__body) { flex: 1 1 0; min-height: 0; padding: 8px; }
 .term-container { position: relative; overflow: hidden; width: 100%; height: 100%; background: #1e1e1e; border-radius: 6px; }
+.term-tabs { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 6px; flex: 0 0 auto; }
+.term-tab { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,.04);
+  cursor: pointer; white-space: nowrap; font-size: 12px; border: 1px solid transparent; }
+.term-tab:hover { background: rgba(255,255,255,.08); }
+.term-tab.active { background: rgba(64,158,255,.15); border-color: rgba(64,158,255,.45); }
+.term-tab-label { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.term-tab-close { cursor: pointer; opacity: .6; border-radius: 3px; }
+.term-tab-close:hover { opacity: 1; background: rgba(255,255,255,.12); }
 .term-container :deep(.xterm) { height: 100%; }
 .term-empty { color: #909399; text-align: center; padding-top: 120px; }
 .tree-node { display: flex; align-items: center; gap: 6px; font-size: 13px; }
