@@ -2,7 +2,19 @@
 <template>
   <el-row :gutter="12" class="shell-row">
     <el-col :span="6" v-show="!sideCollapsed">
-      <el-card v-loading="loading" class="side-card">
+      <el-card :header="$t('shell.openTerms')" class="side-card">
+        <div v-if="!sessions.length" style="color:#909399; font-size:13px">{{ $t('shell.noTerm') }}</div>
+        <div v-for="s in sessions" :key="s.id" class="sess-item" :class="{ active: s.id === activeId }"
+             @click="activate(s.id)">
+          <el-icon :color="s.connected ? '#67c23a' : '#f56c6c'"><Connection /></el-icon>
+          <span class="sess-label">{{ s.label }}</span>
+          <el-button link size="small" type="danger" @click.stop="closeSession(s.id)">
+            <el-icon><Close /></el-icon>
+          </el-button>
+        </div>
+      </el-card>
+
+      <el-card v-loading="loading" class="side-card" style="margin-top:12px">
         <template #header>
           <div style="display:flex; align-items:center; justify-content:space-between">
             <span>{{ $t('shell.assetTree') }}</span>
@@ -21,18 +33,6 @@
           </template>
         </el-tree>
         <div style="color:#909399; font-size:12px; margin-top:8px">{{ $t('shell.tip') }}</div>
-      </el-card>
-
-      <el-card :header="$t('shell.openTerms')" class="side-card" style="margin-top:12px">
-        <div v-if="!sessions.length" style="color:#909399; font-size:13px">{{ $t('shell.noTerm') }}</div>
-        <div v-for="s in sessions" :key="s.id" class="sess-item" :class="{ active: s.id === activeId }"
-             @click="activate(s.id)">
-          <el-icon :color="s.connected ? '#67c23a' : '#f56c6c'"><Connection /></el-icon>
-          <span class="sess-label">{{ s.label }}</span>
-          <el-button link size="small" type="danger" @click.stop="closeSession(s.id)">
-            <el-icon><Close /></el-icon>
-          </el-button>
-        </div>
       </el-card>
     </el-col>
 

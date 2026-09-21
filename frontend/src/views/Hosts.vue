@@ -91,6 +91,23 @@
     </el-col>
   </el-row>
 
+  <!-- RDP account picker -->
+  <el-dialog v-model="rdpPickVisible" :title="$t('hosts.rdpPickTitle')" width="420px">
+    <el-form label-width="100px">
+      <el-form-item :label="$t('hosts.credOsAccount')">
+        <el-select v-model="rdpPickCred" style="width:100%">
+          <el-option v-for="a in rdpPickAccounts" :key="a.id"
+                     :label="`${a.username}${a.label ? '（' + a.label + '）' : ''}${a.is_default ? ' · ' + $t('hosts.rdpDefault') : ''}`" :value="a.id" />
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <div style="color:#909399; font-size:12px">{{ $t('hosts.rdpPickTip') }}</div>
+    <template #footer>
+      <el-button @click="rdpPickVisible = false">{{ $t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="connectRDP(rdpPickHost, rdpPickCred)">{{ $t('hosts.rdp') }}</el-button>
+    </template>
+  </el-dialog>
+
   <!-- Batch move to group -->
   <el-dialog v-model="batchGroupVisible" :title="$t('hosts.batchMoveGroup')" width="420px">
     <el-form label-width="90px">
@@ -386,10 +403,30 @@ const openCapacity = row => {
   loadCap()
 }
 // ---- RDP remote desktop (guacamole-lite gateway, encrypted connection string valid for 5 minutes) ----
-// Navigates in the same tab (no popup window)
+// Navigates in the same tab (no popup window). With several usable accounts on the
+// host, an account picker appears first so different teams can log in as themselves.
+const rdpPickVisible = ref(false)
+const rdpPickHost = ref(null)
+const rdpPickAccounts = ref([])
+const rdpPickCred = ref(null)
 const openRDP = async row => {
+  let accounts = []
   try {
-    const r = await api.post(`/hosts/${row.id}/rdp-token`, {})
+    accounts = ((await api.get('/credentials/usable')) || []).filter(c => c.host_id === row.id)
+  } catch { /* fall through to the default account */ }
+  if (accounts.length > 1) {
+    rdpPickHost.value = row
+    rdpPickAccounts.value = accounts
+    rdpPickCred.value = (accounts.find(a => a.is_default) || accounts[0]).id
+    rdpPickVisible.value = true
+    return
+  }
+  await connectRDP(row, null)
+}
+const connectRDP = async (row, credentialId) => {
+  try {
+    const r = await api.post(`/hosts/${row.id}/rdp-token`, credentialId ? { credential_id: credentialId } : {})
+    rdpPickVisible.value = false
     router.push({
       path: '/rdp',
       query: { gw: r.gateway, q: r.query, host: row.name, ip: row.ip },

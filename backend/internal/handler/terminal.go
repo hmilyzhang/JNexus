@@ -223,8 +223,16 @@ func RDPConnectToken(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "无该主机的访问权限"})
 		return
 	}
-	// Get the host's default usable credential
-	cred, err := service.ResolveCredential(u, &host, nil)
+	// OS account: optional credential_id from the body picks a specific account
+	// (per-team logons); absent/invalid-typed body falls back to the default account
+	var body struct {
+		CredentialID *uint `json:"credential_id"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		body.CredentialID = nil
+	}
+	// Get the host's usable account (explicit pick must be usable for this user)
+	cred, err := service.ResolveCredential(u, &host, body.CredentialID)
 	if err != nil || cred == nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": "无可用 OS 账号"})
 		return
