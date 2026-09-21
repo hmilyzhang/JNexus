@@ -32,6 +32,8 @@ func SetupRouter() *gin.Engine {
 		{
 			api.POST("/login", Login)
 			api.POST("/login/mfa", LoginMFA)
+			// Web asset headless-browser session (token auth via query; validated in-handler)
+			api.GET("/webassets/:id/stream", StreamWebAsset)
 			api.GET("/system/info", SystemInfo)
 		// Web terminal (has its own token auth; does not go through the hub)
 		api.GET("/ws/term/:hostId", WebTerminal)

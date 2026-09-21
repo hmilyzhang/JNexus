@@ -43,8 +43,23 @@
       <el-alert type="warning" :closable="false" :title="$t('webapp.auditTip')" />
       <template #footer>
         <el-button @click="openVisible = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="confirmOpen">{{ $t('webapp.confirmOpen') }}</el-button>
+        <el-button @click="openOriginal">{{ $t('webapp.openOriginal') }}</el-button>
+        <el-button v-if="current.has_password" type="primary" :loading="streamConnecting" @click="startStream">{{ $t('webapp.remoteSession') }}</el-button>
       </template>
+    </el-dialog>
+
+    <!-- Headless-browser remote session -->
+    <el-dialog v-model="streamVisible" :title="$t('webapp.sessionTitle') + ' — ' + (current.name || '')" width="90%" top="2vh"
+               :close-on-click-modal="false" @closed="stopStream">
+      <div v-if="streamStage !== 'live'" style="text-align:center; padding:30px 0; color:#909399">
+        {{ streamStage === 'opening' ? $t('webapp.loginInProgress') : $t('webapp.sessionStart') }}
+      </div>
+      <canvas ref="streamCanvas" tabindex="0" class="web-stream"
+              style="width:100%; display:block; border:1px solid #333; outline:none"
+              @mousedown="onStreamMouse($event, 'down')" @mouseup="onStreamMouse($event, 'up')"
+              @click="onStreamClick" @wheel.prevent="onStreamWheel" @keydown.prevent="onStreamKey"
+              @contextmenu.prevent></canvas>
+      <div style="color:#909399; font-size:12px; margin-top:6px">{{ $t('webapp.streamTip') }}</div>
     </el-dialog>
 
     <!-- Edit (admin) -->
@@ -68,7 +83,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../api'
 import i18n from '../i18n'
@@ -117,6 +132,72 @@ const confirmOpen = async () => {
     w?.close()
     throw e
   }
+}
+const openOriginal = () => confirmOpen()
+
+// ---- headless-browser remote session (PAM phase B) ----
+const streamVisible = ref(false)
+const streamConnecting = ref(false)
+const streamStage = ref('')
+const streamCanvas = ref(null)
+let streamWS = null
+
+const startStream = async () => {
+  streamConnecting.value = true
+  streamStage.value = ''
+  streamVisible.value = true
+  await nextTick()
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  streamWS = new WebSocket(`${proto}://${location.host}/api/webassets/${current.value.id}/stream?token=${localStorage.getItem('token')}`)
+  streamWS.onmessage = ev => {
+    const m = JSON.parse(ev.data)
+    if (m.type === 'frame') {
+      const img = new Image()
+      img.onload = () => {
+        const c = streamCanvas.value
+        if (!c) return
+        c.width = img.width
+        c.height = img.height
+        c.getContext('2d').drawImage(img, 0, 0)
+      }
+      img.src = 'data:image/jpeg;base64,' + m.data
+    } else if (m.type === 'status') streamStage.value = m.stage
+    else if (m.type === 'error') ElMessage.error(m.message)
+    else if (m.type === 'end') streamWS?.close()
+  }
+  streamWS.onopen = () => {
+    streamConnecting.value = false
+    streamCanvas.value?.focus()
+  }
+}
+const stopStream = () => {
+  try { streamWS?.close() } catch { /* ignore */ }
+  streamWS = null
+}
+const streamPos = e => {
+  const c = streamCanvas.value
+  const sx = c.width / c.clientWidth
+  const sy = c.height / c.clientHeight
+  const r = c.getBoundingClientRect()
+  return { x: Math.round((e.clientX - r.left) * sx), y: Math.round((e.clientY - r.top) * sy) }
+}
+const onStreamMouse = (e, phase) => {
+  const p = streamPos(e)
+  streamWS?.readyState === WebSocket.OPEN && streamWS.send(JSON.stringify({ t: phase === 'down' ? 'press' : 'release', x: p.x, y: p.y }))
+}
+const onStreamClick = e => {
+  const p = streamPos(e)
+  streamWS?.readyState === WebSocket.OPEN && streamWS.send(JSON.stringify({ t: 'click', x: p.x, y: p.y }))
+  streamCanvas.value?.focus()
+}
+const onStreamWheel = e => {
+  const p = streamPos(e)
+  streamWS?.readyState === WebSocket.OPEN && streamWS.send(JSON.stringify({ t: 'wheel', x: p.x, y: p.y, dy: e.deltaY }))
+}
+const onStreamKey = e => {
+  if (streamWS?.readyState !== WebSocket.OPEN) return
+  if (e.key.length === 1) streamWS.send(JSON.stringify({ t: 'text', text: e.key }))
+  else streamWS.send(JSON.stringify({ t: 'key', key: e.key }))
 }
 const dlg = row => {
   form.value = row

@@ -3,15 +3,23 @@
 package handler
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/chromedp/cdproto/input"
 	"github.com/gin-gonic/gin"
-
+	"github.com/gorilla/websocket"
 	"jnexus/internal/model"
 	"jnexus/internal/pkg"
+	"jnexus/internal/service"
 )
+
+var webAssetUpgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
 
 // Web assets: PAM-style web application assets (URL + vaulted credentials).
 // Anyone signed in may use an asset (open); only admins manage them. Every
@@ -162,4 +170,144 @@ func RevealWebAssetPassword(c *gin.Context) {
 		IP:     c.ClientIP(), Status: 200, CreatedAt: time.Now(),
 	})
 	c.JSON(http.StatusOK, gin.H{"password": plain})
+}
+
+// StreamWebAsset GET /api/webassets/:id/stream?token= — starts a headless-browser
+// session for the asset: the server opens the page, auto-fills the vaulted
+// credentials and streams the screen over this WebSocket. Input events arrive on
+// the same socket. Credentials never reach the user's browser.
+func StreamWebAsset(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		if auth := c.GetHeader("Authorization"); len(auth) > 7 {
+			token = auth[7:]
+		}
+	}
+	claims, err := pkg.ParseToken(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
+		return
+	}
+	var user model.User
+	if err := model.DB.First(&user, claims.UserID).Error; err != nil || user.Status != 1 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "账号不可用"})
+		return
+	}
+	id, _ := strconv.Atoi(c.Param("id"))
+	var asset model.WebAsset
+	if err := model.DB.First(&asset, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "资产不存在"})
+		return
+	}
+	if asset.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "该资产未保存密码，无法自动登录"})
+		return
+	}
+	password, derr := pkg.Decrypt(asset.Password)
+	if derr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "解密失败: " + derr.Error()})
+		return
+	}
+
+	wsConn, uerr := webAssetUpgrader.Upgrade(c.Writer, c.Request, nil)
+	if uerr != nil {
+		return
+	}
+	defer wsConn.Close()
+
+	sess := service.NewWebSession(asset, asset.Username, user.Username)
+	sess.SetBroadcast(func(msg map[string]any) {
+		_ = wsConn.WriteJSON(msg)
+	})
+	model.DB.Create(&model.AuditLog{
+		UserID: user.ID, Username: user.Username,
+		Action: "WEBASSET_SESSION", Resource: "/api/webassets/" + strconv.Itoa(id),
+		Detail: `{"name":"` + asset.Name + `","account":"` + asset.Username + `"}`,
+		IP:     c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+
+	go func() {
+		if serr := service.RunWebSession(sess, asset.URL, asset.Username, password); serr != nil {
+			sess.Send(map[string]any{"type": "error", "message": serr.Error()})
+		}
+	}()
+
+	for {
+		_, raw, rerr := wsConn.ReadMessage()
+		if rerr != nil {
+			break
+		}
+		var msg map[string]any
+		if json.Unmarshal(raw, &msg) != nil {
+			continue
+		}
+		switch msg["t"] {
+		case "click":
+			x, y := toFloat(msg["x"]), toFloat(msg["y"])
+			_ = sess.Dispatch(func(ctx context.Context) error {
+				press := &input.DispatchKeyEventParams{}
+				_ = press
+				mp := &input.DispatchMouseEventParams{Type: input.MousePressed, X: x, Y: y, Button: input.Left, ClickCount: 1}
+				if err := mp.Do(ctx); err != nil {
+					return err
+				}
+				mr := &input.DispatchMouseEventParams{Type: input.MouseReleased, X: x, Y: y, Button: input.Left, ClickCount: 1}
+				return mr.Do(ctx)
+			})
+		case "wheel":
+			x, y, dy := toFloat(msg["x"]), toFloat(msg["y"]), toFloat(msg["dy"])
+			_ = sess.Dispatch(func(ctx context.Context) error {
+				ev := &input.DispatchMouseEventParams{Type: input.MouseWheel, X: x, Y: y, DeltaY: dy}
+				return ev.Do(ctx)
+			})
+		case "text":
+			if txt, _ := msg["text"].(string); txt != "" {
+				_ = sess.Dispatch(func(ctx context.Context) error {
+					return (&input.InsertTextParams{Text: txt}).Do(ctx)
+				})
+			}
+		case "key":
+			if key, _ := msg["key"].(string); key != "" {
+				_ = sess.Dispatch(func(ctx context.Context) error {
+					return dispatchSpecialKey(ctx, key)
+				})
+			}
+		}
+	}
+	sess.Cancel()
+}
+
+func toFloat(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	}
+	return 0
+}
+
+// dispatchSpecialKey maps a UI key name to CDP key events for the session
+func dispatchSpecialKey(ctx context.Context, key string) error {
+	type kp struct {
+		key, code string
+		vk        int
+	}
+	spec := map[string]kp{
+		"Enter": {"Enter", "Enter", 13}, "Backspace": {"Backspace", "Backspace", 8},
+		"Tab": {"Tab", "Tab", 9}, "Escape": {"Escape", "Escape", 27},
+		"ArrowUp": {"ArrowUp", "ArrowUp", 38}, "ArrowDown": {"ArrowDown", "ArrowDown", 40},
+		"ArrowLeft": {"ArrowLeft", "ArrowLeft", 37}, "ArrowRight": {"ArrowRight", "ArrowRight", 39},
+	}
+	k, ok := spec[key]
+	if !ok {
+		return nil
+	}
+	for _, typ := range []input.KeyType{input.KeyDown, input.KeyUp} {
+		ev := &input.DispatchKeyEventParams{Type: typ, Key: k.key, Code: k.code, WindowsVirtualKeyCode: int64(k.vk)}
+		if err := ev.Do(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }

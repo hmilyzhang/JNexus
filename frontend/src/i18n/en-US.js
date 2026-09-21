@@ -504,6 +504,12 @@ export default {
     needNameUrl: 'Name and URL are required',
     tip: 'PAM-style web assets: the confirm card shows the vaulted account, every open is audited.',
     create: 'Add Web App',
+    openOriginal: 'Open original page',
+    remoteSession: 'Remote session (auto-login)',
+    sessionTitle: 'Web remote session',
+    loginInProgress: 'Opening the page and logging in automatically…',
+    sessionStart: 'Establishing remote session…',
+    streamTip: 'Mouse clicks, wheel and keyboard act directly on the streamed page.',
   },
   rot: {
     tab: 'Password Rotation',

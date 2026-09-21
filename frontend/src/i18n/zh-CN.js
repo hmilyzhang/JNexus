@@ -508,6 +508,12 @@ export default {
     needNameUrl: '名称和 URL 必填',
     tip: 'PAM 式 Web 资产：确认卡片展示托管账号，打开行为全部审计。',
     create: '新增 Web 应用',
+    openOriginal: '打开原页面',
+    remoteSession: '远程会话（自动登录）',
+    sessionTitle: 'Web 远程会话',
+    loginInProgress: '正在打开页面并自动登录…',
+    sessionStart: '正在建立远程会话…',
+    streamTip: '鼠标点击、滚轮和键盘输入将直接作用在远程会话中的页面上。',
   },
   rot: {
     tab: '密码轮换',
