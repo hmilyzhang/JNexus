@@ -45,8 +45,8 @@ type SystemConfig struct {
 
 type HostGroup struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
-	Name        string    `gorm:"uniqueIndex;size:128" json:"name"`
-	ParentID    *uint     `gorm:"index" json:"parent_id"` // Parent group (multi-level tree)
+	Name        string    `gorm:"index;size:128" json:"name"` // unique per parent (filesystem-style), not globally
+	ParentID    *uint     `gorm:"index" json:"parent_id"`     // Parent group (multi-level tree)
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
 }

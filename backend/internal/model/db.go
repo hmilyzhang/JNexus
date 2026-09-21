@@ -37,6 +37,27 @@ func Connect(dsn string) error {
 	if err := MigrateHostCredentials(); err != nil {
 		return fmt.Errorf("主机凭据迁移失败: %w", err)
 	}
+	if err := DropHostGroupNameUniqueIndex(); err != nil {
+		return fmt.Errorf("主机分组索引迁移失败: %w", err)
+	}
+	return nil
+}
+
+// DropHostGroupNameUniqueIndex removes the legacy global-unique index on
+// host_groups.name: group names are now unique per parent only (filesystem-style).
+// GORM never drops old indexes, so any leftover unique index is dropped by name.
+func DropHostGroupNameUniqueIndex() error {
+	var idxs []string
+	if err := DB.Raw(
+		"SELECT indexname FROM pg_indexes WHERE tablename = 'host_groups' AND indexdef LIKE '%UNIQUE%' AND indexname <> 'host_groups_pkey'",
+	).Scan(&idxs).Error; err != nil {
+		return err
+	}
+	for _, n := range idxs {
+		if err := DB.Exec(fmt.Sprintf("DROP INDEX IF EXISTS %s", n)).Error; err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

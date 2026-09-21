@@ -54,14 +54,40 @@ func ListGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+// siblingGroupNameTaken reports whether another group with the same name already
+// exists under the same parent (parentID nil = root level). Group names are unique
+// per parent only — filesystem-style — not globally.
+func siblingGroupNameTaken(name string, parentID *uint, excludeID uint) bool {
+	q := model.DB.Model(&model.HostGroup{}).Where("name = ? AND id <> ?", name, excludeID)
+	if parentID != nil {
+		q = q.Where("parent_id = ?", *parentID)
+	} else {
+		q = q.Where("parent_id IS NULL")
+	}
+	var cnt int64
+	q.Count(&cnt)
+	return cnt > 0
+}
+
 func CreateGroup(c *gin.Context) {
 	var g model.HostGroup
 	if err := c.ShouldBindJSON(&g); err != nil || g.Name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "分组名不能为空"})
 		return
 	}
+	if g.ParentID != nil {
+		var p model.HostGroup
+		if err := model.DB.First(&p, *g.ParentID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "上级分组不存在"})
+			return
+		}
+	}
+	if siblingGroupNameTaken(g.Name, g.ParentID, 0) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "同级分组下已存在同名分组"})
+		return
+	}
 	if err := model.DB.Create(&g).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "分组名已存在"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "创建失败: " + err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, g)
@@ -75,8 +101,8 @@ func UpdateGroup(c *gin.Context) {
 		return
 	}
 	var req model.HostGroup
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+	if err := c.ShouldBindJSON(&req); err != nil || req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "分组名不能为空"})
 		return
 	}
 	if req.ParentID != nil {
@@ -93,6 +119,10 @@ func UpdateGroup(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "上级分组不存在"})
 			return
 		}
+	}
+	if siblingGroupNameTaken(req.Name, req.ParentID, g.ID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "同级分组下已存在同名分组"})
+		return
 	}
 	model.DB.Model(&g).Updates(map[string]any{"name": req.Name, "description": req.Description, "parent_id": req.ParentID})
 	c.JSON(http.StatusOK, gin.H{"id": g.ID, "name": req.Name, "parent_id": req.ParentID})
