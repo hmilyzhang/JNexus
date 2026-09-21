@@ -53,12 +53,28 @@
              :ref="el => setTermEl(s.id, el)" class="term-container"></div>
       </el-card>
     </el-col>
+
+    <!-- RDP account picker (Windows hosts launched from the asset tree) -->
+    <el-dialog v-model="rdpPickVisible" :title="$t('hosts.rdpPickTitle')" width="420px" append-to-body>
+      <el-form label-width="100px">
+        <el-form-item :label="$t('hosts.credOsAccount')">
+          <el-select v-model="rdpPickCred" style="width:100%">
+            <el-option v-for="a in rdpPickAccounts" :key="a.id"
+                       :label="`${a.username}${a.label ? '（' + a.label + '）' : ''}${a.is_default ? ' · ' + $t('hosts.rdpDefault') : ''}`" :value="a.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="rdpPickVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="connectRdp(rdpPickHost, rdpPickCred)">{{ $t('hosts.rdp') }}</el-button>
+      </template>
+    </el-dialog>
   </el-row>
 </template>
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api from '../api'
 import i18n from '../i18n'
@@ -66,6 +82,7 @@ import '@xterm/xterm/css/xterm.css'
 
 const { t } = i18n.global
 const route = useRoute()
+const router = useRouter()
 const hosts = ref([])
 const usableCreds = ref([])
 const hostGroups = ref([])
@@ -196,9 +213,37 @@ onBeforeUnmount(() => {
 const onTreeNode = node => {
   if (node.type === 'credential') openSession(node.host, node.credentialId)
   else if (node.type === 'host') {
-    if (node.rdpOnly) { ElMessage.info(t('shell.rdpOnly')); return }
+    if (node.rdpOnly) { openRdp(node.host); return }
     openSession(node.host)
   }
+}
+
+// RDP from the shell tree: Windows hosts launch a remote desktop session here,
+// with an account picker when the host has several usable accounts
+const rdpPickVisible = ref(false)
+const rdpPickHost = ref(null)
+const rdpPickAccounts = ref([])
+const rdpPickCred = ref(null)
+const openRdp = async host => {
+  let accounts = []
+  try {
+    accounts = (usableCreds.value || []).filter(c => c.host_id === host.id)
+  } catch { /* fall through to the default account */ }
+  if (accounts.length > 1) {
+    rdpPickHost.value = host
+    rdpPickAccounts.value = accounts
+    rdpPickCred.value = (accounts.find(a => a.is_default) || accounts[0]).id
+    rdpPickVisible.value = true
+    return
+  }
+  await connectRdp(host, null)
+}
+const connectRdp = async (host, credentialId) => {
+  try {
+    const r = await api.post(`/hosts/${host.id}/rdp-token`, credentialId ? { credential_id: credentialId } : {})
+    rdpPickVisible.value = false
+    router.push({ path: '/rdp', query: { gw: r.gateway, q: r.query, host: host.name, ip: host.ip } })
+  } catch { /* surfaced by the interceptor */ }
 }
 
 const openSession = async (host, credentialId) => {
