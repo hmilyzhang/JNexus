@@ -148,9 +148,9 @@ const treeData = computed(() => {
     const win = h.os_type === 'windows'
     const hostNode = { key: 'h-' + h.id, type: 'host', rdpOnly: win, label: `${h.name} · ${h.ip}`, host: h, children: [] }
     if (!win) {
-      // Prefer key-based login: show only key-type usable accounts; fall back to all accounts when the host has none
-      let creds = (usableCreds.value || []).filter(c => c.host_id === h.id && c.auth_type === 'key')
-      if (!creds.length) creds = (usableCreds.value || []).filter(c => c.host_id === h.id)
+      // List every usable account (key accounts first) so the user can pick one per session
+      const creds = (usableCreds.value || []).filter(c => c.host_id === h.id)
+        .sort((a, b) => ((b.auth_type === 'key') - (a.auth_type === 'key')) || (a.id - b.id))
       for (const c of creds) {
         hostNode.children.push({
           key: 'c-' + c.id, type: 'credential', credentialId: c.id,
