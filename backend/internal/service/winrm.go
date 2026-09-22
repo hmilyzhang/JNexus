@@ -91,6 +91,9 @@ func krb5ConfigPath() (string, error) {
 
 // winRMKerberosClient builds the Kerberos transport for a domain-joined Windows host.
 // Realm comes from the account UPN suffix (user@GLBANK.COM) or the winrm_krb5_realm setting.
+// Down-level accounts (DOMAIN\user) are supported too: the domain prefix is stripped from
+// the user name (Kerberos must not receive it) and used as a best-effort realm when no
+// explicit realm is configured — AD accepts the NetBIOS domain in AS-REQs.
 func winRMKerberosClient(h *model.Host, user, pass string) (*winrm.Client, error) {
 	if !tcpOpen(h.IP, 5986) {
 		return nil, fmt.Errorf("Kerberos 认证需要 WinRM HTTPS（5986）：请在目标机配置 HTTPS 监听与企业证书")
@@ -99,12 +102,15 @@ func winRMKerberosClient(h *model.Host, user, pass string) (*winrm.Client, error
 	if i := strings.IndexByte(user, '@'); i >= 0 {
 		realm = strings.ToUpper(user[i+1:])
 		user = user[:i]
+	} else if i := strings.IndexByte(user, '\\'); i > 0 && i < len(user)-1 {
+		realm = strings.ToUpper(user[:i])
+		user = user[i+1:]
 	}
 	if realm == "" {
 		realm = strings.ToUpper(strings.TrimSpace(SystemConfigMap()["winrm_krb5_realm"]))
 	}
 	if realm == "" {
-		return nil, fmt.Errorf("Kerberos 缺少域（Realm）：账号需为 user@REALM 格式，或在系统配置 winrm_krb5_realm 中指定")
+		return nil, fmt.Errorf("Kerberos 缺少域（Realm）：账号需为 user@REALM 或 DOMAIN\\user 格式，或在系统配置 winrm_krb5_realm 中指定")
 	}
 	spn := strings.TrimSpace(h.WinRMSPN)
 	if spn == "" {
