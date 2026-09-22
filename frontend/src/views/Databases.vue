@@ -1,6 +1,6 @@
 <!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
-  <div style="display:flex; gap:12px; height:calc(100vh - 92px)">
+  <div style="display:flex; gap:12px; height:100%">
     <!-- left: sources + accounts -->
     <el-card class="db-side" v-loading="loading">
       <template #header>
@@ -244,6 +244,8 @@ const exportCsv = () => {
   a.click()
   URL.revokeObjectURL(a.href)
 }
+
+defineExpose({ openCreate: () => srcDlg() })
 </script>
 
 <style scoped>

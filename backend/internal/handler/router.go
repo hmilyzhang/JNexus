@@ -491,11 +491,15 @@ func SetupRouter() *gin.Engine {
 				c.JSON(http.StatusNotFound, gin.H{"error": "接口不存在"})
 				return
 			}
-			// Hashed static assets: long cache
+			// Hashed static assets: long cache; missing files (e.g. frontend
+			// routes under /assets/...) fall back to index.html
 			if strings.HasPrefix(p, "/assets/") {
-				c.Header("Cache-Control", "public, max-age=31536000, immutable")
-				c.File(filepath.Join(abs, strings.TrimPrefix(p, "/")))
-				return
+				f := filepath.Join(abs, strings.TrimPrefix(p, "/"))
+				if st, err := os.Stat(f); err == nil && !st.IsDir() {
+					c.Header("Cache-Control", "public, max-age=31536000, immutable")
+					c.File(f)
+					return
+				}
 			}
 			// Everything else falls back to index.html with caching disabled: browsers get the new entry right after a release
 			c.Header("Cache-Control", "no-cache, no-store, must-revalidate")

@@ -201,15 +201,13 @@ const roleLabel = computed(() => ({
 // Menus are driven by role settings (admins always get everything)
 const menuItems = [
   { key: 'dashboard', path: '/dashboard', title: 'menu.dashboard', icon: 'Odometer' },
-  { key: 'hosts', path: '/hosts', title: 'menu.assets', icon: 'Collection' },
-    { key: 'databases', path: '/databases', title: 'menu.databases', icon: 'Coin' },
+  { key: 'assets', path: '/assets/hosts', title: 'menu.assets', icon: 'Collection' },
   { key: 'osaccounts', path: '/os-accounts', title: 'menu.osaccounts', icon: 'Avatar' },
   { key: 'jobs', title: 'menu.jobs', icon: 'Operation', children: [
     { key: 'exec', path: '/exec', title: 'menu.exec', icon: 'Promotion' },
     { key: 'files', path: '/files', title: 'menu.files', icon: 'FolderOpened' },
     { key: 'scripts', path: '/scripts', title: 'menu.scripts', icon: 'Document' },
-    { key: 'logtail', path: '/logtail', title: 'menu.logtail', icon: 'View' },
-    { key: 'webapps', path: '/webapps', title: 'menu.webapps', icon: 'Link' }
+    { key: 'logtail', path: '/logtail', title: 'menu.logtail', icon: 'View' }
   ] },
   { key: 'tasks', path: '/tasks', title: 'menu.tasks', icon: 'List' },
   { key: 'cron', path: '/crons', title: 'menu.cron', icon: 'Timer' },
@@ -273,6 +271,8 @@ const menus = computed(() => {
         (c.key === 'logtail' && allowed.has('exec'))) && // log access follows exec permission
         (c.key !== 'observe' || ooEnabled.value))
       if (kids.length) out.push({ ...m, children: kids })
+    } else if (m.key === 'assets') {
+      if (allowed.has('hosts') || allowed.has('databases') || allowed.has('webapps')) out.push(m)
     } else if (allowed.has(m.key) && (m.key !== 'observe' || ooEnabled.value)) {
       out.push(m)
     }

@@ -812,6 +812,8 @@ const delKey = async row => {
   ElMessage.success(t('hosts.deleted'))
   loadKeys()
 }
+
+defineExpose({ openCreate: () => dlgHost() })
 </script>
 
 <style scoped>

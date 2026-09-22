@@ -498,6 +498,12 @@ export default {
     fullScreen: '全屏',
     exitFull: '退出全屏'
   },
+  assets: {
+    tabHosts: '主机',
+    tabDatabases: '数据库',
+    tabApps: 'Web 应用',
+    add: '新增资产',
+  },
   cloud: {
     title: '云资产同步',
     provider: '云厂商',

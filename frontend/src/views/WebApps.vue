@@ -96,4 +96,6 @@ const del = async row => {
   ElMessage.success(t('common.success'))
   load()
 }
+
+defineExpose({ openCreate: () => dlg(null) })
 </script>

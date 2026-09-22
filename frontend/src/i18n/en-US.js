@@ -494,6 +494,12 @@ export default {
     fullScreen: 'Fullscreen',
     exitFull: 'Exit fullscreen'
   },
+  assets: {
+    tabHosts: 'Hosts',
+    tabDatabases: 'Databases',
+    tabApps: 'Web Apps',
+    add: 'Add asset',
+  },
   cloud: {
     title: 'Cloud Assets',
     provider: 'Provider',
