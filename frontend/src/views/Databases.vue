@@ -186,8 +186,19 @@ const initEditor = () => {
         '.cm-content': { caretColor: '#ffffff' },
         '.cm-gutters': { backgroundColor: '#1e1e1e', color: '#6b7280', border: 'none' },
         '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,.06)' },
+        '.cm-editor.cm-focused': { outline: 'none' },
+        '.cm-tooltip': {
+          backgroundColor: '#1e1e1e', border: '1px solid #3a3f4b', borderRadius: '6px',
+          overflow: 'hidden' },
         '.cm-tooltip.cm-tooltip-autocomplete > ul': {
-          fontFamily: 'Consolas, Monaco, monospace', maxHeight: '220px' },
+          fontFamily: 'Consolas, Monaco, monospace', maxHeight: '220px',
+          backgroundColor: '#1e1e1e', color: '#c9d1d9' },
+        '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {
+          color: '#c9d1d9', padding: '3px 8px' },
+        '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+          backgroundColor: 'rgba(64,158,255,.25)', color: '#ffffff' },
+        '.cm-completionLabel': { color: '#c9d1d9' },
+        '.cm-completionIcon': { color: '#8b949e', paddingRight: '4px' },
       }),
     ],
   })
