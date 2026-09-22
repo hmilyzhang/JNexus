@@ -103,13 +103,19 @@ func ValidateDBSQL(sqlText string, readOnly bool) error {
 	return nil
 }
 
+// DBColumn describes one result column (name + database type name)
+type DBColumn struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
 // DBQueryResult is the workbench result payload (rows are stringified for JSON)
 type DBQueryResult struct {
-	Columns  []string        `json:"columns"`
-	Rows     [][]interface{} `json:"rows"`
-	Affected int64           `json:"affected"`
-	Elapsed  int64           `json:"elapsed_ms"`
-	Truncated bool           `json:"truncated"`
+	Columns   []DBColumn      `json:"columns"`
+	Rows      [][]interface{} `json:"rows"`
+	Affected  int64           `json:"affected"`
+	Elapsed   int64           `json:"elapsed_ms"`
+	Truncated bool            `json:"truncated"`
 }
 
 // RunDBQuery executes one statement as the given account with the source's
@@ -138,26 +144,28 @@ func RunDBQuery(d *model.DbSource, username, password, sqlText string) (*DBQuery
 			return nil, qerr
 		}
 		defer rows.Close()
-		cols, cerr := rows.Columns()
+		colTypes, cerr := rows.ColumnTypes()
 		if cerr != nil {
 			return nil, cerr
 		}
-		res.Columns = cols
+		for _, ct := range colTypes {
+			res.Columns = append(res.Columns, DBColumn{Name: ct.Name(), Type: ct.DatabaseTypeName()})
+		}
 		limit := DBSourceRowLimit(d)
 		for rows.Next() {
 			if len(res.Rows) >= limit {
 				res.Truncated = true
 				break
 			}
-			raw := make([]any, len(cols))
-			ptrs := make([]any, len(cols))
+			raw := make([]any, len(res.Columns))
+			ptrs := make([]any, len(res.Columns))
 			for i := range raw {
 				ptrs[i] = &raw[i]
 			}
 			if err := rows.Scan(ptrs...); err != nil {
 				return nil, err
 			}
-			row := make([]interface{}, len(cols))
+			row := make([]interface{}, len(res.Columns))
 			for i, v := range raw {
 				row[i] = stringifyDBValue(v)
 			}

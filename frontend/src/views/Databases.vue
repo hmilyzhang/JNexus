@@ -54,8 +54,19 @@
           <el-option v-for="h in history" :key="h" :label="h.slice(0, 60)" :value="h" />
         </el-select>
       </div>
-      <el-table v-if="result && result.columns" :data="tableRows" size="small" border max-height="480">
-        <el-table-column v-for="(c, i) in result.columns" :key="i" :prop="'c' + i" :label="c" min-width="120" show-overflow-tooltip />
+      <el-table v-if="result && result.columns" :data="tableRows" size="small" border stripe max-height="480">
+        <el-table-column type="index" :index="i => i + 1" width="52" :label="'#'" />
+        <el-table-column v-for="(c, i) in result.columns" :key="i" :prop="'c' + i"
+                         :align="isNumericType(c.type) ? 'right' : 'left'" min-width="130" show-overflow-tooltip>
+          <template #header>
+            <span class="col-name">{{ c.name }}</span>
+            <span class="col-type">{{ shortType(c.type) }}</span>
+          </template>
+          <template #default="{ row }">
+            <span v-if="row['c' + i] === null" class="cell-null">NULL</span>
+            <span v-else class="mono">{{ row['c' + i] }}</span>
+          </template>
+        </el-table-column>
       </el-table>
       <div v-else-if="result" style="color:#909399">{{ $t('db.noRows') }}</div>
     </el-card>
@@ -123,10 +134,10 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { EditorView, keymap as cmKeymap } from '@codemirror/view'
+import { EditorView, keymap as cmKeymap, lineNumbers, foldGutter } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { sql as sqlLang, PostgreSQL, MySQL, MSSQL } from '@codemirror/lang-sql'
-	import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+	import { HighlightStyle, syntaxHighlighting, foldGutter as foldGutterExt } from '@codemirror/language'
 	import { tags as hlTags } from '@lezer/highlight'
 	import { autocompletion } from '@codemirror/autocomplete'
 import { defaultKeymap, history as cmHistory, historyKeymap, indentWithTab } from '@codemirror/commands'
@@ -157,6 +168,9 @@ const guardForm = ref({ read_only: false, timeout_sec: 30, max_rows: 1000 })
 
 const currentSource = computed(() => sources.value.find(s => s.id === sourceId.value))
 
+const isNumericType = ty => /int|numeric|dec|float|real|double|number|serial|money/i.test(ty || '')
+const shortType = ty => (ty || '').replace(/(varchar|character varying|timestamp with time zone|timestamp without time zone)/i, 'str').slice(0, 10)
+
 const sqlDialectFor = t2 => ({ pgsql: PostgreSQL, mysql: MySQL, mssql: MSSQL }[t2] || PostgreSQL)
 
 const buildLang = () => {
@@ -184,6 +198,8 @@ const initEditor = () => {
   const state = EditorState.create({
     doc: '',
     extensions: [
+      lineNumbers(),
+      foldGutterExt(),
       cmHistory(),
       cmKeymap.of([...historyKeymap, indentWithTab,
         { key: 'Mod-Enter', run: () => { run(); return true } },
@@ -342,6 +358,12 @@ defineExpose({ openCreate: () => srcDlg() })
 </script>
 
 <style scoped>
+.sql-editor { border: 1px solid var(--el-border-color-lighter); border-radius: 6px; overflow: hidden; }
+.sql-editor :deep(.cm-editor) { max-height: 260px; }
+.col-name { font-weight: 600; }
+.col-type { color: var(--el-text-color-secondary); font-size: 11px; margin-left: 4px; font-family: Consolas, Monaco, monospace; }
+.cell-null { color: var(--el-text-color-secondary); font-style: italic; font-size: 12px; }
+
 .db-side { width: 280px; flex: 0 0 280px; overflow: auto; }
 .db-main { flex: 1; overflow: auto; }
 .db-src, .db-acc { padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; }
