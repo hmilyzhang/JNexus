@@ -51,3 +51,4 @@ backend/cmd/tmpregress/
 backend/cmd/tmpviewer/
 backend/cmd/ooprobe/
 *.exe.new
+tmp_*.py
