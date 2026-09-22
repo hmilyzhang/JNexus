@@ -33,7 +33,6 @@
           <el-button type="warning" plain @click="showKeys = true">{{ $t('hosts.keyMgmt') }}</el-button>
           <el-button type="info" plain @click="showTemplates = true">{{ $t('hosts.tplMgmt') }}</el-button>
           <el-button v-if="store.isAdmin || canManageCreds" type="success" plain @click="cloudRef && cloudRef.open()">{{ $t('cloud.title') }}</el-button>
-          <el-button v-if="store.isAdmin || canManageCreds" type="success" plain @click="cloudRef && cloudRef.open()">{{ $t('cloud.title') }}</el-button>
           <el-button v-if="store.isAdmin || canManageCreds" type="primary" plain :disabled="!selHosts.length"
                      @click="dlgBatchGroup">{{ $t('hosts.batchMoveGroup') }}{{ selHosts.length ? ` (${selHosts.length})` : '' }}</el-button>
           <el-button v-if="store.isAdmin || canManageCreds" type="danger" plain :disabled="!selHosts.length"
