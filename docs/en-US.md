@@ -14,7 +14,7 @@ JNexus is built with **Go (Gin + GORM) + Vue 3 (Element Plus + xterm.js) + Postg
 3. [Quick Start](#3-quick-start)
 4. [Configuration Reference](#4-configuration-reference)
 5. [Hosts](#5-hosts)
-6. [Credentials & OS Accounts](#6-credentials--os-accounts)
+6. [Account Credentials](#6-account-credentials)
 7. [Web Terminal](#7-web-terminal)
 8. [In-browser RDP](#8-in-browser-rdp)
 9. [Batch Execution & File Distribution](#9-batch-execution--file-distribution)
@@ -33,6 +33,10 @@ JNexus is built with **Go (Gin + GORM) + Vue 3 (Element Plus + xterm.js) + Postg
 22. [AI Alert Diagnostics & Controlled Cleanup](#22-ai-alert-diagnostics--controlled-cleanup)
 23. [Windows Domain Environments](#23-windows-domain-environments)
 24. [Reverse Proxy Deployment](#24-reverse-proxy-deployment-https--websocket)
+25. [Cloud Asset Sync (AWS / Azure / Huawei Cloud)](#25-cloud-asset-sync-aws--azure--huawei-cloud)
+26. [Web Apps (PAM)](#26-web-apps-pam)
+27. [Database Workbench](#27-database-workbench)
+28. [Collection Reports](#28-collection-reports)
 
 ---
 
@@ -44,7 +48,7 @@ JNexus targets self-hosted operations for small and mid-size teams. The goal: **
 - **AI Assistant**: built-in floating chat panel compatible with any OpenAI protocol service (Ollama / vLLM / LM Studio), with page context awareness and role presets;
 - **Dark / Light theme**: global toggle, fully adapted across all pages;
 - **One-command deploy**: a single binary plus one Docker Compose file (database and RDP gateway included);
-- **13 modules**: hosts, credentials, reports, monitoring, Kubernetes, cron jobs, apps, releases, tasks, execution, files, scripts, keys;
+- **All modules in one console**: assets (hosts / databases / web apps), account credentials, batch execution, file distribution, script library, scheduled jobs, monitoring & alerting, capacity planning, Kubernetes, apps & releases, collection reports, ops reports, log search, AI alert diagnostics, web apps (PAM), database workbench;
 - **Built-in governance**: capability-based RBAC + custom roles + MFA + LDAP + full audit trail;
 - **Bilingual UI**: Chinese and English out of the box, auto-switched by browser language.
 
@@ -89,7 +93,7 @@ docker compose up -d
 
 ### Adding your first host
 
-Go to **Hosts** after login: add a host (IP, SSH port, root password or key) → once it turns green you can open a terminal, run commands, and see metrics. For Windows hosts pick the Windows OS type and set the WinRM port (default 5985).
+Go to **Assets → Hosts** after login: add a host (IP, SSH port, root password or key) → once it turns green you can open a terminal, run commands, and see metrics. For Windows hosts pick the Windows OS type and set the WinRM port (default 5985).
 
 ## 4. Configuration Reference
 
@@ -110,22 +114,28 @@ JNexus reads environment variables first. Keys generated on first boot are persi
 
 ## 5. Hosts
 
-**Menu: Hosts**
+**Menu: Assets → Hosts**
 
-- **Group tree**: multi-level host groups; filter by group;
+- **Unified asset entry**: the Assets page organizes **hosts / databases / web apps** into tabs with one "Add asset" action;
+- **Group tree**: multi-level host groups; filter by group; the toolbar supports **batch move to group**;
 - **Host fields**: name, IP, SSH port, OS type (Linux / Windows), description, group;
-- **OS accounts**: attach multiple accounts (password or key) per host and mark a default; execution/terminal/releases resolve credentials as "specified account → host default";
+- **OS accounts**: attach multiple accounts (password or key) per host and mark a default; execution/terminal/releases resolve credentials as "specified account → host default"; central management in [Account Credentials](#6-account-credentials);
 - **Credential templates**: apply a shared account template when batch-adding hosts;
-- **Windows support**: with the Windows OS type, hosts use WinRM (default port 5985, NTLM domain accounts supported) for PowerShell execution and metric collection;
+- **Windows support**: with the Windows OS type, hosts use WinRM (default port 5985, NTLM domain accounts supported) for PowerShell execution and metric collection; RDP offers a multi-account logon picker (`DOMAIN\user` and UPN both work);
+- **Cascade delete**: deleting a host (single or batch) removes its OS accounts;
+- **Cloud asset sync**: discover and import instances from AWS / Azure / Huawei Cloud (see [Cloud Asset Sync](#25-cloud-asset-sync-aws--azure--huawei-cloud));
 - **Host actions**: test connection, open terminal, file distribution, capacity drawer, batch delete.
 
-## 6. Credentials & OS Accounts
+## 6. Account Credentials
 
-**Menu: Keys**
+**Menu: Account Credentials**
 
-- Central management of key (SSH private key) accounts referenced by hosts and jobs;
+- Every host OS account in one place: filter by host / keyword / rotation status; add / edit / rotate / reveal (admin, audited);
+- **Password auto-rotation**: enable per account with a configurable period; random strong passwords are AES-encrypted at rest and never displayed. Normal accounts rotate through a same-host root/NOPASSWD-sudo **privilege chain**; paired-key accounts with a stored password rotate via key login; LDAP/domain accounts are detected and skipped;
+- **Password history**: every rotation is archived (last 24 per account), visible to admins and fully audited;
+- **Account templates**: store LDAP/AD passwords once and reuse them when adding hosts or bulk importing;
 - Sensitive data — host passwords, private keys, kubeconfigs — is always **AES-encrypted at rest** and never shown in clear text;
-- Auto-pairing: register a key once, then associate it from the host side; deletion is centralized in this module.
+- Batch add/delete with reference protection.
 
 ## 7. Web Terminal
 
@@ -248,6 +258,23 @@ JNexus reads environment variables first. Keys generated on first boot are persi
 - **Backup advice**: schedule `pg_dump` plus a copy of the `data` volume (keeping the AES key keeps your credentials decryptable);
 - **External database**: set `JNEXUS_DB_*` or `JNEXUS_DSN`, then `docker compose up -d jnexus` to start only the app.
 
+## 20. FAQ
+
+**Q: Forgot the admin password?**
+Have an administrator with database access reset it (replace the password hash with a known value), or recreate the user from another admin account.
+
+**Q: Windows host won't connect?**
+Make sure WinRM is enabled on the target (`winrm quickconfig`) and port 5985 is open; domain accounts use the `DOMAIN\user` format.
+
+**Q: RDP won't open?**
+Check that 3389 is reachable and the `guacd` / `rdp-gateway` containers are healthy. Connection tokens are valid for 5 minutes — re-initiate if expired.
+
+**Q: Some K8S resources are empty after adding a cluster?**
+Verify the credential's RBAC covers those resources and namespaces; capacity planning needs metrics-server (or metrics read permission for the sampling account).
+
+**Q: Monitoring charts are empty?**
+Confirm the host is online and its credentials work. Sampling is interval-driven — a newly added host needs one or two sampling cycles before charts appear.
+
 ## 21. Observability Integration (OpenObserve)
 
 Optional integration with [OpenObserve](https://openobserve.ai) (AGPL-3.0, HTTP-only invocation)
@@ -326,22 +353,41 @@ Without Upgrade/Connection forwarding, login and pages work but terminals / RDP 
 disconnect immediately. `X-Forwarded-Proto https` tells JNexus the page is HTTPS (affects RDP
 gateway address derivation).
 
-## 20. FAQ
+## 25. Cloud Asset Sync (AWS / Azure / Huawei Cloud)
 
-**Q: Forgot the admin password?**
-Have an administrator with database access reset it (replace the password hash with a known value), or recreate the user from another admin account.
+**Entry: Assets → Hosts → Cloud sync**
 
-**Q: Windows host won't connect?**
-Make sure WinRM is enabled on the target (`winrm quickconfig`) and port 5985 is open; domain accounts use the `DOMAIN\user` format.
+- **Cloud accounts**: register an AK/SK (AWS / Huawei Cloud) or a service principal (Azure), pick regions per account; credentials AES-encrypted at rest;
+- **Discovery**: cloud instances are imported as host assets and grouped automatically by **tags**; hosts whose IP is already managed are not imported twice;
+- **Scheduled sync**: per-account interval executed by the scheduler; instances released in the cloud are removed automatically on the next sync;
+- Every sync is audited.
 
-**Q: RDP won't open?**
-Check that 3389 is reachable and the `guacd` / `rdp-gateway` containers are healthy. Connection tokens are valid for 5 minutes — re-initiate if expired.
+## 26. Web Apps (PAM)
 
-**Q: Some K8S resources are empty after adding a cluster?**
-Verify the credential's RBAC covers those resources and namespaces; capacity planning needs metrics-server (or metrics read permission for the sampling account).
+**Menu: Web Apps**
 
-**Q: Monitoring charts are empty?**
-Confirm the host is online and its credentials work. Sampling is interval-driven — a newly added host needs one or two sampling cycles before charts appear.
+- Vault frequently used web consoles (URL + username/password, AES-256-GCM encrypted, never echoed back);
+- Clicking **Open** starts a **headless-browser session** on the server: it auto-fills the vaulted credentials, signs in and streams the page live — operate it with your own mouse / wheel / keyboard;
+- **The password never leaves the server**: credentials are injected server-side only and never reach the user's machine;
+- Session starts are audited; each session is capped at 30 minutes; menu access is role-controlled.
+
+## 27. Database Workbench
+
+**Entry: Assets → Databases**
+
+- **Sources**: register MySQL / SQL Server / PostgreSQL instances (AES-encrypted credentials, shared with OpenObserve ingestion); each source can hold **multiple accounts** with per-user-group authorization (read-only for monitoring, read-write for DBAs);
+- **SQL editor**: CodeMirror 6 with **schema-aware completion** (tables / columns / keywords, 5-minute schema cache), syntax highlighting, Ctrl+Enter execution, theme-adaptive colors;
+- **Result grid**: row numbers, per-column type badges, right-aligned numerics, dimmed NULLs, CSV export;
+- **Guardrails**: per-source **read-only mode**; dangerous-SQL interception (DROP/TRUNCATE, UPDATE/DELETE without WHERE, ...); statement timeout and row cap; **every statement audited** (SQL, account, source IP, duration, rows).
+
+## 28. Collection Reports
+
+**Menu: Reports → Collection reports**
+
+- **Preset templates**: server accounts, crontab listing, health check, system info, ports & certificates (listening ports, HTTP/HTTPS detection, expiry of certificates served on HTTPS ports and of local certificate files);
+- **Cross-host runs**: empty target = all hosts; per-host results are archived; the accounts preset adds a cross-host **account matrix** with suspicious-account highlighting;
+- **Merged export**: all hosts' results merge into **one printable HTML document**; the ports & certificates preset adds a cross-host **ports-and-certificates matrix** (per-host port / HTTPS / certificate valid-and-expired counts);
+- **Export**: `.log` / CSV; module access is role-controlled.
 
 ---
 
