@@ -478,6 +478,7 @@ func StartMonitorLoop() {
 				go CollectWindowsEvents()
 				go CollectLinuxEvents()
 				go RunDueDbSources()
+				go RunDueCloudSyncs()
 				go CheckKeyRotation()
 				go CollectK8sClusters()
 				go CollectK8sUsage()

@@ -32,6 +32,8 @@
           <el-button @click="dlgGroup">{{ $t('hosts.groupMgmt') }}</el-button>
           <el-button type="warning" plain @click="showKeys = true">{{ $t('hosts.keyMgmt') }}</el-button>
           <el-button type="info" plain @click="showTemplates = true">{{ $t('hosts.tplMgmt') }}</el-button>
+          <el-button v-if="store.isAdmin || canManageCreds" type="success" plain @click="cloudRef && cloudRef.open()">{{ $t('cloud.title') }}</el-button>
+          <el-button type="success" plain @click="cloudDlgVisible = true">{{ $t('cloud.title') }}</el-button>
           <el-button v-if="store.isAdmin || canManageCreds" type="primary" plain :disabled="!selHosts.length"
                      @click="dlgBatchGroup">{{ $t('hosts.batchMoveGroup') }}{{ selHosts.length ? ` (${selHosts.length})` : '' }}</el-button>
           <el-button v-if="store.isAdmin || canManageCreds" type="danger" plain :disabled="!selHosts.length"
@@ -107,6 +109,8 @@
       <el-button type="primary" @click="connectRDP(rdpPickHost, rdpPickCred)">{{ $t('hosts.rdp') }}</el-button>
     </template>
   </el-dialog>
+
+  <CloudAccounts ref="cloudRef" />
 
   <!-- Batch move to group -->
   <el-dialog v-model="batchGroupVisible" :title="$t('hosts.batchMoveGroup')" width="420px">
@@ -387,6 +391,7 @@ import i18n from '../i18n'
 import MetricChart from '../components/MetricChart.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../store'
+import CloudAccounts from './CloudAccounts.vue'
 
 const { t } = i18n.global
 
@@ -479,6 +484,7 @@ const capDaysText = d => {
 }
 const capDaysColor = d => (d == null ? '#67c23a' : d < 90 ? '#f56c6c' : d < 180 ? '#e6a23c' : '#67c23a')
 const router = useRouter()
+const cloudRef = ref(null)
 const store = useUserStore()
 const hosts = ref([])
 const allHosts = ref([])

@@ -237,4 +237,4 @@ JNexus 是自由软件：你可以在 GNU Affero 通用公共许可证 v3.0 的�
 若你修改 JNexus 并将其作为网络服务对外提供，必须以同一许可证公开修改后的源码（AGPL §13）。
 可选的 [OpenObserve](https://openobserve.ai) 后端同为 AGPL-3.0（仅通过 HTTP 调用——与之并列部署不会带来额外义务）。
 
-<div align="right"><a href="README.md">English</a></div> | 工具栏支持**批量移动分组**；删除主机会级联删除其 OS 账号；RDP 支持多账号登录选择器（域\用户 与 UPN 均可） 
+<div align="right"><a href="README.md">English</a></div> | 工具栏支持**批量移动分组**；删除主机会级联删除其 OS 账号；RDP 支持多账号登录选择器（域\用户 与 UPN 均可） ；支持从 AWS / Azure / 华为云通过 AK/SK 或服务主体同步云资产（每账号区域、定时同步、按标签分组、同 IP 冲突处理、云端删除联动）

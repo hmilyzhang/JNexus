@@ -326,6 +326,19 @@ func SetupRouter() *gin.Engine {
 			dbw.POST("/:id/query", RunDBQueryHandler)
 		}
 
+		// Cloud accounts (CSP asset sync): admin-managed, sync requires hosts:create
+		cloud := auth.Group("/cloudaccounts", middleware.JWT())
+		{
+			cloud.GET("", middleware.RequireCap("hosts", "view"), ListCloudAccounts)
+			cloud.POST("", middleware.RequireRole(model.RoleAdmin), CreateCloudAccount)
+			cloud.PUT("/:id", middleware.RequireRole(model.RoleAdmin), UpdateCloudAccount)
+			cloud.DELETE("/:id", middleware.RequireRole(model.RoleAdmin), DeleteCloudAccount)
+			cloud.POST("/:id/test", middleware.RequireRole(model.RoleAdmin), TestCloudAccount)
+			cloud.POST("/:id/sync", middleware.RequireCap("hosts", "create"), SyncCloudAccountByID)
+			cloud.GET("/:id/conflicts", middleware.RequireCap("hosts", "view"), CloudSyncConflicts)
+			cloud.POST("/:id/merge", middleware.RequireCap("hosts", "edit"), MergeCloudConflict)
+		}
+
 		// Batch execution
 		exec := auth.Group("/exec", middleware.RequireCap("exec", "exec"))
 		{

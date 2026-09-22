@@ -22,6 +22,7 @@
 16. [FAQ](#16-faq)
 17. [Web Apps (PAM-style)](#17-web-apps-pam-style)
 18. [Database Workbench](#18-database-workbench)
+19. [Cloud Asset Sync](#19-cloud-asset-sync)
 
 ---
 
@@ -214,3 +215,25 @@ Run day-to-day SQL against registered databases (MySQL / SQL Server / PostgreSQL
 - **Dangerous-statement interception**: DROP DATABASE/SCHEMA, TRUNCATE and DELETE-without-WHERE are blocked outright (database protection rules);
 - **Timeout & row cap**: statement timeout (default 30s) and a row limit (default 1000);
 - **Full audit**: every statement records operator, account, SQL text, outcome and source IP.
+
+---
+
+## 19. Cloud Asset Sync
+
+Discover cloud VMs via CSP credentials (AWS / Azure / Huawei Cloud) and import them as assets.
+
+### Configure a cloud account (admins)
+- Assets -> "Cloud Assets" -> Add cloud account: pick the provider and fill the credentials plus regions:
+  - **AWS**: Access Key + Secret Key (recommend `ec2:DescribeInstances` read-only IAM policy)
+  - **Azure**: Tenant ID + Client ID + Client Secret + Subscription ID (recommend subscription Reader role)
+  - **Huawei Cloud**: AK + SK + Project ID (recommend read-only permission)
+- Optional: target host group for imports, include stopped instances, tag-based auto grouping (tag value = group name, auto-created), auto sync interval, delete assets removed from the cloud.
+
+### Sync & import
+- "Sync" pulls the instance list and imports idempotently: first run creates, later runs update name/IP/status changes;
+- Cloud instances sharing an IP with manual hosts are skipped and listed as conflicts;
+- "Test" previews the number of instances discovered;
+- Scheduled sync runs in the background at the configured interval.
+
+### Security
+- Keys are AES encrypted, masked in the UI; every sync and test is audited.

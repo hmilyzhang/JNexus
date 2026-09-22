@@ -78,6 +78,11 @@ type Host struct {
 	SSHKeyID      *uint      `json:"ssh_key_id"`
 	Password      string     `json:"-"` // AES-GCM encrypted
 	GroupID       *uint      `gorm:"index" json:"group_id"`
+	// Cloud identity (CSP asset sync): stamps which cloud instance a host was
+	// imported from; empty for manually managed hosts
+	CloudProvider   string `gorm:"size:16;index" json:"cloud_provider"`
+	CloudInstanceID string `gorm:"size:128;index" json:"cloud_instance_id"`
+	CloudRegion     string `gorm:"size:64" json:"cloud_region"`
 	Status        string     `gorm:"size:16;default:unknown" json:"status"` // online / offline / unknown
 	LastSeen      *time.Time `json:"last_seen"`
 	CreatedAt     time.Time  `json:"created_at"`
@@ -558,6 +563,27 @@ type K8sClusterMember struct {
 
 // DbSource database ingestion source (OpenObserve builtin "DB ingestion"):
 // admin-registered MySQL/MSSQL/PostgreSQL connection + query, scheduled into a stream
+// CloudAccount is a CSP credential set (AK/SK or service principal) used to
+// discover and import cloud instances as assets. The credential JSON is
+// AES-GCM encrypted and never echoed back.
+type CloudAccount struct {
+	ID              uint       `gorm:"primaryKey" json:"id"`
+	Provider        string     `gorm:"size:16;index" json:"provider"` // aws / azure / huawei
+	Name            string     `gorm:"size:128" json:"name"`
+	Credentials     string     `json:"-"`        // AES-GCM encrypted JSON (provider-specific)
+	Regions         string     `gorm:"size:512" json:"regions"` // CSV of regions to scan
+	TargetGroupID   *uint      `json:"target_group_id"`          // import into this host group
+	ImportStopped   bool       `json:"import_stopped"`           // include stopped/deallocated instances
+	TagGroupKey     string     `gorm:"size:32" json:"tag_group_key"` // instance tag whose value names the target host group
+	SyncIntervalMin int        `json:"sync_interval_min"`        // 0 = manual only
+	AutoDelete      bool       `json:"auto_delete"`              // remove hosts whose instance vanished from the cloud
+	LastSyncAt      *time.Time `json:"last_sync_at"`
+	LastSyncResult  string     `gorm:"size:512" json:"last_sync_result"`
+	Creator         string     `gorm:"size:64" json:"creator"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
 type DbSource struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`
 	Name        string     `gorm:"size:64;uniqueIndex" json:"name"`
