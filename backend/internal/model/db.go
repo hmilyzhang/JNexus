@@ -30,7 +30,7 @@ func Connect(dsn string) error {
 		&SystemConfig{},
 		&UserGroup{}, &UserGroupHost{}, &UserGroupHostGroup{}, &UserGroupMember{},
 		&HostCredential{}, &CredentialPasswordHistory{}, &UserGroupCredential{}, &UserGroupCredRule{}, &CronJob{}, &Report{}, &ReportItem{},
-		&WebAsset{},
+		&WebAsset{}, &DBAccount{},
 		&Monitor{}, &MonitorSample{}, &HostMetric{}, &K8sCapacitySample{}, &AlertEvent{}, &K8sPodSample{}, &HostMetricHourly{}, &CmdAlertState{}, &K8sCluster{}, &K8sClusterMember{}, &MaintenanceLog{}, &UserGroupApp{}, &ApiKey{}, &AlertChannel{}, &MonitorChannel{}, &DbSource{},
 	); err != nil {
 		return fmt.Errorf("数据库迁移失败: %w", err)
@@ -40,6 +40,9 @@ func Connect(dsn string) error {
 	}
 	if err := DropHostGroupNameUniqueIndex(); err != nil {
 		return fmt.Errorf("主机分组索引迁移失败: %w", err)
+	}
+	if err := MigrateDBAccounts(); err != nil {
+		return fmt.Errorf("数据库账号迁移失败: %w", err)
 	}
 	return nil
 }
@@ -62,6 +65,29 @@ func DropHostGroupNameUniqueIndex() error {
 	return nil
 }
 
+// MigrateDBAccounts copies each existing ingestion source's credentials into a
+// DBAccount row (label 采集账号) so the workbench sees them; runs once per source.
+func MigrateDBAccounts() error {
+	var sources []DbSource
+	DB.Find(&sources)
+	for _, src := range sources {
+		if src.Username == "" {
+			continue
+		}
+		var cnt int64
+		DB.Model(&DBAccount{}).Where("source_id = ?", src.ID).Count(&cnt)
+		if cnt > 0 {
+			continue
+		}
+		if err := DB.Create(&DBAccount{
+			SourceID: src.ID, Username: src.Username, Password: src.Password,
+			Label: "采集账号", CreatedAt: time.Now(),
+		}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
 // MigrateHostCredentials auto-migration for existing hosts: creates a default credential for each host that already has an account
 func MigrateHostCredentials() error {
 	var hosts []Host

@@ -574,7 +574,25 @@ type DbSource struct {
 	LastRunAt   *time.Time `json:"last_run_at"`
 	LastError   string     `gorm:"size:512" json:"last_error"`
 	RowsPushed  int64      `json:"rows_pushed"`
-	CreatedAt   time.Time  `json:"created_at"`
+	// Workbench guardrails (database workbench)
+	ReadOnly   bool       `gorm:"default:false" json:"read_only"`
+	TimeoutSec int        `json:"timeout_sec"` // 0 = 30
+	MaxRows    int        `json:"max_rows"`    // 0 = 1000
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
+// DBAccount is a login under a database source. One source may carry several
+// accounts with different privileges (read-only monitor account, DBA account...)
+// and the workbench executes statements as the chosen account. AllowedGroups is
+// a CSV of user-group IDs; empty means every workbench user may use it.
+type DBAccount struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	SourceID      uint      `gorm:"index" json:"source_id"`
+	Username      string    `gorm:"size:128" json:"username"`
+	Password      string    `json:"-"` // AES-GCM encrypted
+	Label         string    `gorm:"size:64" json:"label"`
+	AllowedGroups string    `gorm:"size:512" json:"allowed_groups"` // CSV of user-group IDs; empty = all
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 func (DbSource) TableName() string { return "db_sources" }

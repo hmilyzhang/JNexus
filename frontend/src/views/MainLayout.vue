@@ -201,7 +201,8 @@ const roleLabel = computed(() => ({
 // Menus are driven by role settings (admins always get everything)
 const menuItems = [
   { key: 'dashboard', path: '/dashboard', title: 'menu.dashboard', icon: 'Odometer' },
-  { key: 'hosts', path: '/hosts', title: 'menu.hosts', icon: 'Monitor' },
+  { key: 'hosts', path: '/hosts', title: 'menu.assets', icon: 'Collection' },
+    { key: 'databases', path: '/databases', title: 'menu.databases', icon: 'Coin' },
   { key: 'osaccounts', path: '/os-accounts', title: 'menu.osaccounts', icon: 'Avatar' },
   { key: 'jobs', title: 'menu.jobs', icon: 'Operation', children: [
     { key: 'exec', path: '/exec', title: 'menu.exec', icon: 'Promotion' },

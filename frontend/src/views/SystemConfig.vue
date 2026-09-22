@@ -640,6 +640,7 @@ const menuKeys = [
   { key: 'dashboard', label: 'menu.dashboard' },
   { key: 'shell', label: 'shell.title' },
   { key: 'hosts', label: 'menu.hosts' },
+  { key: 'databases', label: 'menu.databases' },
   { key: 'osaccounts', label: 'menu.osaccounts' },
   { key: 'paired', label: 'menu.paired' },
   { key: 'exec', label: 'menu.exec' },

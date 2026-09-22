@@ -58,18 +58,24 @@ func SaveDbSource(src *model.DbSource) error {
 		return fmt.Errorf("db_type must be mysql / mssql / pgsql")
 	}
 	src.DBType = strings.ToLower(src.DBType)
-	if src.Host == "" || src.Database == "" || strings.TrimSpace(src.Query) == "" {
-		return fmt.Errorf("host, database and query are required")
+	if src.Host == "" || src.Database == "" {
+		return fmt.Errorf("host and database are required")
+	}
+	workbenchOnly := strings.TrimSpace(src.Query) == ""
+	if src.Enabled && workbenchOnly {
+		return fmt.Errorf("query is required for enabled sources")
 	}
 	if src.IntervalSec <= 0 {
 		src.IntervalSec = 300
 	}
 	src.Stream = strings.TrimSpace(src.Stream)
-	if src.Stream == "" {
-		src.Stream = "db_" + strings.NewReplacer(" ", "_", "-", "_").Replace(strings.ToLower(src.Name))
-	}
-	if !OOStreamNameValid(src.Stream) {
-		return fmt.Errorf("invalid stream name")
+	if !workbenchOnly {
+		if src.Stream == "" {
+			src.Stream = "db_" + strings.NewReplacer(" ", "_", "-", "_").Replace(strings.ToLower(src.Name))
+		}
+		if !OOStreamNameValid(src.Stream) {
+			return fmt.Errorf("invalid stream name")
+		}
 	}
 
 	if src.ID > 0 {
@@ -139,6 +145,21 @@ func dbSourceOpen(d *model.DbSource) (*sql.DB, error) {
 	db.SetConnMaxLifetime(2 * time.Minute)
 	db.SetMaxOpenConns(1)
 	return db, nil
+}
+
+
+
+// CreateWorkbenchSource registers a database source for the workbench
+// (enabled=false, no ingestion query - the guardrail fields apply to the workbench).
+func CreateWorkbenchSource(name, dbType, host string, port int, database string, readOnly bool, timeoutSec, maxRows int) (uint, error) {
+	src := &model.DbSource{
+		Name: name, DBType: dbType, Host: host, Port: port, Database: database,
+		ReadOnly: readOnly, TimeoutSec: timeoutSec, MaxRows: maxRows, Enabled: false,
+	}
+	if err := SaveDbSource(src); err != nil {
+		return 0, err
+	}
+	return src.ID, nil
 }
 
 // RunDbSource executes the source query once and pushes the rows into the stream.

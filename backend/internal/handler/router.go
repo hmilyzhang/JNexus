@@ -312,6 +312,20 @@ func SetupRouter() *gin.Engine {
 			wa.POST("/:id/open", OpenWebAsset)
 		}
 
+		// Database workbench: sources/accounts admin-managed, account visibility via
+		// AllowedGroups; query execution audited
+		dbw := auth.Group("/databases", middleware.RequireCap("databases", "use"))
+		{
+			dbw.POST("/sources", middleware.RequireRole(model.RoleAdmin), CreateDBSource)
+			dbw.GET("/sources", DBSourceListForWorkbench)
+			dbw.PUT("/sources/:id/guardrails", middleware.RequireRole(model.RoleAdmin), DBSourceGuardrails)
+			dbw.GET("/:id/accounts", DBSourceAccounts)
+			dbw.POST("/:id/accounts", middleware.RequireRole(model.RoleAdmin), CreateDBAccount)
+			dbw.PUT("/accounts/:id", middleware.RequireRole(model.RoleAdmin), UpdateDBAccount)
+			dbw.DELETE("/accounts/:id", middleware.RequireRole(model.RoleAdmin), DeleteDBAccount)
+			dbw.POST("/:id/query", RunDBQueryHandler)
+		}
+
 		// Batch execution
 		exec := auth.Group("/exec", middleware.RequireCap("exec", "exec"))
 		{

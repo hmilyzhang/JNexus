@@ -21,6 +21,7 @@
 15. [Permissions & Security](#15-permissions--security)
 16. [FAQ](#16-faq)
 17. [Web Apps (PAM-style)](#17-web-apps-pam-style)
+18. [Database Workbench](#18-database-workbench)
 
 ---
 
@@ -191,3 +192,25 @@ Vault common web consoles (switches, server out-of-band management, internal sys
 
 ### Authorization
 - The "Web Apps" menu can be enabled per role in System Settings; access follows that menu permission.
+
+---
+
+## 18. Database Workbench
+
+Run day-to-day SQL against registered databases (MySQL / SQL Server / PostgreSQL) from the web.
+
+### Sources & accounts
+- A database source = one instance (type/host/port/database); each source carries **multiple logon accounts** (e.g. a read-only collector account, a DBA account) with AES-encrypted passwords.
+- Admins register sources via "Add database source" in the workbench; accounts are managed inside the workbench and can be **restricted to user groups** (e.g. the DBA account only for the DBA group - invisible to others).
+- Shares the same connection registry as OpenObserve DB ingestion: sources configured for collection are immediately usable here.
+
+### Running SQL
+1. Pick a source and an account on the left;
+2. Enter SQL (Ctrl+Enter to run) -> the result grid shows columns and data, affected rows / elapsed time;
+3. **Export CSV** and query history with one-click refill are built in.
+
+### Guardrails
+- **Read-only mode** per source: only SELECT / SHOW / EXPLAIN / DESC pass;
+- **Dangerous-statement interception**: DROP DATABASE/SCHEMA, TRUNCATE and DELETE-without-WHERE are blocked outright (database protection rules);
+- **Timeout & row cap**: statement timeout (default 30s) and a row limit (default 1000);
+- **Full audit**: every statement records operator, account, SQL text, outcome and source IP.

@@ -31,6 +31,7 @@ var ModuleCapabilities = []CapModule{
 	{Key: "scripts", Actions: []string{"view", "manage", "exec"}},
 	{Key: "keys", Actions: []string{"manage"}},
 	{Key: "ai", Actions: []string{"chat"}},
+	{Key: "databases", Actions: []string{"use"}},
 }
 
 // CapabilitiesForFront returns the role settings matrix for the frontend
