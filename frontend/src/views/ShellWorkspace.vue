@@ -355,9 +355,9 @@ const closeSession = id => {
 .term-card { height: 100%; display: flex; flex-direction: column; }
 .term-card :deep(.el-card__header) { flex: 0 0 auto; }
 .term-card.term-fullscreen { position: fixed; inset: 0; z-index: 2000; height: 100vh; border-radius: 0; }
-.term-card :deep(.el-card__body) { flex: 1 1 0; min-height: 0; padding: 8px; }
-.term-container { position: relative; overflow: hidden; width: 100%; height: 100%; background: #1e1e1e; border-radius: 6px; }
-.term-tabs { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 6px; flex: 0 0 auto; }
+.term-card :deep(.el-card__body) { flex: 1 1 0; min-height: 0; padding: 8px; display: flex; flex-direction: column; overflow: hidden; }
+.term-container { position: relative; overflow: hidden; width: 100%; flex: 1 1 0; min-height: 0; background: #1e1e1e; border-radius: 6px; }
+.term-tabs { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 6px; flex: 0 0 auto; min-height: 0; }
 .term-tab { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,.04);
   cursor: pointer; white-space: nowrap; font-size: 12px; border: 1px solid transparent; }
 .term-tab:hover { background: rgba(255,255,255,.08); }
