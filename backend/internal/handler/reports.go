@@ -19,7 +19,7 @@ import (
 func ListReportTemplates(c *gin.Context) {
 	out := make([]gin.H, 0, len(service.ReportTemplateList()))
 	for _, t := range service.ReportTemplateList() {
-		out = append(out, gin.H{"key": t.Key, "name": t.Name, "desc": t.Desc})
+		out = append(out, gin.H{"key": t.Key, "name": t.Name, "desc": t.Desc, "has_ps": t.CmdPs != ""})
 	}
 	c.JSON(http.StatusOK, out)
 }
@@ -381,6 +381,8 @@ func PortsMatrix(c *gin.Context) {
 				fmt.Sscanf(line, "-- Certificate files: %d valid", &valid)
 			}
 		}
+		itRow.Ports = total
+		itRow.HTTPS = https
 		itRow.CertValid = valid
 		itRow.CertExpired = expired
 		itRow.Expired = expFiles

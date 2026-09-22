@@ -424,7 +424,8 @@ func parseMetricOutput(out string) (hostSample, bool) {
 	total, avail := uint64(0), uint64(0)
 	for _, line := range strings.Split(mem, "\n") {
 		fl := strings.Fields(line)
-		if len(fl) >= 4 {
+		// /proc/meminfo lines have 3 fields (Key: value kB); match any line with a value
+		if len(fl) >= 2 {
 			n, e := strconv.ParseUint(fl[1], 10, 64)
 			if e == nil && strings.HasPrefix(fl[0], "MemTotal") {
 				total = n

@@ -385,7 +385,7 @@ gateway address derivation).
 **Menu: Reports → Collection reports**
 
 - **Preset templates**: server accounts, crontab listing, health check, system info, ports & certificates (listening ports, HTTP/HTTPS detection, expiry of certificates served on HTTPS ports and of local certificate files);
-- **Cross-host runs**: empty target = all hosts; per-host results are archived; the accounts preset adds a cross-host **account matrix** with suspicious-account highlighting;
+- **Cross-host runs**: empty target = all hosts; per-host results are archived; **dual-version presets** dispatch bash over SSH on Linux and PowerShell over WinRM on Windows by host OS; the accounts preset adds a cross-host **account matrix** with suspicious-account highlighting;
 - **Merged export**: all hosts' results merge into **one printable HTML document**; the ports & certificates preset adds a cross-host **ports-and-certificates matrix** (per-host port / HTTPS / certificate valid-and-expired counts);
 - **Export**: `.log` / CSV; module access is role-controlled.
 

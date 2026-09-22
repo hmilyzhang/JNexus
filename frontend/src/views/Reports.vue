@@ -7,6 +7,7 @@
              :class="{ active: form.template === tpl.key }" @click="form.template = tpl.key">
           <div class="tpl-name">{{ tplName(tpl) }}</div>
           <div class="tpl-desc">{{ tplDesc(tpl) }}</div>
+          <el-tag v-if="tpl.has_ps" size="small" type="info" class="tpl-os">bash + PowerShell</el-tag>
         </div>
       </div>
       <el-form label-width="90px" style="margin-top:14px">
@@ -289,4 +290,5 @@ onMounted(async () => {
 }
 .tpl-name { font-weight: 600; margin-bottom: 4px; color: var(--el-text-color-primary); }
 .tpl-desc { color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.5; }
+.tpl-os { margin-top: 6px; }
 </style>
