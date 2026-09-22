@@ -81,5 +81,5 @@ watch(() => route.params.tab, v => { if (v && v !== activeTab.value) activeTab.v
 .assets-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; }
 .assets-tabs { flex: 1; }
 .assets-tabs :deep(.el-tabs__header) { margin-bottom: 0; }
-.assets-body { flex: 1 1 0; min-height: 0; margin-top: 8px; overflow: auto; }
+.assets-body { flex: 1 1 0; min-height: 0; margin-top: 8px; overflow: hidden; }
 </style>
