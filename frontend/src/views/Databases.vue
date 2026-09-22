@@ -126,6 +126,8 @@ import { ElMessage } from 'element-plus'
 import { EditorView, keymap as cmKeymap } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { sql as sqlLang, PostgreSQL, MySQL, MSSQL } from '@codemirror/lang-sql'
+	import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+	import { tags as hlTags } from '@lezer/highlight'
 	import { autocompletion } from '@codemirror/autocomplete'
 import { defaultKeymap, history as cmHistory, historyKeymap, indentWithTab } from '@codemirror/commands'
 import api from '../api'
@@ -166,6 +168,15 @@ const reconfigureLang = () => {
   if (langComp && editorView) editorView.dispatch({ effects: langComp.reconfigure(buildLang()) })
 }
 
+const dbHighlight = HighlightStyle.define([
+  { tag: [hlTags.keyword, hlTags.operatorKeyword], color: 'var(--el-color-primary)' },
+  { tag: [hlTags.string, hlTags.special(hlTags.string)], color: 'var(--el-color-success)' },
+  { tag: [hlTags.number], color: 'var(--el-color-warning)' },
+  { tag: [hlTags.comment, hlTags.lineComment, hlTags.blockComment], color: 'var(--el-text-color-secondary)', fontStyle: 'italic' },
+  { tag: [hlTags.operator], color: 'var(--el-text-color-regular)' },
+  { tag: [hlTags.bool, hlTags.null], color: 'var(--el-color-danger)' },
+])
+
 const initEditor = () => {
   if (editorView) return
   try {
@@ -179,26 +190,27 @@ const initEditor = () => {
         { key: 'Ctrl-Enter', run: () => { run(); return true } }]),
       cmKeymap.of(defaultKeymap),
       langComp.of(buildLang()),
+      syntaxHighlighting(dbHighlight),
       autocompletion(),
       EditorView.lineWrapping,
       EditorView.theme({
-        '&': { fontSize: '13px', backgroundColor: '#1e1e1e' },
-        '.cm-content': { caretColor: '#ffffff' },
-        '.cm-gutters': { backgroundColor: '#1e1e1e', color: '#6b7280', border: 'none' },
-        '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,.06)' },
+        '&': { fontSize: '13px', backgroundColor: 'var(--el-bg-color)', color: 'var(--el-text-color-regular)' },
+        '.cm-content': { caretColor: 'var(--el-color-primary)' },
+        '.cm-gutters': { backgroundColor: 'var(--el-fill-color-light)', color: 'var(--el-text-color-secondary)', border: 'none' },
+        '.cm-activeLine': { backgroundColor: 'var(--el-fill-color)' },
         '.cm-editor.cm-focused': { outline: 'none' },
         '.cm-tooltip': {
-          backgroundColor: '#1e1e1e', border: '1px solid #3a3f4b', borderRadius: '6px',
-          overflow: 'hidden' },
+          backgroundColor: 'var(--el-bg-color-overlay)', border: '1px solid var(--el-border-color-light)',
+          borderRadius: '6px', overflow: 'hidden' },
         '.cm-tooltip.cm-tooltip-autocomplete > ul': {
           fontFamily: 'Consolas, Monaco, monospace', maxHeight: '220px',
-          backgroundColor: '#1e1e1e', color: '#c9d1d9' },
+          backgroundColor: 'var(--el-bg-color-overlay)', color: 'var(--el-text-color-regular)' },
         '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {
-          color: '#c9d1d9', padding: '3px 8px' },
+          color: 'var(--el-text-color-regular)', padding: '3px 8px' },
         '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-          backgroundColor: 'rgba(64,158,255,.25)', color: '#ffffff' },
-        '.cm-completionLabel': { color: '#c9d1d9' },
-        '.cm-completionIcon': { color: '#8b949e', paddingRight: '4px' },
+          backgroundColor: 'var(--el-color-primary-light-8)', color: 'var(--el-color-primary)' },
+        '.cm-completionLabel': { color: 'var(--el-text-color-regular)' },
+        '.cm-completionIcon': { color: 'var(--el-text-color-secondary)', paddingRight: '4px' },
       }),
     ],
   })
@@ -333,6 +345,6 @@ defineExpose({ openCreate: () => srcDlg() })
 .db-side { width: 280px; flex: 0 0 280px; overflow: auto; }
 .db-main { flex: 1; overflow: auto; }
 .db-src, .db-acc { padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; }
-.db-src:hover, .db-acc:hover { background: rgba(255,255,255,.06); }
-.db-src.active, .db-acc.active { background: rgba(64,158,255,.15); }
+.db-src:hover, .db-acc:hover { background: var(--el-fill-color-light); }
+.db-src.active, .db-acc.active { background: var(--el-color-primary-light-8); }
 </style>
