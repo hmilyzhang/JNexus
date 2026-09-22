@@ -324,6 +324,7 @@ func SetupRouter() *gin.Engine {
 			dbw.PUT("/accounts/:id", middleware.RequireRole(model.RoleAdmin), UpdateDBAccount)
 			dbw.DELETE("/accounts/:id", middleware.RequireRole(model.RoleAdmin), DeleteDBAccount)
 			dbw.POST("/:id/query", RunDBQueryHandler)
+			dbw.GET("/:id/schema", DBSchema)
 		}
 
 		// Cloud accounts (CSP asset sync): admin-managed, sync requires hosts:create

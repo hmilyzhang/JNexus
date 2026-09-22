@@ -44,7 +44,8 @@ const route = useRoute()
 const router = useRouter()
 const store = useUserStore()
 
-const activeTab = ref(route.params.tab || 'hosts')
+const props = defineProps({ tab: String })
+const activeTab = ref(props.tab || 'hosts')
 const hostsRef = ref(null)
 const dbRef = ref(null)
 const appsRef = ref(null)
@@ -73,6 +74,7 @@ const onAddCommand = type => {
   }, 250))
 }
 
+watch(() => props.tab, v => { if (v && v !== activeTab.value) activeTab.value = v })
 watch(() => route.params.tab, v => { if (v && v !== activeTab.value) activeTab.value = v })
 </script>
 

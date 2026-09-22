@@ -7,10 +7,13 @@ package handler
 // user-group IDs, empty = all). Every query execution is audited.
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -258,4 +261,98 @@ func RunDBQueryHandler(c *gin.Context) {
 func jsonStringOf(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
+}
+
+// dbSchemaCacheEntry caches table/column metadata per source+account
+type dbSchemaCacheEntry struct {
+	tables    []gin.H
+	fetchedAt time.Time
+}
+
+var dbSchemaCacheMu sync.Mutex
+var dbSchemaCache = map[string]dbSchemaCacheEntry{}
+
+// DBSchema GET /api/databases/:id/schema?account_id= — table/column metadata
+// used by the SQL editor completion (cached 5 minutes per source+account)
+func DBSchema(c *gin.Context) {
+	u := currentUser(c)
+	id, _ := strconv.Atoi(c.Param("id"))
+	accountID, _ := strconv.Atoi(c.Query("account_id"))
+	var src model.DbSource
+	if err := model.DB.First(&src, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "数据库源不存在"})
+		return
+	}
+	var account model.DBAccount
+	if err := model.DB.First(&account, accountID).Error; err != nil || account.SourceID != src.ID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "账号不存在或不属于该数据库源"})
+		return
+	}
+	if !accountAllowedFor(u, account) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无权使用该数据库账号"})
+		return
+	}
+	cacheKey := fmt.Sprintf("%d:%d", id, accountID)
+	dbSchemaCacheMu.Lock()
+	entry, cached := dbSchemaCache[cacheKey]
+	dbSchemaCacheMu.Unlock()
+	if cached && time.Since(entry.fetchedAt) < 5*time.Minute {
+		c.JSON(http.StatusOK, gin.H{"tables": entry.tables, "cached": true})
+		return
+	}
+	password, derr := pkg.Decrypt(account.Password)
+	if derr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "解密失败: " + derr.Error()})
+		return
+	}
+	db, err := service.OpenDB(&src, account.Username, password)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "连接失败: " + err.Error()})
+		return
+	}
+	defer db.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var query string
+	switch src.DBType {
+	case "mysql":
+		query = "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = DATABASE() ORDER BY table_name, ordinal_position"
+	case "pgsql":
+		query = "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY table_name, ordinal_position"
+	default:
+		query = "SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS ORDER BY TABLE_NAME, ORDINAL_POSITION"
+	}
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "元数据查询失败: " + err.Error()})
+		return
+	}
+	defer rows.Close()
+	type tbl struct {
+		name    string
+		columns []string
+	}
+	var order []string
+	byName := map[string]*tbl{}
+	for rows.Next() {
+		var tn, cn string
+		if err := rows.Scan(&tn, &cn); err != nil {
+			continue
+		}
+		t, ok := byName[tn]
+		if !ok {
+			t = &tbl{name: tn}
+			byName[tn] = t
+			order = append(order, tn)
+		}
+		t.columns = append(t.columns, cn)
+	}
+	tables := make([]gin.H, 0, len(order))
+	for _, tn := range order {
+		tables = append(tables, gin.H{"name": tn, "columns": byName[tn].columns})
+	}
+	dbSchemaCacheMu.Lock()
+	dbSchemaCache[cacheKey] = dbSchemaCacheEntry{tables: tables, fetchedAt: time.Now()}
+	dbSchemaCacheMu.Unlock()
+	c.JSON(http.StatusOK, gin.H{"tables": tables})
 }

@@ -38,8 +38,7 @@
 
     <!-- right: SQL editor + results -->
     <el-card class="db-main">
-      <el-input v-model="sql" type="textarea" :rows="7" class="mono" :placeholder="$t('db.sqlPh')"
-                @keydown.ctrl.enter.prevent="run" @keydown.meta.enter.prevent="run" />
+      <div ref="editorRef" class="sql-editor mono"></div>
       <div style="display:flex; align-items:center; gap:10px; margin:8px 0">
         <el-button type="primary" :loading="running" :disabled="!sourceId || !accountId" @click="run">
           {{ $t('db.run') }} (Ctrl+Enter)
@@ -51,7 +50,7 @@
           {{ result.affected ? $t('db.affected') + ': ' + result.affected : (result.rows ? $t('db.rows') + ': ' + result.rows.length : '') }}
         </span>
         <span style="flex:1"></span>
-        <el-select v-model="histPick" size="small" :placeholder="$t('db.history')" style="width:220px" @change="h => { sql = h }" clearable>
+        <el-select v-model="histPick" size="small" :placeholder="$t('db.history')" style="width:220px" @change="h => setEditorText(h)" clearable>
           <el-option v-for="h in history" :key="h" :label="h.slice(0, 60)" :value="h" />
         </el-select>
       </div>
@@ -122,8 +121,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { EditorView, keymap as cmKeymap } from '@codemirror/view'
+import { EditorState, Compartment } from '@codemirror/state'
+import { sql as sqlLang, PostgreSQL, MySQL, MSSQL } from '@codemirror/lang-sql'
+	import { autocompletion } from '@codemirror/autocomplete'
+import { defaultKeymap, history as cmHistory, historyKeymap, indentWithTab } from '@codemirror/commands'
 import api from '../api'
 import i18n from '../i18n'
 import { useUserStore } from '../store'
@@ -135,7 +139,9 @@ const accounts = ref([])
 const userGroups = ref([])
 const sourceId = ref(null)
 const accountId = ref(null)
-const sql = ref('')
+const editorRef = ref(null)
+let editorView = null
+let langComp = null
 const running = ref(false)
 const result = ref(null)
 const history = ref([])
@@ -149,6 +155,47 @@ const guardForm = ref({ read_only: false, timeout_sec: 30, max_rows: 1000 })
 
 const currentSource = computed(() => sources.value.find(s => s.id === sourceId.value))
 
+const sqlDialectFor = t2 => ({ pgsql: PostgreSQL, mysql: MySQL, mssql: MSSQL }[t2] || PostgreSQL)
+
+const buildLang = () => {
+  const tables = {}
+  for (const t2 of (schemaTables.value || [])) tables[t2.name] = t2.columns
+  return sqlLang({ dialect: sqlDialectFor(currentDialect.value), upperCaseKeywords: true, schema: tables })
+}
+const reconfigureLang = () => {
+  if (langComp && editorView) editorView.dispatch({ effects: langComp.reconfigure(buildLang()) })
+}
+
+const initEditor = () => {
+  if (editorView) return
+  try {
+  langComp = new Compartment()
+  const state = EditorState.create({
+    doc: '',
+    extensions: [
+      cmHistory(),
+      cmKeymap.of([...historyKeymap, indentWithTab,
+        { key: 'Mod-Enter', run: () => { run(); return true } },
+        { key: 'Ctrl-Enter', run: () => { run(); return true } }]),
+      cmKeymap.of(defaultKeymap),
+      langComp.of(buildLang()),
+      autocompletion(),
+      EditorView.lineWrapping,
+      EditorView.theme({
+        '&': { fontSize: '13px', backgroundColor: '#1e1e1e' },
+        '.cm-content': { caretColor: '#ffffff' },
+        '.cm-gutters': { backgroundColor: '#1e1e1e', color: '#6b7280', border: 'none' },
+        '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,.06)' },
+        '.cm-tooltip.cm-tooltip-autocomplete > ul': {
+          fontFamily: 'Consolas, Monaco, monospace', maxHeight: '220px' },
+      }),
+    ],
+  })
+  editorView = new EditorView({ state, parent: editorRef.value })
+  } catch (e) { window.__cmerr = String((e && e.stack) || e) }
+}
+
+watch(accountId, () => loadSchema())
 const load = async () => {
   loading.value = true
   try {
@@ -156,15 +203,30 @@ const load = async () => {
     userGroups.value = await api.get('/user_groups').catch(() => [])
   } finally { loading.value = false }
 }
-onMounted(load)
+onMounted(() => { load(); initEditor() })
 
-const pickSource = async s => {
-  sourceId.value = s.id
+const schemaTables = ref([])
+const currentDialect = ref('pgsql')
+const schemaLoading = ref(false)
+const loadSchema = async () => {
+  if (!sourceId.value || !accountId.value) { schemaTables.value = []; reconfigureLang(); return }
+  schemaLoading.value = true
+  try {
+    const r = await api.get(`/databases/${sourceId.value}/schema`, { params: { account_id: accountId.value } })
+    schemaTables.value = (r.tables || []).map(x2 => ({ name: x2.name, columns: x2.columns }))
+    currentDialect.value = (sources.value.find(x2 => x2.id === sourceId.value) || {}).db_type || 'pgsql'
+    reconfigureLang()
+  } finally { schemaLoading.value = false }
+}
+
+const pickSource = async s2 => {
+  sourceId.value = s2.id
   accountId.value = null
   result.value = null
-  accounts.value = await api.get(`/databases/${s.id}/accounts`)
+  accounts.value = await api.get(`/databases/${s2.id}/accounts`)
   if (accounts.value.length) accountId.value = accounts.value[0].id
-  guardForm.value = { read_only: !!s.read_only, timeout_sec: s.timeout_sec || 30, max_rows: s.max_rows || 1000 }
+  loadSchema()
+  guardForm.value = { read_only: !!s2.read_only, timeout_sec: s2.timeout_sec || 30, max_rows: s2.max_rows || 1000 }
 }
 
 const accDlg = () => {
@@ -183,6 +245,7 @@ const saveAccount = async () => {
   accVisible.value = false
   accounts.value = await api.get(`/databases/${sourceId.value}/accounts`)
 }
+onBeforeUnmount(() => { try { editorView?.destroy() } catch { /* ignore */ } })
 const delAccount = async a => {
   await api.delete(`/databases/accounts/${a.id}`)
   accounts.value = accounts.value.filter(x => x.id !== a.id)
@@ -213,13 +276,20 @@ const saveSource = async () => {
   pickSource(sources.value.find(x => x.id === r.id) || { id: r.id })
 }
 
+const editorText = () => (editorView ? editorView.state.doc.toString() : '')
+const setEditorText = t2 => {
+  if (!editorView) return
+  editorView.dispatch({ changes: { from: 0, to: editorView.state.doc.length, insert: t2 || '' } })
+}
+
 const run = async () => {
-  if (!sourceId.value || !accountId.value || !sql.value.trim()) return
+  if (!sourceId.value || !accountId.value || !editorText().trim()) return
   running.value = true
   try {
-    const r = await api.post(`/databases/${sourceId.value}/query`, { account_id: accountId.value, sql: sql.value })
+    const r = await api.post(`/databases/${sourceId.value}/query`, { account_id: accountId.value, sql: editorText() })
     result.value = r
-    if (!history.value.includes(sql.value)) history.value.unshift(sql.value)
+    const cur = editorText()
+    if (!history.value.includes(cur)) history.value.unshift(cur)
   } catch { /* surfaced by the interceptor */ }
   finally { running.value = false }
 }
