@@ -406,6 +406,10 @@ type Monitor struct {
 	CreatedBy      string     `gorm:"size:64" json:"created_by"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
+	// HTTPS certificate lifecycle (app monitors with https targets)
+	CertNotAfter  *time.Time `json:"cert_not_after"`
+	CertWarnFired bool       `json:"cert_warn_fired"`
+	CertCritFired bool       `json:"cert_crit_fired"`
 }
 
 // MonitorSample monitoring heartbeat sample (status + latency history, used for the heartbeat bar and uptime rate)

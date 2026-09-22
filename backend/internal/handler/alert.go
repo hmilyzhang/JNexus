@@ -113,12 +113,15 @@ func UpdateAlertRule(c *gin.Context) {
 	var req struct {
 		GraceSec       int  `json:"grace_sec"`
 		NotifyRecovery bool `json:"notify_recovery"`
+		CertWarnDays   int  `json:"cert_warn_days"`
+		CertCritDays   int  `json:"cert_crit_days"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 		return
 	}
-	rule := service.AlertRule{GraceSec: req.GraceSec, NotifyRecovery: req.NotifyRecovery}
+	rule := service.AlertRule{GraceSec: req.GraceSec, NotifyRecovery: req.NotifyRecovery,
+		CertWarnDays: req.CertWarnDays, CertCritDays: req.CertCritDays}
 	if err := service.SaveAlertRule(rule); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

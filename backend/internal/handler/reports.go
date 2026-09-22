@@ -93,6 +93,49 @@ func ExportReport(c *gin.Context) {
 	stamp := time.Now().Format("20060102_150405")
 	format := c.DefaultQuery("format", "log")
 
+	if format == "html" {
+		// Merged printable report: one document covering all target hosts
+		tpl, terr := service.FindReportTemplate(report.Template)
+		tplName := report.Template
+		if terr == nil {
+			tplName = tpl.Name
+		}
+		okCount := 0
+		for _, it := range items {
+			if it.Status != "failed" {
+				okCount++
+			}
+		}
+		var sb strings.Builder
+		sb.WriteString(`<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><title>`)
+		sb.WriteString(htmlEsc(fmt.Sprintf("JNexus 合并采集报告 #%d — %s", report.ID, tplName)))
+		sb.WriteString(`</title><style>
+body{font-family:'Segoe UI',system-ui,sans-serif;margin:32px;color:#1f2328}
+h1{font-size:20px;border-bottom:2px solid #409eff;padding-bottom:8px}
+.meta{color:#6b7280;font-size:13px;margin-bottom:18px}
+h2{font-size:15px;margin:22px 0 8px;padding:6px 10px;background:#f0f4fa;border-left:4px solid #409eff}
+pre{background:#f8f9fb;border:1px solid #e4e7ed;border-radius:6px;padding:12px;white-space:pre-wrap;word-break:break-word;font-size:12px}
+.failed h2{background:#fdf0f0;border-left-color:#f56c6c}
+.bad{color:#f56c6c;font-weight:600}
+@media print{body{margin:8mm}pre{page-break-inside:avoid}}
+</style></head><body>`)
+		sb.WriteString(htmlEsc(fmt.Sprintf("<h1>JNexus 合并采集报告 #%d — %s</h1>", report.ID, tplName)))
+		sb.WriteString(htmlEsc(fmt.Sprintf("<div class='meta'>操作人: %s · 时间: %s · 目标主机: %d 台 · 成功: %d</div>",
+			report.Operator, report.CreatedAt.Format("2006-01-02 15:04"), len(items), okCount)))
+		for _, it := range items {
+			st, cls := "成功", ""
+			if it.Status == "failed" {
+				st, cls = "失败", "failed"
+			}
+			sb.WriteString(fmt.Sprintf("<div%s><h2>[%s] %s (%s)</h2><pre>%s</pre></div>",
+				cls, htmlEsc(st), htmlEsc(it.HostName), htmlEsc(it.HostIP), htmlEscPre(it.Content)))
+		}
+		sb.WriteString("</body></html>")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=report-%d-merged.html", int(report.ID)))
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(sb.String()))
+		return
+	}
+
 	if format == "csv" {
 		var sb strings.Builder
 		sb.WriteString("\uFEFF")
@@ -280,4 +323,68 @@ func ReportAccountsMatrix(c *gin.Context) {
 		"suspicious": suspicious,
 		"old_format": len(items) > 0 && oldFormat == len(items),
 	})
+}
+
+
+// htmlEscPre escapes text for safe embedding into an HTML <pre> block
+func htmlEscPre(s string) string {
+	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
+	return r.Replace(s)
+}
+
+func htmlEsc(s string) string {
+	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "'", "&#39;", "\"", "&#34;")
+	return r.Replace(s)
+}
+
+
+// ---- Ports & certificates matrix (host x port/cert summary for portcert reports) ----
+
+// PortsMatrix GET /api/reports/ports-matrix/:id — parses the portcert preset
+// output per host into a structured summary (listening/https ports, cert files)
+func PortsMatrix(c *gin.Context) {
+	report, items, ok := findReport(c)
+	if !ok {
+		return
+	}
+	if report.Template != "portcert" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "仅端口&证书报告支持矩阵视图"})
+		return
+	}
+	type portRow struct {
+		Host      string   `json:"host"`
+		IP        string   `json:"ip"`
+		Status    string   `json:"status"`
+		Ports     int      `json:"ports"`
+		HTTPS     int      `json:"https"`
+		CertValid int      `json:"cert_valid"`
+		CertExpired int    `json:"cert_expired"`
+		Expired   []string `json:"expired"`
+	}
+	out := make([]portRow, 0, len(items))
+	for _, it := range items {
+		itRow := portRow{Host: it.HostName, IP: it.HostIP, Status: it.Status}
+		var https, total, valid, expired int
+		var expFiles []string
+		for _, line := range strings.Split(it.Content, "\n") {
+			line = strings.TrimSpace(line)
+			switch {
+			case strings.HasPrefix(line, "port "):
+				total++
+				if strings.Contains(line, "https") {
+					https++
+				}
+			case strings.HasPrefix(line, "EXPIRED"):
+				expired++
+				expFiles = append(expFiles, strings.TrimSpace(strings.TrimPrefix(line, "EXPIRED")))
+			case strings.HasPrefix(line, "-- Certificate files:"):
+				fmt.Sscanf(line, "-- Certificate files: %d valid", &valid)
+			}
+		}
+		itRow.CertValid = valid
+		itRow.CertExpired = expired
+		itRow.Expired = expFiles
+		out = append(out, itRow)
+	}
+	c.JSON(http.StatusOK, out)
 }

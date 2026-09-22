@@ -76,7 +76,8 @@
                 {{ row.monitor.name }}
                 <el-tag size="small" type="info" style="margin-left:6px">{{ typeLabel(row.monitor.type) }}</el-tag>
                 <el-tag v-if="!row.monitor.enabled" size="small" type="warning" style="margin-left:6px">{{ $t('monitor.paused') }}</el-tag>
-              </div>
+              <el-tag v-if="row.monitor.cert_not_after" size="small" :type="certBadge(row.monitor.cert_not_after).type"
+                        style="margin-left:6px">{{ $t('monitor.certDaysLeft') }} {{ certDaysLeft(row.monitor.cert_not_after) }}{{ $t('monitor.days') }}</el-tag></div>
               <div style="color:#909399; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis"
                    :title="row.monitor.last_error || ''">
                 {{ monitorTarget(row.monitor) }}<span v-if="row.monitor.last_error" style="color:#f56c6c"> — {{ row.monitor.last_error }}</span>
@@ -227,6 +228,14 @@
             <el-form-item :label="$t('monitor.ruleRecovery')">
               <el-switch v-model="alertRule.notify_recovery" />
               <div style="color:#909399; font-size:12px">{{ $t('monitor.ruleRecoveryTip') }}</div>
+            </el-form-item>
+            <el-form-item :label="$t('monitor.certWarnDays')">
+              <el-input-number v-model="alertRule.cert_warn_days" :min="1" :max="365" />
+              <div style="color:#909399; font-size:12px; margin-left:10px">{{ $t('monitor.certWarnTip') }}</div>
+            </el-form-item>
+            <el-form-item :label="$t('monitor.certCritDays')">
+              <el-input-number v-model="alertRule.cert_crit_days" :min="1" :max="365" />
+              <div style="color:#909399; font-size:12px; margin-left:10px">{{ $t('monitor.certCritTip') }}</div>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="ruleSaving" @click="saveAlertRule">{{ $t('common.save') }}</el-button>
@@ -1123,7 +1132,16 @@ const saveCmdLevels = async () => {
 }
 
 // ---- Alert rules (global) ----
-const alertRule = reactive({ mode: 'grace', grace_sec: 60, notify_recovery: true })
+const certDaysLeft = na => Math.ceil((new Date(na).getTime() - Date.now()) / 86400000)
+const certBadge = na => {
+  const d = certDaysLeft(na)
+  if (d < 0) return { type: 'danger' }
+  if (d <= 7) return { type: 'danger' }
+  if (d <= 30) return { type: 'warning' }
+  return { type: 'success' }
+}
+
+const alertRule = reactive({ mode: 'grace', grace_sec: 60, notify_recovery: true, cert_warn_days: 30, cert_crit_days: 7 })
 const ruleSaving = ref(false)
 const loadAlertRule = async () => {
   Object.assign(alertRule, await api.get('/alert_rules'))

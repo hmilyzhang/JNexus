@@ -56,8 +56,9 @@ func statusAccepted(code int, accepted string) bool {
 	return false
 }
 
-// CheckMonitor runs one monitor check: returns (ok, response ms, error message)
-func CheckMonitor(m *model.Monitor) (bool, int, string) {
+// CheckMonitor runs one monitor check: returns (ok, response ms, error message, cert expiry)
+// cert expiry is non-nil only for https targets
+func CheckMonitor(m *model.Monitor) (bool, int, string, *time.Time) {
 	timeout := time.Duration(m.TimeoutSec) * time.Second
 	if timeout <= 0 {
 		timeout = 10 * time.Second
@@ -67,18 +68,20 @@ func CheckMonitor(m *model.Monitor) (bool, int, string) {
 	case "http":
 		return checkHTTP(m, timeout, start)
 	case "tcp":
-		return checkTCP(m, timeout, start)
+		up, ms, msg := checkTCP(m, timeout, start)
+		return up, ms, msg, nil
 	case "ping":
-		return checkPing(m, timeout, start)
+		up, ms, msg := checkPing(m, timeout, start)
+		return up, ms, msg, nil
 	default:
-		return false, 0, "未知监控类型: " + m.Type
+		return false, 0, "未知监控类型: " + m.Type, nil
 	}
 }
 
-func checkHTTP(m *model.Monitor, timeout time.Duration, start time.Time) (bool, int, string) {
+func checkHTTP(m *model.Monitor, timeout time.Duration, start time.Time) (bool, int, string, *time.Time) {
 	url := strings.TrimSpace(m.Target)
 	if url == "" {
-		return false, 0, "URL 不能为空"
+		return false, 0, "URL 不能为空", nil
 	}
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "http://" + url
@@ -91,17 +94,23 @@ func checkHTTP(m *model.Monitor, timeout time.Duration, start time.Time) (bool, 
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
-		return false, 0, "URL 非法: " + err.Error()
+		return false, 0, "URL 非法: " + err.Error(), nil
 	}
 	req.Header.Set("User-Agent", "JNexus-Monitor/1.0")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return false, 0, err.Error()
+		return false, 0, err.Error(), nil
+	}
+	// HTTPS: capture the leaf certificate expiry for lifecycle tracking
+	var certNotAfter *time.Time
+	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
+		na := resp.TLS.PeerCertificates[0].NotAfter
+		certNotAfter = &na
 	}
 	defer resp.Body.Close()
 	ms := int(time.Since(start).Milliseconds())
 	if !statusAccepted(resp.StatusCode, m.AcceptedStatus) {
-		return false, ms, fmt.Sprintf("HTTP %d 不在允许范围", resp.StatusCode)
+		return false, ms, fmt.Sprintf("HTTP %d 不在允许范围", resp.StatusCode), certNotAfter
 	}
 	if m.Keyword != "" {
 		buf := make([]byte, 0, 1<<20)
@@ -115,13 +124,13 @@ func checkHTTP(m *model.Monitor, timeout time.Duration, start time.Time) (bool, 
 		}
 		contain := strings.Contains(string(buf), m.Keyword)
 		if m.KeywordType == "absent" && contain {
-			return false, ms, "响应包含不应出现的关键字: " + m.Keyword
+			return false, ms, "响应包含不应出现的关键字: " + m.Keyword, certNotAfter
 		}
 		if m.KeywordType != "absent" && !contain {
-			return false, ms, "响应未包含关键字: " + m.Keyword
+			return false, ms, "响应未包含关键字: " + m.Keyword, certNotAfter
 		}
 	}
-	return true, ms, ""
+	return true, ms, "", certNotAfter
 }
 
 func checkTCP(m *model.Monitor, timeout time.Duration, start time.Time) (bool, int, string) {
@@ -169,8 +178,8 @@ func checkPing(m *model.Monitor, timeout time.Duration, start time.Time) (bool, 
 
 // RunMonitorOnce runs the monitor check, persists the result (status + heartbeat sample), then evaluates alert rules for push.
 // Inside a maintenance window: a down sample is recorded as maint (excluded from availability, gray heartbeat) and no alert evaluation runs.
-func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
-	up, ms, errMsg := CheckMonitor(m)
+func RunMonitorOnce(m *model.Monitor) (bool, int, string, *time.Time) {
+	up, ms, errMsg, certExp := CheckMonitor(m)
 	status := "down"
 	if up {
 		status = "up"
@@ -187,10 +196,17 @@ func RunMonitorOnce(m *model.Monitor) (bool, int, string) {
 	}
 	model.DB.Model(m).Updates(updates)
 	model.DB.Create(&model.MonitorSample{MonitorID: m.ID, Status: sampleStatus, RespMs: ms, Error: errMsg, CreatedAt: now})
+	if certExp != nil {
+		model.DB.Model(m).Updates(map[string]any{"cert_not_after": certExp,
+			"cert_warn_fired": false, "cert_crit_fired": false})
+		if !inMaint {
+			EvaluateCertExpiry(m, *certExp, now)
+		}
+	}
 	if !inMaint {
 		EvaluateAlertRules(m, oldStatus, status, ms, errMsg, now)
 	}
-	return up, ms, errMsg
+	return up, ms, errMsg, certExp
 }
 
 // EvaluateAlertRules is the global alert rule engine (applies to all monitors):
@@ -227,19 +243,74 @@ func EvaluateAlertRules(m *model.Monitor, oldStatus, status string, ms int, errM
 	model.DB.Model(m).Updates(map[string]any{"alert_fired": false, "down_since": nil})
 }
 
+// EvaluateCertExpiry checks the HTTPS certificate expiry against the global
+// thresholds and pushes tiered alerts (warn / critical) to the monitor's bound
+// channels. Flags on the monitor row dedupe repeated alerts per tier; they
+// reset automatically once the certificate is renewed past the warn tier.
+func EvaluateCertExpiry(m *model.Monitor, notAfter time.Time, now time.Time) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("[cert-expiry] evaluate panic:", r)
+		}
+	}()
+	rule := LoadAlertRule()
+	days := int(time.Until(notAfter).Hours() / 24)
+	level := 0 // 0 = ok, 1 = warn, 2 = critical, 3 = expired
+	if days < 0 {
+		level = 3
+	} else if days <= rule.CertCritDays {
+		level = 2
+	} else if days <= rule.CertWarnDays {
+		level = 1
+	}
+
+	if level == 0 {
+		// renewed: clear fired flags silently
+		if m.CertWarnFired || m.CertCritFired {
+			model.DB.Model(m).Updates(map[string]any{"cert_warn_fired": false, "cert_crit_fired": false})
+		}
+		return
+	}
+	// dedupe per tier: re-alert only on escalation to critical
+	if (level == 1 && m.CertWarnFired) || (level == 2 && m.CertCritFired) {
+		return
+	}
+	SendCertAlert(m, level, days, notAfter)
+	if level == 1 {
+		model.DB.Model(m).Updates(map[string]any{"cert_warn_fired": true})
+	} else {
+		model.DB.Model(m).Updates(map[string]any{"cert_crit_fired": true})
+	}
+	LogAlertEvent("cert_expiry", map[int]string{1: "warn", 2: "crit", 3: "crit"}[level], m.Name,
+		fmt.Sprintf("HTTPS 证书剩余 %d 天（%s 到期）", days, notAfter.Format("2006-01-02")))
+}
+
 // AlertRule is the global alert rule (stored in system config, applies to all monitors)
 type AlertRule struct {
 	GraceSec       int  `json:"grace_sec"`       // down threshold in seconds, 0 = immediate
 	NotifyRecovery bool `json:"notify_recovery"` // recovery notification switch
+	CertWarnDays   int  `json:"cert_warn_days"`  // HTTPS cert expiry warn threshold (days), 0 = 30
+	CertCritDays   int  `json:"cert_crit_days"`  // HTTPS cert expiry critical threshold (days), 0 = 7
 }
 
 // LoadAlertRule reads the global alert rule
 func LoadAlertRule() AlertRule {
 	m := SystemConfigMap()
-	r := AlertRule{NotifyRecovery: m["alert_rule_notify_recovery"] != "false"}
+	r := AlertRule{NotifyRecovery: m["alert_rule_notify_recovery"] != "false", CertWarnDays: 30, CertCritDays: 7}
 	fmt.Sscanf(m["alert_rule_grace_sec"], "%d", &r.GraceSec)
 	if r.GraceSec < 0 {
 		r.GraceSec = 60
+	}
+	fmt.Sscanf(m["alert_rule_cert_warn_days"], "%d", &r.CertWarnDays)
+	fmt.Sscanf(m["alert_rule_cert_crit_days"], "%d", &r.CertCritDays)
+	if r.CertWarnDays <= 0 {
+		r.CertWarnDays = 30
+	}
+	if r.CertCritDays <= 0 {
+		r.CertCritDays = 7
+	}
+	if r.CertCritDays > r.CertWarnDays {
+		r.CertCritDays = r.CertWarnDays
 	}
 	return r
 }
@@ -252,6 +323,8 @@ func SaveAlertRule(r AlertRule) error {
 	for _, kv := range [][2]string{
 		{"alert_rule_grace_sec", strconv.Itoa(r.GraceSec)},
 		{"alert_rule_notify_recovery", map[bool]string{true: "true", false: "false"}[r.NotifyRecovery]},
+		{"alert_rule_cert_warn_days", strconv.Itoa(r.CertWarnDays)},
+		{"alert_rule_cert_crit_days", strconv.Itoa(r.CertCritDays)},
 	} {
 		if err := model.DB.Save(&model.SystemConfig{Key: kv[0], Value: kv[1]}).Error; err != nil {
 			return err

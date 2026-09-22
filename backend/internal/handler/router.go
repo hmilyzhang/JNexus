@@ -260,6 +260,7 @@ func SetupRouter() *gin.Engine {
 			reports.GET("", ListReports)
 			reports.GET("/:id", GetReport)
 			reports.GET("/accounts-matrix/:id", ReportAccountsMatrix)
+			reports.GET("/ports-matrix/:id", PortsMatrix)
 			reports.GET("/:id/export", ExportReport)
 			reports.POST("", CreateReport)
 			reports.DELETE("/:id", middleware.RequireRole(), DeleteReport)

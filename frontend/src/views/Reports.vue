@@ -63,6 +63,22 @@
           <el-button size="small" @click="download('csv')">{{ $t('tasks.exportCsv') }}</el-button>
         </div>
 
+        <!-- Ports & certificates matrix (portcert template only) -->
+        <template v-if="detail?.report?.template === 'portcert'">
+          <div style="display:flex; align-items:center; gap:10px; margin:6px 0 10px">
+            <span style="font-weight:600">{{ $t('report.portsMatrixTitle') }}</span>
+            <el-button size="small" :loading="portsMatrixLoading" @click="loadPortsMatrix">{{ $t('common.refresh') }}</el-button>
+          </div>
+          <el-table :data="portsMatrix" size="small" border style="margin-bottom:14px">
+            <el-table-column prop="host" :label="$t('hosts.name')" min-width="120" />
+            <el-table-column prop="ip" :label="$t('hosts.ip')" min-width="110" />
+            <el-table-column prop="ports" :label="$t('report.portsTotal')" width="90" align="center" />
+            <el-table-column prop="https" :label="$t('report.portsHttps')" width="90" align="center" />
+            <el-table-column prop="cert_valid" :label="$t('report.certValid')" width="90" align="center" />
+            <el-table-column prop="cert_expired" :label="$t('report.certExpired')" width="100" align="center" />
+          </el-table>
+        </template>
+
         <!-- Cross-host account comparison (accounts template only) -->
         <template v-if="detail?.report?.template === 'accounts'">
           <div style="display:flex; gap:10px; align-items:center; margin:6px 0 10px">
@@ -184,6 +200,8 @@ const reportLabel = r => {
 }
 // ---- Cross-host account comparison ----
 const acctMatrix = ref({})
+const portsMatrix = ref([])
+const portsMatrixLoading = ref(false)
 const acctDiffOnly = ref(false)
 const acctRows = computed(() => {
   const accounts = acctMatrix.value.accounts || []
@@ -211,6 +229,12 @@ const openDetail = async row => {
   detailVisible.value = true
   pollDetail(row.id)
   if (detail.value?.report?.template === 'accounts') loadAcctMatrix(row.id)
+  if (detail.value?.report?.template === 'portcert') loadPortsMatrix(row.id)
+}
+
+const loadPortsMatrix = async id => {
+  portsMatrixLoading.value = true
+  try { portsMatrix.value = await api.get(`/reports/ports-matrix/${id}`) } finally { portsMatrixLoading.value = false }
 }
 const pollDetail = id => {
   clearInterval(pollTimer)

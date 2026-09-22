@@ -257,8 +257,13 @@ func TestMonitor(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "无权测试该监控项"})
 		return
 	}
-	up, ms, errMsg := service.RunMonitorOnce(&m)
-	c.JSON(http.StatusOK, gin.H{"up": up, "resp_ms": ms, "error": errMsg})
+	up, ms, errMsg, certExp := service.RunMonitorOnce(&m)
+	resp := gin.H{"up": up, "resp_ms": ms, "error": errMsg}
+	if certExp != nil {
+		resp["cert_not_after"] = certExp
+		resp["cert_days_left"] = int(time.Until(*certExp).Hours() / 24)
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // MonitorHistory sample history for one monitor (?hours=24, max 720; aggregated hourly beyond 48h)
