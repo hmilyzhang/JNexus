@@ -1,7 +1,7 @@
 <!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
-  <div>
-    <el-card>
+  <div class="osac-page">
+    <el-card class="osac-card">
       <div style="margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center">
         <el-select v-model="hostFilter" :placeholder="$t('menu.hosts')" style="width:200px" clearable filterable @change="load">
           <el-option v-for="h in hosts" :key="h.id" :label="`${h.name} · ${h.ip}`" :value="h.id" />
@@ -24,7 +24,8 @@
                    @click="batchDelCreds">{{ $t('k8s.batchDelete') }}{{ selRows.length ? ` (${selRows.length})` : '' }}</el-button>
       </div>
 
-      <el-table :data="filtered" v-loading="loading" size="small" border :row-class-name="rowClass"
+      <div class="table-wrap">
+      <el-table :data="pagedRows" v-loading="loading" size="small" border :row-class-name="rowClass" height="100%"
                 @selection-change="s => (selRows = s)">
         <el-table-column type="selection" width="38" />
         <el-table-column :label="$t('menu.hosts')" min-width="150">
@@ -34,7 +35,7 @@
             <span v-else class="mono">{{ row.host_ip }} <span style="color:var(--el-text-color-secondary)">({{ $t('osac.unnamedHost') }})</span></span>
           </template>
         </el-table-column>
-        <el-table-column prop="username" :label="$t('hosts.credUser')" width="120" />
+        <el-table-column prop="username" :label="$t('hosts.credUser')" min-width="140" show-overflow-tooltip />
         <el-table-column prop="label" :label="$t('hosts.credLabel')" width="120" />
         <el-table-column :label="$t('hosts.auth')" width="80">
           <template #default="{ row }">{{ row.auth_type === 'key' ? $t('hosts.authKey') : $t('hosts.authPassword') }}</template>
@@ -85,6 +86,12 @@
           </template>
         </el-table-column>
       </el-table>
+        </div>
+        <div class="osac-pager">
+          <el-pagination v-model:current-page="pageNum" v-model:page-size="pageSize"
+                         :total="filtered.length" :page-sizes="[10, 20, 50, 100, 200]"
+                         layout="total, sizes, prev, pager, next, jumper" small background />
+        </div>
     </el-card>
 
     <!-- Add / edit account -->
@@ -262,7 +269,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
 import { groupLabel } from '../utils/groupPath'
@@ -350,6 +357,16 @@ const isFailed = row => row.rotate_enabled && (row.last_rotation_result || '').i
 const fmtTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '-')
 const rowClass = ({ row }) => (isFailed(row) ? 'fail-row' : '')
 
+const pageNum = ref(1)
+const pageSize = ref(20)
+const pagedRows = computed(() => {
+  const start = (pageNum.value - 1) * pageSize.value
+  return filtered.value.slice(start, start + pageSize.value)
+})
+watch(() => filtered.value.length, n => {
+  const maxPage = Math.max(1, Math.ceil(n / pageSize.value))
+  if (pageNum.value > maxPage) pageNum.value = maxPage
+})
 const filtered = computed(() => {
   let list = [...rows.value]
   // Failed items first
@@ -562,5 +579,12 @@ const runBatch = async () => {
 </script>
 
 <style scoped>
+/* fill the viewport: table scrolls internally, pager always visible */
+.osac-page { display: flex; flex-direction: column; height: calc(100vh - 92px); }
+.osac-card { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.osac-card :deep(.el-card__body) { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.table-wrap { flex: 1 1 0; min-height: 0; }
+.osac-pager { flex: 0 0 auto; display: flex; justify-content: flex-end; margin-top: 10px; }
+
 :deep(.fail-row) { background: var(--el-color-danger-light-9); }
 </style>
