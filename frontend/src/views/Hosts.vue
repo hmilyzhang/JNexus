@@ -566,19 +566,13 @@ const treeData = computed(() => {
 
 // Group expansion survives data reloads: any node click refetches hosts/groups and rebuilds
 // treeData, and el-tree re-creates every node, so expansion state must be fed back explicitly.
-// seenGroupKeys prevents a freshly collapsed group from being re-expanded by the seed pass.
+// Groups start COLLAPSED: expandedKeys is only ever filled by onNodeExpand, so the
+// user-controlled expansion survives data refreshes (never auto-seeded).
 // IMPORTANT: mutate expandedKeys in place — reassigning a new array fires el-tree's
 // default-expanded-keys watcher, whose setDefaultExpandedKeys() re-runs node.expand(null,
 // autoExpandParent) for every key, forcing ancestors back open (a child group's key would
 // instantly re-expand its collapsed parent, e.g. perfgrp/hhi).
 const expandedKeys = ref([])
-const seenGroupKeys = new Set()
-const collectGroupKeys = nodes => nodes.flatMap(n => n.type === 'group' ? [n.key, ...collectGroupKeys(n.children || [])] : [])
-watch(treeData, nodes => {
-  for (const k of collectGroupKeys(nodes)) {
-    if (!seenGroupKeys.has(k)) { seenGroupKeys.add(k); expandedKeys.value.push(k) }
-  }
-}, { immediate: true })
 const onNodeExpand = data => { if (!expandedKeys.value.includes(data.key)) expandedKeys.value.push(data.key) }
 const onNodeCollapse = data => {
   const i = expandedKeys.value.indexOf(data.key)
