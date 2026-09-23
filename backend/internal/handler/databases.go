@@ -319,6 +319,8 @@ func DBSchema(c *gin.Context) {
 		query = "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = DATABASE() ORDER BY table_name, ordinal_position"
 	case "pgsql":
 		query = "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY table_name, ordinal_position"
+	case "oracle":
+		query = "SELECT table_name, column_name FROM user_tab_columns ORDER BY table_name, column_id"
 	default:
 		query = "SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS ORDER BY TABLE_NAME, ORDINAL_POSITION"
 	}

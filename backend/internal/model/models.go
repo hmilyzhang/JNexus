@@ -592,7 +592,7 @@ type CloudAccount struct {
 type DbSource struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`
 	Name        string     `gorm:"size:64;uniqueIndex" json:"name"`
-	DBType      string     `gorm:"size:16" json:"db_type"` // mysql / mssql / pgsql
+	DBType      string     `gorm:"size:16" json:"db_type"` // mysql / mssql / pgsql / oracle
 	Host        string     `gorm:"size:128" json:"host"`
 	Port        int        `json:"port"`
 	Username    string     `gorm:"size:64" json:"username"`

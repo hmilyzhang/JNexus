@@ -111,10 +111,11 @@
       <el-form label-width="90px">
         <el-form-item :label="$t('webapp.name')"><el-input v-model="srcForm.name" /></el-form-item>
         <el-form-item :label="$t('db.type')">
-          <el-select v-model="srcForm.db_type" style="width:100%">
+          <el-select v-model="srcForm.db_type" style="width:100%" @change="onTypeChange">
             <el-option label="PostgreSQL" value="pgsql" />
             <el-option label="MySQL" value="mysql" />
             <el-option label="SQL Server" value="mssql" />
+            <el-option label="Oracle" value="oracle" />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('hosts.ip')"><el-input v-model="srcForm.host" class="mono" /></el-form-item>
@@ -171,7 +172,12 @@ const currentSource = computed(() => sources.value.find(s => s.id === sourceId.v
 const isNumericType = ty => /int|numeric|dec|float|real|double|number|serial|money/i.test(ty || '')
 const shortType = ty => (ty || '').replace(/(varchar|character varying|timestamp with time zone|timestamp without time zone)/i, 'str').slice(0, 10)
 
-const sqlDialectFor = t2 => ({ pgsql: PostgreSQL, mysql: MySQL, mssql: MSSQL }[t2] || PostgreSQL)
+const sqlDialectFor = t2 => ({ pgsql: PostgreSQL, mysql: MySQL, mssql: MSSQL }[t2] || (t2 === 'oracle' ? sqlLang() : PostgreSQL))
+
+// switching type (user action) snaps the port to that engine's default -
+// a watcher would also fire when the edit dialog opens and clobber stored ports
+const dbDefaultPorts = { pgsql: 5432, mysql: 3306, mssql: 1433, oracle: 1521 }
+const onTypeChange = t2 => { if (dbDefaultPorts[t2]) srcForm.value.port = dbDefaultPorts[t2] }
 
 const buildLang = () => {
   const tables = {}

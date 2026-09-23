@@ -378,7 +378,7 @@ gateway address derivation).
 
 **Entry: Assets → Databases**
 
-- **Sources**: register MySQL / SQL Server / PostgreSQL instances (AES-encrypted credentials, shared with OpenObserve ingestion); each source can hold **multiple accounts** with per-user-group authorization (read-only for monitoring, read-write for DBAs);
+- **Sources**: register MySQL / SQL Server / PostgreSQL / Oracle instances (AES-encrypted credentials, shared with OpenObserve ingestion; Oracle uses the pure-Go go-ora driver - no Instant Client required, the Database field holds the service name, default port 1521); each source can hold **multiple accounts** with per-user-group authorization (read-only for monitoring, read-write for DBAs);
 - **SQL editor**: CodeMirror 6 with **schema-aware completion** (tables / columns / keywords, 5-minute schema cache), syntax highlighting, Ctrl+Enter execution, theme-adaptive colors;
 - **Result grid**: row numbers, per-column type badges, right-aligned numerics, dimmed NULLs, CSV export;
 - **Guardrails**: per-source **read-only mode**; dangerous-SQL interception (DROP/TRUNCATE, UPDATE/DELETE without WHERE, ...); statement timeout and row cap; **every statement audited** (SQL, account, source IP, duration, rows).

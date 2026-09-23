@@ -15,9 +15,12 @@ import (
 	"jnexus/internal/model"
 	"jnexus/internal/pkg"
 
+	go_ora "github.com/sijms/go-ora/v2"
+
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/microsoft/go-mssqldb"
+	_ "github.com/sijms/go-ora/v2"
 )
 
 // ListDbSources returns all sources with passwords masked
@@ -54,8 +57,12 @@ func SaveDbSource(src *model.DbSource) error {
 		if src.Port == 0 {
 			src.Port = 5432
 		}
+	case "oracle":
+		if src.Port == 0 {
+			src.Port = 1521
+		}
 	default:
-		return fmt.Errorf("db_type must be mysql / mssql / pgsql")
+		return fmt.Errorf("db_type must be mysql / mssql / pgsql / oracle")
 	}
 	src.DBType = strings.ToLower(src.DBType)
 	if src.Host == "" || src.Database == "" {
@@ -135,6 +142,9 @@ func dbSourceOpen(d *model.DbSource) (*sql.DB, error) {
 	case "pgsql":
 		driver = "pgx"
 		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?connect_timeout=10&sslmode=disable", d.Username, d.Password, d.Host, d.Port, d.Database)
+	case "oracle":
+		driver = "oracle"
+		dsn = go_ora.BuildUrl(d.Host, d.Port, d.Database, d.Username, d.Password, nil)
 	default:
 		return nil, fmt.Errorf("unsupported db_type %q", d.DBType)
 	}

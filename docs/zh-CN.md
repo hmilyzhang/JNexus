@@ -353,7 +353,7 @@ location / {
 
 **入口：资产管理 → 数据库**
 
-- **数据库源**：注册 MySQL / SQL Server / PostgreSQL 实例（凭据 AES 加密，与 OpenObserve 采集共用连接信息）；每源可登记**多个账号**并按用户组授权使用（如监控用只读、DBA 用读写）；
+- **数据库源**：注册 MySQL / SQL Server / PostgreSQL / Oracle 实例（凭据 AES 加密，与 OpenObserve 采集共用连接信息；Oracle 走纯 Go 驱动 go-ora，无需装 Instant Client，Database 字段填服务名，默认端口 1521）；每源可登记**多个账号**并按用户组授权使用（如监控用只读、DBA 用读写）；
 - **SQL 编辑器**：CodeMirror 6，**schema 感知补全**（表 / 列 / 关键字，表结构 5 分钟缓存）、语法高亮、Ctrl+Enter 执行、深浅色主题自适应；
 - **结果网格**：行号、列类型徽标、数值右对齐、NULL 弱化显示、CSV 导出；
 - **安全护栏**：每源可开**只读模式**；危险 SQL（DROP/TRUNCATE、无 WHERE 的 UPDATE/DELETE 等）拦截确认；语句超时与返回行数上限；**每条语句全量审计**（语句、账号、来源 IP、耗时、行数）。

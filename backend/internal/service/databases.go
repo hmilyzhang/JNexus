@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"jnexus/internal/model"
+
+	go_ora "github.com/sijms/go-ora/v2"
 )
 
 // OpenDB opens a connection for the given source using a specific account.
@@ -30,6 +32,11 @@ func OpenDB(d *model.DbSource, username, password string) (*sql.DB, error) {
 	case "pgsql":
 		driver = "pgx"
 		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?connect_timeout=10&sslmode=disable", username, password, d.Host, d.Port, d.Database)
+	case "oracle":
+		// pure-Go Oracle driver (no Instant Client needed); BuildUrl escapes
+		// user/password/service so special characters are safe
+		driver = "oracle"
+		dsn = go_ora.BuildUrl(d.Host, d.Port, d.Database, username, password, nil)
 	default:
 		return nil, fmt.Errorf("unsupported db_type %q", d.DBType)
 	}
@@ -77,9 +84,23 @@ func statementKind(sqlText string) string {
 	return strings.ToUpper(fields[0])
 }
 
+var oracleWithSelectRe = regexp.MustCompile(`(?i)\bselect\b`)
+var oracleWithDMLRe = regexp.MustCompile(`(?i)\b(insert|update|delete|merge)\b`)
+
+func isReading(dbType, kind, sqlText string) bool {
+	if kind == "SELECT" || kind == "SHOW" || kind == "EXPLAIN" || kind == "DESC" || kind == "DESCRIBE" {
+		return true
+	}
+	if dbType == "oracle" && kind == "WITH" {
+		upper := strings.ToUpper(sqlText)
+		return oracleWithSelectRe.MatchString(upper) && !oracleWithDMLRe.MatchString(upper)
+	}
+	return false
+}
+
 // ValidateDBSQL applies the workbench guardrails to a statement:
 // read-only sources only accept reading keywords; danger rules always apply.
-func ValidateDBSQL(sqlText string, readOnly bool) error {
+func ValidateDBSQL(sqlText string, readOnly bool, dbType string) error {
 	kind := statementKind(sqlText)
 	if kind == "" {
 		return fmt.Errorf("SQL 语句为空")
@@ -93,12 +114,10 @@ func ValidateDBSQL(sqlText string, readOnly bool) error {
 		}
 	}
 	if readOnly {
-		switch kind {
-		case "SELECT", "SHOW", "EXPLAIN", "DESC", "DESCRIBE":
+		if isReading(dbType, kind, sqlText) {
 			return nil
-		default:
-			return fmt.Errorf("该数据库源为只读模式，仅允许 SELECT / SHOW / EXPLAIN / DESC")
 		}
+		return fmt.Errorf("该数据库源为只读模式，仅允许查询语句")
 	}
 	return nil
 }
@@ -122,7 +141,7 @@ type DBQueryResult struct {
 // guardrails and returns the result grid. Uses Query for reading keywords and
 // Exec for everything else (drivers reject Exec on result-returning statements).
 func RunDBQuery(d *model.DbSource, username, password, sqlText string) (*DBQueryResult, error) {
-	if err := ValidateDBSQL(sqlText, d.ReadOnly); err != nil {
+	if err := ValidateDBSQL(sqlText, d.ReadOnly, d.DBType); err != nil {
 		return nil, err
 	}
 	db, err := OpenDB(d, username, password)
@@ -137,7 +156,7 @@ func RunDBQuery(d *model.DbSource, username, password, sqlText string) (*DBQuery
 	res := &DBQueryResult{}
 
 	kind := statementKind(sqlText)
-	reading := kind == "SELECT" || kind == "SHOW" || kind == "EXPLAIN" || kind == "DESC" || kind == "DESCRIBE"
+	reading := isReading(d.DBType, kind, sqlText)
 	if reading {
 		rows, qerr := db.QueryContext(ctx, sqlText)
 		if qerr != nil {
