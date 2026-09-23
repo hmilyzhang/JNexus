@@ -95,12 +95,12 @@
         <el-form-item :label="$t('hosts.credUser')"><el-input v-model="form.username" /></el-form-item>
         <el-form-item :label="$t('hosts.credLabel')"><el-input v-model="form.label" :placeholder="$t('hosts.credLabelPlaceholder')" /></el-form-item>
         <el-form-item :label="$t('hosts.authType')">
-          <el-radio-group v-model="form.auth_type">
+          <el-radio-group v-model="form.auth_type" @change="v => { if (v === 'key') form.auto_pair = false }">
             <el-radio value="key">{{ $t('hosts.key') }}</el-radio>
             <el-radio value="password">{{ $t('hosts.password') }}</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item :label="$t('hosts.key')" v-if="form.auth_type === 'key' && !form.auto_pair">
+        <el-form-item :label="$t('hosts.key')" v-if="form.auth_type === 'key'">
           <el-select v-model="form.ssh_key_id" :placeholder="$t('hosts.keyPlaceholder')" style="width:100%">
             <el-option v-for="k in keys" :key="k.id" :label="k.name" :value="k.id" />
           </el-select>
