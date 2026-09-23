@@ -53,6 +53,10 @@
           </template>
         </el-table-column>
       </el-table>
+        <div class="list-pager">
+          <el-pagination v-model:current-page="pageNum" v-model:page-size="pageSize" :total="history.length"
+                         :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" small background />
+        </div>
     </el-card>
 
     <!-- Create/Edit dialog -->
@@ -106,7 +110,7 @@
 
     <!-- Run history -->
     <el-drawer v-model="historyVisible" :title="`${$t('cron.history')}：${current?.name}`" size="560px">
-      <el-table :data="history" v-loading="historyLoading" size="small" border>
+      <el-table :data="pagedHistory" v-loading="historyLoading" size="small" border>
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column :label="$t('tasks.status')" width="90">
           <template #default="{ row }">
@@ -125,7 +129,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import i18n from '../i18n'
@@ -142,6 +146,16 @@ const visible = ref(false)
 const form = ref({})
 const historyVisible = ref(false)
 const history = ref([])
+const pageNum = ref(1)
+const pageSize = ref(20)
+const pagedHistory = computed(() => {
+  const start = (pageNum.value - 1) * pageSize.value
+  return history.value.slice(start, start + pageSize.value)
+})
+watch(() => history.value.length, n => {
+  const maxPage = Math.max(1, Math.ceil(n / pageSize.value))
+  if (pageNum.value > maxPage) pageNum.value = maxPage
+})
 const historyLoading = ref(false)
 const current = ref(null)
 const running = ref(null)
@@ -230,3 +244,7 @@ const onCmd = async (cmd, row) => {
   }
 }
 </script>
+
+<style scoped>
+.list-pager { display: flex; justify-content: flex-end; margin-top: 10px; }
+</style>

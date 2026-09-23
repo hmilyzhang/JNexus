@@ -351,7 +351,8 @@ const closeSession = id => {
 
 <style scoped>
 .shell-row { height: calc(100vh - 92px); overflow: hidden; }
-.side-card { overflow: auto; }
+.side-card { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.side-card :deep(.el-card__body) { flex: 1 1 0; min-height: 0; overflow: auto; }
 .term-card { height: 100%; display: flex; flex-direction: column; }
 .term-card :deep(.el-card__header) { flex: 0 0 auto; }
 .term-card.term-fullscreen { position: fixed; inset: 0; z-index: 2000; height: 100vh; border-radius: 0; }

@@ -26,7 +26,7 @@
     </el-card>
 
     <el-card :header="$t('report.listTitle')" style="margin-top:16px">
-      <el-table :data="reports" v-loading="loading" size="small" border @row-click="openDetail">
+      <el-table :data="pagedReports" v-loading="loading" size="small" border @row-click="openDetail">
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column :label="$t('report.name')" min-width="200">
           <template #default="{ row }">{{ reportLabel(row) }}</template>
@@ -49,6 +49,10 @@
           </template>
         </el-table-column>
       </el-table>
+        <div class="list-pager">
+          <el-pagination v-model:current-page="pageNum" v-model:page-size="pageSize" :total="reports.length"
+                         :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" small background />
+        </div>
     </el-card>
 
     <!-- Report detail -->
@@ -139,7 +143,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
 import i18n from '../i18n'
@@ -151,6 +155,16 @@ const route = useRoute()
 const store = useUserStore()
 const templates = ref([])
 const reports = ref([])
+const pageNum = ref(1)
+const pageSize = ref(20)
+const pagedReports = computed(() => {
+  const start = (pageNum.value - 1) * pageSize.value
+  return reports.value.slice(start, start + pageSize.value)
+})
+watch(() => reports.value.length, n => {
+  const maxPage = Math.max(1, Math.ceil(n / pageSize.value))
+  if (pageNum.value > maxPage) pageNum.value = maxPage
+})
 const hosts = ref([])
 const loading = ref(false)
 const generating = ref(false)
@@ -278,6 +292,8 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.list-pager { display: flex; justify-content: flex-end; margin-top: 10px; }
+
 .tpl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .tpl-card {
   border: 1px solid var(--el-border-color); border-radius: 6px; padding: 12px; cursor: pointer;

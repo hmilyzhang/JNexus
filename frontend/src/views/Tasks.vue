@@ -12,7 +12,7 @@
         <el-button @click="load">{{ $t('common.refresh') }}</el-button>
         <el-tag v-if="mineOnly" size="small" type="info" style="align-self:center">{{ $t('tasks.mine') }}</el-tag>
       </div>
-      <el-table :data="tasks" v-loading="loading" size="small" border @row-click="openDetail">
+      <el-table :data="pagedTasks" v-loading="loading" size="small" border @row-click="openDetail">
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column :label="$t('tasks.detail')" width="90">
           <template #default="{ row }">
@@ -31,6 +31,10 @@
         <el-table-column prop="created_at" :label="$t('tasks.createdAt')" width="170" />
         <el-table-column prop="finished_at" :label="$t('tasks.finishedAt')" width="170" />
       </el-table>
+        <div class="list-pager">
+          <el-pagination v-model:current-page="pageNum" v-model:page-size="pageSize" :total="tasks.length"
+                         :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" small background />
+        </div>
     </el-card>
 
     <!-- Task console (aggregated view) -->
@@ -97,7 +101,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
 import i18n from '../i18n'
@@ -107,6 +111,16 @@ const { t } = i18n.global
 const route = useRoute()
 const store = useUserStore()
 const tasks = ref([])
+const pageNum = ref(1)
+const pageSize = ref(20)
+const pagedTasks = computed(() => {
+  const start = (pageNum.value - 1) * pageSize.value
+  return tasks.value.slice(start, start + pageSize.value)
+})
+watch(() => tasks.value.length, n => {
+  const maxPage = Math.max(1, Math.ceil(n / pageSize.value))
+  if (pageNum.value > maxPage) pageNum.value = maxPage
+})
 const typeFilter = ref('')
 const loading = ref(false)
 const detailVisible = ref(false)
@@ -185,6 +199,8 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.list-pager { display: flex; justify-content: flex-end; margin-top: 10px; }
+
 .sum-line { display: flex; align-items: center; gap: 8px; }
 .sum-op { font-weight: 600; }
 .sum-time { color: var(--el-text-color-secondary); font-size: 12px; }
