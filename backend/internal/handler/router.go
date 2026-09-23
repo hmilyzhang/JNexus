@@ -293,6 +293,8 @@ func SetupRouter() *gin.Engine {
 			creds.POST("/:id/default", middleware.RequireCap("credentials", "manage"), SetDefaultCredential)
 			creds.POST("/:id/rotate", middleware.RequireCap("credentials", "manage"), RotateCredentialNow)
 			creds.POST("/rotate-batch", middleware.RequireCap("credentials", "manage"), RotateCredentialsBatch)
+			creds.POST("/:id/pair", middleware.RequireCap("credentials", "manage"), PairCredentialNow)
+			creds.POST("/pair-all", middleware.RequireCap("credentials", "manage"), PairAllPasswords)
 			creds.GET("/rotate-batch/:batch", RotateCredentialsBatchStatus)
 			// Reveal password plaintext: system admin only (audited)
 			creds.POST("/:id/reveal", middleware.RequireRole(), RevealCredentialPassword)

@@ -594,6 +594,60 @@ var (
 	rotateBatches   = map[string]*rotateBatchState{}
 )
 
+// PairCredentialNow POST /api/credentials/:id/pair — force-pair one stored-password
+// credential: the vaulted password installs the platform public key and a paired
+// key credential becomes the default.
+func PairCredentialNow(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var cred model.HostCredential
+	if err := model.DB.First(&cred, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "账号不存在"})
+		return
+	}
+	var h model.Host
+	model.DB.First(&h, cred.HostID)
+	hostDisp := fmt.Sprintf("%s@%s", cred.Username, h.Name)
+	status, err := service.PairExisting(uint(id))
+	code := map[bool]int{true: 200, false: 400}[err == nil]
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "CRED_PAIR", Resource: hostDisp,
+		Detail: fmt.Sprintf(`{"status":%q}`, status),
+		IP:     c.ClientIP(), Status: code, CreatedAt: time.Now(),
+	})
+	if err != nil {
+		c.JSON(code, gin.H{"error": err.Error(), "status": status})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": status})
+}
+
+// PairAllPasswords POST /api/credentials/pair-all — force-pair every stored-password
+// credential on Linux hosts (already-paired ones are reported, not re-paired).
+func PairAllPasswords(c *gin.Context) {
+	results := service.PairAllPasswords()
+	paired, already, failed := 0, 0, 0
+	for _, r := range results {
+		switch r.Status {
+		case "paired":
+			paired++
+		case "already":
+			already++
+		default:
+			failed++
+		}
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "CRED_PAIR_ALL", Resource: fmt.Sprintf("paired=%d already=%d failed=%d", paired, already, failed),
+		IP:     c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{
+		"total": len(results), "paired": paired, "already": already, "failed": failed,
+		"results": results,
+	})
+}
+
 // RotateCredentialsBatch POST /api/credentials/rotate-batch  {ids: [credID...]}
 // Rotates asynchronously one by one (300ms stagger); progress is queried via /rotate-batch/:batch.
 func RotateCredentialsBatch(c *gin.Context) {

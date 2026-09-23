@@ -19,6 +19,7 @@
 
         <el-button v-if="canManageCreds" type="warning" plain :disabled="!selRows.length"
                    @click="startBatchRotate">{{ $t('osac.batchRotate') }}{{ selRows.length ? ` (${selRows.length})` : '' }}</el-button>
+        <el-button v-if="canManageCreds" type="success" plain @click="pairAll">{{ $t('osac.pairAll') }}</el-button>
         <el-button v-if="canManageCreds" type="danger" plain :disabled="!selRows.length"
                    @click="batchDelCreds">{{ $t('k8s.batchDelete') }}{{ selRows.length ? ` (${selRows.length})` : '' }}</el-button>
       </div>
@@ -73,6 +74,8 @@
                          :loading="rotating === row.id" @click="rotateNow(row)">{{ $t('rot.now') }}</el-button>
               <el-button v-if="row.has_password && store.isAdmin" size="small" link @click="revealPwd(row)">{{ $t('rot.view') }}</el-button>
               <el-button v-if="row.has_password && store.isAdmin" size="small" link @click="showHistory(row)">{{ $t('rot.history') }}</el-button>
+              <el-button v-if="row.auth_type === 'password' && row.has_password" size="small" type="success" link
+                         :loading="pairing === row.id" @click="pairNow(row)">{{ $t('osac.pairNow') }}</el-button>
               <el-button size="small" link @click="dlgEdit(row)">{{ $t('common.edit') }}</el-button>
               <el-popconfirm :title="$t('hosts.credDelConfirm')" @confirm="delCred(row)">
                 <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
@@ -409,6 +412,32 @@ const save = async () => {
   editVisible.value = false
   load()
 }
+const pairing = ref(null)
+const pairNow = async row => {
+  try {
+    await ElMessageBox.confirm(t('osac.pairNowConfirm', { u: row.username, h: row.host_name }), t('osac.pairNow'), { type: 'warning' })
+  } catch { return }
+  pairing.value = row.id
+  try {
+    const r = await api.post(`/credentials/${row.id}/pair`)
+    if (r.status === 'already') ElMessage.info(t('osac.pairAlready'))
+    else ElMessage.success(t('osac.pairDone', { h: row.host_name, u: row.username }))
+    load()
+  } catch { /* interceptor already toasts the reason */ } finally { pairing.value = null }
+}
+const pairAll = async () => {
+  try {
+    await ElMessageBox.confirm(t('osac.pairAllConfirm'), t('osac.pairAll'), { type: 'warning' })
+  } catch { return }
+  const r = await api.post('/credentials/pair-all')
+  const fails = (r.results || []).filter(x => x.status === 'failed')
+    .map(x => `${x.host} · ${x.username}: ${x.detail}`).join('\n')
+  const msg = t('osac.pairAllDone', { p: r.paired, a: r.already, f: r.failed })
+  if (r.failed) ElMessageBox.alert(fails, msg, { type: 'warning' })
+  else ElMessageBox.alert(t('osac.pairAllClean', { a: r.already }), msg, { type: 'success' })
+  load()
+}
+
 const selRows = ref([])
 const batchDelCreds = async () => {
   if (!selRows.value.length) return

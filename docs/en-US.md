@@ -134,6 +134,7 @@ JNexus reads environment variables first. Keys generated on first boot are persi
 - **Password auto-rotation**: enable per account with a configurable period; random strong passwords are AES-encrypted at rest and never displayed. Normal accounts rotate through a same-host root/NOPASSWD-sudo **privilege chain**; paired-key accounts with a stored password rotate via key login; LDAP/domain accounts are detected and skipped;
 - **Password history**: every rotation is archived (last 24 per account), visible to admins and fully audited;
 - **Account templates**: store LDAP/AD passwords once and reuse them when adding hosts or bulk importing;
+- **Force key pairing**: existing stored-password accounts can be paired directly - the vaulted password installs the platform public key and a default key account is created (the password account is kept; rotation is unaffected). Available as a row action or a fleet-wide sweep (Windows / no-password / LDAP accounts are skipped, already-paired ones are not re-processed), fully audited;
 - Sensitive data — host passwords, private keys, kubeconfigs — is always **AES-encrypted at rest** and never shown in clear text;
 - Batch add/delete with reference protection.
 
