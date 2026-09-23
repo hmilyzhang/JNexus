@@ -15,12 +15,40 @@ import (
 )
 
 type CloudSyncSummary struct {
-	Added     int      `json:"added"`
-	Updated   int      `json:"updated"`
-	SkippedIP int      `json:"skipped_ip"`
-	Removed   int      `json:"removed"`
-	Conflicts []string `json:"conflicts"` // "name (ip) -> existing host '<name>' id=<id>"
-	Total     int      `json:"total"`
+	Added      int      `json:"added"`
+	Updated    int      `json:"updated"`
+	SkippedIP  int      `json:"skipped_ip"`
+	Removed    int      `json:"removed"`
+	Credentials int     `json:"credentials"` // template accounts created during this sync
+	Conflicts  []string `json:"conflicts"`   // "name (ip) -> existing host '<name>' id=<id>"
+	Total      int      `json:"total"`
+}
+
+// applyCredentialTemplate creates the default OS account for an imported host from
+// a credential template (HostCredential row with host_id = 0). The stored password
+// ciphertext is reused as-is (same master key). Idempotent: skipped when the host
+// already has an account with the template's username.
+func applyCredentialTemplate(templateID *uint, hostID uint) int {
+	if templateID == nil || *templateID == 0 {
+		return 0
+	}
+	var tpl model.HostCredential
+	if err := model.DB.First(&tpl, *templateID).Error; err != nil || tpl.HostID != 0 || tpl.Password == "" {
+		return 0
+	}
+	var cnt int64
+	model.DB.Model(&model.HostCredential{}).Where("host_id = ? AND username = ?", hostID, tpl.Username).Count(&cnt)
+	if cnt > 0 {
+		return 0
+	}
+	nc := model.HostCredential{
+		HostID: hostID, Username: tpl.Username, AuthType: "password",
+		Password: tpl.Password, Label: tpl.Label, IsDefault: true, IsLDAP: tpl.IsLDAP,
+	}
+	if err := model.DB.Create(&nc).Error; err != nil {
+		return 0
+	}
+	return 1
 }
 
 // DecryptCloudCredentials decrypts the stored credential JSON (exported for handlers)
@@ -87,6 +115,8 @@ func SyncCloudAccount(ca *model.CloudAccount, operator string) (*CloudSyncSummar
 				updates["status"] = "offline"
 			}
 			model.DB.Model(&host).Updates(updates)
+			// template account: also covers hosts imported before a template was configured
+			sum.Credentials += applyCredentialTemplate(ca.TemplateID, host.ID)
 			sum.Updated++
 			continue
 		}
@@ -119,6 +149,7 @@ func SyncCloudAccount(ca *model.CloudAccount, operator string) (*CloudSyncSummar
 			continue
 		}
 		sum.Added++
+		sum.Credentials += applyCredentialTemplate(ca.TemplateID, host.ID)
 	}
 
 	// auto-delete: hosts stamped with this account whose instance is gone

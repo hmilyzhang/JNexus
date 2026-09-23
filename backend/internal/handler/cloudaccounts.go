@@ -22,6 +22,7 @@ func cloudAccountOut(ca model.CloudAccount) gin.H {
 	return gin.H{
 		"id": ca.ID, "provider": ca.Provider, "name": ca.Name,
 		"regions": ca.Regions, "target_group_id": ca.TargetGroupID,
+		"template_id": ca.TemplateID,
 		"import_stopped": ca.ImportStopped, "tag_group_key": ca.TagGroupKey,
 		"sync_interval_min": ca.SyncIntervalMin, "auto_delete": ca.AutoDelete,
 		"last_sync_at": ca.LastSyncAt, "last_sync_result": ca.LastSyncResult,
@@ -47,6 +48,7 @@ type cloudAccountReq struct {
 	Credentials     map[string]any `json:"credentials"`
 	Regions         string         `json:"regions"`
 	TargetGroupID   *uint          `json:"target_group_id"`
+	TemplateID      *uint          `json:"template_id"`
 	ImportStopped   bool           `json:"import_stopped"`
 	TagGroupKey     string         `json:"tag_group_key"`
 	SyncIntervalMin int            `json:"sync_interval_min"`
@@ -94,7 +96,7 @@ func CreateCloudAccount(c *gin.Context) {
 	ca := model.CloudAccount{
 		Provider: strings.ToLower(req.Provider), Name: req.Name,
 		Credentials: enc, Regions: req.Regions,
-		TargetGroupID: req.TargetGroupID, ImportStopped: req.ImportStopped,
+		TargetGroupID: req.TargetGroupID, TemplateID: req.TemplateID, ImportStopped: req.ImportStopped,
 		TagGroupKey: req.TagGroupKey, SyncIntervalMin: req.SyncIntervalMin,
 		AutoDelete: req.AutoDelete, Creator: currentUser(c).Username,
 	}
@@ -125,7 +127,7 @@ func UpdateCloudAccount(c *gin.Context) {
 	updates := map[string]any{
 		"provider": strings.ToLower(req.Provider), "name": req.Name,
 		"regions": req.Regions, "target_group_id": req.TargetGroupID,
-		"import_stopped": req.ImportStopped, "tag_group_key": req.TagGroupKey,
+		"import_stopped": req.ImportStopped, "template_id": req.TemplateID, "tag_group_key": req.TagGroupKey,
 		"sync_interval_min": req.SyncIntervalMin, "auto_delete": req.AutoDelete,
 	}
 	if len(req.Credentials) > 0 {

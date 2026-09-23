@@ -360,6 +360,7 @@ gateway address derivation).
 - **Cloud accounts**: register an AK/SK (AWS / Huawei Cloud) or a service principal (Azure), pick regions per account; credentials AES-encrypted at rest;
 - **Discovery**: cloud instances are imported as host assets and grouped automatically by **tags**; hosts whose IP is already managed are not imported twice;
 - **Scheduled sync**: per-account interval executed by the scheduler; instances released in the cloud are removed automatically on the next sync;
+- **Account template**: a cloud account can bind a credential template; imported hosts automatically get the template OS account (default flag, template password) - usable for exec / terminal right after the sync; resyncs never duplicate accounts;
 - Every sync is audited.
 
 ## 26. Web Apps (PAM)

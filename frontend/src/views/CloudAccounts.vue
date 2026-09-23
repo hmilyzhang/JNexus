@@ -90,6 +90,12 @@
         <el-form-item :label="$t('cloud.tagGroupKey')">
           <el-input v-model="accForm.tag_group_key" class="mono" :placeholder="$t('cloud.tagGroupPh')" style="width:60%" />
         </el-form-item>
+        <el-form-item :label="$t('cloud.template')">
+          <el-select v-model="accForm.template_id" clearable style="width:100%" :placeholder="$t('cloud.templatePh')">
+            <el-option v-for="tp in templates" :key="tp.id" :label="tp.username + (tp.label ? ' · ' + tp.label : '')" :value="tp.id" />
+          </el-select>
+          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('cloud.templateTip') }}</div>
+        </el-form-item>
         <el-form-item :label="$t('cloud.importStopped')"><el-switch v-model="accForm.import_stopped" /></el-form-item>
         <el-form-item :label="$t('cloud.autoDelete')"><el-switch v-model="accForm.auto_delete" /></el-form-item>
         <el-form-item :label="$t('cloud.interval')">
@@ -130,6 +136,7 @@ const accDlgVisible = ref(false)
 const conflictVisible = ref(false)
 const accounts = ref([])
 const groups = ref([])
+const templates = ref([])
 const conflicts = ref([])
 const loading = ref(false)
 const syncingId = ref(null)
@@ -145,6 +152,7 @@ const loadAccounts = async () => {
 }
 const loadGroups = async () => {
   try { groups.value = await api.get('/host_groups') } catch { groups.value = [] }
+  try { templates.value = await api.get('/credentials/templates') } catch { templates.value = [] }
 }
 
 const syncNow = async row => {
@@ -168,7 +176,7 @@ const showConflicts = async row => {
 const dlgAccount = row => {
   accForm.value = row
     ? { ...row }
-    : { provider: 'aws', name: '', regions: '', target_group_id: null, import_stopped: false,
+    : { provider: 'aws', name: '', regions: '', target_group_id: null, template_id: null, import_stopped: false,
         tag_group_key: '', sync_interval_min: 0, auto_delete: false }
   cred.value = {}
   regionList.value = accForm.value.regions ? accForm.value.regions.split(',').map(x2 => x2.trim()).filter(Boolean) : []

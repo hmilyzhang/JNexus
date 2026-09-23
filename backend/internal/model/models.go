@@ -577,6 +577,7 @@ type CloudAccount struct {
 	Credentials     string     `json:"-"`        // AES-GCM encrypted JSON (provider-specific)
 	Regions         string     `gorm:"size:512" json:"regions"` // CSV of regions to scan
 	TargetGroupID   *uint      `json:"target_group_id"`          // import into this host group
+	TemplateID      *uint      `json:"template_id"`              // credential template: create this OS account on imported hosts
 	ImportStopped   bool       `json:"import_stopped"`           // include stopped/deallocated instances
 	TagGroupKey     string     `gorm:"size:32" json:"tag_group_key"` // instance tag whose value names the target host group
 	SyncIntervalMin int        `json:"sync_interval_min"`        // 0 = manual only
