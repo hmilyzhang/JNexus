@@ -193,7 +193,7 @@
       </el-form-item>
       <el-form-item :label="$t('users.linkedGroups')">
         <el-select v-model="gform.host_group_ids" multiple style="width:100%">
-          <el-option v-for="g in hostGroups" :key="g.id" :label="`${g.name}（${g.host_count || 0}）`" :value="g.id" />
+          <el-option v-for="g in hostGroups" :key="g.id" :label="`${groupLabel(hostGroups, g)}（${g.host_count || 0}）`" :value="g.id" />
         </el-select>
       </el-form-item>
       <el-form-item :label="$t('users.linkedHosts')">
@@ -216,7 +216,7 @@
           <div v-for="(r, i) in gform.rules" :key="i" style="display:flex; gap:6px; margin-bottom:6px">
             <el-select v-model="r.host_group_id" style="width:200px" size="small" :placeholder="$t('users.ruleAllHosts')">
               <el-option :label="$t('users.ruleAllHosts')" :value="null" />
-              <el-option v-for="g in hostGroups" :key="g.id" :label="g.name" :value="g.id" />
+              <el-option v-for="g in hostGroups" :key="g.id" :label="groupLabel(hostGroups, g)" :value="g.id" />
             </el-select>
             <el-input v-model="r.username" size="small" class="mono" :placeholder="$t('users.ruleUsername')" style="width:200px" />
             <el-button type="danger" link size="small" @click="gform.rules.splice(i, 1)">{{ $t('apps.remove') }}</el-button>
@@ -230,7 +230,7 @@
           <div style="display:flex; gap:6px; margin-bottom:6px; flex-wrap:wrap">
             <el-input v-model="credFilter" size="small" :placeholder="$t('tasks.searchOutput')" style="width:180px" clearable />
             <el-button size="small" @click="selectFilteredCreds">{{ $t('users.selectAllFiltered') }}</el-button>
-            <el-button v-for="g in hostGroups" :key="g.id" size="small" @click="selectGroupCreds(g)">{{ g.name }} ✓</el-button>
+            <el-button v-for="g in hostGroups" :key="g.id" size="small" @click="selectGroupCreds(g)">{{ groupLabel(hostGroups, g) }} ✓</el-button>
             <el-button size="small" @click="gform.credential_ids = []">{{ $t('exec.clearAll') }}</el-button>
           </div>
           <el-select v-model="gform.credential_ids" multiple filterable style="width:100%" :max-collapse-tags="2" collapse-tags>
@@ -250,6 +250,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import api from '../api'
+import { groupLabel } from '../utils/groupPath'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
 

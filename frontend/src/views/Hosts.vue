@@ -23,7 +23,7 @@
         <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap">
           <el-input v-model="keyword" :placeholder="$t('hosts.searchPlaceholder')" style="width:200px" clearable @change="load" />
           <el-select v-model="groupFilter" :placeholder="$t('hosts.allGroups')" style="width:160px" clearable @change="load">
-            <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+            <el-option v-for="g in groups" :key="g.id" :label="groupLabel(groups, g)" :value="g.id" />
           </el-select>
           <el-button type="success" @click="probeAll" :loading="probing">{{ $t('hosts.probe') }}</el-button>
           <el-button type="primary" @click="dlgHost()">{{ $t('hosts.addHost') }}</el-button>
@@ -116,7 +116,7 @@
     <el-form label-width="90px">
       <el-form-item :label="$t('hosts.group')">
         <el-select v-model="batchGroupTarget" clearable style="width:100%">
-          <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+          <el-option v-for="g in groups" :key="g.id" :label="groupLabel(groups, g)" :value="g.id" />
         </el-select>
       </el-form-item>
     </el-form>
@@ -194,7 +194,7 @@
       </el-form-item>
       <el-form-item :label="$t('hosts.group')">
         <el-select v-model="hostForm.group_id" :placeholder="$t('hosts.groupPlaceholder')" style="width:100%" clearable>
-          <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+          <el-option v-for="g in groups" :key="g.id" :label="groupLabel(groups, g)" :value="g.id" />
         </el-select>
       </el-form-item>
     </el-form>
@@ -252,7 +252,7 @@
   <el-dialog v-model="groupVisible" :title="$t('hosts.groupMgmt')" width="520px">
     <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center; flex-wrap:wrap">
       <el-select v-model="newGroupParent" :placeholder="$t('hosts.parentGroup')" style="width:180px" clearable>
-        <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+        <el-option v-for="g in groups" :key="g.id" :label="groupLabel(groups, g)" :value="g.id" />
       </el-select>
       <el-input v-model="newGroup" :placeholder="$t('hosts.groupName')" style="width:200px" />
       <el-button type="primary" @click="addGroup">{{ $t('hosts.addGroup') }}</el-button>
@@ -386,6 +386,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
+import { groupLabel } from '../utils/groupPath'
 import i18n from '../i18n'
 import MetricChart from '../components/MetricChart.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'

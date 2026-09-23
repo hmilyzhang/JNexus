@@ -175,7 +175,7 @@
           <div style="width:100%">
             <el-select v-model="batchGroups" multiple filterable clearable :max-collapse-tags="2" collapse-tags
                        style="width:100%" :placeholder="$t('hosts.batchByGroupPh')" @change="onBatchGroups">
-              <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+              <el-option v-for="g in groups" :key="g.id" :label="groupLabel(groups, g)" :value="g.id" />
             </el-select>
             <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('hosts.batchByGroupTip') }}</div>
           </div>
@@ -262,6 +262,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
+import { groupLabel } from '../utils/groupPath'
 import i18n from '../i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../store'

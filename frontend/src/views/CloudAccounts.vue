@@ -84,7 +84,7 @@
         </el-form-item>
         <el-form-item :label="$t('hosts.groupMgmt')">
           <el-select v-model="accForm.target_group_id" clearable style="width:100%" :placeholder="$t('db.allGroups')">
-            <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+            <el-option v-for="g in groups" :key="g.id" :label="groupLabel(groups, g)" :value="g.id" />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('cloud.tagGroupKey')">
@@ -128,6 +128,7 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../api'
+import { groupLabel } from '../utils/groupPath'
 import i18n from '../i18n'
 
 const { t } = i18n.global
