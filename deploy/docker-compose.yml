@@ -31,6 +31,11 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # Internal CA trust (optional):
+      #   - mount ./cacerts (read-only) with .crt/.pem files, and/or
+      #   - fetch the CA from a URL at startup, e.g. your company root CA on the Docker host:
+      #     JNEXUS_TRUST_CA_URL: http://host.docker.internal:8899/root-ca.crt
+      # For host.docker.internal on Linux also add:  extra_hosts: ["host.docker.internal:host-gateway"]
       # For an external database, just change the variables below (or set JNEXUS_DSN with a full DSN)
       JNEXUS_DB_HOST: ${JNEXUS_DB_HOST:-postgres}
       JNEXUS_DB_PORT: ${JNEXUS_DB_PORT:-5432}

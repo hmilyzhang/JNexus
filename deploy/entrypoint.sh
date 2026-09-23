@@ -57,18 +57,57 @@ elif [ ! -f "$DATA_DIR/gw_secret" ]; then
   echo "[entrypoint] 已将环境变量提供的 RDP 网关密钥持久化到 $DATA_DIR/gw_secret"
 fi
 
-# Host-provided custom CA certificates (optional: compose mounts a read-only /cacerts directory with .crt/.pem files):
-# Merged with the system CAs into a trust bundle exposed via SSL_CERT_FILE for Go TLS
-# (so LDAPS / HTTPS checks / Kubernetes self-signed certs are trusted by the container, no root needed).
-EXTRA_CA_DIR=/cacerts
-if [ -d "$EXTRA_CA_DIR" ] && ls "$EXTRA_CA_DIR"/*.crt "$EXTRA_CA_DIR"/*.pem >/dev/null 2>&1; then
-  BUNDLE="$DATA_DIR/ca-bundle.crt"
-  {
-    cat /etc/ssl/certs/ca-certificates.crt 2>/dev/null
-    cat "$EXTRA_CA_DIR"/*.crt "$EXTRA_CA_DIR"/*.pem 2>/dev/null
-  } > "$BUNDLE"
+# Host-provided custom CA certificates (optional: compose mounts a read-only /cacerts directory with .crt/.pem files),
+# plus optional JNEXUS_TRUST_CA_URL — one or more URLs to fetch internal CA root certificates from at startup
+# (e.g. the company CA served on the Docker host: http://host.docker.internal:8899/root-ca.crt, needs the
+# "host.docker.internal:host-gateway" extra_host on Linux). Both are merged with the system CAs into a trust
+# bundle exposed via SSL_CERT_FILE for Go TLS — LDAPS / HTTPS checks / Kubernetes internal certs are trusted
+# by the container, no root needed. PEM content is validated (an HTML error page is never trusted).
+EXTRA_CA_DIR="${EXTRA_CA_DIR:-/cacerts}"
+CA_TMP="$DATA_DIR/extra-ca"
+mkdir -p "$CA_TMP"
+
+fetch_url() {
+    _url="$1" _out="$2"
+    if command -v wget >/dev/null 2>&1; then
+        wget -q -T 15 -O "$_out" "$_url" || return 1
+    elif command -v curl >/dev/null 2>&1; then
+        curl -fsSL -m 15 -o "$_out" "$_url" || return 1
+    else
+        return 1
+    fi
+    return 0
+}
+
+if [ -n "$JNEXUS_TRUST_CA_URL" ]; then
+  n=0
+  for u in $(echo "$JNEXUS_TRUST_CA_URL" | tr ',;' '  '); do
+    n=$((n + 1))
+    f="$CA_TMP/ca-$n.crt"
+    if fetch_url "$u" "$f" && grep -q "BEGIN CERTIFICATE" "$f"; then
+      echo "[entrypoint] 已从 $u 获取内部 CA 证书"
+    else
+      echo "[entrypoint] 警告: 从 $u 获取证书失败或内容不是 PEM，已忽略"
+      rm -f "$f"
+    fi
+  done
+fi
+
+BUNDLE="$DATA_DIR/ca-bundle.crt"
+{
+  cat /etc/ssl/certs/ca-certificates.crt 2>/dev/null || true
+  cat "$EXTRA_CA_DIR"/*.crt "$EXTRA_CA_DIR"/*.pem "$CA_TMP"/*.crt 2>/dev/null || true
+} > "$BUNDLE"
+if grep -q "BEGIN CERTIFICATE" "$BUNDLE" 2>/dev/null; then
   export SSL_CERT_FILE="$BUNDLE"
   echo "[entrypoint] CA bundle merged: $BUNDLE"
+fi
+rm -rf "$CA_TMP"
+
+# testability hook: verify the CA/secret setup without starting the server
+if [ "$JNEXUS_ENTRYPOINT_TEST" = "1" ]; then
+  echo "[entrypoint] TEST mode: setup complete"
+  exit 0
 fi
 
 exec /app/jnexus-server -config /app/config.yaml

@@ -114,6 +114,9 @@ JNexus 优先读取环境变量；首次启动自动生成的密钥会持久化�
 
 **密钥安全**：`JNEXUS_AES_KEY` 用于加密所有主机凭据，一旦丢失已加密数据无法解密。容器入口脚本会将其保存到数据卷的 `aes_key` 文件；请定期备份数据卷。
 
+**内部 CA 信任**：公司 CA 签发的证书（LDAPS、HTTPS 目标、K8S API）默认不被容器信任，两种方式解决——
+挂载 `./cacerts/` 目录（`.crt`/`.pem`），或设置 `JNEXUS_TRUST_CA_URL`（空格/逗号分隔多个 URL）让入口脚本启动时自动拉取并合并进 `SSL_CERT_FILE` 信任包（PEM 校验，失败只告警不阻断启动）。容器内访问宿主机 localhost 用 `host.docker.internal`（Linux 需 `extra_hosts: ["host.docker.internal:host-gateway"]`）。裸机部署用 `sudo sh deploy/install-ca-trust.sh <证书文件或URL>`，脚本自动识别 Rocky/RHEL（update-ca-trust）与 Ubuntu/Debian（update-ca-certificates），`DRY_RUN=1` 预览动作。
+
 ## 5. 主机管理
 
 **菜单：资产管理 → 主机**

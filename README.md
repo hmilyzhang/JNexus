@@ -86,6 +86,15 @@ cd deploy
 docker compose up -d --build
 ```
 
+Internal CA trust (for LDAPS / HTTPS targets / Kubernetes signed by your company CA):
+
+- mount the certificates: put `.crt`/`.pem` files in `deploy/cacerts/` (mounted read-only at `/cacerts`), or
+- fetch them at startup: set `JNEXUS_TRUST_CA_URL=http://host.docker.internal:8899/root-ca.crt` on the jnexus
+  service and add `extra_hosts: ["host.docker.internal:host-gateway"]` (Linux); both are merged with the system
+  CAs into the bundle the container trusts (PEM content is validated — an error page is never trusted).
+- bare-metal deployments on Rocky/RHEL/Ubuntu/Debian: `sudo sh deploy/install-ca-trust.sh <cert-or-URL>`
+  auto-detects the distro (`update-ca-trust` vs `update-ca-certificates`); `DRY_RUN=1` previews the actions.
+
 Optional observability backend ([OpenObserve](https://openobserve.ai), single container, off by default):
 
 ```bash

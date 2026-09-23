@@ -87,6 +87,15 @@ cd deploy
 docker compose up -d --build
 ```
 
+内部 CA 信任（LDAPS / HTTPS 目标 / 公司 CA 签发的 Kubernetes 证书）：
+
+- 挂载证书：把 `.crt`/`.pem` 放入 `deploy/cacerts/`（只读挂载到容器 `/cacerts`），或
+- 启动时自动拉取：给 jnexus 服务设置 `JNEXUS_TRUST_CA_URL=http://host.docker.internal:8899/root-ca.crt`，
+  并加 `extra_hosts: ["host.docker.internal:host-gateway"]`（Linux）；两者都会与系统 CA 合并为容器信任的 bundle
+  （PEM 内容校验——错误页面绝不会被信任）；
+- 裸机部署（Rocky/RHEL/Ubuntu/Debian）：`sudo sh deploy/install-ca-trust.sh <证书文件或URL>`，
+  自动识别发行版（`update-ca-trust` / `update-ca-certificates`）；`DRY_RUN=1` 可预览动作。
+
 可选可观测后端（[OpenObserve](https://openobserve.ai)，单容器，默认关闭）：
 
 ```bash

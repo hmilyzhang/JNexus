@@ -112,6 +112,14 @@ JNexus reads environment variables first. Keys generated on first boot are persi
 
 **Key safety**: `JNEXUS_AES_KEY` encrypts all host credentials — if it is lost, encrypted data cannot be recovered. The container entrypoint stores it in `data/aes_key` on the data volume; back that volume up regularly.
 
+**Internal CA trust**: certificates signed by your company CA (LDAPS, HTTPS targets, K8S API) are not trusted by
+the container by default — either mount a `./cacerts/` directory (`.crt`/`.pem`) or set `JNEXUS_TRUST_CA_URL`
+(space/comma-separated URLs) so the entrypoint fetches and merges them into the `SSL_CERT_FILE` bundle at startup
+(PEM-validated; failures only warn, never block the start). Inside the container reach the host's localhost via
+`host.docker.internal` (Linux needs `extra_hosts: ["host.docker.internal:host-gateway"]`). For bare-metal
+deployments run `sudo sh deploy/install-ca-trust.sh <cert-or-URL>` — it detects the distro
+(Rocky/RHEL: update-ca-trust; Ubuntu/Debian: update-ca-certificates); `DRY_RUN=1` previews the actions.
+
 ## 5. Hosts
 
 **Menu: Assets → Hosts**
