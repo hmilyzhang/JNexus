@@ -34,6 +34,14 @@ func WinRMPortOf(h *model.Host) int {
 // default Basic transport (immune to NTLM blocking policies; Basic is only enabled over TLS).
 // Otherwise it falls back to HTTP with NTLM negotiation (works for local and DOMAIN/user accounts).
 func WinRMClientFor(h *model.Host, username, password string) (*winrm.Client, error) {
+	return winrmClientWithTransport(h, username, password, "")
+}
+
+// winrmClientWithTransport builds a client with an explicit transport: "" = NTLM
+// (default, works for local and DOMAIN\\user accounts), "basic" = library
+// default Basic (only sane over TLS; some hardened hosts accept nothing else for
+// local accounts). Kerberos hosts ignore the mode and keep the Kerberos path.
+func winrmClientWithTransport(h *model.Host, username, password, mode string) (*winrm.Client, error) {
 	if !IsWindows(h) {
 		return nil, fmt.Errorf("仅 Windows 主机支持 WinRM")
 	}
@@ -65,8 +73,11 @@ func WinRMClientFor(h *model.Host, username, password string) (*winrm.Client, er
 	// Windows enables only Negotiate auth by default: attach the NTLM transport to complete
 	// the handshake automatically (domain accounts DOMAIN/user also work). Applied over both
 	// HTTP and HTTPS — NTLM runs inside the TLS channel, so targets can keep Basic disabled
-	// and AllowUnencrypted=false (CIS-friendly defaults).
-	params.TransportDecorator = func() winrm.Transporter { return winrm.NewClientNTLMWithDial(params.Dial) }
+	// and AllowUnencrypted=false (CIS-friendly defaults). mode="basic" drops the decorator
+	// (library default = Basic over TLS) for hardened hosts that reject NTLM entirely.
+	if mode != "basic" {
+		params.TransportDecorator = func() winrm.Transporter { return winrm.NewClientNTLMWithDial(params.Dial) }
+	}
 	if tcpOpen(h.IP, 5986) {
 		return winrm.NewClientWithParameters(
 			winrm.NewEndpoint(h.IP, 5986, true, true, nil, nil, nil, 0), user, pass, params)
@@ -161,42 +172,67 @@ func WinRMRun(h *model.Host, username, password, command string, timeoutSec int)
 	if timeoutSec <= 0 {
 		timeoutSec = 60
 	}
-	// force culture invariance + UTF8 output
-	ps := "[Console]::OutputEncoding=[Text.Encoding]::UTF8; " + command
-	encoded := winrm.Powershell(ps)
-	type result struct {
-		out  string
-		code int
-		err  error
-	}
-	// translate the library's cryptic 401 wrapper into an actionable message
-	friendly := func(e error) error {
-		if e != nil && strings.Contains(e.Error(), "401") {
-			return fmt.Errorf("认证失败（401）：用户名或密码错误；请核对账号（本地账号如 .\\user，域账号如 DOMAIN\\user 或 user@REALM）与密码")
+
+	run := func(cli *winrm.Client) (string, int, error) {
+		// force culture invariance + UTF8 output
+		ps := "[Console]::OutputEncoding=[Text.Encoding]::UTF8; " + command
+		encoded := winrm.Powershell(ps)
+		type result struct {
+			out  string
+			code int
+			err  error
 		}
-		return e
-	}
-	done := make(chan result, 1)
-	go func() {
-		stdout, stderr, code, rerr := c.RunWithString(encoded, "")
-		r := result{out: stdout, code: code, err: rerr}
-		if rerr != nil {
-			// non-zero exit codes come back wrapped in an error by the library; when output is still present, treat it as a business error
-			r.err = nil
-			r.out += "\n[winrm] " + friendly(rerr).Error()
-			r.code = 1
+		done := make(chan result, 1)
+		go func() {
+			stdout, stderr, code, rerr := cli.RunWithString(encoded, "")
+			r := result{out: stdout, code: code, err: rerr}
+			if rerr != nil {
+				// non-zero exit codes come back wrapped in an error by the library; when output is still present, treat it as a business error
+				r.err = nil
+				r.out += "\n[winrm] " + rerr.Error()
+				r.code = 1
+			}
+			if stderr != "" {
+				r.out += "\n[stderr] " + strings.TrimSpace(stderr)
+			}
+			done <- r
+		}()
+		select {
+		case r := <-done:
+			return strings.TrimSpace(r.out), r.code, r.err
+		case <-time.After(time.Duration(timeoutSec) * time.Second):
+			return "", -1, fmt.Errorf("WinRM 执行超时（%ds）", timeoutSec)
 		}
-		if stderr != "" {
-			r.out += "\n[stderr] " + strings.TrimSpace(stderr)
-		}
-		done <- r
-	}()
-	select {
-	case r := <-done:
-		return strings.TrimSpace(r.out), r.code, r.err
-	case <-time.After(time.Duration(timeoutSec) * time.Second):
-		return "", -1, fmt.Errorf("WinRM 执行超时（%ds）", timeoutSec)
 	}
+
+	out, code, err := run(c)
+	if err == nil || !strings.Contains(err.Error(), "401") {
+		return out, code, err
+	}
+
+	// 401 on the NTLM attempt: hardened hosts sometimes accept nothing but Basic
+	// over TLS (local accounts only) — retry once that way before giving up.
+	var basic *winrm.Client
+	if tcpOpen(h.IP, 5986) {
+		basic, err = winrmClientWithTransport(h, username, password, "basic")
+		if err == nil {
+			var berr error
+			out, code, berr = run(basic)
+			if berr == nil || !strings.Contains(berr.Error(), "401") {
+				if berr != nil {
+					berr = fmt.Errorf("%v（Basic over TLS 传输）", berr)
+				}
+				return out, code, berr
+			}
+		}
+	}
+
+	domainish := strings.Contains(username, "\\") || strings.Contains(username, "@")
+	hint := "本地账号核对密码（格式 .\\user）；"
+	if domainish {
+		hint = "域账号建议启用主机「Kerberos 认证」（账号 user@REALM 或 DOMAIN\\user），或确认该账号在目标机 Remote Management Users/Administrators 组内；"
+	}
+	return out, code, fmt.Errorf("认证失败（401）：已依次尝试 NTLM 与 Basic over TLS 传输。%s也可运行 backend/cmd/wintest 复现原始连接定位传输问题", hint)
 }
 
 // defaultCredential returns the host's default OS account (nil when absent)

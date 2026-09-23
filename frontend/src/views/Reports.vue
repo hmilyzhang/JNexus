@@ -5,7 +5,10 @@
       <div class="tpl-cards">
         <div v-for="tpl in templates" :key="tpl.key" class="tpl-card"
              :class="{ active: form.template === tpl.key }" @click="form.template = tpl.key">
-          <div class="tpl-name">{{ tplName(tpl) }}</div>
+          <div class="tpl-name">{{ tplName(tpl) }}
+            <el-button size="small" text type="primary" style="margin-left:4px"
+                       @click.stop="showScript(tpl)">{{ $t('report.viewScript') }}</el-button>
+          </div>
           <div class="tpl-desc">{{ tplDesc(tpl) }}</div>
           <el-tag v-if="tpl.has_ps" size="small" type="info" class="tpl-os">bash + PowerShell</el-tag>
         </div>
@@ -25,6 +28,19 @@
       </el-form>
     </el-card>
 
+    <el-dialog v-model="scriptVisible" :title="$t('report.viewScript')" width="780px">
+      <template v-if="scriptTpl">
+        <div class="script-tag">bash — Linux</div>
+        <pre class="script-pre">{{ scriptTpl.cmd }}</pre>
+        <template v-if="scriptTpl.has_ps">
+          <div class="script-tag" style="margin-top:10px">PowerShell — Windows</div>
+          <pre class="script-pre">{{ scriptTpl.cmd_ps }}</pre>
+        </template>
+      </template>
+      <template #footer>
+        <el-button @click="scriptVisible = false">{{ $t('common.close') }}</el-button>
+      </template>
+    </el-dialog>
     <el-card :header="$t('report.listTitle')" style="margin-top:16px">
       <el-table :data="pagedReports" v-loading="loading" size="small" border @row-click="openDetail">
         <el-table-column prop="id" label="ID" width="70" />
@@ -154,6 +170,9 @@ const { t } = i18n.global
 const route = useRoute()
 const store = useUserStore()
 const templates = ref([])
+const scriptVisible = ref(false)
+const scriptTpl = ref(null)
+const showScript = tpl => { scriptTpl.value = tpl; scriptVisible.value = true }
 const reports = ref([])
 const pageNum = ref(1)
 const pageSize = ref(20)
@@ -307,4 +326,8 @@ onMounted(async () => {
 .tpl-name { font-weight: 600; margin-bottom: 4px; color: var(--el-text-color-primary); }
 .tpl-desc { color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.5; }
 .tpl-os { margin-top: 6px; }
+.script-tag { font-weight: 600; margin: 6px 0 4px; }
+.script-pre { background: var(--el-fill-color-light); border-radius: 6px; padding: 10px;
+  font-size: 12px; line-height: 1.5; overflow: auto; max-height: 320px; white-space: pre-wrap;
+  word-break: break-word; margin: 0; }
 </style>

@@ -51,9 +51,16 @@
               <el-input v-model="ah.health_check_url" :placeholder="$t('apps.healthUrlPlaceholder')" class="mono" style="width:180px" size="small" />
               <el-button type="danger" link size="small" @click="form.app_hosts.splice(i, 1)">{{ $t('apps.remove') }}</el-button>
             </div>
-            <el-button size="small" @click="form.app_hosts.push({ host_id: null, credential_id: null, deploy_dir: '', jar_name: 'app.jar', stop_cmd: '', start_cmd: '', backup_dir: '', health_check_url: '' })">
-              {{ $t('apps.addHostRow') }}
-            </el-button>
+            <div style="display:flex; gap:8px; align-items:center; width:100%; flex-wrap:wrap">
+              <el-select v-model="bulkGroup" filterable clearable size="small" :placeholder="$t('apps.fromGroup')"
+                         style="width:200px" @change="addFromGroup">
+                <el-option v-for="g in hostGroups" :key="g.id" :label="groupLabel(hostGroups, g)" :value="g.id" />
+              </el-select>
+              <el-button size="small" @click="form.app_hosts.push({ host_id: null, credential_id: null, deploy_dir: '', jar_name: 'app.jar', stop_cmd: '', start_cmd: '', backup_dir: '', health_check_url: '' })">
+                {{ $t('apps.addHostRow') }}
+              </el-button>
+              <span style="color:#909399; font-size:12px">{{ $t('apps.fromGroupTip') }}</span>
+            </div>
           </div>
         </el-form-item>
       </el-form>
@@ -66,9 +73,9 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import api from '../api'
+import { groupLabel } from '../utils/groupPath'
 import { useUserStore } from '../store'
 import i18n from '../i18n'
 import { ElMessage } from 'element-plus'
@@ -78,6 +85,8 @@ const store = useUserStore()
 const canManage = computed(() => ['admin', 'ops', 'publisher'].includes(store.role))
 const apps = ref([])
 const hosts = ref([])
+const hostGroups = ref([])
+const bulkGroup = ref(null)
 const usableCreds = ref([])
 const loading = ref(false)
 const visible = ref(false)
@@ -90,6 +99,7 @@ const load = async () => {
 onMounted(async () => {
   load()
   hosts.value = await api.get('/hosts')
+  hostGroups.value = await api.get('/host_groups')
   usableCreds.value = await api.get('/credentials/usable')
 })
 
@@ -102,6 +112,24 @@ const dlg = row => {
     }))
   } : { name: '', description: '', app_hosts: [] }
   visible.value = true
+}
+const addFromGroup = gid => {
+  if (!gid) return
+  const bound = new Set(form.value.app_hosts.map(x => x.host_id))
+  const inGroup = hosts.value.filter(h => String(h.group_id) === String(gid) && !bound.has(h.id))
+  if (!inGroup.length) return
+  // clone the config of the first row (or a fresh default) so identical content
+  // doesn't have to be re-typed for every host
+  const base = form.value.app_hosts[0] || { deploy_dir: '', jar_name: 'app.jar', stop_cmd: '', start_cmd: '', backup_dir: '', health_check_url: '' }
+  for (const h of inGroup) {
+    form.value.app_hosts.push({
+      host_id: h.id, credential_id: null,
+      deploy_dir: base.deploy_dir, jar_name: base.jar_name,
+      stop_cmd: base.stop_cmd, start_cmd: base.start_cmd,
+      backup_dir: base.backup_dir, health_check_url: base.health_check_url,
+    })
+  }
+  bulkGroup.value = null
 }
 const save = async () => {
   if (!form.value.name) { ElMessage.warning(t('apps.needName')); return }

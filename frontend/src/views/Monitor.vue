@@ -16,9 +16,15 @@
                 <el-option v-for="g in groupOptions" :key="g" :label="g" :value="g" />
               </el-select>
               <el-input v-model="hostKw" size="small" style="width:200px" clearable :placeholder="$t('tasks.searchOutput')" />
+              <el-select v-model="timeRange" size="small" style="width:130px" clearable :placeholder="$t('monitor.allTime')">
+                <el-option :label="$t('monitor.range24h')" value="24" />
+                <el-option :label="$t('monitor.range7d')" value="168" />
+                <el-option :label="$t('monitor.range1m')" value="720" />
+                <el-option :label="$t('monitor.range6m')" value="4320" />
+              </el-select>
             </div>
           </template>
-          <el-table :data="filteredHosts" v-loading="hostsLoading" size="small" border
+          <el-table :data="pagedHosts" v-loading="hostsLoading" size="small" border
                     @row-click="openHostTrend" style="cursor:pointer">
             <el-table-column prop="name" :label="$t('monitor.targetHost')" min-width="150">
               <template #default="{ row }">{{ row.name }}<div style="color:#909399; font-size:12px">{{ row.ip }}</div></template>
@@ -54,6 +60,11 @@
               <template #default="{ row }">{{ fmtTime(row.collected_at) }}</template>
             </el-table-column>
           </el-table>
+          <div class="list-pager">
+            <el-pagination v-model:current-page="hostPage" v-model:page-size="hostPageSize"
+                           :total="filteredHosts.length" :page-sizes="[20, 50, 100]"
+                           layout="total, sizes, prev, pager, next" small background />
+          </div>
         </el-card>
       </el-tab-pane>
 
@@ -69,7 +80,15 @@
             </div>
           </template>
           <div v-if="!monitors.length" style="color:#909399; padding:12px 0">{{ $t('monitor.noData') }}</div>
-          <div v-for="row in monitors" :key="row.monitor.id" class="mon-row">
+          <el-collapse v-model="openGroups" class="mon-groups">
+          <el-collapse-item v-for="g in groupedMonitors" :key="g.name" :name="g.name">
+            <template #title>
+              <span class="mon-group-title">{{ g.name }}
+                <el-tag size="small" type="info" style="margin:0 8px">{{ g.rows.length }}</el-tag>
+                <el-tag v-if="g.down" size="small" type="danger">{{ g.down }} {{ $t('monitor.abnormal') }}</el-tag>
+              </span>
+            </template>
+          <div v-for="row in g.rows" :key="row.monitor.id" class="mon-row">
             <span class="dot" :class="statusClass(row)"></span>
             <div style="flex:1; min-width:0">
               <div style="font-weight:600">
@@ -117,6 +136,8 @@
               </el-popconfirm>
             </div>
           </div>
+        </el-collapse-item>
+      </el-collapse>
         </el-card>
       </el-tab-pane>
 
@@ -630,6 +651,11 @@
     <el-dialog v-model="dlgVisible" :title="form.id ? $t('monitor.editMon') : $t('monitor.addMon')" width="520px">
       <el-form label-width="120px">
         <el-form-item :label="$t('monitor.monName')"><el-input v-model="form.name" /></el-form-item>
+        <el-form-item :label="$t('monitor.monGroup')">
+          <el-select v-model="form.mon_group" filterable allow-create clearable :placeholder="$t('monitor.monGroupPh')" style="width:100%">
+            <el-option v-for="g in monGroupOptions" :key="g" :label="g" :value="g" />
+          </el-select>
+        </el-form-item>
         <el-form-item :label="$t('monitor.monType')">
           <el-radio-group v-model="form.type">
             <el-radio-button value="http">{{ $t('monitor.typeHttp') }}</el-radio-button>
@@ -827,11 +853,46 @@ const chForm = reactive({})
 let timer = null
 
 const groupOptions = computed(() => [...new Set(hostRows.value.map(h => h.group).filter(Boolean))])
+const openGroups = ref([])
+const groupedMonitors = computed(() => {
+  const order = []
+  const map = {}
+  for (const row of monitors.value) {
+    const g = row.monitor.mon_group || t('monitor.defGroup')
+    if (!map[g]) { map[g] = []; order.push(g) }
+    map[g].push(row)
+  }
+  return order.map(name => ({
+    name,
+    rows: map[name],
+    down: map[name].filter(r => r.monitor.last_status === 'down').length,
+  }))
+})
+const monGroupOptions = computed(() => {
+  const set = new Set()
+  for (const row of monitors.value) if (row.monitor.mon_group) set.add(row.monitor.mon_group)
+  return [...set]
+})
+const timeRange = ref('')
+const hostPage = ref(1)
+const hostPageSize = ref(20)
+const pagedHosts = computed(() => {
+  const start = (hostPage.value - 1) * hostPageSize.value
+  return filteredHosts.value.slice(start, start + hostPageSize.value)
+})
+watch(() => filteredHosts.value.length, n => {
+  const maxPage = Math.max(1, Math.ceil(n / hostPageSize.value))
+  if (hostPage.value > maxPage) hostPage.value = maxPage
+})
 const filteredHosts = computed(() => {
   let list = hostRows.value
   if (groupFilter.value) list = list.filter(h => h.group === groupFilter.value)
   const kw = hostKw.value.trim().toLowerCase()
   if (kw) list = list.filter(h => `${h.name} ${h.ip} ${h.group || ''}`.toLowerCase().includes(kw))
+  if (timeRange.value) {
+    const cut = Date.now() - Number(timeRange.value) * 3600000
+    list = list.filter(h => h.collected_at && new Date(h.collected_at).getTime() >= cut)
+  }
   return list
 })
 
@@ -914,6 +975,7 @@ const openDlg = (m, channelIds) => {
     keyword_type: m?.keyword_type || 'contain',
     interval_sec: m?.interval_sec || 60, timeout_sec: m?.timeout_sec || 10,
     enabled: m ? !!m.enabled : true, port: m?.port || 80,
+    mon_group: m?.mon_group || '',
     channel_ids: [...(channelIds || [])],
   })
   dlgVisible.value = true
@@ -1438,6 +1500,10 @@ const cleanupDel = async id => {
 </script>
 
 <style scoped>
+.list-pager { display: flex; justify-content: flex-end; margin-top: 10px; }
+.mon-groups :deep(.el-collapse-item__header) { font-weight: 600; }
+.mon-group-title { display: flex; align-items: center; }
+
 .mon-row {
   display: flex; align-items: center; gap: 14px; padding: 10px 4px;
   border-bottom: 1px solid #ebeef5; min-height: 56px;

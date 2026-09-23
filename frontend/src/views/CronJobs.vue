@@ -67,15 +67,22 @@
           <el-radio-group v-model="form.type">
             <el-radio value="command">{{ $t('exec.modeCommand') }}</el-radio>
             <el-radio value="script">{{ $t('exec.modeScript') }}</el-radio>
+            <el-radio value="report">{{ $t('exec.modeReport') }}</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item :label="$t('exec.command')" v-if="form.type === 'command'">
           <el-input v-model="form.command" type="textarea" :rows="4" :placeholder="$t('exec.commandPlaceholder')" class="mono" />
         </el-form-item>
-        <el-form-item :label="$t('exec.script')" v-else>
+        <el-form-item :label="$t('exec.script')" v-else-if="form.type === 'script'">
           <el-select v-model="form.script_id" :placeholder="$t('exec.script')" style="width:100%">
             <el-option v-for="sc in scripts" :key="sc.id" :label="sc.name" :value="sc.id" />
           </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('cron.reportTemplate')" v-else>
+          <el-select v-model="form.report_template" :placeholder="$t('cron.reportTemplate')" style="width:100%">
+            <el-option v-for="tpl in reportTemplates" :key="tpl.key" :label="tpl.name" :value="tpl.key" />
+          </el-select>
+          <div style="color:#909399; font-size:12px; margin-top:4px">{{ $t('cron.reportTip') }}</div>
         </el-form-item>
         <el-form-item :label="$t('cron.expr')">
           <div style="display:flex; gap:8px; width:100%; flex-wrap:wrap; align-items:center">
@@ -140,6 +147,7 @@ const router = useRouter()
 const jobs = ref([])
 const hosts = ref([])
 const scripts = ref([])
+const reportTemplates = ref([])
 const usableCreds = ref([])
 const loading = ref(false)
 const visible = ref(false)
@@ -182,12 +190,13 @@ onMounted(async () => {
   load()
   hosts.value = await api.get('/hosts')
   scripts.value = await api.get('/scripts')
+  try { reportTemplates.value = await api.get('/reports/templates') } catch { reportTemplates.value = [] }
   usableCreds.value = await api.get('/credentials/usable')
 })
 
 const dlg = () => {
   form.value = {
-    name: '', type: 'command', command: '', script_id: null, script_args: '',
+    name: '', type: 'command', command: '', script_id: null, script_args: '', report_template: '',
     host_ids: [], cron_expr: '*/5 * * * *', timeout_sec: 300, concurrency: 10, enabled: true
   }
   preset.value = null
@@ -198,6 +207,7 @@ const save = async () => {
   if (!form.value.name) { ElMessage.warning(t('cron.name')); return }
   if (form.value.type === 'command' && !form.value.command.trim()) { ElMessage.warning(t('exec.needCommand')); return }
   if (form.value.type === 'script' && !form.value.script_id) { ElMessage.warning(t('exec.needScript')); return }
+  if (form.value.type === 'report' && !form.value.report_template) { ElMessage.warning(t('cron.needTemplate')); return }
   if (form.value.id) await api.put(`/crons/${form.value.id}`, form.value)
   else await api.post('/crons', form.value)
   ElMessage.success(t('hosts.saved'))
@@ -231,6 +241,7 @@ const onCmd = async (cmd, row) => {
     form.value = {
       id: row.id, name: row.name, type: row.type,
       command: row.command || '', script_id: row.script_id || null, script_args: row.script_args || '',
+      report_template: row.report_template || '',
       host_ids: row.host_ids || [], credential_id: row.credential_id || null,
       cron_expr: row.cron_expr, timeout_sec: row.timeout_sec || 300,
       concurrency: row.concurrency || 10, enabled: row.enabled

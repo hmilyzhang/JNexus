@@ -97,6 +97,10 @@ func executeCronJob(job model.CronJob, firedAt time.Time) {
 		req.ScriptID = fresh.ScriptID
 		req.Command = ""
 	}
+	if fresh.Type == "report" {
+		fireCronReport(fresh, operator)
+		return
+	}
 	if len(fresh.HostIDs) > 0 {
 		var ids []uint
 		if json.Unmarshal([]byte(fresh.HostIDs), &ids) == nil {
@@ -125,6 +129,39 @@ func executeCronJob(job model.CronJob, firedAt time.Time) {
 	}
 	model.DB.Model(&model.Task{}).Where("id = ?", taskID).Update("cron_job_id", fresh.ID)
 	model.DB.Model(&fresh).Update("last_task_id", taskID)
+}
+
+// fireCronReport runs a preset collection report on the cron schedule (empty
+// target = all hosts, matching the reports page semantics); the generated
+// report lands in the reports list and a task row records the run.
+func fireCronReport(job model.CronJob, operator *model.User) {
+	var hostIDs []uint
+	if json.Unmarshal([]byte(job.HostIDs), &hostIDs) != nil {
+		hostIDs = nil
+	}
+	rid, err := StartReport(operator, job.ReportTemplate, hostIDs)
+	task := model.Task{
+		Type: "report", Operator: job.CreatedBy, CronJobID: &job.ID,
+		Params: fmt.Sprintf(`{"cron":%q,"template":%q,"report_id":%d}`, job.Name, job.ReportTemplate, rid),
+		Status: "running", CreatedAt: time.Now(),
+	}
+	if err != nil {
+		task.Status = "failed"
+		task.Params = fmt.Sprintf(`{"cron":%q,"template":%q,"error":%q}`, job.Name, job.ReportTemplate, err.Error())
+		task.FinishedAt = ptrTime(time.Now())
+		model.DB.Create(&task)
+		model.DB.Model(&job).Update("last_task_id", task.ID)
+		return
+	}
+	task.FinishedAt = ptrTime(time.Now())
+	model.DB.Create(&task)
+	model.DB.Model(&job).Update("last_task_id", task.ID)
+}
+
+// RunCronReportNow runs a report-type cron immediately (run-now endpoint);
+// wraps fireCronReport for the handler layer.
+func RunCronReportNow(job model.CronJob, operator *model.User) {
+	fireCronReport(job, operator)
 }
 
 func ptrTime(t time.Time) *time.Time { return &t }

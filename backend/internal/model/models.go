@@ -299,7 +299,8 @@ type ReportItem struct {
 type CronJob struct {
 	ID           uint       `gorm:"primaryKey" json:"id"`
 	Name         string     `gorm:"uniqueIndex;size:128" json:"name"`
-	Type         string     `gorm:"size:16;default:command" json:"type"` // command / script
+	Type         string     `gorm:"size:16;default:command" json:"type"` // command / script / report
+	ReportTemplate string   `gorm:"size:64" json:"report_template"`      // type=report: preset template key
 	Command      string     `gorm:"type:text" json:"command"`
 	ScriptID     *uint      `json:"script_id"`
 	ScriptArgs   string     `gorm:"size:512" json:"script_args"`
@@ -398,6 +399,7 @@ type Monitor struct {
 	DownSince      *time.Time `json:"down_since"`                // When the current outage started (cleared on recovery)
 	AlertFired     bool       `json:"alert_fired"`               // Whether an alert was already sent during this outage
 	LastStatus     string     `gorm:"size:8" json:"last_status"` // up / down / empty = not checked
+	MonGroup       string     `gorm:"size:64" json:"mon_group"`  // display group for the app-monitor list (collapsed sections)
 	OwnerGroupID   *uint      `json:"owner_group_id"`            // owning user group (department self-service monitors); NULL = infra/global
 	LastRespMs     int        `json:"last_resp_ms"`
 	LastError      string     `gorm:"size:255" json:"last_error"`

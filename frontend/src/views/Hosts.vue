@@ -4,6 +4,7 @@
     <el-col :span="6">
       <el-card :header="$t('hosts.treeView')" class="tree-card" v-loading="loading">
         <el-tree ref="treeRef" :data="treeData" node-key="key" highlight-current
+                 :expand-on-click-node="false"
                  :default-expanded-keys="expandedKeys" :auto-expand-parent="false"
                  @node-click="onTreeNode" @node-expand="onNodeExpand" @node-collapse="onNodeCollapse">
           <template #default="{ data }">

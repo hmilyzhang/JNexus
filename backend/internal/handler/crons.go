@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	errCronType    = &cronError{"类型必须是 command 或 script"}
+	errCronType    = &cronError{"类型必须是 command / script / report"}
 	errCronCommand = &cronError{"命令内容必填"}
 	errCronScript  = &cronError{"脚本类型需要选择脚本"}
 )
@@ -28,7 +28,8 @@ func jsonUnmarshal(data string, v any) error { return json.Unmarshal([]byte(data
 
 type cronJobReq struct {
 	Name         string `json:"name" binding:"required"`
-	Type         string `json:"type" binding:"required"` // command / script
+	Type         string `json:"type" binding:"required"` // command / script / report
+	ReportTemplate string `json:"report_template"`
 	Command      string `json:"command"`
 	ScriptID     *uint  `json:"script_id"`
 	ScriptArgs   string `json:"script_args"`
@@ -43,8 +44,20 @@ type cronJobReq struct {
 }
 
 func (r *cronJobReq) validate() error {
-	if r.Type != "command" && r.Type != "script" {
+	if r.Type != "command" && r.Type != "script" && r.Type != "report" {
 		return errCronType
+	}
+	if r.Type == "report" {
+		known := false
+		for _, t := range service.ReportTemplateList() {
+			if t.Key == r.ReportTemplate {
+				known = true
+				break
+			}
+		}
+		if !known {
+			return &cronError{"未知报告模板"}
+		}
 	}
 	if r.Type == "command" && r.Command == "" {
 		return errCronCommand
@@ -58,6 +71,7 @@ func (r *cronJobReq) validate() error {
 func (r *cronJobReq) toJob(j *model.CronJob) error {
 	j.Name = r.Name
 	j.Type = r.Type
+	j.ReportTemplate = r.ReportTemplate
 	j.Command = r.Command
 	j.ScriptID = r.ScriptID
 	j.ScriptArgs = r.ScriptArgs
@@ -208,6 +222,12 @@ func RunCronNow(c *gin.Context) {
 	}
 	u := currentUser(c)
 	operator := &model.User{Username: u.Username, Role: model.RoleAdmin, Status: 1}
+	if job.Type == "report" {
+		// run-now on a report cron: generate the collection report synchronously
+		service.RunCronReportNow(job, operator)
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return
+	}
 	req := service.ExecRequest{
 		Command:      job.Command,
 		ScriptArgs:   job.ScriptArgs,

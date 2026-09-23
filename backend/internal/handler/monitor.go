@@ -28,6 +28,7 @@ type monitorReq struct {
 	IntervalSec    int    `json:"interval_sec"`
 	TimeoutSec     int    `json:"timeout_sec"`
 	Enabled        *bool  `json:"enabled"`
+	MonGroup       string `json:"mon_group"`   // display group for the app-monitor list
 	ChannelIDs     []uint `json:"channel_ids"` // Alert notification channel bindings
 }
 
@@ -51,6 +52,7 @@ func applyMonitorReq(m *model.Monitor, req monitorReq) error {
 	if req.KeywordType == "" {
 		m.KeywordType = "contain"
 	}
+	m.MonGroup = strings.TrimSpace(req.MonGroup)
 	m.IntervalSec, m.TimeoutSec = req.IntervalSec, req.TimeoutSec
 	if m.IntervalSec <= 0 {
 		m.IntervalSec = service.MonitorInterval()
