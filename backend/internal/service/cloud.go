@@ -450,58 +450,69 @@ func huaweiListInstances(cred HuaweiCred, regions []string) (out []CloudInstance
 		builder := basic.NewCredentialsBuilder().WithAk(cred.AccessKey).WithSk(cred.SecretKey)
 		if cred.ProjectID != "" {
 			builder = builder.WithProjectId(cred.ProjectID)
-		builder = builder.WithIamEndpointOverride(cred.Endpoint)
+		}
+		if cred.Endpoint != "" {
+			// private-cloud deployments: route IAM (project resolution) to the same endpoint
+			builder = builder.WithIamEndpointOverride(cred.Endpoint)
 		}
 		creds := builder.Build()
 		client := ecs.NewEcsClient(ecs.EcsClientBuilder().WithRegion(rg).WithCredential(creds).Build())
 
-		resp, err := client.ListServersDetails(&ecsmodel.ListServersDetailsRequest{})
-		if err != nil {
-			return out, fmt.Errorf("华为云 %s: %w", regionName, err)
-		}
-		if resp.Servers == nil {
-			continue
-		}
-		for _, srv := range *resp.Servers {
-			ci := CloudInstance{Region: regionName, Tags: map[string]string{}}
-			ci.InstanceID = srv.Id
-			ci.Name = srv.Name
-			switch srv.Status {
-			case "ACTIVE":
-				ci.State = "running"
-			case "SHUTOFF":
-				ci.State = "stopped"
-			default:
-				ci.State = srv.Status
+		// paged fetch (limit + item offset) so accounts with many instances import fully
+		var pageSize int32 = 500
+		for offset := int32(0); ; offset += pageSize {
+			lim, off := pageSize, offset
+			resp, err := client.ListServersDetails(&ecsmodel.ListServersDetailsRequest{Limit: &lim, Offset: &off})
+			if err != nil {
+				return out, fmt.Errorf("华为云 %s: %w", regionName, err)
 			}
-			for k, v := range srv.Metadata {
-				ci.Tags[k] = v
-				if k == "os_type" {
-					ci.OSType = strings.ToLower(v)
+			if resp.Servers == nil || len(*resp.Servers) == 0 {
+				break
+			}
+			for _, srv := range *resp.Servers {
+				ci := CloudInstance{Region: regionName, Tags: map[string]string{}}
+				ci.InstanceID = srv.Id
+				ci.Name = srv.Name
+				switch srv.Status {
+				case "ACTIVE":
+					ci.State = "running"
+				case "SHUTOFF":
+					ci.State = "stopped"
+				default:
+					ci.State = srv.Status
 				}
-			}
-			if srv.Flavor != nil {
-				ci.InstanceType = srv.Flavor.Id
-			}
-			enum := ecsmodel.GetServerAddressOSEXTIPStypeEnum()
-			for _, addrs := range srv.Addresses {
-				for _, a := range addrs {
-					if a.Version == "6" {
-						continue
+				for k, v := range srv.Metadata {
+					ci.Tags[k] = v
+					if k == "os_type" {
+						ci.OSType = strings.ToLower(v)
 					}
-					if a.OSEXTIPStype != nil && *a.OSEXTIPStype == enum.FLOATING {
-						if ci.PublicIP == "" {
-							ci.PublicIP = a.Addr
+				}
+				if srv.Flavor != nil {
+					ci.InstanceType = srv.Flavor.Id
+				}
+				enum := ecsmodel.GetServerAddressOSEXTIPStypeEnum()
+				for _, addrs := range srv.Addresses {
+					for _, a := range addrs {
+						if a.Version == "6" {
+							continue
 						}
-					} else if ci.PrivateIP == "" {
-						ci.PrivateIP = a.Addr
+						if a.OSEXTIPStype != nil && *a.OSEXTIPStype == enum.FLOATING {
+							if ci.PublicIP == "" {
+								ci.PublicIP = a.Addr
+							}
+						} else if ci.PrivateIP == "" {
+							ci.PrivateIP = a.Addr
+						}
 					}
 				}
+				if ci.Name == "" {
+					ci.Name = ci.InstanceID
+				}
+				out = append(out, ci)
 			}
-			if ci.Name == "" {
-				ci.Name = ci.InstanceID
+			if len(*resp.Servers) < int(pageSize) {
+				break
 			}
-			out = append(out, ci)
 		}
 	}
 	return out, nil
