@@ -1,8 +1,8 @@
 <!-- JNexus Ops Platform — By JJ Zhang, Version 1.0 -->
 <template>
-  <el-row :gutter="16">
+  <el-row :gutter="16" class="hosts-row">
     <el-col :span="6">
-      <el-card :header="$t('hosts.treeView')" v-loading="loading">
+      <el-card :header="$t('hosts.treeView')" class="tree-card" v-loading="loading">
         <el-tree ref="treeRef" :data="treeData" node-key="key" highlight-current
                  :default-expanded-keys="expandedKeys" :auto-expand-parent="false"
                  @node-click="onTreeNode" @node-expand="onNodeExpand" @node-collapse="onNodeCollapse">
@@ -19,8 +19,8 @@
     </el-col>
 
     <el-col :span="18">
-      <el-card>
-        <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap">
+      <el-card class="hosts-card">
+        <div class="hosts-toolbar">
           <el-input v-model="keyword" :placeholder="$t('hosts.searchPlaceholder')" style="width:200px" clearable @change="load" />
           <el-select v-model="groupFilter" :placeholder="$t('hosts.allGroups')" style="width:160px" clearable @change="load">
             <el-option v-for="g in groups" :key="g.id" :label="groupLabel(groups, g)" :value="g.id" />
@@ -39,8 +39,9 @@
                      @click="batchDelHosts">{{ $t('k8s.batchDelete') }}{{ selHosts.length ? ` (${selHosts.length})` : '' }}</el-button>
         </div>
 
-        <el-table :data="pagedHosts" v-loading="loading" size="small" border
-                  :max-height="tableMax" @selection-change="s => (selHosts = s)">
+        <div class="table-wrap">
+        <el-table :data="pagedHosts" v-loading="loading" size="small" border height="100%"
+                  @selection-change="s => (selHosts = s)">
           <el-table-column type="selection" width="38" :selectable="() => store.isAdmin || canManageCreds" />
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" :label="$t('hosts.name')" min-width="120" />
@@ -91,7 +92,8 @@
             </template>
           </el-table-column>
         </el-table>
-        <div style="display:flex; justify-content:flex-end; margin-top:10px">
+        </div>
+        <div class="hosts-pager">
           <el-pagination v-model:current-page="pageNum" v-model:page-size="pageSize"
                          :total="hosts.length" :page-sizes="[10, 20, 50, 100, 200]"
                          layout="total, sizes, prev, pager, next, jumper" small background />
@@ -391,7 +393,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import { groupLabel } from '../utils/groupPath'
@@ -497,11 +499,7 @@ const store = useUserStore()
 const hosts = ref([])
 const pageNum = ref(1)
 const pageSize = ref(20)
-// table scrolls internally so the pagination bar is always on screen
-const tableMax = ref(560)
-const onWinResize = () => { tableMax.value = Math.max(300, window.innerHeight - 330) }
-onMounted(() => { onWinResize(); window.addEventListener('resize', onWinResize) })
-onBeforeUnmount(() => window.removeEventListener('resize', onWinResize))
+// the table fills the remaining card height (flex) and scrolls internally, so the pagination bar is always on screen
 const pagedHosts = computed(() => {
   const start = (pageNum.value - 1) * pageSize.value
   return hosts.value.slice(start, start + pageSize.value)
@@ -837,6 +835,17 @@ defineExpose({ openCreate: () => dlgHost() })
 </script>
 
 <style scoped>
+/* fill the assets body: cards stretch, table scrolls internally, pager always visible */
+.hosts-row { height: 100%; }
+.hosts-row :deep(.el-col) { height: 100%; }
+.tree-card { height: 100%; }
+.tree-card :deep(.el-card__body) { height: calc(100% - 60px); overflow: auto; }
+.hosts-card { height: 100%; display: flex; flex-direction: column; }
+.hosts-card :deep(.el-card__body) { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.hosts-toolbar { flex: 0 0 auto; display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.table-wrap { flex: 1 1 0; min-height: 0; }
+.hosts-pager { flex: 0 0 auto; display: flex; justify-content: flex-end; margin-top: 10px; }
+
 .tree-node { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .cap-chart { width: 100%; height: 110px; background: var(--el-fill-color-light); border-radius: 4px; }
 .cap-dot { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 4px; }
