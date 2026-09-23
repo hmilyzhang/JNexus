@@ -75,7 +75,9 @@ func PairAllPasswords() []PairResult {
 	model.DB.Table("host_credentials cr").
 		Select("cr.id AS cred_id, COALESCE(h.name, '') AS host, cr.username AS username").
 		Joins("JOIN hosts h ON h.id = cr.host_id").
-		Where("cr.auth_type = 'password' AND cr.password <> '' AND cr.is_ldap = ? AND h.os_type = 'linux'", false).
+		// is_ldap accounts are included: pairing only logs in with the stored password
+		// and installs a key - it never changes any password (unlike rotation).
+		Where("cr.auth_type = 'password' AND cr.password <> '' AND h.os_type = 'linux'").
 		Order("cr.id").Scan(&rows)
 
 	results := make([]PairResult, len(rows))

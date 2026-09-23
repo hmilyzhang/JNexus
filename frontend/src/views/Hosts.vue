@@ -39,7 +39,7 @@
                      @click="batchDelHosts">{{ $t('k8s.batchDelete') }}{{ selHosts.length ? ` (${selHosts.length})` : '' }}</el-button>
         </div>
 
-        <el-table :data="hosts" v-loading="loading" size="small" border
+        <el-table :data="pagedHosts" v-loading="loading" size="small" border
                   @selection-change="s => (selHosts = s)">
           <el-table-column type="selection" width="38" :selectable="() => store.isAdmin || canManageCreds" />
           <el-table-column prop="id" label="ID" width="60" />
@@ -88,6 +88,11 @@
             </template>
           </el-table-column>
         </el-table>
+        <div style="display:flex; justify-content:flex-end; margin-top:10px">
+          <el-pagination v-model:current-page="pageNum" v-model:page-size="pageSize"
+                         :total="hosts.length" :page-sizes="[10, 20, 50, 100, 200]"
+                         layout="total, sizes, prev, pager, next, jumper" small background />
+        </div>
       </el-card>
     </el-col>
   </el-row>
@@ -487,6 +492,16 @@ const router = useRouter()
 const cloudRef = ref(null)
 const store = useUserStore()
 const hosts = ref([])
+const pageNum = ref(1)
+const pageSize = ref(20)
+const pagedHosts = computed(() => {
+  const start = (pageNum.value - 1) * pageSize.value
+  return hosts.value.slice(start, start + pageSize.value)
+})
+watch(() => hosts.value.length, n => {
+  const maxPage = Math.max(1, Math.ceil(n / pageSize.value))
+  if (pageNum.value > maxPage) pageNum.value = maxPage
+})
 const allHosts = ref([])
 const groups = ref([])
 const keys = ref([])
@@ -594,6 +609,8 @@ const load = async () => {
       list = list.filter(h => (h.name || '').toLowerCase().includes(kw) || (h.ip || '').toLowerCase().includes(kw))
     }
     hosts.value = list
+    const maxPage = Math.max(1, Math.ceil(list.length / pageSize.value))
+    if (pageNum.value > maxPage) pageNum.value = maxPage
   } finally { loading.value = false }
   groups.value = await api.get('/host_groups')
 }

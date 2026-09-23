@@ -1010,7 +1010,7 @@ export default {
     pairDone: 'Key pairing completed for {u} on {h}',
     pairAlready: 'This account is already paired with the platform key',
     pairAll: 'Force pair',
-    pairAllConfirm: 'Scan password accounts on all Linux hosts, push the platform public key with the vaulted passwords and create default key accounts (Windows / no-password / LDAP accounts are skipped; already-paired ones are not re-processed). Continue?',
+    pairAllConfirm: 'Scan password accounts on all Linux hosts (including accounts created from domain-account templates), push the platform public key with the vaulted passwords and create default key accounts (Windows / no-password accounts are skipped; already-paired ones are not re-processed; no password is ever changed). Continue?',
     pairAllDone: 'Pairing finished: paired {p} · already {a} · failed {f}',
     pairAllClean: 'Nothing left to pair ({a} already paired). Failures usually mean the host is offline or the password changed - fix and retry.',
     batchRotateConfirm: 'Rotate passwords for {n} accounts: a strong random password is generated, applied on the target host and updated here. Key/LDAP accounts are skipped automatically. Continue?',
