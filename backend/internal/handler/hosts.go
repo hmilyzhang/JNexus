@@ -182,7 +182,28 @@ func ListHosts(c *gin.Context) {
 	q.Order("id").Find(&hosts)
 	// Data-level visibility: group members with restrict_visibility enabled only see hosts bound to their group
 	hosts = service.HostVisibilityFilter(currentUser(c), hosts)
-	c.JSON(http.StatusOK, hosts)
+
+	// cred_auth = auth type of the host's default OS account ("": no accounts) -
+	// the legacy host.auth_type is misleading for hosts without credentials
+	var creds []model.HostCredential
+	model.DB.Select("host_id, auth_type, is_default").Order("is_default DESC, id ASC").Find(&creds)
+	credAuth := map[uint]string{}
+	for _, cr := range creds {
+		if _, ok := credAuth[cr.HostID]; !ok {
+			credAuth[cr.HostID] = cr.AuthType
+		}
+	}
+	out := make([]hostOut, 0, len(hosts))
+	for _, h := range hosts {
+		out = append(out, hostOut{Host: h, CredAuth: credAuth[h.ID]})
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+// hostOut is a host row plus the resolved default-account auth type
+type hostOut struct {
+	model.Host
+	CredAuth string `json:"cred_auth"`
 }
 
 type hostReq struct {

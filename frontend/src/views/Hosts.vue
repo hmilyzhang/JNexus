@@ -55,7 +55,10 @@
           </el-table-column>
           <el-table-column prop="username" :label="$t('hosts.user')" width="100" />
           <el-table-column :label="$t('hosts.auth')" width="80">
-            <template #default="{ row }">{{ row.auth_type === 'key' ? $t('hosts.authKey') : $t('hosts.authPassword') }}</template>
+            <template #default="{ row }">
+              <span v-if="row.cred_auth">{{ row.cred_auth === 'key' ? $t('hosts.authKey') : $t('hosts.authPassword') }}</span>
+              <span v-else style="color:var(--el-text-color-placeholder)">-</span>
+            </template>
           </el-table-column>
           <el-table-column :label="$t('hosts.group')" width="120">
             <template #default="{ row }">{{ row.group?.name || '-' }}</template>
