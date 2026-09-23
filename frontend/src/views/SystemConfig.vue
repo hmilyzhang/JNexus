@@ -536,7 +536,9 @@
     <!-- Module permission matrix -->
     <el-dialog v-model="capDlgVisible" :title="`${$t('system.capMatrix')}：${capRow?.label || ''}`" width="560px">
       <el-table :data="capabilities" size="small" border>
-        <el-table-column prop="key" :label="$t('system.capModule')" width="160" />
+        <el-table-column :label="$t('system.capModule')" width="160">
+          <template #default="{ row }">{{ $te('system.capmod_' + row.key) ? $t('system.capmod_' + row.key) : row.key }}</template>
+        </el-table-column>
         <el-table-column :label="$t('system.capActions')">
           <template #default="{ row }">
             <el-checkbox v-for="a in row.actions" :key="a" style="margin-right:12px"
