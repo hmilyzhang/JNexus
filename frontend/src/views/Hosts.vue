@@ -40,7 +40,7 @@
         </div>
 
         <el-table :data="pagedHosts" v-loading="loading" size="small" border
-                  @selection-change="s => (selHosts = s)">
+                  :max-height="tableMax" @selection-change="s => (selHosts = s)">
           <el-table-column type="selection" width="38" :selectable="() => store.isAdmin || canManageCreds" />
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" :label="$t('hosts.name')" min-width="120" />
@@ -388,7 +388,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import { groupLabel } from '../utils/groupPath'
@@ -494,6 +494,11 @@ const store = useUserStore()
 const hosts = ref([])
 const pageNum = ref(1)
 const pageSize = ref(20)
+// table scrolls internally so the pagination bar is always on screen
+const tableMax = ref(560)
+const onWinResize = () => { tableMax.value = Math.max(300, window.innerHeight - 330) }
+onMounted(() => { onWinResize(); window.addEventListener('resize', onWinResize) })
+onBeforeUnmount(() => window.removeEventListener('resize', onWinResize))
 const pagedHosts = computed(() => {
   const start = (pageNum.value - 1) * pageSize.value
   return hosts.value.slice(start, start + pageSize.value)

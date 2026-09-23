@@ -532,7 +532,7 @@ export default {
     tagGroupPh: '如 group（标签值 = 分组名）',
     template: '账号模板',
     templatePh: '不使用模板',
-    templateTip: '选择后，导入的主机自动创建该 OS 账号（密码取模板，标记为默认账号），主机开箱即可执行/开终端',
+    templateTip: '选择后，导入的主机自动创建该 OS 账号，Linux 主机会随即用模板密码自动配对平台密钥并以密钥作为默认账号（主机不可达时保留密码默认，可稍后用「强制配对」补齐）',
     importStopped: '包含已关机实例',
     autoDelete: '云端删除时同步删除资产',
     interval: '自动同步间隔',

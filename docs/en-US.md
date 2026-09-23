@@ -118,7 +118,7 @@ JNexus reads environment variables first. Keys generated on first boot are persi
 
 - **Unified asset entry**: the Assets page organizes **hosts / databases / web apps** into tabs with one "Add asset" action;
 - **Group tree**: multi-level host groups; filter by group; the toolbar supports **batch move to group**;
-- **Host fields**: name, IP, SSH port, OS type (Linux / Windows), description, group;
+- **Host fields**: name, IP, SSH port, OS type (Linux / Windows), description, group; paginated host list (10/20/50/100/200 per page);
 - **OS accounts**: attach multiple accounts (password or key) per host and mark a default; execution/terminal/releases resolve credentials as "specified account → host default"; central management in [Account Credentials](#6-account-credentials);
 - **Credential templates**: apply a shared account template when batch-adding hosts;
 - **Windows support**: with the Windows OS type, hosts use WinRM (default port 5985, NTLM domain accounts supported) for PowerShell execution and metric collection; RDP offers a multi-account logon picker (`DOMAIN\user` and UPN both work);
@@ -134,7 +134,7 @@ JNexus reads environment variables first. Keys generated on first boot are persi
 - **Password auto-rotation**: enable per account with a configurable period; random strong passwords are AES-encrypted at rest and never displayed. Normal accounts rotate through a same-host root/NOPASSWD-sudo **privilege chain**; paired-key accounts with a stored password rotate via key login; LDAP/domain accounts are detected and skipped;
 - **Password history**: every rotation is archived (last 24 per account), visible to admins and fully audited;
 - **Account templates**: store LDAP/AD passwords once and reuse them when adding hosts or bulk importing;
-- **Force key pairing**: existing stored-password accounts can be paired directly - the vaulted password installs the platform public key and a default key account is created (the password account is kept; rotation is unaffected). Available as a row action or a fleet-wide sweep (Windows / no-password / LDAP accounts are skipped, already-paired ones are not re-processed), fully audited;
+- **Force key pairing**: existing stored-password accounts can be paired directly - the vaulted password installs the platform public key and a default key account is created (the password account is kept; rotation is unaffected). Available as a row action or a fleet-wide sweep (Windows / no-password accounts are skipped; domain-template accounts are included since pairing never changes a password; already-paired ones are not re-processed), fully audited;
 - Sensitive data — host passwords, private keys, kubeconfigs — is always **AES-encrypted at rest** and never shown in clear text;
 - Batch add/delete with reference protection.
 
@@ -362,6 +362,7 @@ gateway address derivation).
 - **Discovery**: cloud instances are imported as host assets and grouped automatically by **tags**; hosts whose IP is already managed are not imported twice;
 - **Scheduled sync**: per-account interval executed by the scheduler; instances released in the cloud are removed automatically on the next sync;
 - **Account template**: a cloud account can bind a credential template; imported hosts automatically get the template OS account (default flag, template password) - usable for exec / terminal right after the sync; resyncs never duplicate accounts;
+- **Automatic key pairing**: after the template account is created, Linux hosts are immediately paired with the platform key using the template password, and the key account becomes the default (unreachable hosts keep the password default - run the force-pair sweep later);
 - Every sync is audited.
 
 ## 26. Web Apps (PAM)

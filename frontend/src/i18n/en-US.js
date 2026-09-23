@@ -528,7 +528,7 @@ export default {
     tagGroupPh: 'e.g. group (tag value = host group name)',
     template: 'Account template',
     templatePh: 'No template',
-    templateTip: 'When set, imported hosts get this OS account automatically (password from the template, marked default) - ready to exec / open a terminal right away',
+    templateTip: 'When set, imported hosts get this OS account automatically; Linux hosts are then key-paired with the platform key as the default account (unreachable hosts keep the password default - run the force-pair sweep later)',
     importStopped: 'Include stopped instances',
     autoDelete: 'Delete assets removed from cloud',
     interval: 'Auto sync interval',

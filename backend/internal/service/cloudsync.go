@@ -8,27 +8,31 @@ package service
 import (
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"jnexus/internal/model"
 	"jnexus/internal/pkg"
-	"time"
 )
 
 type CloudSyncSummary struct {
-	Added      int      `json:"added"`
-	Updated    int      `json:"updated"`
-	SkippedIP  int      `json:"skipped_ip"`
-	Removed    int      `json:"removed"`
-	Credentials int     `json:"credentials"` // template accounts created during this sync
-	Conflicts  []string `json:"conflicts"`   // "name (ip) -> existing host '<name>' id=<id>"
-	Total      int      `json:"total"`
+	Added       int      `json:"added"`
+	Updated     int      `json:"updated"`
+	SkippedIP   int      `json:"skipped_ip"`
+	Removed     int      `json:"removed"`
+	Credentials int      `json:"credentials"` // template accounts created during this sync
+	KeyPaired   int      `json:"key_paired"`  // imported hosts auto-paired with the platform key
+	Conflicts   []string `json:"conflicts"`   // "name (ip) -> existing host '<name>' id=<id>"
+	Total       int      `json:"total"`
 }
 
 // applyCredentialTemplate creates the default OS account for an imported host from
 // a credential template (HostCredential row with host_id = 0). The stored password
 // ciphertext is reused as-is (same master key). Idempotent: skipped when the host
-// already has an account with the template's username.
-func applyCredentialTemplate(templateID *uint, hostID uint) int {
+// already has an account with the template's username. Returns the new credential
+// id (0 = nothing created); the key-pairing pass runs separately
+// (runTemplatePairing) so slow SSH attempts never stall the import loop.
+func applyCredentialTemplate(templateID *uint, hostID uint) uint {
 	if templateID == nil || *templateID == 0 {
 		return 0
 	}
@@ -48,7 +52,37 @@ func applyCredentialTemplate(templateID *uint, hostID uint) int {
 	if err := model.DB.Create(&nc).Error; err != nil {
 		return 0
 	}
-	return 1
+	return nc.ID
+}
+
+// runTemplatePairing upgrades freshly imported template accounts to platform-key
+// auth: the stored password installs the public key and a paired key credential
+// becomes the default. Unreachable hosts keep the password account as default -
+// run the credentials-page force-pair sweep later to catch them.
+func runTemplatePairing(credIDs []uint) int {
+	if len(credIDs) == 0 {
+		return 0
+	}
+	paired := 0
+	var mu sync.Mutex
+	sem := make(chan struct{}, 16)
+	var wg sync.WaitGroup
+	for _, id := range credIDs {
+		wg.Add(1)
+		go func(id uint) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			status, err := PairExisting(id)
+			if err == nil && status == "paired" {
+				mu.Lock()
+				paired++
+				mu.Unlock()
+			}
+		}(id)
+	}
+	wg.Wait()
+	return paired
 }
 
 // DecryptCloudCredentials decrypts the stored credential JSON (exported for handlers)
@@ -83,7 +117,8 @@ func SyncCloudAccount(ca *model.CloudAccount, operator string) (*CloudSyncSummar
 		return nil, err
 	}
 	sum := &CloudSyncSummary{Total: len(instances), Conflicts: []string{}}
-	seen := map[string]bool{} // instance ids present in the cloud
+	seen := map[string]bool{}     // instance ids present in the cloud
+	var pairCands []uint          // fresh template credentials to key-pair after the loop
 
 	for _, ci := range instances {
 		if ci.State != "running" && !ca.ImportStopped {
@@ -116,7 +151,10 @@ func SyncCloudAccount(ca *model.CloudAccount, operator string) (*CloudSyncSummar
 			}
 			model.DB.Model(&host).Updates(updates)
 			// template account: also covers hosts imported before a template was configured
-			sum.Credentials += applyCredentialTemplate(ca.TemplateID, host.ID)
+			if cid := applyCredentialTemplate(ca.TemplateID, host.ID); cid > 0 {
+				sum.Credentials++
+				pairCands = append(pairCands, cid)
+			}
 			sum.Updated++
 			continue
 		}
@@ -149,8 +187,14 @@ func SyncCloudAccount(ca *model.CloudAccount, operator string) (*CloudSyncSummar
 			continue
 		}
 		sum.Added++
-		sum.Credentials += applyCredentialTemplate(ca.TemplateID, host.ID)
+		if cid := applyCredentialTemplate(ca.TemplateID, host.ID); cid > 0 {
+			sum.Credentials++
+			pairCands = append(pairCands, cid)
+		}
 	}
+
+	// key pairing for freshly imported template accounts (concurrent, after the import loop)
+	sum.KeyPaired = runTemplatePairing(pairCands)
 
 	// auto-delete: hosts stamped with this account whose instance is gone
 	if ca.AutoDelete {
