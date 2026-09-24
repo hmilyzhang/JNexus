@@ -49,6 +49,18 @@ func OpenDB(d *model.DbSource, username, password string) (*sql.DB, error) {
 	return db, nil
 }
 
+// OpenDBFor opens a connection to a specific database of the source (tree
+// browsing and queries against a database other than the registered default).
+// Oracle is service-bound: the database parameter is ignored there.
+func OpenDBFor(d *model.DbSource, username, password, database string) (*sql.DB, error) {
+	if database == "" || database == d.Database {
+		return OpenDB(d, username, password)
+	}
+	clone := *d
+	clone.Database = database
+	return OpenDB(&clone, username, password)
+}
+
 func DBSourceTimeout(d *model.DbSource) time.Duration {
 	if d.TimeoutSec > 0 {
 		return time.Duration(d.TimeoutSec) * time.Second

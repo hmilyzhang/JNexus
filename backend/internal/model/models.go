@@ -613,6 +613,7 @@ type DbSource struct {
 	Database    string     `gorm:"size:64" json:"database"`
 	Query       string     `gorm:"type:text" json:"query"`
 	IntervalSec int        `json:"interval_sec"`
+	GroupName   string     `gorm:"size:64" json:"group_name"` // display group for the database tree
 	Stream      string     `gorm:"size:100" json:"stream"`
 	Enabled     bool       `json:"enabled"`
 	LastRunAt   *time.Time `json:"last_run_at"`

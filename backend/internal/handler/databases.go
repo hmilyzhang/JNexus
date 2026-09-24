@@ -67,7 +67,7 @@ func DBSourceListForWorkbench(c *gin.Context) {
 		out = append(out, gin.H{
 			"id": s.ID, "name": s.Name, "db_type": s.DBType, "host": s.Host,
 			"port": s.Port, "database": s.Database, "read_only": s.ReadOnly,
-			"timeout_sec": s.TimeoutSec, "max_rows": s.MaxRows,
+			"timeout_sec": s.TimeoutSec, "max_rows": s.MaxRows, "group_name": s.GroupName,
 		})
 	}
 	c.JSON(http.StatusOK, out)
@@ -85,6 +85,7 @@ func CreateDBSource(c *gin.Context) {
 		ReadOnly   bool   `json:"read_only"`
 		TimeoutSec int    `json:"timeout_sec"`
 		MaxRows    int    `json:"max_rows"`
+		GroupName  string `json:"group_name"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
@@ -94,6 +95,9 @@ func CreateDBSource(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if req.GroupName != "" {
+		model.DB.Model(&model.DbSource{}).Where("id = ?", id).Update("group_name", req.GroupName)
 	}
 	c.JSON(http.StatusOK, gin.H{"id": id})
 }

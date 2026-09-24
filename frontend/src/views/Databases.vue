@@ -12,30 +12,39 @@
           </div>
         </div>
       </template>
-      <div v-for="s in sources" :key="s.id" class="db-src" :class="{ active: s.id === sourceId }" @click="pickSource(s)">
-        <div style="display:flex; align-items:center; gap:6px">
-          <el-tag size="small" type="info">{{ s.db_type }}</el-tag>
-          <span style="font-weight:600">{{ s.name }}</span>
-          <el-tag v-if="s.read_only" size="small" type="warning">{{ $t('db.readonly') }}</el-tag>
-        </div>
-        <div style="color:#909399; font-size:12px">{{ s.host }}:{{ s.port }} / {{ s.database }}</div>
-      </div>
+      <el-input v-model="treeFilter" size="small" :placeholder="$t('db.filterObjects')" clearable style="margin-bottom:8px" />
+      <el-tree v-if="treeReady" :key="treeKey" ref="dbTreeRef" :props="treeProps" node-key="key" lazy :load="loadTreeNode"
+               highlight-current :expand-on-click-node="false" :filter-node-method="filterTreeNode"
+               @node-click="onTreeNodeClick">
+        <template #default="{ data }">
+          <span class="tree-node" :class="{ active: data.type === 'source' && data.src && data.src.id === sourceId }">
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ data.label }}</span>
+            <el-tag v-if="data.type === 'table' && data.rows != null" size="small" type="info">{{ data.rows }}</el-tag>
+            <el-tag v-if="data.type === 'source' && data.src && data.src.read_only" size="small" type="warning">{{ $t('db.readonly') }}</el-tag>
+          </span>
+        </template>
+      </el-tree>
       <div v-if="!sources.length" style="color:#909399; font-size:13px">{{ $t('db.noSources') }}</div>
-
-      <template v-if="sourceId">
-        <el-divider style="margin:10px 0">{{ $t('db.accounts') }}</el-divider>
-        <div v-for="a in accounts" :key="a.id" class="db-acc" :class="{ active: accountId === a.id }" @click="accountId = a.id">
-          <el-radio :model-value="accountId" :label="a.id" style="margin-right:6px"><span></span></el-radio>
-          <span style="flex:1">{{ a.username }}<span v-if="a.label" style="color:#909399">（{{ a.label }}）</span></span>
-          <el-button v-if="store.isAdmin" size="small" link type="danger" @click.stop="delAccount(a)">{{ $t('common.delete') }}</el-button>
-        </div>
-        <el-button v-if="store.isAdmin" size="small" style="width:100%; margin-top:6px" @click="accDlg()">{{ $t('db.addAccount') }}</el-button>
-        <div v-if="store.isAdmin" style="margin-top:8px; display:flex; gap:6px">
-          <el-button size="small" style="flex:1" @click="guardDlgVisible = true">{{ $t('db.guardrails') }}</el-button>
-          <el-button size="small" style="flex:1" @click="openRotDlg">{{ $t('db.rotation') }}</el-button>
-        </div>
-      </template>
     </el-card>
+
+    <!-- assign source to a group (admin) -->
+    <el-dialog v-model="groupDlgVisible" :title="$t('db.newGroup')" width="420px">
+      <el-form label-width="110px">
+        <el-form-item :label="$t('db.group')">
+          <el-input v-model="newGroupName" :placeholder="$t('db.groupPh')" />
+        </el-form-item>
+        <el-form-item :label="$t('db.pickSource')">
+          <el-select v-model="groupAssignSrc" filterable style="width:100%">
+            <el-option v-for="s2 in sources" :key="s2.id" :label="`${s2.name} · ${s2.host}`" :value="s2.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <div style="color:#909399; font-size:12px">{{ $t('db.assignGroupTip') }}</div>
+      <template #footer>
+        <el-button @click="groupDlgVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="assignGroup">{{ $t('common.save') }}</el-button>
+      </template>
+    </el-dialog>
 
     <!-- account rotation dialog (admin) -->
     <el-dialog v-model="rotDlgVisible" :title="$t('db.rotation')" width="860px">
@@ -89,6 +98,12 @@
           {{ $t('db.run') }} (Ctrl+Enter)
         </el-button>
         <el-button :disabled="!result" @click="exportCsv">{{ $t('db.exportCsv') }}</el-button>
+        <span style="flex:1"></span>
+        <template v-if="store.isAdmin && sourceId">
+          <el-button size="small" @click="accDlg()">{{ $t('db.addAccount') }}</el-button>
+          <el-button size="small" @click="guardDlgVisible = true">{{ $t('db.guardrails') }}</el-button>
+          <el-button size="small" @click="openRotDlg">{{ $t('db.rotation') }}</el-button>
+        </template>
         <span v-if="result" style="color:#909399; font-size:12px">
           {{ result.elapsed_ms }} ms ·
           {{ result.truncated ? $t('db.truncated') : '' }}
@@ -206,6 +221,151 @@ const editorRef = ref(null)
 let editorView = null
 let langComp = null
 const running = ref(false)
+// ---- DBeaver-style navigator tree (el-tree native lazy loading) ----
+const dbTreeRef = ref(null)
+const treeFilter = ref('')
+const treeReady = ref(false)
+const treeKey = ref(0)
+const treeProps = { label: 'label', children: 'children', isLeaf: 'leaf' }
+const groupDlgVisible = ref(false)
+const newGroupName = ref('')
+const groupAssignSrc = ref(null)
+
+const groupNodes = () => {
+  const groups = {}
+  const order = []
+  for (const s2 of sources.value) {
+    const g = s2.group_name || t('db.ungrouped')
+    if (!groups[g]) { groups[g] = []; order.push(g) }
+    groups[g].push({
+      type: 'source', key: 'src-' + s2.id, label: s2.name, leaf: false, src: s2,
+    })
+  }
+  const out = order.map(g => ({ type: 'group', key: 'grp-' + g, label: g, leaf: false }))
+  const un = order.indexOf(t('db.ungrouped'))
+  if (un >= 0) out.push(out.splice(un, 1)[0]) // 未分组排到最后
+  return out
+}
+
+const browseAccId = async srcId => {
+  if (accountId.value) {
+    const mine = accounts.value.find(a => a.id === accountId.value)
+    if (mine) return accountId.value
+  }
+  const accs = await api.get(`/databases/${srcId}/accounts`)
+  return accs.length ? accs[0].id : null
+}
+
+const loadTreeNode = async (node, resolve) => {
+  const d = node.data || {}
+  try {
+    if (node.level === 0) return resolve(groupNodes())
+    if (d.type === 'group') {
+      const kids = sources.value
+        .filter(s2 => (s2.group_name || t('db.ungrouped')) === d.label)
+        .map(s2 => ({ type: 'source', key: 'src-' + s2.id, label: s2.name, leaf: false, src: s2 }))
+      return resolve(kids)
+    }
+    if (d.type === 'source') {
+      const accId = await browseAccId(d.src.id)
+      const accs = await api.get(`/databases/${d.src.id}/accounts`)
+      const accNodes = accs.map(a => ({
+        type: 'account', key: 'acc-' + a.id, label: a.username + (a.label ? '（' + a.label + '）' : ''), leaf: true, accId: a.id,
+      }))
+      let dbNodes = []
+      if (accId) {
+        const r = await api.get(`/databases/${d.src.id}/databases`, { params: { account_id: accId } })
+        dbNodes = (r.items || []).map(x => ({
+          type: 'database', key: 'db-' + d.src.id + '-' + x, label: x, leaf: false, srcId: d.src.id,
+        }))
+      }
+      return resolve([...accNodes, ...dbNodes])
+    }
+    if (d.type === 'database') {
+      const accId = await browseAccId(d.srcId)
+      const r = await api.get(`/databases/${d.srcId}/schemas`, { params: { account_id: accId, database: d.label } })
+      return resolve((r.items || []).map(x => ({
+        type: 'schema', key: 'sch-' + d.srcId + '-' + d.label + '-' + x,
+        label: x, leaf: false, srcId: d.srcId, database: d.label,
+      })))
+    }
+    if (d.type === 'schema') {
+      const accId = await browseAccId(d.srcId)
+      const r = await api.get(`/databases/${d.srcId}/tables`, { params: { account_id: accId, database: d.database, schema: d.label } })
+      return resolve((r.items || []).map(x => ({
+        type: 'table', key: 'tbl-' + d.srcId + '-' + d.database + '-' + d.label + '-' + x.name,
+        label: x.name, rows: x.rows, leaf: false, srcId: d.srcId, database: d.database, schema: d.label,
+      })))
+    }
+    if (d.type === 'table') {
+      const accId = await browseAccId(d.srcId)
+      const r = await api.get(`/databases/${d.srcId}/columns`, { params: { account_id: accId, database: d.database, schema: d.schema, table: d.label } })
+      return resolve((r.items || []).map(x => ({
+        type: 'column', key: 'col-' + d.srcId + '-' + d.database + '-' + d.schema + '-' + d.label + '-' + x.name,
+        label: x.name + ' (' + x.type + ')', leaf: true, colName: x.name,
+        srcId: d.srcId, database: d.database, schema: d.schema, table: d.label,
+      })))
+    }
+    return resolve([])
+  } catch (e) {
+    console.warn('[db-tree]', e)
+    return resolve([])
+  }
+}
+
+const filterTreeNode = (value, data) => {
+  if (!value) return true
+  return (data.label || '').toLowerCase().includes(String(value).toLowerCase())
+}
+watch(treeFilter, v => { if (treeReady.value && dbTreeRef.value) dbTreeRef.value.filter(v) })
+
+const insertIntoEditor = text => {
+  if (!editorView) return
+  const pos = editorView.state.selection.main.head
+  editorView.dispatch({ changes: { from: pos, insert: text } })
+  editorView.focus()
+}
+
+const onTreeNodeClick = async (data) => {
+  if (data.type === 'source') {
+    if (data.src) pickSource(data.src)
+    return
+  }
+  if (data.type === 'account') {
+    accountId.value = data.accId
+    return
+  }
+  if (data.type === 'table') {
+    const dialect = sqlDialectFor((sources.value.find(x2 => x2.id === data.srcId) || {}).db_type)
+    const qi = n => dialect === 'mysql' ? '`' + n + '`' : dialect === 'mssql' ? '[' + n + ']' : '"' + n + '"'
+    let sqlText
+    if (dialect === 'mssql') {
+      sqlText = `SELECT TOP 100 * FROM ${qi(data.schema)}.${qi(data.label)}`
+    } else {
+      const limit = dialect === 'oracle' ? 'FETCH FIRST 100 ROWS ONLY' : 'LIMIT 100'
+      sqlText = `SELECT * FROM ${qi(data.schema)}.${qi(data.label)} ${limit}`
+    }
+    setEditorText(sqlText)
+    run()
+    return
+  }
+  if (data.type === 'column') {
+    insertIntoEditor(data.colName + ', ')
+  }
+}
+
+const createGroup = () => {
+  if (!newGroupName.value.trim()) { ElMessage.warning(t('db.groupPh')); return }
+  groupDlgVisible.value = true
+}
+const assignGroup = async () => {
+  if (!groupAssignSrc.value) { groupDlgVisible.value = false; return }
+  await api.put(`/databases/sources/${groupAssignSrc.value}/group`, { group_name: newGroupName.value.trim() })
+  groupDlgVisible.value = false
+  newGroupName.value = ''
+  load()
+}
+
 const result = ref(null)
 const lastError = ref('')
 const history = ref([])
@@ -319,6 +479,8 @@ const load = async () => {
   loading.value = true
   try {
     sources.value = await api.get('/databases/sources')
+    treeReady.value = true
+    treeKey.value++ // remount the lazy tree so it re-roots with the fresh sources
     userGroups.value = await api.get('/user_groups').catch(() => [])
   } finally { loading.value = false }
 }
