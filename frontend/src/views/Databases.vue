@@ -30,11 +30,56 @@
           <el-button v-if="store.isAdmin" size="small" link type="danger" @click.stop="delAccount(a)">{{ $t('common.delete') }}</el-button>
         </div>
         <el-button v-if="store.isAdmin" size="small" style="width:100%; margin-top:6px" @click="accDlg()">{{ $t('db.addAccount') }}</el-button>
-        <div v-if="store.isAdmin" style="margin-top:8px">
-          <el-button size="small" style="width:100%" @click="guardDlgVisible = true">{{ $t('db.guardrails') }}</el-button>
+        <div v-if="store.isAdmin" style="margin-top:8px; display:flex; gap:6px">
+          <el-button size="small" style="flex:1" @click="guardDlgVisible = true">{{ $t('db.guardrails') }}</el-button>
+          <el-button size="small" style="flex:1" @click="openRotDlg">{{ $t('db.rotation') }}</el-button>
         </div>
       </template>
     </el-card>
+
+    <!-- account rotation dialog (admin) -->
+    <el-dialog v-model="rotDlgVisible" :title="$t('db.rotation')" width="860px">
+      <el-alert type="info" :closable="false" style="margin-bottom:10px" :title="$t('db.rotatorTip')" />
+      <el-table :data="accounts" size="small" border>
+        <el-table-column prop="username" :label="$t('hosts.credUser')" min-width="110" />
+        <el-table-column :label="$t('db.rotator')" width="90" align="center">
+          <template #default="{ row }">
+            <el-radio :model-value="isRotatorId" :label="row.id" style="margin:0"
+                      @change="setRotator(row)"><span></span></el-radio>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('osac.rotOn')" width="80" align="center">
+          <template #default="{ row }">
+            <el-switch :model-value="row.rotate_enabled" :disabled="row.is_rotator"
+                       @change="v => saveRotSettings(row, { rotate_enabled: v })" />
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('db.rotDays')" width="150">
+          <template #default="{ row }">
+            <el-input-number v-if="!row.is_rotator" :model-value="row.rotate_days" size="small"
+                             :min="0" :max="3650" style="width:120px"
+                             @change="v => saveRotSettings(row, { rotate_days: v })" />
+            <span v-else style="color:#c0c4cc">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('db.rotLast')" min-width="200">
+          <template #default="{ row }">
+            <span v-if="row.last_rotation_result" :style="{ color: String(row.last_rotation_result).indexOf('成功') === 0 ? 'var(--el-color-success)' : 'var(--el-color-danger)' }">{{ row.last_rotation_result }}</span>
+            <span v-else style="color:#c0c4cc">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('common.operation')" width="100">
+          <template #default="{ row }">
+            <el-button v-if="!row.is_rotator" size="small" link type="primary" :loading="rotating === row.id"
+                       @click="rotateNow(row)">{{ $t('db.rotateNow') }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div style="color:#909399; font-size:12px; margin-top:8px">{{ $t('db.rotDaysTip') }}</div>
+      <template #footer>
+        <el-button @click="rotDlgVisible = false">{{ $t('common.close') }}</el-button>
+      </template>
+    </el-dialog>
 
     <!-- right: SQL editor + results -->
     <el-card class="db-main">
@@ -170,6 +215,30 @@ const accVisible = ref(false)
 const accForm = ref({})
 const accGroupIds = ref([])
 const guardDlgVisible = ref(false)
+const rotDlgVisible = ref(false)
+const rotating = ref(null)
+const isRotatorId = ref(null)
+const openRotDlg = async () => {
+  rotDlgVisible.value = true
+  await loadAccounts()
+  const rot = accounts.value.find(a => a.is_rotator)
+  isRotatorId.value = rot ? rot.id : null
+}
+const saveRotSettings = async (row, payload) => {
+  await api.put(`/databases/accounts/${row.id}/rotation-settings`, payload)
+  ElMessage.success(t('common.success'))
+  await loadAccounts()
+  const rot = accounts.value.find(a => a.is_rotator)
+  isRotatorId.value = rot ? rot.id : null
+}
+const rotateNow = async row => {
+  rotating.value = row.id
+  try {
+    await api.post(`/databases/sources/${sourceId.value}/accounts/${row.id}/rotate`)
+    ElMessage.success(t('db.rotDone', { u: row.username }))
+    await loadAccounts()
+  } finally { rotating.value = null }
+}
 const guardForm = ref({ read_only: false, timeout_sec: 30, max_rows: 1000 })
 
 const currentSource = computed(() => sources.value.find(s => s.id === sourceId.value))

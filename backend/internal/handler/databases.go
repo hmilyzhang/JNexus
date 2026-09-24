@@ -135,6 +135,62 @@ func DBSourceAccounts(c *gin.Context) {
 }
 
 // CreateDBAccount POST /api/databases/:id/accounts — admin only
+// RotateDBAccount POST /databases/sources/:sid/accounts/:aid/rotate - admin:
+// rotate one database account now via the source's designated rotator account.
+func RotateDBAccount(c *gin.Context) {
+	aid, _ := strconv.Atoi(c.Param("aid"))
+	if err := service.RotateDBAccountNow(uint(aid), currentUser(c).Username); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// UpdateDBAccountRotation PUT /databases/accounts/:aid/rotation-settings - admin:
+// per-account rotation toggle/period and the source's designated rotator flag.
+func UpdateDBAccountRotation(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var a model.DBAccount
+	if err := model.DB.First(&a, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "账号不存在"})
+		return
+	}
+	var req struct {
+		RotateEnabled *bool `json:"rotate_enabled"`
+		RotateDays    *int  `json:"rotate_days"`
+		IsRotator     *bool `json:"is_rotator"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	updates := map[string]any{}
+	if req.RotateEnabled != nil {
+		updates["rotate_enabled"] = *req.RotateEnabled
+	}
+	if req.RotateDays != nil {
+		if *req.RotateDays < 0 || *req.RotateDays > 3650 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "周期须在 0-3650 天"})
+			return
+		}
+		updates["rotate_days"] = *req.RotateDays
+	}
+	if req.IsRotator != nil {
+		if *req.IsRotator {
+			// only one rotator per source; the rotator itself is excluded from rotation
+			model.DB.Model(&model.DBAccount{}).
+				Where("source_id = ? AND is_rotator = ?", a.SourceID, true).
+				Update("is_rotator", false)
+			updates["is_rotator"] = true
+			updates["rotate_enabled"] = false
+		} else {
+			updates["is_rotator"] = false
+		}
+	}
+	model.DB.Model(&a).Updates(updates)
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 func CreateDBAccount(c *gin.Context) {
 	sourceID, _ := strconv.Atoi(c.Param("id"))
 	var src model.DbSource

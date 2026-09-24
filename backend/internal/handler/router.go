@@ -324,6 +324,8 @@ func SetupRouter() *gin.Engine {
 			dbw.PUT("/sources/:id/guardrails", middleware.RequireRole(model.RoleAdmin), DBSourceGuardrails)
 			dbw.GET("/:id/accounts", DBSourceAccounts)
 			dbw.POST("/:id/accounts", middleware.RequireRole(model.RoleAdmin), CreateDBAccount)
+			dbw.POST("/:id/accounts/:aid/rotate", middleware.RequireRole(model.RoleAdmin), RotateDBAccount)
+			dbw.PUT("/accounts/:id/rotation-settings", middleware.RequireRole(model.RoleAdmin), UpdateDBAccountRotation)
 			dbw.PUT("/accounts/:id", middleware.RequireRole(model.RoleAdmin), UpdateDBAccount)
 			dbw.DELETE("/accounts/:id", middleware.RequireRole(model.RoleAdmin), DeleteDBAccount)
 			dbw.POST("/:id/query", RunDBQueryHandler)

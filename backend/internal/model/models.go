@@ -636,6 +636,11 @@ type DBAccount struct {
 	Password      string    `json:"-"` // AES-GCM encrypted
 	Label         string    `gorm:"size:64" json:"label"`
 	AllowedGroups string    `gorm:"size:512" json:"allowed_groups"` // CSV of user-group IDs; empty = all
+	RotateEnabled bool      `gorm:"default:false" json:"rotate_enabled"`
+	RotateDays    int       `json:"rotate_days"` // 0 = follow the global rotation period
+	IsRotator     bool      `gorm:"default:false" json:"is_rotator"` // designated admin account: rotates the other accounts of this source
+	LastRotatedAt *time.Time `json:"last_rotated_at"`
+	LastRotationResult string `gorm:"size:255" json:"last_rotation_result"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
