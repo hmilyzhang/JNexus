@@ -54,6 +54,10 @@
           <el-option v-for="h in history" :key="h" :label="h.slice(0, 60)" :value="h" />
         </el-select>
       </div>
+      <el-alert v-if="lastError" type="error" :closable="true" @close="lastError = ''"
+                style="margin-bottom:10px">
+        <div class="db-err">{{ lastError }}</div>
+      </el-alert>
       <el-table v-if="result && result.columns" :data="tableRows" size="small" border stripe max-height="480">
         <el-table-column type="index" :index="i => i + 1" width="52" :label="'#'" />
         <el-table-column v-for="(c, i) in result.columns" :key="i" :prop="'c' + i"
@@ -158,6 +162,7 @@ let editorView = null
 let langComp = null
 const running = ref(false)
 const result = ref(null)
+const lastError = ref('')
 const history = ref([])
 const histPick = ref('')
 const loading = ref(false)
@@ -330,12 +335,17 @@ const setEditorText = t2 => {
 const run = async () => {
   if (!sourceId.value || !accountId.value || !editorText().trim()) return
   running.value = true
+  lastError.value = ''
   try {
     const r = await api.post(`/databases/${sourceId.value}/query`, { account_id: accountId.value, sql: editorText() })
     result.value = r
+    lastError.value = ''
     const cur = editorText()
     if (!history.value.includes(cur)) history.value.unshift(cur)
-  } catch { /* surfaced by the interceptor */ }
+  } catch (e) {
+    // the interceptor still toasts briefly; this panel keeps the full text readable
+    lastError.value = (e && e.response && e.response.data && e.response.data.error) || (e && e.message) || String(e)
+  }
   finally { running.value = false }
 }
 
@@ -364,6 +374,9 @@ defineExpose({ openCreate: () => srcDlg() })
 </script>
 
 <style scoped>
+.db-err { white-space: pre-wrap; word-break: break-word; max-height: 200px;
+  overflow: auto; font-size: 12px; line-height: 1.6; }
+
 .sql-editor { border: 1px solid var(--el-border-color-lighter); border-radius: 6px; overflow: hidden; }
 .sql-editor :deep(.cm-editor) { max-height: 260px; }
 .col-name { font-weight: 600; }
