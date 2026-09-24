@@ -255,7 +255,7 @@ func azureListInstances(cred AzureCred, regions []string) ([]CloudInstance, erro
 	_ = regions // all-list returns every region; region filter applied client-side
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+	httpClient := &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{TLSClientConfig: OutboundTLS()}}
 	token, armBase, err := azureToken(ctx, httpClient, cred)
 	if err != nil {
 		return nil, err

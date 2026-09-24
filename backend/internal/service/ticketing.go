@@ -108,7 +108,7 @@ func snRequest(cfg ServiceNowConfig, method, path string, body any) (int, []byte
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.SetBasicAuth(cfg.User, cfg.Password)
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{TLSClientConfig: OutboundTLS()}}
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, nil, err
@@ -179,7 +179,7 @@ func sdpRequest(cfg SDPConfig, method, path string, body any) (int, []byte, erro
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("authtoken", cfg.Token)
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{TLSClientConfig: OutboundTLS()}}
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, nil, err

@@ -455,6 +455,10 @@ func SetupRouter() *gin.Engine {
 			sysCfg.POST("/oo/dbsources/:id/enabled", middleware.RequireRole(model.RoleAdmin), OODbSourceEnable)
 			sysCfg.POST("/oo/dbsources/:id/run", middleware.RequireRole(model.RoleAdmin), OODbSourceRun)
 			sysCfg.GET("/platform_key", GetPlatformKey)
+			// Trusted CA store: outbound TLS trusts system pool + uploaded certificates
+			sysCfg.GET("/trusted-ca", ListTrustedCAs)
+			sysCfg.POST("/trusted-ca", AddTrustedCA)
+			sysCfg.DELETE("/trusted-ca/:id", DeleteTrustedCA)
 			sysCfg.GET("/oo/retention", OORetentionGet)
 			sysCfg.POST("/oo/retention", OORetentionApply)
 			sysCfg.GET("/sec/watch", SecWatchGet)

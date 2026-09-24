@@ -303,6 +303,40 @@
     </el-card>
     </el-tab-pane>
 
+    <el-tab-pane :label="$t('system.caTab')" name="catrust">
+      <el-alert type="info" :closable="false" style="margin-bottom:12px"
+                :title="$t('system.caTip')" />
+      <el-form :inline="true" style="margin-bottom:10px">
+        <el-form-item :label="$t('system.caName')">
+          <el-input v-model="caForm.name" :placeholder="$t('system.caNamePh')" style="width:220px" />
+        </el-form-item>
+        <el-form-item :label="$t('system.caPem')">
+          <input type="file" accept=".crt,.pem,.cer,.txt" style="font-size:12px"
+                 @change="onCaFile" />
+        </el-form-item>
+      </el-form>
+      <el-input v-model="caForm.pem" type="textarea" :rows="5" class="mono"
+                :placeholder="$t('system.caPemPh')" style="margin-bottom:10px" />
+      <el-button type="primary" :loading="caSaving" @click="saveCA">{{ $t('common.add') }}</el-button>
+
+      <el-table :data="trustedCAs" size="small" border style="margin-top:14px">
+        <el-table-column prop="name" :label="$t('system.caName')" min-width="160" />
+        <el-table-column :label="$t('system.caFp')" min-width="260">
+          <template #default="{ row }"><span class="mono" style="font-size:11px">{{ row.fingerprint.slice(0, 32) }}…</span></template>
+        </el-table-column>
+        <el-table-column prop="created_by" :label="$t('tasks.operator')" width="110" />
+        <el-table-column prop="created_at" :label="$t('tasks.createdAt')" width="170" />
+        <el-table-column :label="$t('common.operation')" width="80">
+          <template #default="{ row }">
+            <el-popconfirm :title="$t('system.caDelConfirm')" @confirm="delCA(row)">
+              <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div style="color:#909399; font-size:12px; margin-top:10px">{{ $t('system.caScope') }}</div>
+    </el-tab-pane>
+
     <el-tab-pane :label="$t('menu.paired')" name="paired">
       <Paired />
     </el-tab-pane>
@@ -669,6 +703,38 @@ const menuDlgSelection = ref([])
 const savingRoles = ref(false)
 
 const capabilities = ref([])
+const trustedCAs = ref([])
+const caForm = reactive({ name: '', pem: '' })
+const caSaving = ref(false)
+const loadCAs = async () => {
+  try { trustedCAs.value = await api.get('/system/trusted-ca') } catch { trustedCAs.value = [] }
+}
+const onCaFile = ev => {
+  const f = ev.target.files && ev.target.files[0]
+  if (!f) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    caForm.value.pem = String(reader.result || '')
+    if (!caForm.value.name) caForm.value.name = f.name.replace(/\.(crt|pem|cer|txt)$/i, '')
+  }
+  reader.readAsText(f)
+  ev.target.value = ''
+}
+const saveCA = async () => {
+  if (!caForm.value.pem.trim()) { ElMessage.warning(t('system.caNeedPem')); return }
+  caSaving.value = true
+  try {
+    await api.post('/system/trusted-ca', caForm.value)
+    ElMessage.success(t('common.success'))
+    caForm.value = { name: '', pem: '' }
+    loadCAs()
+  } finally { caSaving.value = false }
+}
+const delCA = async row => {
+  await api.delete('/system/trusted-ca/' + row.id)
+  ElMessage.success(t('common.success'))
+  loadCAs()
+}
 const capDlgVisible = ref(false)
 const capRow = ref(null)
 const capCount = row => Object.values(row.perms || {}).reduce((n, arr) => n + arr.length, 0)
@@ -931,6 +997,7 @@ const sendAi = async () => {
 }
 
 onMounted(async () => {
+  loadCAs()
 
   // deep link: /system?tab=xxx opens the requested tab directly
   const qtab = route.query.tab

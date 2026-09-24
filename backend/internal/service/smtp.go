@@ -104,7 +104,7 @@ func SendMail(s SMTPSettings, to []string, subject, htmlBody string) error {
 	}
 
 	if s.SSL {
-		conn, err := tls.Dial("tcp", addr, &tls.Config{ServerName: s.Host})
+		conn, err := tls.Dial("tcp", addr, &tls.Config{ServerName: s.Host, RootCAs: TrustedCAPool()})
 		if err != nil {
 			return fmt.Errorf("SMTP SSL 连接失败: %w", err)
 		}
@@ -121,7 +121,7 @@ func SendMail(s SMTPSettings, to []string, subject, htmlBody string) error {
 	}
 	if s.StartTLS {
 		if ok, _ := cl.Extension("STARTTLS"); ok {
-			if err := cl.StartTLS(&tls.Config{ServerName: s.Host}); err != nil {
+			if err := cl.StartTLS(&tls.Config{ServerName: s.Host, RootCAs: TrustedCAPool()}); err != nil {
 				return fmt.Errorf("STARTTLS 失败: %w", err)
 			}
 		}

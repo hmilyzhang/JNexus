@@ -57,7 +57,7 @@ func ooHTTP(timeout time.Duration, method, url, auth string, body []byte) (int, 
 	if auth != "" {
 		req.Header.Set("Authorization", auth)
 	}
-	resp, err := (&http.Client{Timeout: timeout}).Do(req)
+	resp, err := (&http.Client{Timeout: timeout, Transport: &http.Transport{TLSClientConfig: OutboundTLS()}}).Do(req)
 	if err != nil {
 		return 0, nil, err
 	}

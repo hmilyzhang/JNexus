@@ -591,6 +591,17 @@ type CloudAccount struct {
 	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
+// TrustedCA a root/intermediate certificate uploaded by an admin; every
+// outbound TLS connection trusts the system pool plus these (see ca_trust.go)
+type TrustedCA struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	Name        string    `gorm:"size:128" json:"name"`
+	PEM         string    `gorm:"type:text" json:"-"`
+	Fingerprint string    `gorm:"size:128;uniqueIndex" json:"fingerprint"`
+	CreatedBy   string    `gorm:"size:64" json:"created_by"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type DbSource struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`
 	Name        string     `gorm:"size:64;uniqueIndex" json:"name"`

@@ -99,7 +99,7 @@ func AIChat(s AISettings, systemPrompt, userPrompt string) (string, error) {
 	if s.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+s.APIKey)
 	}
-	client := &http.Client{Timeout: s.Timeout}
+	client := &http.Client{Timeout: s.Timeout, Transport: &http.Transport{TLSClientConfig: OutboundTLS()}}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("AI service connection failed: %w", err)

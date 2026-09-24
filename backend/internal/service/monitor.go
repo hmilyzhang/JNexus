@@ -97,7 +97,8 @@ func checkHTTP(m *model.Monitor, timeout time.Duration, start time.Time) (bool, 
 		return false, 0, "URL 非法: " + err.Error(), nil
 	}
 	req.Header.Set("User-Agent", "JNexus-Monitor/1.0")
-	resp, err := http.DefaultClient.Do(req)
+	transport := &http.Transport{TLSClientConfig: OutboundTLS()}
+	resp, err := (&http.Client{Transport: transport}).Do(req)
 	if err != nil {
 		return false, 0, err.Error(), nil
 	}

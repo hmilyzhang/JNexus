@@ -88,6 +88,7 @@ docker compose up -d --build
 
 Internal CA trust (for LDAPS / HTTPS targets / Kubernetes signed by your company CA):
 
+- **upload in the UI (recommended)**: System Settings → Trusted CAs → upload PEM (full chains allowed) — effective immediately for every outbound TLS, no restart; or
 - mount the certificates: put `.crt`/`.pem` files in `deploy/cacerts/` (mounted read-only at `/cacerts`), or
 - fetch them at startup: set `JNEXUS_TRUST_CA_URL=http://host.docker.internal:8899/root-ca.crt` on the jnexus
   service and add `extra_hosts: ["host.docker.internal:host-gateway"]` (Linux); both are merged with the system

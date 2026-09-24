@@ -482,3 +482,60 @@ func OORetentionGet(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"days": days})
 }
+
+// ---- Trusted CA store (admin; outbound TLS trusts system pool + uploads) ----
+
+// ListTrustedCAs GET /api/system/trusted-ca
+func ListTrustedCAs(c *gin.Context) {
+	c.JSON(http.StatusOK, service.TrustedCAList())
+}
+
+// AddTrustedCA POST /api/system/trusted-ca  {name, pem}
+func AddTrustedCA(c *gin.Context) {
+	var req struct {
+		Name string `json:"name"`
+		PEM  string `json:"pem" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（pem 必填）"})
+		return
+	}
+	rec, err := service.AddTrustedCA(req.Name, req.PEM, currentUser(c).Username)
+	code := map[bool]int{true: http.StatusOK, false: http.StatusBadRequest}[err == nil]
+	errText := ""
+	if err != nil {
+		errText = err.Error()
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "TRUSTED_CA_ADD", Resource: "/api/system/trusted-ca",
+		Detail: fmt.Sprintf(`{"name":%q,"ok":%t,"err":%q}`, req.Name, err == nil, errText),
+		IP:     c.ClientIP(), Status: code, CreatedAt: time.Now(),
+	})
+	if err != nil {
+		c.JSON(code, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": rec.ID, "name": rec.Name, "fingerprint": rec.Fingerprint})
+}
+
+// DeleteTrustedCA DELETE /api/system/trusted-ca/:id
+func DeleteTrustedCA(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	err := service.DeleteTrustedCA(uint(id))
+	errText := ""
+	if err != nil {
+		errText = err.Error()
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "TRUSTED_CA_DEL", Resource: "/api/system/trusted-ca/" + strconv.Itoa(id),
+		Detail: fmt.Sprintf(`{"ok":%t,"err":%q}`, err == nil, errText),
+		IP:     c.ClientIP(), Status: map[bool]int{true: 200, false: 400}[err == nil], CreatedAt: time.Now(),
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}

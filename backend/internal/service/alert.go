@@ -17,7 +17,7 @@ import (
 
 func postJSON(url string, payload any, timeout time.Duration) error {
 	body, _ := json.Marshal(payload)
-	cli := &http.Client{Timeout: timeout}
+	cli := &http.Client{Timeout: timeout, Transport: &http.Transport{TLSClientConfig: OutboundTLS()}}
 	resp, err := cli.Post(url, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err
