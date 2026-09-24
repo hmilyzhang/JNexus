@@ -378,7 +378,8 @@ defineExpose({ openCreate: () => srcDlg() })
   overflow: auto; font-size: 12px; line-height: 1.6; }
 
 .sql-editor { border: 1px solid var(--el-border-color-lighter); border-radius: 6px; overflow: hidden; }
-.sql-editor :deep(.cm-editor) { max-height: 260px; }
+.sql-editor :deep(.cm-editor) { min-height: 150px; max-height: 320px; }
+.sql-editor :deep(.cm-scroller) { min-height: 150px; max-height: 320px; overflow: auto; }
 .col-name { font-weight: 600; }
 .col-type { color: var(--el-text-color-secondary); font-size: 11px; margin-left: 4px; font-family: Consolas, Monaco, monospace; }
 .cell-null { color: var(--el-text-color-secondary); font-style: italic; font-size: 12px; }
