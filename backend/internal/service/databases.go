@@ -10,35 +10,29 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
 	"jnexus/internal/model"
 
+	"github.com/go-sql-driver/mysql"
 	go_ora "github.com/sijms/go-ora/v2"
 )
 
 // OpenDB opens a connection for the given source using a specific account.
 func OpenDB(d *model.DbSource, username, password string) (*sql.DB, error) {
-	var driver, dsn string
-	switch d.DBType {
-	case "mysql":
-		driver = "mysql"
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?timeout=10s", username, password, d.Host, d.Port, d.Database)
-	case "mssql":
-		driver = "sqlserver"
-		dsn = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s", username, password, d.Host, d.Port, d.Database)
-	case "pgsql":
-		driver = "pgx"
-		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?connect_timeout=10&sslmode=disable", username, password, d.Host, d.Port, d.Database)
-	case "oracle":
-		// pure-Go Oracle driver (no Instant Client needed); BuildUrl escapes
-		// user/password/service so special characters are safe
-		driver = "oracle"
-		dsn = go_ora.BuildUrl(d.Host, d.Port, d.Database, username, password, nil)
-	default:
-		return nil, fmt.Errorf("unsupported db_type %q", d.DBType)
+	return OpenDBFor(d, username, password, d.Database)
+}
+
+// OpenDBFor opens a connection to a specific database of the source (tree
+// browsing and queries may target a database other than the registered
+// default). Oracle is service-bound there the database acts as the service.
+func OpenDBFor(d *model.DbSource, username, password, database string) (*sql.DB, error) {
+	driver, dsn, err := buildDSN(d.DBType, d.Host, d.Port, database, username, password)
+	if err != nil {
+		return nil, err
 	}
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
@@ -49,16 +43,40 @@ func OpenDB(d *model.DbSource, username, password string) (*sql.DB, error) {
 	return db, nil
 }
 
-// OpenDBFor opens a connection to a specific database of the source (tree
-// browsing and queries against a database other than the registered default).
-// Oracle is service-bound: the database parameter is ignored there.
-func OpenDBFor(d *model.DbSource, username, password, database string) (*sql.DB, error) {
-	if database == "" || database == d.Database {
-		return OpenDB(d, username, password)
+// buildDSN constructs an escaped connection string per dialect. All URL-based
+// dialects go through net/url so special characters in passwords are safe.
+func buildDSN(dbType, host string, port int, database, username, password string) (string, string, error) {
+	switch dbType {
+	case "mysql":
+		cfg := mysql.NewConfig()
+		cfg.User = username
+		cfg.Passwd = password
+		cfg.Net = "tcp"
+		cfg.Addr = fmt.Sprintf("%s:%d", host, port)
+		cfg.DBName = database
+		cfg.Timeout = 10 * time.Second
+		return "mysql", cfg.FormatDSN(), nil
+	case "mssql":
+		u := url.URL{Scheme: "sqlserver", Host: fmt.Sprintf("%s:%d", host, port)}
+		u.User = url.UserPassword(username, password)
+		q := url.Values{}
+		q.Set("database", database)
+		u.RawQuery = q.Encode()
+		return "sqlserver", u.String(), nil
+	case "pgsql":
+		u := url.URL{Scheme: "postgres", Host: fmt.Sprintf("%s:%d", host, port)}
+		if database != "" {
+			u.Path = "/" + database
+		}
+		u.User = url.UserPassword(username, password)
+		u.RawQuery = "connect_timeout=10&sslmode=disable"
+		return "pgx", u.String(), nil
+	case "oracle":
+		// pure-Go Oracle driver (no Instant Client needed); BuildUrl escapes
+		// user/password/service so special characters are safe
+		return "oracle", go_ora.BuildUrl(host, port, database, username, password, nil), nil
 	}
-	clone := *d
-	clone.Database = database
-	return OpenDB(&clone, username, password)
+	return "", "", fmt.Errorf("unsupported db_type %q", dbType)
 }
 
 func DBSourceTimeout(d *model.DbSource) time.Duration {
