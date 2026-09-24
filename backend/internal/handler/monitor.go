@@ -319,9 +319,10 @@ func HostMetricsList(c *gin.Context) {
 		JOIN hosts h ON h.id = hm.host_id
 		LEFT JOIN host_groups g ON g.id = h.group_id
 		ORDER BY hm.host_id, hm.collected_at DESC`).Scan(&rows)
-	// Also list hosts that have no samples yet (frontend shows "no data")
+	// Also list hosts that have no samples yet (frontend shows "no data");
+	// carry the group name too, otherwise those rows lose their group info
 	var hosts []model.Host
-	model.DB.Order("name").Find(&hosts)
+	model.DB.Preload("Group").Order("name").Find(&hosts)
 	seen := map[uint]bool{}
 	for _, r := range rows {
 		seen[r.HostID] = true
@@ -336,8 +337,12 @@ func HostMetricsList(c *gin.Context) {
 	}
 	for _, h := range hosts {
 		if !seen[h.ID] {
+			g := ""
+			if h.Group != nil {
+				g = h.Group.Name
+			}
 			out = append(out, gin.H{
-				"host_id": h.ID, "name": h.Name, "ip": h.IP,
+				"host_id": h.ID, "name": h.Name, "ip": h.IP, "group": g,
 				"status": h.Status, "collected_at": nil,
 			})
 		}
