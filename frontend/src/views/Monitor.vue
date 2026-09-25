@@ -969,7 +969,11 @@ const openHostTrend = async row => {
 
 // ---- Monitor CRUD ----
 const openDlg = (m, channelIds) => {
-  Object.assign(form, m || {}, {
+  // start from a blank record: reactive form persists between dialogs, and a
+  // leftover id (or any stale field) would turn "new" into "overwrite the
+  // previously edited monitor"
+  for (const k of Object.keys(form)) delete form[k]
+  Object.assign(form, {
     type: m?.type || 'http', method: m?.method || 'GET',
     accepted_status: m?.accepted_status || '200-299',
     keyword_type: m?.keyword_type || 'contain',
@@ -978,6 +982,13 @@ const openDlg = (m, channelIds) => {
     mon_group: m?.mon_group || '',
     channel_ids: [...(channelIds || [])],
   })
+  if (m) {
+    // only copy the editable fields of an existing monitor - never its id
+    const { id, created_at, last_status, last_error, last_resp_ms, last_checked_at,
+            down_since, alert_fired, next_run_at, cert_not_after, ...rest } = m
+    Object.assign(form, rest)
+    form.enabled = !!m.enabled
+  }
   dlgVisible.value = true
 }
 const save = async () => {
