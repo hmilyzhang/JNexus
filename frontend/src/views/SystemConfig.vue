@@ -704,7 +704,7 @@ const savingRoles = ref(false)
 
 const capabilities = ref([])
 const trustedCAs = ref([])
-const caForm = reactive({ name: '', pem: '' })
+const caForm = ref({ name: '', pem: '' })
 const caSaving = ref(false)
 const loadCAs = async () => {
   try { trustedCAs.value = await api.get('/system/trusted-ca') } catch { trustedCAs.value = [] }
