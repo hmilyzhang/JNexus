@@ -74,11 +74,14 @@ func winrmClientWithTransport(h *model.Host, username, password, mode string) (*
 	// the handshake automatically (domain accounts DOMAIN/user also work). Applied over both
 	// HTTP and HTTPS — NTLM runs inside the TLS channel, so targets can keep Basic disabled
 	// and AllowUnencrypted=false (CIS-friendly defaults). mode="basic" drops the decorator
-	// (library default = Basic over TLS) for hardened hosts that reject NTLM entirely.
-	if mode != "basic" {
+	// (library default = Basic over TLS) for hardened hosts that reject NTLM entirely;
+	// mode="basic-http" is Basic over plain HTTP (5985) for hosts that allow it.
+	if mode == "basic" || mode == "basic-http" {
+		// no NTLM decorator: the library's plain transport sends Basic auth
+	} else {
 		params.TransportDecorator = func() winrm.Transporter { return winrm.NewClientNTLMWithDial(params.Dial) }
 	}
-	if tcpOpen(h.IP, 5986) {
+	if mode != "basic-http" && tcpOpen(h.IP, 5986) {
 		return winrm.NewClientWithParameters(
 			winrm.NewEndpoint(h.IP, 5986, true, true, nil, nil, nil, 0), user, pass, params)
 	}
@@ -206,24 +209,35 @@ func WinRMRun(h *model.Host, username, password, command string, timeoutSec int)
 	}
 
 	out, code, err := run(c)
-	if err == nil || !strings.Contains(err.Error(), "401") {
+	if err == nil || !isAuthError(err) {
 		return out, code, err
 	}
 
-	// 401 on the NTLM attempt: hardened hosts sometimes accept nothing but Basic
-	// over TLS (local accounts only) — retry once that way before giving up.
-	var basic *winrm.Client
+	// Auth rejected on the first attempt. The failure shows up as either a plain
+	// 401 or "http response error: 401 - invalid content type" (the library
+	// complains about the error page's content type before the status surfaces).
+	// Retry Basic over TLS (5986) when reachable, then plain Basic over HTTP
+	// (5985) for hosts with AllowUnencrypted / "Basic over HTTP" enabled.
 	if tcpOpen(h.IP, 5986) {
-		basic, err = winrmClientWithTransport(h, username, password, "basic")
-		if err == nil {
-			var berr error
-			out, code, berr = run(basic)
-			if berr == nil || !strings.Contains(berr.Error(), "401") {
+		basic, berr0 := winrmClientWithTransport(h, username, password, "basic")
+		if berr0 == nil {
+			out, code, berr := run(basic)
+			if berr == nil || !isAuthError(berr) {
 				if berr != nil {
 					berr = fmt.Errorf("%v（Basic over TLS 传输）", berr)
 				}
 				return out, code, berr
 			}
+		}
+	}
+	basicHTTP, berr1 := winrmClientWithTransport(h, username, password, "basic-http")
+	if berr1 == nil {
+		out, code, berr := run(basicHTTP)
+		if berr == nil || !isAuthError(berr) {
+			if berr != nil {
+				berr = fmt.Errorf("%v（Basic over HTTP 传输）", berr)
+			}
+			return out, code, berr
 		}
 	}
 
@@ -232,7 +246,19 @@ func WinRMRun(h *model.Host, username, password, command string, timeoutSec int)
 	if domainish {
 		hint = "域账号建议启用主机「Kerberos 认证」（账号 user@REALM 或 DOMAIN\\user），或确认该账号在目标机 Remote Management Users/Administrators 组内；"
 	}
-	return out, code, fmt.Errorf("认证失败（401）：已依次尝试 NTLM 与 Basic over TLS 传输。%s也可运行 backend/cmd/wintest 复现原始连接定位传输问题", hint)
+	return out, code, fmt.Errorf("认证失败（401）：已依次尝试 NTLM、Basic over TLS、Basic over HTTP 三种传输均被拒绝。%s也可运行 backend/cmd/wintest 复现原始连接定位传输问题", hint)
+}
+
+// isAuthError reports whether the winrm library error is an authentication
+// rejection. The 401 status sometimes surfaces directly, and sometimes only as
+// "invalid content type" — the library parses the error page's content type
+// before the status code reaches the caller.
+func isAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "401") || strings.Contains(msg, "invalid content type")
 }
 
 // defaultCredential returns the host's default OS account (nil when absent)
