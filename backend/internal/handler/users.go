@@ -58,6 +58,13 @@ func CreateUser(c *gin.Context) {
 		}
 	}
 	hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	// case-insensitive username uniqueness: Admin/admin would be indistinguishable at login
+	var dup int64
+	model.DB.Model(&model.User{}).Where("lower(username) = lower(?)", req.Username).Count(&dup)
+	if dup > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名已存在"})
+		return
+	}
 	u := model.User{Username: req.Username, Password: string(hash), Role: req.Role, Status: 1, Email: req.Email,
 		CreatedBy: currentUser(c).Username, UpdatedBy: currentUser(c).Username}
 	if err := model.DB.Create(&u).Error; err != nil {

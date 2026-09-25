@@ -29,7 +29,8 @@ func Login(c *gin.Context) {
 		return
 	}
 	var u model.User
-	err := model.DB.Where("username = ?", req.Username).First(&u).Error
+	// case-insensitive username lookup: Admin/admin log into the same account
+	err := model.DB.Where("lower(username) = lower(?)", req.Username).First(&u).Error
 
 	// Local account: verify with bcrypt
 	if err == nil && u.AuthSource != "ldap" {
@@ -138,7 +139,7 @@ func tryLDAPLogin(username, password string, autoCreate bool) (model.User, error
 		return model.User{}, err
 	}
 	var u model.User
-	if dbErr := model.DB.Where("username = ?", username).First(&u).Error; dbErr != nil {
+	if dbErr := model.DB.Where("lower(username) = lower(?)", username).First(&u).Error; dbErr != nil {
 		if !autoCreate {
 			return model.User{}, errLDAPDisabled
 		}
