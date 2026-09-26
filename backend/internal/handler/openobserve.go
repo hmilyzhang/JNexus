@@ -6,6 +6,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 	"net/http"
@@ -236,4 +237,104 @@ func OODbSourceRun(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true, "rows": n})
+}
+
+// ---- Data-source integrations (OO catalog + collector config generator) ----
+
+// ListDataSourceCatalog GET /api/system/oo/datasource-catalog
+func ListDataSourceCatalog(c *gin.Context) {
+	c.JSON(http.StatusOK, service.SourceCatalog)
+}
+
+// ListDataSourceIntegrations GET /api/system/oo/datasources
+func ListDataSourceIntegrations(c *gin.Context) {
+	items := service.ListDataSourceIntegrations()
+	for i := range items {
+		items[i].Credential = ""
+	}
+	c.JSON(http.StatusOK, items)
+}
+
+// AddDataSourceIntegration POST /api/system/oo/datasources  {name, kind, stream, host_ref, notes}
+func AddDataSourceIntegration(c *gin.Context) {
+	var req struct {
+		Name    string `json:"name"`
+		Kind    string `json:"kind" binding:"required"`
+		Stream  string `json:"stream"`
+		HostRef string `json:"host_ref"`
+		Notes   string `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误（kind 必填）"})
+		return
+	}
+	rec, err := service.AddDataSourceIntegration(req.Name, req.Kind, req.Stream, req.HostRef, req.Notes, currentUser(c).Username)
+	code := map[bool]int{true: http.StatusOK, false: http.StatusBadRequest}[err == nil]
+	if err != nil {
+		c.JSON(code, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "OO_DATASOURCE_ADD", Resource: "/api/system/oo/datasources",
+		Detail: fmt.Sprintf(`{"name":%q,"kind":%q,"stream":%q}`, rec.Name, rec.Kind, rec.Stream),
+		IP:     c.ClientIP(), Status: code, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, rec)
+}
+
+// DeleteDataSourceIntegration DELETE /api/system/oo/datasources/:id
+func DeleteDataSourceIntegration(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	err := service.DeleteDataSourceIntegration(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	model.DB.Create(&model.AuditLog{
+		UserID: currentUser(c).ID, Username: currentUser(c).Username,
+		Action: "OO_DATASOURCE_DEL", Resource: "/api/system/oo/datasources/" + c.Param("id"),
+		IP:     c.ClientIP(), Status: 200, CreatedAt: time.Now(),
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// SetDataSourceIntegrationEnabled POST /api/system/oo/datasources/:id/enabled {enabled}
+func SetDataSourceIntegrationEnabled(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if err := service.SetDataSourceIntegrationEnabled(id, req.Enabled); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// DataSourceCollectorConfig GET /api/system/oo/datasources/:id/config — the
+// ready-to-paste collector config for this integration
+func DataSourceCollectorConfig(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	var found *model.DataSourceIntegration
+	for _, it := range service.ListDataSourceIntegrations() {
+		if it.ID == id {
+			found = &it
+			break
+		}
+	}
+	if found == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "接入不存在"})
+		return
+	}
+	cfg, err := service.CollectorConfig(found.Kind, found.Stream, found.Credential)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"config": cfg})
 }

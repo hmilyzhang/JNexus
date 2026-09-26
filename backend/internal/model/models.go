@@ -626,6 +626,22 @@ type DbSource struct {
 	CreatedAt  time.Time  `json:"created_at"`
 }
 
+// DataSourceIntegration one registered collector-based data source feeding
+// OpenObserve (config generated in the UI, deployed by the user)
+type DataSourceIntegration struct {
+	ID         int64      `gorm:"primaryKey" json:"id"`
+	Name       string     `gorm:"size:128" json:"name"`
+	Kind       string     `gorm:"size:64" json:"kind"`    // catalog type, e.g. nginx
+	Stream     string     `gorm:"size:100" json:"stream"` // target OO stream
+	Agent      string     `gorm:"size:16" json:"agent"`   // fluentbit / telegraf / otel
+	HostRef    string     `gorm:"size:128" json:"host_ref"` // optional host name the collector runs on
+	Notes      string     `gorm:"size:255" json:"notes"`
+	Credential string     `json:"-"` // per-integration ingest credential
+	Enabled    bool       `json:"enabled"`
+	CreatedBy  string     `gorm:"size:64" json:"created_by"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
 // DBAccount is a login under a database source. One source may carry several
 // accounts with different privileges (read-only monitor account, DBA account...)
 // and the workbench executes statements as the chosen account. AllowedGroups is

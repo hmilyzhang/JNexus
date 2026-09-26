@@ -12,7 +12,8 @@
           <div class="oa-nav-item" :class="{ active: oaSection === 'streams' }" @click="oaSection = 'streams'">{{ $t('oa.navStreams') }}</div>
           <div class="oa-nav-item" :class="{ active: oaSection === 'watch' }" @click="oaSection = 'watch'">{{ $t('oa.navWatch') }}</div>
           <div class="oa-nav-item" :class="{ active: oaSection === 'retention' }" @click="oaSection = 'retention'">{{ $t('oa.navRetention') }}</div>
-          <div class="oa-nav-item" :class="{ active: oaSection === 'db' }" @click="oaSection = 'db'">{{ $t('oa.navDb') }}</div>
+          <div class="oa-nav-item" :class="{ active: oaSection === 'ds' }" @click="oaSection = 'ds'">{{ $t('oa.navDs') }}</div>
+          <div class="oa-nav-item" :class="{ active: oaSection === 'db' }" @click="oaSection = 'db'">{{ $t('oa.navDbSql') }}</div>
           <div class="oa-nav-item" :class="{ active: oaSection === 'push' }" @click="oaSection = 'push'">{{ $t('oa.navPush') }}</div>
         </div>
 
@@ -147,6 +148,81 @@
                 <span v-else style="color:var(--el-color-danger)">✗ {{ r.error }}</span>
               </div>
             </div>
+          </template>
+
+          <!-- Data-source integrations (OO catalog) -->
+          <template v-if="oaSection === 'ds'">
+            <div class="oa-sec-head" style="margin-bottom:10px; display:flex; align-items:center; gap:10px">
+              <span style="font-weight:600">{{ $t('oa.dsTitle') }}</span>
+              <span style="flex:1"></span>
+              <el-button size="small" type="primary" @click="dsCreateDlg">{{ $t('oa.dsAdd') }}</el-button>
+            </div>
+            <div style="color:var(--el-text-color-secondary); font-size:12px; margin-bottom:12px">{{ $t('oa.dsTip') }}</div>
+
+            <el-tabs v-model="dsCategory">
+              <el-tab-pane v-for="cat in dsCategories" :key="cat" :label="cat" :name="cat" />
+            </el-tabs>
+
+            <div class="ds-grid">
+              <div v-for="k in dsKinds" :key="k.type" class="ds-kind" :class="{ active: dsKindType === k.type }"
+                   @click="dsKindType = k.type">
+                <div style="font-weight:600">{{ k.label }}</div>
+                <div style="color:var(--el-text-color-secondary); font-size:11px; margin-top:4px">{{ k.fields }}</div>
+                <div style="margin-top:6px"><el-tag size="small" effect="plain">{{ k.agent }}</el-tag></div>
+              </div>
+            </div>
+
+            <template v-if="dsKindType">
+              <el-divider style="margin:14px 0">{{ $t('oa.dsNew') }}</el-divider>
+              <el-form :inline="true">
+                <el-form-item :label="$t('oa.dbName')">
+                  <el-input v-model="dsForm.name" :placeholder="$t('oa.dsNamePh')" style="width:180px" />
+                </el-form-item>
+                <el-form-item :label="$t('oa.dsStream')">
+                  <el-input v-model="dsForm.stream" :placeholder="dsKindStream" class="mono" style="width:180px" />
+                </el-form-item>
+                <el-form-item :label="$t('oa.dsHostRef')">
+                  <el-input v-model="dsForm.host_ref" :placeholder="$t('oa.dsHostRefPh')" style="width:160px" />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" :loading="dsSaving" @click="dsCreate">{{ $t('oa.dsCreate') }}</el-button>
+                </el-form-item>
+              </el-form>
+              <div style="color:var(--el-text-color-secondary); font-size:12px; margin-bottom:6px">{{ dsKindNotes }}</div>
+            </template>
+
+            <el-divider style="margin:14px 0">{{ $t('oa.dsList') }}</el-divider>
+            <el-table :data="dsItems" size="small" border v-loading="dsLoading">
+              <el-table-column prop="name" :label="$t('oa.dbName')" min-width="130" />
+              <el-table-column prop="kind" :label="$t('oa.dsKind')" width="150">
+                <template #default="{ row }"><el-tag size="small" effect="plain">{{ row.kind }}</el-tag></template>
+              </el-table-column>
+              <el-table-column prop="stream" :label="$t('oa.streamCol')" width="140">
+                <template #default="{ row }"><span class="mono">{{ row.stream }}</span></template>
+              </el-table-column>
+              <el-table-column prop="host_ref" :label="$t('oa.dsHostRef')" width="120" />
+              <el-table-column :label="$t('oa.enabledCol')" width="80" align="center">
+                <template #default="{ row }">
+                  <el-switch :model-value="row.enabled" @change="v => dsToggle(row, v)" />
+                </template>
+              </el-table-column>
+              <el-table-column :label="$t('common.actions')" width="130" fixed="right">
+                <template #default="{ row }">
+                  <el-button size="small" link type="primary" @click="dsShowConfig(row)">{{ $t('oa.dsConfig') }}</el-button>
+                  <el-popconfirm :title="$t('oa.dsDelConfirm')" @confirm="dsDel(row)">
+                    <template #reference><el-button size="small" link type="danger">{{ $t('common.delete') }}</el-button></template>
+                  </el-popconfirm>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <el-dialog v-model="dsCfgVisible" :title="$t('oa.dsConfig')" width="820px">
+              <div style="color:var(--el-text-color-secondary); font-size:12px; margin-bottom:8px">{{ $t('oa.dsConfigTip') }}</div>
+              <pre class="mono" style="max-height:460px; overflow:auto; white-space:pre-wrap; background:var(--el-fill-color-light); padding:10px; border-radius:6px">{{ dsConfig }}</pre>
+              <template #footer>
+                <el-button @click="dsCfgVisible = false">{{ $t('common.close') }}</el-button>
+              </template>
+            </el-dialog>
           </template>
 
           <!-- Database ingestion -->
@@ -324,6 +400,51 @@ const fmtTime = v => (v ? String(v).replace('T', ' ').slice(0, 19) : '—')
 
 const oaSection = ref('conn')
 
+const dsCategory = ref('Web Servers')
+const dsKindType = ref('')
+const dsForm = ref({ name: '', stream: '', host_ref: '' })
+const dsItems = ref([])
+const dsLoading = ref(false)
+const dsSaving = ref(false)
+const dsCfgVisible = ref(false)
+const dsConfig = ref('')
+const catalog = ref([])
+const dsCategories = ['Web Servers', 'Databases', 'Security', 'DevOps', 'Networking', 'Message Queues', 'Languages-Frameworks', 'Other']
+const dsKinds = computed(() => catalog.value.filter(k => k.category === dsCategory.value))
+const dsKindStream = computed(() => (catalog.value.find(k => k.type === dsKindType.value) || {}).stream || '')
+const dsKindNotes = computed(() => (catalog.value.find(k => k.type === dsKindType.value) || {}).notes || '')
+const loadCatalog = async () => {
+  try { catalog.value = await api.get('/system/oo/datasource-catalog') || [] } catch { catalog.value = [] }
+}
+const dsLoad = async () => {
+  dsLoading.value = true
+  try { dsItems.value = await api.get('/system/oo/datasources') || [] } finally { dsLoading.value = false }
+}
+const dsCreate = async () => {
+  dsSaving.value = true
+  try {
+    await api.post('/system/oo/datasources', { ...dsForm.value, kind: dsKindType.value })
+    ElMessage.success(t('common.success'))
+    dsForm.value = { name: '', stream: '', host_ref: '' }
+    dsLoad()
+  } finally { dsSaving.value = false }
+}
+const dsToggle = async (row, v) => {
+  await api.post(`/system/oo/datasources/${row.id}/enabled`, { enabled: v })
+  row.enabled = v
+}
+const dsDel = async row => {
+  await api.delete(`/system/oo/datasources/${row.id}`)
+  dsLoad()
+}
+const dsShowConfig = async row => {
+  const r = await api.get(`/system/oo/datasources/${row.id}/config`)
+  dsConfig.value = r.config || ''
+  dsCfgVisible.value = true
+}
+const dsCreateDlg = () => {
+  if (!dsKindType.value && dsKinds.value.length) dsKindType.value = dsKinds.value[0].type
+}
 const load = async () => {
   loading.value = true
   try {
@@ -333,6 +454,8 @@ const load = async () => {
   loadDbSources()
   loadSecWatch()
   loadRetention()
+  loadCatalog()
+  dsLoad()
 }
 
 // save connection settings from the admin page; empty token keeps the stored one
