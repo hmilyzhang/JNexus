@@ -7,7 +7,7 @@
           <div style="display:flex; align-items:center; gap:14px">
             <el-avatar :size="56" style="background:#409eff; font-size:24px">{{ initial }}</el-avatar>
             <div>
-              <div style="font-size:18px; font-weight:600">{{ info.user?.username }}</div>
+              <div style="font-size:18px; font-weight:600">{{ info.user?.display_name || info.user?.username }}</div>
               <div style="color:#909399; font-size:13px; margin-top:4px">
                 {{ roleLabel }} · {{ info.user?.auth_source === 'ldap' ? $t('users.authLdap') : $t('users.authLocal') }}
               </div>
@@ -63,7 +63,7 @@ const roleLabel = computed(() => ({
   publisher: t('layout.rolePublisher'), viewer: t('layout.roleViewer'),
   auditor: t('layout.roleAuditor')
 })[store.role] || store.role)
-const initial = computed(() => (store.user?.username || '?')[0].toUpperCase())
+const initial = computed(() => (info.value.user?.display_name || store.user?.display_name || store.user?.username || '?')[0].toUpperCase())
 
 const statCards = computed(() => {
   const all = [

@@ -320,7 +320,7 @@ func Dashboard(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"username": u.Username, "role": u.Role, "auth_source": u.AuthSource,
+			"username": u.Username, "display_name": u.DisplayName, "role": u.Role, "auth_source": u.AuthSource,
 			"last_login_at": u.LastLoginAt,
 		},
 		"hosts_total":  count(&model.Host{}, ""),
