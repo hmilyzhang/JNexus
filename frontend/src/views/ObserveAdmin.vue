@@ -643,4 +643,9 @@ onMounted(load)
   border-radius: 6px; padding: 10px 12px; font-size: 12px; line-height: 1.7;
   overflow-x: auto; white-space: nowrap;
 }
+/* data-source integrations: kind picker cards */
+.ds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 6px; }
+.ds-kind { border: 1px solid var(--el-border-color-lighter); border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+.ds-kind:hover { border-color: var(--el-color-primary); }
+.ds-kind.active { border-color: var(--el-color-primary); background: var(--el-color-primary-light-9); }
 </style>
