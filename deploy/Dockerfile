@@ -19,7 +19,7 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 go build -ldflags="-s -w -X jnexus/internal/buildinfo.Version=${APP_VERSION}" -o /jnexus-server ./cmd/server
 
 # ---- Runtime image ----
-FROM alpine:3.20
+FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata && \
     adduser -D -u 10001 jnexus
 WORKDIR /app
