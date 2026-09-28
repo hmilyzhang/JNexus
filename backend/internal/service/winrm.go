@@ -60,7 +60,10 @@ func winrmClientWithTransport(h *model.Host, username, password, mode string) (*
 		pass = p
 	}
 
-	params := winrm.DefaultParameters
+	// Fresh parameters per client: DefaultParameters is a SHARED pointer in the
+	// library — mutating it (TransportDecorator) leaks the NTLM decorator into
+	// every later client, silently turning the Basic fallback rungs into NTLM.
+	params := winrm.NewParameters(winrm.DefaultParameters.Timeout, winrm.DefaultParameters.Locale, winrm.DefaultParameters.EnvelopeSize)
 
 	// Kerberos (domain environments): preferred over NTLM for CIS-hardened domains —
 	// no Basic auth, no NTLM, works over TLS so targets keep AllowUnencrypted=false.
@@ -138,7 +141,8 @@ func winRMKerberosClient(h *model.Host, user, pass string) (*winrm.Client, error
 	if h.WinRMPort == 5986 {
 		port = h.WinRMPort
 	}
-	params := winrm.DefaultParameters
+	// fresh parameters: never mutate the library's shared DefaultParameters
+	params := winrm.NewParameters(winrm.DefaultParameters.Timeout, winrm.DefaultParameters.Locale, winrm.DefaultParameters.EnvelopeSize)
 	params.TransportDecorator = func() winrm.Transporter {
 		return winrm.NewClientKerberos(&winrm.Settings{
 			WinRMUsername: user,
@@ -190,10 +194,19 @@ func WinRMRun(h *model.Host, username, password, command string, timeoutSec int)
 			stdout, stderr, code, rerr := cli.RunWithString(encoded, "")
 			r := result{out: stdout, code: code, err: rerr}
 			if rerr != nil {
-				// non-zero exit codes come back wrapped in an error by the library; when output is still present, treat it as a business error
-				r.err = nil
-				r.out += "\n[winrm] " + rerr.Error()
-				r.code = 1
+				// Auth rejections must surface as errors so the transport fallback
+				// chain in WinRMRun can engage. Non-zero exit codes also come back
+				// wrapped in an error, but the command did run: when there is output
+				// (or stderr) keep it as a business error (appended to the output,
+				// exit code 1). Transport failures with no output at all (dial,
+				// timeout, protocol) surface as errors too.
+				if isAuthError(rerr) || (strings.TrimSpace(stdout) == "" && strings.TrimSpace(stderr) == "") {
+					r.code = -1
+				} else {
+					r.err = nil
+					r.out += "\n[winrm] " + rerr.Error()
+					r.code = 1
+				}
 			}
 			if stderr != "" {
 				r.out += "\n[stderr] " + strings.TrimSpace(stderr)
