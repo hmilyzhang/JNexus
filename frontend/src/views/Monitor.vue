@@ -1534,20 +1534,20 @@ const cleanupDel = async id => {
 <style scoped>
 .list-pager { display: flex; justify-content: flex-end; margin-top: 10px; }
 .mon-split { display: flex; gap: 12px; align-items: flex-start; }
-.mon-nav { flex: 0 0 210px; border: 1px solid #ebeef5; border-radius: 6px; padding: 6px; max-height: calc(100vh - 300px); min-height: 260px; overflow: auto; }
+.mon-nav { flex: 0 0 210px; border: 1px solid var(--el-border-color-lighter); border-radius: 6px; padding: 6px; max-height: calc(100vh - 300px); min-height: 260px; overflow: auto; }
 .mon-nav-item { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; }
-.mon-nav-item:hover { background: #f5f7fa; }
-.mon-nav-item.active { background: #ecf5ff; color: #409eff; font-weight: 600; }
+.mon-nav-item:hover { background: var(--el-fill-color-light); }
+.mon-nav-item.active { background: var(--el-color-primary-light-9); color: var(--el-color-primary); font-weight: 600; }
 .mon-nav-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mon-nav-count { color: #909399; font-size: 12px; flex-shrink: 0; }
-.mon-nav-down { background: #f56c6c; color: #fff; font-size: 11px; border-radius: 8px; padding: 0 6px; line-height: 16px; min-width: 16px; text-align: center; flex-shrink: 0; }
-.mon-list { flex: 1; min-width: 0; max-height: calc(100vh - 300px); min-height: 260px; overflow: auto; border: 1px solid #ebeef5; border-radius: 6px; padding: 0 12px; }
+.mon-nav-count { color: var(--el-text-color-secondary); font-size: 12px; flex-shrink: 0; }
+.mon-nav-down { background: var(--el-color-danger); color: #fff; font-size: 11px; border-radius: 8px; padding: 0 6px; line-height: 16px; min-width: 16px; text-align: center; flex-shrink: 0; }
+.mon-list { flex: 1; min-width: 0; max-height: calc(100vh - 300px); min-height: 260px; overflow: auto; border: 1px solid var(--el-border-color-lighter); border-radius: 6px; padding: 0 12px; }
 .mon-list-bar { position: sticky; top: 0; z-index: 2; background: var(--el-bg-color, #fff); padding: 10px 0 8px; }
-.mon-empty { color: #909399; text-align: center; padding: 32px 0; }
+.mon-empty { color: var(--el-text-color-secondary); text-align: center; padding: 32px 0; }
 
 .mon-row {
   display: flex; align-items: center; gap: 14px; padding: 10px 4px;
-  border-bottom: 1px solid #ebeef5; min-height: 56px;
+  border-bottom: 1px solid var(--el-border-color-lighter); min-height: 56px;
 }
 .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
 .dot-up { background: #67c23a; box-shadow: 0 0 0 3px rgba(103, 194, 58, .2); }
@@ -1561,7 +1561,7 @@ const cleanupDel = async id => {
 .mon-stats { display: flex; gap: 14px; text-align: center; flex-shrink: 0; }
 .stat { width: 62px; }
 .stat-val { font-weight: 600; }
-.stat-lbl { font-size: 11px; color: #909399; }
+.stat-lbl { font-size: 11px; color: var(--el-text-color-secondary); }
 /** Template settings left-side items */
 .tpl-item {
   padding: 10px 14px; cursor: pointer; border-radius: 4px; font-size: 14px;
