@@ -10,7 +10,7 @@ RUN npm run build
 # Note: the image version must be >= the go directive version in backend/go.mod
 # APP_VERSION: optional version injected at build time (compose passes JNEXUS_VERSION through).
 # If unset, the runtime fallback chain is: JNEXUS_VERSION env var > VERSION file (copied below) > 2.0
-FROM golang:1.25-alpine AS be
+FROM golang:1.26-alpine AS be
 ARG APP_VERSION
 WORKDIR /be
 COPY backend/go.mod backend/go.sum ./
