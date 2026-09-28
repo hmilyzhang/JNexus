@@ -80,64 +80,73 @@
             </div>
           </template>
           <div v-if="!monitors.length" style="color:#909399; padding:12px 0">{{ $t('monitor.noData') }}</div>
-          <el-collapse v-model="openGroups" class="mon-groups">
-          <el-collapse-item v-for="g in groupedMonitors" :key="g.name" :name="g.name">
-            <template #title>
-              <span class="mon-group-title">{{ g.name }}
-                <el-tag size="small" type="info" style="margin:0 8px">{{ g.rows.length }}</el-tag>
-                <el-tag v-if="g.down" size="small" type="danger">{{ g.down }} {{ $t('monitor.abnormal') }}</el-tag>
-              </span>
-            </template>
-          <div v-for="row in g.rows" :key="row.monitor.id" class="mon-row">
-            <span class="dot" :class="statusClass(row)"></span>
-            <div style="flex:1; min-width:0">
-              <div style="font-weight:600">
-                {{ row.monitor.name }}
-                <el-tag size="small" type="info" style="margin-left:6px">{{ typeLabel(row.monitor.type) }}</el-tag>
-                <el-tag v-if="!row.monitor.enabled" size="small" type="warning" style="margin-left:6px">{{ $t('monitor.paused') }}</el-tag>
-              <el-tag v-if="row.monitor.cert_not_after" size="small" :type="certBadge(row.monitor.cert_not_after).type"
-                        style="margin-left:6px">{{ $t('monitor.certDaysLeft') }} {{ certDaysLeft(row.monitor.cert_not_after) }}{{ $t('monitor.days') }}</el-tag></div>
-              <div style="color:#909399; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis"
-                   :title="row.monitor.last_error || ''">
-                {{ monitorTarget(row.monitor) }}<span v-if="row.monitor.last_error" style="color:#f56c6c"> — {{ row.monitor.last_error }}</span>
+          <div v-else class="mon-split">
+            <div class="mon-nav">
+              <div v-for="g in monNav" :key="g.key" class="mon-nav-item" :class="{ active: selGroup === g.key }" @click="selGroup = g.key">
+                <span class="mon-nav-name" :title="g.name">{{ g.name }}</span>
+                <span class="mon-nav-count">{{ g.total }}</span>
+                <span v-if="g.down" class="mon-nav-down" :title="$t('monitor.monOffline') + ' ' + g.down">{{ g.down }}</span>
               </div>
             </div>
-            <div class="hb">
-              <el-tooltip v-for="(s, i) in row.recent || []" :key="i" placement="top"
-                          :content="hbTip(s)" :show-after="80">
-                <span class="hb-bar" :class="s.status === 'up' ? 'hb-up' : s.status === 'maint' ? 'hb-maint' : 'hb-down'"></span>
-              </el-tooltip>
-              <span v-if="!(row.recent || []).length" style="color:#c0c4cc; font-size:12px">{{ $t('monitor.notYet') }}</span>
-            </div>
-            <div class="mon-stats">
-              <div class="stat">
-                <div class="stat-val">{{ statusText(row) }}</div>
-                <div class="stat-lbl">{{ row.monitor.last_resp_ms ? row.monitor.last_resp_ms + 'ms' : '—' }}</div>
+            <div class="mon-list">
+              <div class="mon-list-bar">
+                <el-radio-group v-model="statusFilter" size="small">
+                  <el-radio-button value="all">{{ $t('monitor.monAll') }}</el-radio-button>
+                  <el-radio-button value="up">{{ $t('monitor.monOnline') }}</el-radio-button>
+                  <el-radio-button value="down">{{ $t('monitor.monOffline') }}</el-radio-button>
+                </el-radio-group>
               </div>
-              <div class="stat">
-                <div class="stat-val" :style="{ color: (row.uptime24h ?? 100) < 99 ? '#e6a23c' : '#67c23a' }">
-                  {{ row.uptime24h != null ? row.uptime24h + '%' : '—' }}
-                </div>
-                <div class="stat-lbl">{{ $t('monitor.uptime24h') }}</div>
-              </div>
-              <div class="stat">
-                <div class="stat-val" :style="{ color: (row.uptime_30d ?? 100) < 99 ? '#e6a23c' : '#67c23a' }">
-                  {{ row.uptime_30d != null ? row.uptime_30d + '%' : '—' }}
-                </div>
-                <div class="stat-lbl">{{ $t('monitor.uptime30d') }}</div>
-              </div>
-            </div>
-            <div style="display:flex; gap:4px; align-items:center">
-              <el-button size="small" link type="primary" :disabled="!row.monitor.enabled" @click="testNow(row)">{{ $t('monitor.testNow') }}</el-button>
-              <el-button size="small" link @click="openDlg(row.monitor, row.channel_ids)">{{ $t('common.edit') }}</el-button>
-              <el-button size="small" link @click="togglePause(row)">{{ row.monitor.enabled ? $t('common.disabled') : $t('common.enabled') }}</el-button>
-              <el-popconfirm :title="$t('monitor.delConfirm')" @confirm="del(row.monitor)">
-                <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
-              </el-popconfirm>
+              <div v-if="!selRows.length" class="mon-empty">{{ $t('monitor.monNoMatch') }}</div>
+              <div v-for="row in selRows" :key="row.monitor.id" class="mon-row">
+          <span class="dot" :class="statusClass(row)"></span>
+          <div style="flex:1; min-width:0">
+            <div style="font-weight:600">
+              {{ row.monitor.name }}
+              <el-tag size="small" type="info" style="margin-left:6px">{{ typeLabel(row.monitor.type) }}</el-tag>
+              <el-tag v-if="!row.monitor.enabled" size="small" type="warning" style="margin-left:6px">{{ $t('monitor.paused') }}</el-tag>
+            <el-tag v-if="row.monitor.cert_not_after" size="small" :type="certBadge(row.monitor.cert_not_after).type"
+                      style="margin-left:6px">{{ $t('monitor.certDaysLeft') }} {{ certDaysLeft(row.monitor.cert_not_after) }}{{ $t('monitor.days') }}</el-tag></div>
+            <div style="color:#909399; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis"
+                 :title="row.monitor.last_error || ''">
+              {{ monitorTarget(row.monitor) }}<span v-if="row.monitor.last_error" style="color:#f56c6c"> — {{ row.monitor.last_error }}</span>
             </div>
           </div>
-        </el-collapse-item>
-      </el-collapse>
+          <div class="hb">
+            <el-tooltip v-for="(s, i) in row.recent || []" :key="i" placement="top"
+                        :content="hbTip(s)" :show-after="80">
+              <span class="hb-bar" :class="s.status === 'up' ? 'hb-up' : s.status === 'maint' ? 'hb-maint' : 'hb-down'"></span>
+            </el-tooltip>
+            <span v-if="!(row.recent || []).length" style="color:#c0c4cc; font-size:12px">{{ $t('monitor.notYet') }}</span>
+          </div>
+          <div class="mon-stats">
+            <div class="stat">
+              <div class="stat-val">{{ statusText(row) }}</div>
+              <div class="stat-lbl">{{ row.monitor.last_resp_ms ? row.monitor.last_resp_ms + 'ms' : '—' }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-val" :style="{ color: (row.uptime24h ?? 100) < 99 ? '#e6a23c' : '#67c23a' }">
+                {{ row.uptime24h != null ? row.uptime24h + '%' : '—' }}
+              </div>
+              <div class="stat-lbl">{{ $t('monitor.uptime24h') }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-val" :style="{ color: (row.uptime_30d ?? 100) < 99 ? '#e6a23c' : '#67c23a' }">
+                {{ row.uptime_30d != null ? row.uptime_30d + '%' : '—' }}
+              </div>
+              <div class="stat-lbl">{{ $t('monitor.uptime30d') }}</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:4px; align-items:center">
+            <el-button size="small" link type="primary" :disabled="!row.monitor.enabled" @click="testNow(row)">{{ $t('monitor.testNow') }}</el-button>
+            <el-button size="small" link @click="openDlg(row.monitor, row.channel_ids)">{{ $t('common.edit') }}</el-button>
+            <el-button size="small" link @click="togglePause(row)">{{ row.monitor.enabled ? $t('common.disabled') : $t('common.enabled') }}</el-button>
+            <el-popconfirm :title="$t('monitor.delConfirm')" @confirm="del(row.monitor)">
+              <template #reference><el-button size="small" type="danger" link>{{ $t('common.delete') }}</el-button></template>
+            </el-popconfirm>
+          </div>
+            </div>
+          </div>
+          </div>
         </el-card>
       </el-tab-pane>
 
@@ -853,7 +862,6 @@ const chForm = reactive({})
 let timer = null
 
 const groupOptions = computed(() => [...new Set(hostRows.value.map(h => h.group).filter(Boolean))])
-const openGroups = ref([])
 const groupedMonitors = computed(() => {
   const order = []
   const map = {}
@@ -862,11 +870,24 @@ const groupedMonitors = computed(() => {
     if (!map[g]) { map[g] = []; order.push(g) }
     map[g].push(row)
   }
-  return order.map(name => ({
-    name,
-    rows: map[name],
-    down: map[name].filter(r => r.monitor.last_status === 'down').length,
-  }))
+  return order.map(name => ({ name, rows: map[name] }))
+})
+// left nav (split pane): "all" entry + one entry per group with total / offline counts
+const ALL_GROUP = '__all__'
+const selGroup = ref(ALL_GROUP)
+const statusFilter = ref('all')
+const offlineOf = rows => rows.filter(r => r.monitor.enabled && r.monitor.last_status === 'down').length
+const monNav = computed(() => [
+  { key: ALL_GROUP, name: t('monitor.monAll'), total: monitors.value.length, down: offlineOf(monitors.value) },
+  ...groupedMonitors.value.map(g => ({ key: g.name, name: g.name, total: g.rows.length, down: offlineOf(g.rows) })),
+])
+const selRows = computed(() => {
+  const rows = selGroup.value === ALL_GROUP
+    ? monitors.value
+    : (groupedMonitors.value.find(g => g.name === selGroup.value)?.rows || [])
+  if (statusFilter.value === 'up') return rows.filter(r => r.monitor.enabled && r.monitor.last_status === 'up')
+  if (statusFilter.value === 'down') return rows.filter(r => r.monitor.enabled && r.monitor.last_status === 'down')
+  return rows
 })
 const monGroupOptions = computed(() => {
   const set = new Set()
@@ -1512,8 +1533,17 @@ const cleanupDel = async id => {
 
 <style scoped>
 .list-pager { display: flex; justify-content: flex-end; margin-top: 10px; }
-.mon-groups :deep(.el-collapse-item__header) { font-weight: 600; }
-.mon-group-title { display: flex; align-items: center; }
+.mon-split { display: flex; gap: 12px; align-items: flex-start; }
+.mon-nav { flex: 0 0 210px; border: 1px solid #ebeef5; border-radius: 6px; padding: 6px; max-height: calc(100vh - 300px); min-height: 260px; overflow: auto; }
+.mon-nav-item { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.mon-nav-item:hover { background: #f5f7fa; }
+.mon-nav-item.active { background: #ecf5ff; color: #409eff; font-weight: 600; }
+.mon-nav-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mon-nav-count { color: #909399; font-size: 12px; flex-shrink: 0; }
+.mon-nav-down { background: #f56c6c; color: #fff; font-size: 11px; border-radius: 8px; padding: 0 6px; line-height: 16px; min-width: 16px; text-align: center; flex-shrink: 0; }
+.mon-list { flex: 1; min-width: 0; max-height: calc(100vh - 300px); min-height: 260px; overflow: auto; border: 1px solid #ebeef5; border-radius: 6px; padding: 0 12px; }
+.mon-list-bar { position: sticky; top: 0; z-index: 2; background: var(--el-bg-color, #fff); padding: 10px 0 8px; }
+.mon-empty { color: #909399; text-align: center; padding: 32px 0; }
 
 .mon-row {
   display: flex; align-items: center; gap: 14px; padding: 10px 4px;
