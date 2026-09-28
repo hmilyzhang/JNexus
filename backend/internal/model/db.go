@@ -44,6 +44,37 @@ func Connect(dsn string) error {
 	if err := MigrateDBAccounts(); err != nil {
 		return fmt.Errorf("数据库账号迁移失败: %w", err)
 	}
+	if err := NormalizeDefaultCredentials(); err != nil {
+		return fmt.Errorf("默认账号归一失败: %w", err)
+	}
+	return nil
+}
+
+// NormalizeDefaultCredentials repairs hosts that carry more than one default
+// OS account (legacy writes set is_default without clearing the others): the
+// earliest account stays default, every later duplicate is cleared.
+func NormalizeDefaultCredentials() error {
+	var hostIDs []uint
+	if err := DB.Model(&HostCredential{}).
+		Where("is_default = ?", true).
+		Group("host_id").
+		Having("COUNT(*) > 1").
+		Pluck("host_id", &hostIDs).Error; err != nil {
+		return err
+	}
+	for _, hid := range hostIDs {
+		var keep uint
+		if err := DB.Model(&HostCredential{}).Where("host_id = ?", hid).
+			Where("is_default = ?", true).Order("id").Limit(1).Pluck("id", &keep).Error; err != nil {
+			return err
+		}
+		if err := DB.Model(&HostCredential{}).
+			Where("host_id = ? AND is_default = ? AND id <> ?", hid, true, keep).
+			Update("is_default", false).Error; err != nil {
+			return err
+		}
+		log.Printf("[migrate] host %d had multiple default accounts; kept #%d", hid, keep)
+	}
 	return nil
 }
 

@@ -313,6 +313,16 @@ func UpdateCredential(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "密钥认证需要选择 SSH 密钥"})
 		return
 	}
+	wasDefault := cred.IsDefault
+	// Unsetting the default on the sole account would leave the host without one
+	if !req.IsDefault && wasDefault {
+		var cnt int64
+		model.DB.Model(&model.HostCredential{}).Where("host_id = ?", cred.HostID).Count(&cnt)
+		if cnt <= 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "该主机仅此一个账号，需保留默认标识"})
+			return
+		}
+	}
 	if err := req.apply(&cred); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -320,6 +330,13 @@ func UpdateCredential(c *gin.Context) {
 	model.DB.Save(&cred)
 	if req.IsDefault {
 		makeDefault(cred.HostID, cred.ID)
+	} else if wasDefault {
+		// unsetting the default: clear it and promote the earliest remaining account
+		model.DB.Model(&model.HostCredential{}).Where("id = ?", cred.ID).Update("is_default", false)
+		var next model.HostCredential
+		if err := model.DB.Where("host_id = ? AND id <> ?", cred.HostID, cred.ID).Order("id").First(&next).Error; err == nil {
+			model.DB.Model(&next).Update("is_default", true)
+		}
 	}
 	if req.Password != "" {
 		service.RecordPasswordHistory(cred.ID, req.Password, "manual", currentUser(c).Username)

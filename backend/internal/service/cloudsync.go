@@ -45,9 +45,11 @@ func applyCredentialTemplate(templateID *uint, hostID uint) uint {
 	if cnt > 0 {
 		return 0
 	}
+	var total int64
+	model.DB.Model(&model.HostCredential{}).Where("host_id = ?", hostID).Count(&total)
 	nc := model.HostCredential{
 		HostID: hostID, Username: tpl.Username, AuthType: "password",
-		Password: tpl.Password, Label: tpl.Label, IsDefault: true, IsLDAP: tpl.IsLDAP,
+		Password: tpl.Password, Label: tpl.Label, IsDefault: total == 0, IsLDAP: tpl.IsLDAP,
 	}
 	if err := model.DB.Create(&nc).Error; err != nil {
 		return 0
