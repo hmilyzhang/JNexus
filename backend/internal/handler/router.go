@@ -87,6 +87,11 @@ func SetupRouter() *gin.Engine {
 			mon.PUT("/:id", UpdateMonitor)
 			mon.DELETE("/:id", DeleteMonitor)
 			mon.POST("/:id/test", TestMonitor)
+			// bulk maintenance: group channels / batch move / CSV import (manage
+			// enforced in-handler, import follows the create ownership rule)
+			mon.POST("/group-channels", GroupChannels)
+			mon.POST("/batch-move", BatchMoveMonitors)
+			mon.POST("/import", ImportMonitors)
 			mon.GET("/:id/history", middleware.RequireRole(model.RoleOps, model.RolePublisher, model.RoleViewer, model.RoleAuditor), MonitorHistory)
 			// OpenObserve search proxy (long-term storage / full-text log search)
 			mon.POST("/oo/search", OOSearchProxy)

@@ -223,7 +223,7 @@ func UpdateMonitor(c *gin.Context) {
 		"method": m.Method, "accepted_status": m.AcceptedStatus,
 		"keyword": m.Keyword, "keyword_type": m.KeywordType,
 		"interval_sec": m.IntervalSec, "timeout_sec": m.TimeoutSec,
-		"enabled": m.Enabled, "next_run_at": nil,
+		"enabled": m.Enabled, "next_run_at": nil, "mon_group": m.MonGroup,
 	}
 	model.DB.Model(&m).Updates(updates)
 	saveMonitorBindings(m.ID, req.ChannelIDs)
@@ -655,4 +655,149 @@ func SecLogs(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, out)
+}
+
+// requireMonitorManage rejects the request unless the caller holds monitor.manage
+func requireMonitorManage(c *gin.Context) bool {
+	if _, _, _, manage := service.MonitorCaps(currentUser(c).Role); !manage {
+		c.JSON(http.StatusForbidden, gin.H{"error": "需要监控管理权限"})
+		return false
+	}
+	return true
+}
+
+// GroupChannels applies one channel set to every monitor of a group at once
+// (per-item bindings are replaced; with hundreds of monitors per group the
+// one-by-one dialog is not workable).
+func GroupChannels(c *gin.Context) {
+	if !requireMonitorManage(c) {
+		return
+	}
+	var req struct {
+		Group      string `json:"group" binding:"required"`
+		ChannelIDs []uint `json:"channel_ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	group := strings.TrimSpace(req.Group)
+	if group == "" || group == "__all__" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "分组名无效"})
+		return
+	}
+	var ids []uint
+	model.DB.Model(&model.Monitor{}).Where("mon_group = ?", group).Pluck("id", &ids)
+	if len(ids) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "该分组没有监控项"})
+		return
+	}
+	for _, id := range ids {
+		saveMonitorBindings(id, req.ChannelIDs)
+	}
+	c.JSON(http.StatusOK, gin.H{"updated": len(ids)})
+}
+
+// BatchMoveMonitors moves a set of monitors into another display group
+// (empty group = ungrouped).
+func BatchMoveMonitors(c *gin.Context) {
+	if !requireMonitorManage(c) {
+		return
+	}
+	var req struct {
+		IDs   []uint `json:"ids" binding:"required"`
+		Group string `json:"group"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "需要 ids"})
+		return
+	}
+	res := model.DB.Model(&model.Monitor{}).Where("id IN ?", req.IDs).
+		Update("mon_group", strings.TrimSpace(req.Group))
+	c.JSON(http.StatusOK, gin.H{"updated": res.RowsAffected})
+}
+
+// ImportMonitors bulk-imports monitors from CSV text:
+// name,type,target[,port[,group[,interval_sec]]] — http targets are full URLs,
+// tcp needs a port, ping takes a hostname. Lines starting with # are skipped.
+func ImportMonitors(c *gin.Context) {
+	u := currentUser(c)
+	var req struct {
+		Text        string `json:"text" binding:"required"`
+		Group       string `json:"group"`
+		IntervalSec int    `json:"interval_sec"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Text) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "需要导入内容"})
+		return
+	}
+	_, app, _, manage := service.MonitorCaps(u.Role)
+	var ownerGroupID *uint
+	if !manage {
+		if !app {
+			c.JSON(http.StatusForbidden, gin.H{"error": "无导入权限"})
+			return
+		}
+		groups := service.UserGroupIDsOf(u.ID)
+		if len(groups) == 0 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "自建监控需要先加入用户组（用于归属部门）"})
+			return
+		}
+		ownerGroupID = &groups[0]
+	}
+
+	defaultGroup := strings.TrimSpace(req.Group)
+	created, failed := 0, []map[string]string{}
+	for i, line := range strings.Split(req.Text, "\n") {
+		lineNo := i + 1
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if len(failed)+created >= 2000 {
+			failed = append(failed, map[string]string{"line": "…", "error": "单次导入上限 2000 条，已截断"})
+			break
+		}
+		f := strings.Split(line, ",")
+		for j := range f {
+			f[j] = strings.TrimSpace(f[j])
+		}
+		if len(f) < 3 {
+			failed = append(failed, map[string]string{"line": fmt.Sprint(lineNo), "error": "至少需要 名称,类型,目标 三个字段"})
+			continue
+		}
+		port := 0
+		if len(f) >= 4 && f[3] != "" {
+			if n, err := strconv.Atoi(f[3]); err == nil {
+				port = n
+			} else {
+				failed = append(failed, map[string]string{"line": fmt.Sprint(lineNo), "error": "端口不是数字"})
+				continue
+			}
+		}
+		group := defaultGroup
+		if len(f) >= 5 && f[4] != "" {
+			group = f[4]
+		}
+		interval := req.IntervalSec
+		if len(f) >= 6 && f[5] != "" {
+			if n, err := strconv.Atoi(f[5]); err == nil {
+				interval = n
+			}
+		}
+		m := model.Monitor{CreatedBy: u.Username, Enabled: true, OwnerGroupID: ownerGroupID}
+		merr := applyMonitorReq(&m, monitorReq{
+			Name: f[0], Type: f[1], Target: f[2], Port: port, MonGroup: group, IntervalSec: interval,
+		})
+		if merr != nil {
+			failed = append(failed, map[string]string{"line": fmt.Sprint(lineNo), "error": merr.Error()})
+			continue
+		}
+		if err := model.DB.Create(&m).Error; err != nil {
+			failed = append(failed, map[string]string{"line": fmt.Sprint(lineNo), "error": "创建失败"})
+			continue
+		}
+		created++
+	}
+	c.JSON(http.StatusOK, gin.H{"created": created, "failed": failed})
 }

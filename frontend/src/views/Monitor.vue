@@ -75,6 +75,7 @@
             <div style="display:flex; align-items:center; gap:10px">
               <span style="flex:1">{{ $t('monitor.appMon') }}</span>
               <span v-if="!mcan.manage" style="color:#909399; font-size:12px">{{ $t('monitor.appSelfTip') }}</span>
+              <el-button v-if="mcan.manage" size="small" @click="openImport">{{ $t('monitor.monImport') }}</el-button>
               <el-button size="small" :loading="loading" @click="load">{{ $t('common.refresh') }}</el-button>
               <el-button size="small" type="primary" @click="openDlg()">{{ $t('monitor.addMon') }}</el-button>
             </div>
@@ -86,6 +87,7 @@
                 <span class="mon-nav-name" :title="g.name">{{ g.name }}</span>
                 <span class="mon-nav-count">{{ g.total }}</span>
                 <span v-if="g.down" class="mon-nav-down" :title="$t('monitor.monOffline') + ' ' + g.down">{{ g.down }}</span>
+                <el-icon v-if="g.key !== ALL_GROUP" class="mon-nav-ch" :title="$t('monitor.monGroupChannels')" @click.stop="openGroupChannels(g.name)"><Bell /></el-icon>
               </div>
             </div>
             <div class="mon-list">
@@ -95,9 +97,15 @@
                   <el-radio-button value="up">{{ $t('monitor.monOnline') }}</el-radio-button>
                   <el-radio-button value="down">{{ $t('monitor.monOffline') }}</el-radio-button>
                 </el-radio-group>
+                <template v-if="mcan.manage && selRows.length">
+                  <el-checkbox class="mon-selall" :model-value="selAll" :indeterminate="selIds.length > 0 && !selAll" @change="toggleSelAll">{{ $t('monitor.monSelAll') }}</el-checkbox>
+                  <span v-if="selIds.length" class="mon-selcount">{{ $t('monitor.monSelected', { n: selIds.length }) }}</span>
+                  <el-button v-if="selIds.length" size="small" @click="openBatchMove">{{ $t('monitor.monMove') }}</el-button>
+                </template>
               </div>
               <div v-if="!selRows.length" class="mon-empty">{{ $t('monitor.monNoMatch') }}</div>
               <div v-for="row in selRows" :key="row.monitor.id" class="mon-row">
+          <el-checkbox v-if="mcan.manage" class="mon-sel" :model-value="selIds.includes(row.monitor.id)" @change="toggleSel(row.monitor.id)" />
           <span class="dot" :class="statusClass(row)"></span>
           <div style="flex:1; min-width:0">
             <div style="font-weight:600">
@@ -147,6 +155,44 @@
             </div>
           </div>
           </div>
+
+          <!-- group channels: apply one channel set to every monitor of the group -->
+          <el-dialog v-model="gchVisible" :title="$t('monitor.monGroupChannels')" width="440px">
+            <div style="margin-bottom:8px">
+              <b>{{ gchForm.group }}</b>
+              <span style="color:#909399; font-size:12px; margin-left:8px">{{ $t('monitor.monGroupChannelsTip', { n: gchCount }) }}</span>
+            </div>
+            <el-select v-model="gchForm.ids" multiple filterable style="width:100%" :placeholder="$t('monitor.notif')">
+              <el-option v-for="ch in channels" :key="ch.id" :label="ch.name" :value="ch.id" />
+            </el-select>
+            <template #footer>
+              <el-button @click="gchVisible = false">{{ $t('common.cancel') }}</el-button>
+              <el-button type="primary" :loading="saving" @click="saveGroupChannels">{{ $t('common.confirm') }}</el-button>
+            </template>
+          </el-dialog>
+
+          <!-- bulk import -->
+          <el-dialog v-model="impVisible" :title="$t('monitor.monImportTitle')" width="640px">
+            <div style="margin-bottom:10px">
+              <span style="font-size:12px; color:#909399; margin-right:8px">{{ $t('monitor.monImportGroup') }}</span>
+              <el-input v-model="impForm.group" size="small" style="width:200px" clearable />
+            </div>
+            <el-input v-model="impForm.text" type="textarea" :rows="10" :placeholder="$t('monitor.monImportPh')" />
+            <template #footer>
+              <el-button @click="impVisible = false">{{ $t('common.cancel') }}</el-button>
+              <el-button type="primary" :loading="saving" @click="saveImport">{{ $t('common.confirm') }}</el-button>
+            </template>
+          </el-dialog>
+
+          <!-- batch move to another group -->
+          <el-dialog v-model="moveVisible" :title="$t('monitor.monMove')" width="420px">
+            <div style="margin-bottom:8px; color:#909399; font-size:12px">{{ $t('monitor.monSelected', { n: selIds.length }) }}</div>
+            <el-select v-model="moveGroup" filterable allow-create clearable style="width:100%" :placeholder="$t('monitor.monGroupPh')" />
+            <template #footer>
+              <el-button @click="moveVisible = false">{{ $t('common.cancel') }}</el-button>
+              <el-button type="primary" :loading="saving" @click="saveBatchMove">{{ $t('common.confirm') }}</el-button>
+            </template>
+          </el-dialog>
         </el-card>
       </el-tab-pane>
 
@@ -799,6 +845,7 @@ import api from '../api'
 import { useRouter } from 'vue-router'
 import i18n from '../i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Bell } from '@element-plus/icons-vue'
 import MetricChart from '../components/MetricChart.vue'
 import { useUserStore } from '../store'
 
@@ -894,6 +941,71 @@ const monGroupOptions = computed(() => {
   for (const row of monitors.value) if (row.monitor.mon_group) set.add(row.monitor.mon_group)
   return [...set]
 })
+// ---- bulk maintenance: selection, group channels, import, batch move ----
+const saving = ref(false)
+const selIds = ref([])
+const selAll = computed(() => selRows.value.length > 0 && selRows.value.every(r => selIds.value.includes(r.monitor.id)))
+const toggleSel = id => {
+  const i = selIds.value.indexOf(id)
+  if (i >= 0) selIds.value.splice(i, 1)
+  else selIds.value.push(id)
+}
+const toggleSelAll = () => {
+  selIds.value = selAll.value ? [] : selRows.value.map(r => r.monitor.id)
+}
+const gchVisible = ref(false)
+const gchForm = reactive({ group: '', ids: [] })
+const gchCount = computed(() => groupedMonitors.value.find(g => g.name === gchForm.group)?.rows.length || 0)
+const openGroupChannels = name => {
+  const rows = groupedMonitors.value.find(g => g.name === name)?.rows || []
+  // preset with the first monitor's channels so the group's current intent shows
+  gchForm.group = name
+  gchForm.ids = [...(rows[0]?.channel_ids || [])]
+  gchVisible.value = true
+}
+const saveGroupChannels = async () => {
+  saving.value = true
+  try {
+    const r = await api.post('/monitors/group-channels', { group: gchForm.group, channel_ids: gchForm.ids })
+    ElMessage.success(t('monitor.monGroupChannelsDone', { n: r.updated }))
+    gchVisible.value = false
+    load()
+  } finally { saving.value = false }
+}
+const impVisible = ref(false)
+const impForm = reactive({ text: '', group: '' })
+const openImport = () => {
+  impForm.text = ''
+  impVisible.value = true
+}
+const saveImport = async () => {
+  if (!impForm.text.trim()) return
+  saving.value = true
+  try {
+    const r = await api.post('/monitors/import', { text: impForm.text, group: impForm.group })
+    if (r.failed?.length) {
+      ElMessage.warning(t('monitor.monImportDone', { n: r.created }) + ' ' + t('monitor.monImportFail', { n: r.failed.length })
+        + '：' + r.failed.slice(0, 3).map(f => `#${f.line} ${f.error}`).join('；'))
+    } else {
+      ElMessage.success(t('monitor.monImportDone', { n: r.created }))
+    }
+    impVisible.value = false
+    load()
+  } finally { saving.value = false }
+}
+const moveVisible = ref(false)
+const moveGroup = ref('')
+const openBatchMove = () => { moveGroup.value = ''; moveVisible.value = true }
+const saveBatchMove = async () => {
+  saving.value = true
+  try {
+    const r = await api.post('/monitors/batch-move', { ids: selIds.value, group: moveGroup.value || '' })
+    ElMessage.success(t('monitor.monMoveDone', { n: r.updated }))
+    moveVisible.value = false
+    selIds.value = []
+    load()
+  } finally { saving.value = false }
+}
 const timeRange = ref('')
 const hostPage = ref(1)
 const hostPageSize = ref(20)
@@ -1541,6 +1653,13 @@ const cleanupDel = async id => {
 .mon-nav-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mon-nav-count { color: var(--el-text-color-secondary); font-size: 12px; flex-shrink: 0; }
 .mon-nav-down { background: var(--el-color-danger); color: #fff; font-size: 11px; border-radius: 8px; padding: 0 6px; line-height: 16px; min-width: 16px; text-align: center; flex-shrink: 0; }
+.mon-nav-ch { visibility: hidden; color: var(--el-text-color-secondary); cursor: pointer; flex-shrink: 0; }
+.mon-nav-item:hover .mon-nav-ch { visibility: visible; }
+.mon-nav-ch:hover { color: var(--el-color-primary); }
+.mon-list-bar { display: flex; align-items: center; gap: 10px; }
+.mon-selall { margin-left: 4px; }
+.mon-selcount { color: var(--el-text-color-secondary); font-size: 12px; }
+.mon-row .mon-sel { flex-shrink: 0; }
 .mon-list { flex: 1; min-width: 0; max-height: calc(100vh - 300px); min-height: 260px; overflow: auto; border: 1px solid var(--el-border-color-lighter); border-radius: 6px; padding: 0 12px; }
 .mon-list-bar { position: sticky; top: 0; z-index: 2; background: var(--el-bg-color, #fff); padding: 10px 0 8px; }
 .mon-empty { color: var(--el-text-color-secondary); text-align: center; padding: 32px 0; }
