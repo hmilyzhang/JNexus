@@ -197,6 +197,7 @@ func RunMonitorOnce(m *model.Monitor) (bool, int, string, *time.Time) {
 	}
 	model.DB.Model(m).Updates(updates)
 	model.DB.Create(&model.MonitorSample{MonitorID: m.ID, Status: sampleStatus, RespMs: ms, Error: errMsg, CreatedAt: now})
+	OOPushMonitorSample(m, sampleStatus, ms, errMsg, now)
 	if certExp != nil {
 		model.DB.Model(m).Updates(map[string]any{"cert_not_after": certExp,
 			"cert_warn_fired": false, "cert_crit_fired": false})

@@ -18,6 +18,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"jnexus/internal/model"
 )
 
 type OOSettings struct {
@@ -223,7 +225,7 @@ func ooStat(stream string) *OOStreamStat {
 
 // ooIntegrationEnabled reads the per-stream toggle from oo_integrations config
 // (JSON map; a missing entry defaults to enabled for the builtin streams)
-var ooBuiltinStreams = []string{"host_metrics", "task_logs", "alert_events", "windows_events", "linux_events", "db_audit", "k8s_capacity", "audit"}
+var ooBuiltinStreams = []string{"host_metrics", "task_logs", "alert_events", "windows_events", "linux_events", "db_audit", "k8s_capacity", "audit", "app_monitors"}
 
 func ooIntegrationEnabled(stream string) bool {
 	m := SystemConfigMap()
@@ -437,6 +439,17 @@ func OOPushTaskLog(taskID uint, taskType, operator, host, osUser, status string,
 func OOPushAlertEvent(kind, level, target, message string) {
 	ooPushAsync("alert_events", map[string]any{
 		"kind": kind, "level": level, "target": target, "message": message,
+	})
+}
+
+// OOPushMonitorSample dual-writes one app-monitor probe result (app_monitors stream;
+// retention follows the stream settings applied in OpenObserve)
+func OOPushMonitorSample(m *model.Monitor, status string, respMs int, errMsg string, at time.Time) {
+	ooPushAsync("app_monitors", map[string]any{
+		"monitor_id": m.ID, "monitor": m.Name, "type": m.Type,
+		"target": monitorTargetText(m), "group": m.MonGroup,
+		"status": status, "resp_ms": respMs, "error": errMsg,
+		"collected_at": at.Format(time.RFC3339),
 	})
 }
 
