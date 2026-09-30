@@ -424,14 +424,25 @@ type MonitorSample struct {
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 }
 
+// MonitorSampleHourly pre-aggregated uptime rollup (up/down counts per monitor
+// and hour): the monitor list reads availability from here instead of scanning
+// millions of raw samples on every request.
+type MonitorSampleHourly struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	MonitorID  uint      `gorm:"uniqueIndex:idx_mon_sample_hour,priority:1" json:"monitor_id"`
+	Hour       time.Time `gorm:"uniqueIndex:idx_mon_sample_hour,priority:2" json:"hour"` // truncated to hour
+	UpCount    int       `json:"up_count"`
+	TotalCount int       `json:"total_count"` // up + down only (maint excluded, same as the live queries)
+}
+
 // HostMetric host resource sampling (CPU / memory / disk, collected via SSH)
 type HostMetric struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
-	HostID      uint      `gorm:"index" json:"host_id"`
+	HostID      uint      `gorm:"index;index:idx_hm_host_time,priority:1" json:"host_id"`
 	CPUPercent  float64   `json:"cpu_percent"`
 	MemPercent  float64   `json:"mem_percent"`
 	DiskPercent float64   `json:"disk_percent"` // Max usage across all real mount points
-	CollectedAt time.Time `gorm:"index" json:"collected_at"`
+	CollectedAt time.Time `gorm:"index;index:idx_hm_host_time,priority:2" json:"collected_at"`
 }
 
 // K8sCapacitySample K8s cluster capacity sampling (capacity planning: monthly/half-year/yearly trends and forecasts)

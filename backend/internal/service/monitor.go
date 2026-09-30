@@ -539,13 +539,52 @@ func PruneMonitorData() {
 	ArchiveHostMetrics()
 	model.DB.Where("collected_at < ?", time.Now().Add(-30*24*time.Hour)).Delete(&model.HostMetric{})
 	model.DB.Where("created_at < ?", time.Now().Add(-30*24*time.Hour)).Delete(&model.MonitorSample{})
+	model.DB.Where("hour < ?", time.Now().Add(-35*24*time.Hour)).Delete(&model.MonitorSampleHourly{})
 	PruneK8sCapacitySamples()
+}
+
+var sampleHourlyMu sync.Mutex
+var sampleHourlyWatermark uint // last monitor_samples.id folded into the hourly rollup
+
+// AggregateSampleHourly folds raw samples with id > watermark into the hourly
+// rollup (id ranges are disjoint, so the += upsert counts every sample exactly
+// once). First run does a full backfill when the rollup is empty. Cheap: runs
+// on the monitor loop every few minutes, touching only the new id range.
+func AggregateSampleHourly() {
+	sampleHourlyMu.Lock()
+	defer sampleHourlyMu.Unlock()
+	var maxID uint
+	model.DB.Model(&model.MonitorSample{}).Select("COALESCE(MAX(id), 0)").Scan(&maxID)
+	if maxID == 0 {
+		return
+	}
+	var rollupRows int64
+	model.DB.Model(&model.MonitorSampleHourly{}).Count(&rollupRows)
+	if sampleHourlyWatermark == 0 && rollupRows == 0 {
+		sampleHourlyWatermark = 0 // full backfill below
+	}
+	res := model.DB.Exec(`INSERT INTO monitor_sample_hourlies (monitor_id, hour, up_count, total_count)
+		SELECT monitor_id, date_trunc('hour', created_at),
+			SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END), COUNT(*)
+		FROM monitor_samples
+		WHERE id > ? AND id <= ? AND status IN ('up','down')
+		GROUP BY monitor_id, date_trunc('hour', created_at)
+		ON CONFLICT (monitor_id, hour) DO UPDATE SET
+			up_count = monitor_sample_hourlies.up_count + EXCLUDED.up_count,
+			total_count = monitor_sample_hourlies.total_count + EXCLUDED.total_count`,
+		sampleHourlyWatermark, maxID)
+	if res.Error != nil {
+		fmt.Println("[monitor] hourly rollup failed:", res.Error)
+		return
+	}
+	sampleHourlyWatermark = maxID
 }
 
 // StartMonitorLoop starts the monitor scheduling loop (checks for due items every 15 seconds)
 func StartMonitorLoop() {
 	go func() {
 		lastPrune := time.Time{}
+		lastAgg := time.Time{}
 		for {
 			func() {
 				defer func() { recover() }()
@@ -559,6 +598,10 @@ func StartMonitorLoop() {
 				go CheckKeyRotation()
 				go CollectK8sClusters()
 				go CollectK8sUsage()
+				if time.Since(lastAgg) >= 2*time.Minute {
+					AggregateSampleHourly()
+					lastAgg = time.Now()
+				}
 				if time.Since(lastPrune) >= time.Hour {
 					PruneMonitorData()
 					lastPrune = time.Now()

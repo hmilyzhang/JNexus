@@ -91,16 +91,18 @@ func ListMonitors(c *gin.Context) {
 		MonitorID uint
 		Uptime    float64
 	}
+	// availability reads the hourly rollup (a few hundred rows) instead of
+	// aggregating millions of raw samples on every request
 	var uptimes []uptimeRow
-	model.DB.Raw(`SELECT monitor_id, AVG(CASE WHEN status = 'up' THEN 100.0 ELSE 0 END) AS uptime
-		FROM monitor_samples WHERE created_at > ? AND status IN ('up','down') GROUP BY monitor_id`, since24).Scan(&uptimes)
+	model.DB.Raw(`SELECT monitor_id, ROUND(100.0 * SUM(up_count) / NULLIF(SUM(total_count), 0)) AS uptime
+		FROM monitor_sample_hourlies WHERE hour > ? GROUP BY monitor_id`, since24).Scan(&uptimes)
 	uptimeMap := map[uint]float64{}
 	for _, u := range uptimes {
 		uptimeMap[u.MonitorID] = math.Round(u.Uptime*10) / 10
 	}
 	var uptimes30 []uptimeRow
-	model.DB.Raw(`SELECT monitor_id, AVG(CASE WHEN status = 'up' THEN 100.0 ELSE 0 END) AS uptime
-		FROM monitor_samples WHERE created_at > ? AND status IN ('up','down') GROUP BY monitor_id`, since30).Scan(&uptimes30)
+	model.DB.Raw(`SELECT monitor_id, ROUND(100.0 * SUM(up_count) / NULLIF(SUM(total_count), 0)) AS uptime
+		FROM monitor_sample_hourlies WHERE hour > ? GROUP BY monitor_id`, since30).Scan(&uptimes30)
 	uptimeMap30 := map[uint]float64{}
 	for _, u := range uptimes30 {
 		uptimeMap30[u.MonitorID] = math.Round(u.Uptime*10) / 10
@@ -172,6 +174,35 @@ func CreateMonitor(c *gin.Context) {
 	}
 	saveMonitorBindings(m.ID, req.ChannelIDs)
 	c.JSON(http.StatusOK, m)
+}
+
+// MonitorsStatus light monitor state for the 30s polling loop: id / enabled /
+// last status / response / error / check time only (no heartbeats, no uptime,
+// no bindings). Keeps the poll at a few dozen KB instead of the full payload.
+func MonitorsStatus(c *gin.Context) {
+	u := currentUser(c)
+	_, app, _, manage := service.MonitorCaps(u.Role)
+	var monitors []model.Monitor
+	model.DB.Select("id, enabled, last_status, last_resp_ms, last_error, last_checked_at, owner_group_id").Find(&monitors)
+	if !manage {
+		groups := service.UserGroupIDsOf(u.ID)
+		filtered := monitors[:0]
+		for _, m := range monitors {
+			if m.OwnerGroupID == nil || (app && containsUint(groups, *m.OwnerGroupID)) {
+				filtered = append(filtered, m)
+			}
+		}
+		monitors = filtered
+	}
+	out := make([]gin.H, 0, len(monitors))
+	for _, m := range monitors {
+		out = append(out, gin.H{
+			"id": m.ID, "enabled": m.Enabled, "last_status": m.LastStatus,
+			"last_resp_ms": m.LastRespMs, "last_error": m.LastError,
+			"last_checked_at": m.LastCheckedAt,
+		})
+	}
+	c.JSON(http.StatusOK, out)
 }
 
 // canEditMonitor: monitor.manage, or view_app on a monitor owned by the
@@ -310,23 +341,22 @@ func HostMetricsList(c *gin.Context) {
 		CPUPercent  float64
 		MemPercent  float64
 		DiskPercent float64
-		CollectedAt time.Time
+		CollectedAt *time.Time
 	}
-	model.DB.Raw(`SELECT DISTINCT ON (hm.host_id)
-			hm.host_id, h.name, h.ip, g.name AS group_name, h.status,
+	// LATERAL lookup per host hits the (host_id, collected_at DESC) composite
+	// index once — no full-table DISTINCT ON sort over the whole 30d retention
+	model.DB.Raw(`SELECT h.id AS host_id, h.name, h.ip, g.name AS group_name, h.status,
 			hm.cpu_percent, hm.mem_percent, hm.disk_percent, hm.collected_at
-		FROM host_metrics hm
-		JOIN hosts h ON h.id = hm.host_id
+		FROM hosts h
 		LEFT JOIN host_groups g ON g.id = h.group_id
-		ORDER BY hm.host_id, hm.collected_at DESC`).Scan(&rows)
-	// Also list hosts that have no samples yet (frontend shows "no data");
-	// carry the group name too, otherwise those rows lose their group info
-	var hosts []model.Host
-	model.DB.Preload("Group").Order("name").Find(&hosts)
-	seen := map[uint]bool{}
-	for _, r := range rows {
-		seen[r.HostID] = true
-	}
+		LEFT JOIN LATERAL (
+			SELECT cpu_percent, mem_percent, disk_percent, collected_at
+			FROM host_metrics hm
+			WHERE hm.host_id = h.id AND hm.collected_at = (
+				SELECT MAX(x.collected_at) FROM host_metrics x WHERE x.host_id = h.id)
+			LIMIT 1
+		) hm ON true
+		ORDER BY h.name`).Scan(&rows)
 	out := []gin.H{}
 	for _, r := range rows {
 		out = append(out, gin.H{
@@ -334,18 +364,6 @@ func HostMetricsList(c *gin.Context) {
 			"status": r.Status, "cpu": r.CPUPercent, "mem": r.MemPercent,
 			"disk": r.DiskPercent, "collected_at": r.CollectedAt,
 		})
-	}
-	for _, h := range hosts {
-		if !seen[h.ID] {
-			g := ""
-			if h.Group != nil {
-				g = h.Group.Name
-			}
-			out = append(out, gin.H{
-				"host_id": h.ID, "name": h.Name, "ip": h.IP, "group": g,
-				"status": h.Status, "collected_at": nil,
-			})
-		}
 	}
 	c.JSON(http.StatusOK, out)
 }

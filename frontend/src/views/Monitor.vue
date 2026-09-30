@@ -120,10 +120,9 @@
             </div>
           </div>
           <div class="hb">
-            <el-tooltip v-for="(s, i) in row.recent || []" :key="i" placement="top"
-                        :content="hbTip(s)" :show-after="80">
-              <span class="hb-bar" :class="s.status === 'up' ? 'hb-up' : s.status === 'maint' ? 'hb-maint' : 'hb-down'"></span>
-            </el-tooltip>
+            <span v-for="(s, i) in row.recent || []" :key="i" class="hb-bar"
+                  :class="s.status === 'up' ? 'hb-up' : s.status === 'maint' ? 'hb-maint' : 'hb-down'"
+                  :title="hbTip(s)"></span>
             <span v-if="!(row.recent || []).length" style="color:#c0c4cc; font-size:12px">{{ $t('monitor.notYet') }}</span>
           </div>
           <div class="mon-stats">
@@ -1055,6 +1054,9 @@ const chConfigSummary = row => {
   } catch { return '-' }
 }
 
+// full load: everything the app-monitor list needs (heartbeats, uptime,
+// bindings). Called on mount, manual refresh and after mutations — the 30s
+// poll uses the light status merge below instead.
 const load = async () => {
   loading.value = true
   hostsLoading.value = mcan.value.host
@@ -1065,10 +1067,36 @@ const load = async () => {
     monitors.value = ms
     channels.value = chs
     if (mcan.value.host) hostRows.value = hs
+    defaultGroupOnce()
   } finally {
     hostsLoading.value = false
     loading.value = false
   }
+}
+// light poll: only the probe state of each monitor (few dozen KB for hundreds
+// of monitors) — merged into the already rendered rows
+const loadStatus = async () => {
+  try {
+    const st = await api.get('/monitors/status')
+    const byId = Object.fromEntries(monitors.value.map(r => [r.monitor.id, r]))
+    for (const s of st) {
+      const row = byId[s.id]
+      if (!row) continue
+      Object.assign(row.monitor, {
+        enabled: s.enabled, last_status: s.last_status,
+        last_resp_ms: s.last_resp_ms, last_error: s.last_error,
+        last_checked_at: s.last_checked_at,
+      })
+    }
+  } catch { /* view perms */ }
+}
+// first data load: default the left nav to the first real group instead of
+// "all" (the full view renders every monitor; groups keep it manageable)
+const defaultedGroup = ref(false)
+const defaultGroupOnce = () => {
+  if (defaultedGroup.value || !groupedMonitors.value.length) return
+  defaultedGroup.value = true
+  if (selGroup.value === ALL_GROUP) selGroup.value = groupedMonitors.value[0].name
 }
 const loadChannels = async () => { channels.value = await api.get('/alert_channels') }
 const loadHosts = async () => {
@@ -1489,7 +1517,12 @@ const saveSecChannels = async () => {
 
 onMounted(() => {
   load()
-  timer = setInterval(load, 30000)
+  // light poll: probe state for the app list, host metrics for the CMD tab —
+  // never the full payload (heartbeats + uptime rollups load once on mount)
+  timer = setInterval(() => {
+    if (activeTab.value === 'cmd') { if (mcan.value.host) loadHosts() }
+    else if (activeTab.value === 'app') loadStatus()
+  }, 30000)
 })
 // ---- Monthly ops report ----
 const repMonth = ref(new Date().toISOString().slice(0, 7))

@@ -81,6 +81,7 @@ func SetupRouter() *gin.Engine {
 		mon := auth.Group("/monitors", middleware.RequireCapAny("monitor", "view_host", "view_app", "view_sec"))
 		{
 			mon.GET("", ListMonitors)
+			mon.GET("/status", MonitorsStatus)
 			// create/edit/delete/test enforce department ownership in-handler
 			// (monitor.manage, or view_app on own-group monitors)
 			mon.POST("", CreateMonitor)
