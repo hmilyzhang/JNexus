@@ -20,7 +20,9 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w -X jnexus/internal/buildinfo.Version=
 
 # ---- Runtime image ----
 FROM alpine:3.22
-RUN apk add --no-cache ca-certificates tzdata && \
+# upgrade pulls the branch security fixes into every build (the alpine:3.22 tag
+# content is pinned to whenever it was last rebuilt)
+RUN apk add --no-cache ca-certificates tzdata && apk upgrade --no-cache && \
     adduser -D -u 10001 jnexus
 WORKDIR /app
 COPY --from=be /jnexus-server /app/jnexus-server
