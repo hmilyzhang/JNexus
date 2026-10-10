@@ -1,0 +1,61 @@
+# JNexus quick-start compose (image from Docker Hub).
+# For in-browser RDP and the full observability stack use the repository
+# compose: https://github.com/hmilyzhang/JNexus (deploy/docker-compose.yml).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: jnexus
+      POSTGRES_PASSWORD: jnexus123
+      POSTGRES_DB: jnexus
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jnexus"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  jnexus:
+    image: hmilyzhang/jnexus:latest
+    container_name: jnexus-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      JNEXUS_DB_HOST: postgres
+      JNEXUS_DB_PORT: "5432"
+      JNEXUS_DB_USER: jnexus
+      JNEXUS_DB_PASSWORD: jnexus123
+      JNEXUS_DB_NAME: jnexus
+      # JWT/AES secrets: auto-generated and persisted to the data volume on first start if unset
+      # JNEXUS_JWT_SECRET:
+      # JNEXUS_AES_KEY:
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads:/app/uploads
+      - data:/app/data
+    restart: unless-stopped
+
+  # Optional observability backend (AGPL-3.0): long-term storage + log search.
+  # Start with: docker compose --profile observability up -d
+  # Then enable it in JNexus: System Settings -> Observability
+  # (URL http://openobserve:5080, org default, credentials below — change on first login).
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    profile: observability
+    environment:
+      ZO_ROOT_USER_EMAIL: admin@example.com
+      ZO_ROOT_USER_PASSWORD: Complexpass@123
+      ZO_DATA_DIR: /data
+    volumes:
+      - oodata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  uploads:
+  data:
+  oodata:
