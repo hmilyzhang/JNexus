@@ -62,7 +62,8 @@ jobs:
           export TOKEN
           python3 -c "
           import json, os, urllib.request
-          body = json.dumps({'full_description': open('docs/dockerhub-readme.md', encoding='utf-8').read()}).encode()
+          desc = 'Lightweight self-hosted ops platform: assets, batch exec, monitoring, release, K8S, DB workbench'
+          body = json.dumps({'description': desc, 'full_description': open('docs/dockerhub-readme.md', encoding='utf-8').read()}).encode()
           req = urllib.request.Request(
               'https://hub.docker.com/v2/repositories/' + os.environ['DH_USER'] + '/jnexus/',
               data=body, method='PATCH',
