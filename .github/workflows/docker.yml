@@ -51,10 +51,22 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Hub API PATCH (no third-party action: failures print the HTTP response)
       - name: Sync Docker Hub description
-        uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ secrets.DOCKERHUB_USERNAME }}/jnexus
-          readme-file: docs/dockerhub-readme.md
+        env:
+          DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          DH_PASS: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TOKEN=$(curl -sf -H "Content-Type: application/json"             -d "{\"username\":\"$DH_USER\",\"password\":\"$DH_PASS\"}"             https://hub.docker.com/v2/users/login | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+          export TOKEN
+          python3 -c "
+          import json, os, urllib.request
+          body = json.dumps({'full_description': open('docs/dockerhub-readme.md', encoding='utf-8').read()}).encode()
+          req = urllib.request.Request(
+              'https://hub.docker.com/v2/repositories/' + os.environ['DH_USER'] + '/jnexus/',
+              data=body, method='PATCH',
+              headers={'Content-Type': 'application/json', 'Authorization': 'JWT ' + os.environ['TOKEN']})
+          print('hub api status:', urllib.request.urlopen(req).status)
+          "
+
